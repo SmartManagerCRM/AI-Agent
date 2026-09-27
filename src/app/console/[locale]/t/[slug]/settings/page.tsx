@@ -1,3 +1,4 @@
+import { BusinessProfileForm } from "@/components/business/business-profile-form";
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -15,6 +16,23 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <h1 className="text-2xl font-semibold">Settings</h1>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-neutral-700">Business profile</h2>
+        <BusinessProfileForm
+          tenantId={tenant.id}
+          slug={slug}
+          locale={locale}
+          current={{
+            contact_email: tenant.contact_email,
+            contact_phone: tenant.contact_phone,
+            website_url: tenant.website_url,
+            timezone: tenant.timezone,
+            country: tenant.country,
+            city: tenant.city,
+          }}
+        />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-neutral-700">Ordering &amp; checkout</h2>

@@ -33,6 +33,8 @@
       "agent": "Agent",
       "conversations": "Conversations",
       "billing": "Facturation",
+      "staff": "Équipe",
+      "audit": "Journal d'audit",
       "settings": "Paramètres"
     },
     "comingSoon": "Disponible dans une prochaine phase.",

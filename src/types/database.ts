@@ -106,6 +106,7 @@ export type Database = {
           id: string;
           full_name: string | null;
           phone: string | null;
+          email: string | null;
           preferred_language: string;
           created_at: string;
           updated_at: string;
@@ -154,6 +155,23 @@ export type Database = {
           role_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["tenant_members"]["Row"]>;
+        Relationships: [];
+      };
+      staff_invites: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          email: string;
+          role_key: "business_admin" | "staff";
+          token_hash: string;
+          status: "pending" | "accepted" | "revoked" | "expired";
+          invited_by: string | null;
+          expires_at: string;
+          accepted_at: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       audit_logs: {
@@ -693,6 +711,26 @@ export type Database = {
       };
       mark_subscription_payment_failed: {
         Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json; p_reason?: string | null };
+        Returns: undefined;
+      };
+      create_staff_invite: {
+        Args: { p_tenant_id: string; p_email: string; p_role_key: string };
+        Returns: { invite_id: string; token: string }[];
+      };
+      accept_staff_invite: {
+        Args: { p_token: string };
+        Returns: string;
+      };
+      revoke_staff_invite: {
+        Args: { p_invite_id: string };
+        Returns: undefined;
+      };
+      update_staff_member_role: {
+        Args: { p_member_id: string; p_role_key: string };
+        Returns: undefined;
+      };
+      set_staff_member_status: {
+        Args: { p_member_id: string; p_status: string };
         Returns: undefined;
       };
     };

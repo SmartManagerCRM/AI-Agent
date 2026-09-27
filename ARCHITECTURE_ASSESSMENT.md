@@ -833,3 +833,88 @@ AI call every time, which is exactly backwards for both latency and spend.
   `src/server/ai/deterministic/match.ts`) is untouched — this section adds
   a second, independent way to reach zero-AI-cost outcomes, it does not
   change the first.
+
+## 18. Phase 8 implementation notes (Subscriber Admin)
+
+The `staff.read`/`staff.write`/`audit.read` permissions and their role
+grants have existed since Phase 1 (business_owner gets everything,
+business_admin gets all but `staff.write`, `staff` gets none of the
+three) — nothing before this phase ever built a write path or a UI for
+them. An audit before starting confirmed all three were genuinely
+unbuilt, not just unused.
+
+- **Staff invitations, with no email-sending integration** (same MVP
+  posture as Phase 6's mock payment provider): `create_staff_invite`
+  (SQL, SECURITY DEFINER, `staff.write`) generates a token and returns it
+  once; the owner/admin copies the resulting link
+  (`app.<root>/<locale>/invite/<token>`) and sends it themselves rather
+  than the platform emailing it. `accept_staff_invite` requires the
+  signed-in visitor's own `auth.users.email` to match the invite's —
+  a leaked link cannot be redeemed by anyone else — and is idempotent via
+  `on conflict (tenant_id, user_id)`, so re-inviting an existing member
+  just updates their role rather than erroring. Neither
+  `create_staff_invite` nor `update_staff_member_role` will ever issue or
+  reassign the `business_owner` role — ownership is not transferable
+  through this flow — and `set_staff_member_status`/`update_staff_member_role`
+  both refuse to touch a `business_owner` row at all (disabling the owner,
+  or changing their role, is refused outright, not just discouraged).
+  Confirmed live: the full invite → wrong-email rejection → correct
+  accept → promote-to-admin → attempt-to-disable-the-owner (refused)
+  lifecycle.
+- **`profiles.email`** (new column): `auth.users` is not exposed via
+  PostgREST/RLS to a regular signed-in user, so a staff directory had no
+  way to show a fellow member's email without denormalizing it onto the
+  one profile table that already is exposed — populated by the same
+  trigger that already creates a profile row on signup, backfilled for
+  existing users. The `profiles_select` policy is extended (`alter
+  policy`, not a new one) so a fellow *active* member of any shared
+  tenant can see it, alongside the existing "see your own, Super Admin
+  sees all" clauses. Confirmed live under real RLS enforcement (not
+  superuser bypass): a newly-accepted staff member could read the
+  owner's profile row.
+- **Business profile** (`src/app/console/[locale]/t/[slug]/settings/page.tsx`,
+  extended): contact email/phone, website, timezone, country, city —
+  needed no new migration at all. The `tenants_update` RLS policy (Phase
+  1) already requires `settings.write`, the exact permission checkout
+  settings already relies on for the same reason; `updateBusinessProfileAction`
+  is a plain RLS-scoped update, same shape as `updateCheckoutSettingsAction`.
+- **Audit log** (`src/app/console/[locale]/t/[slug]/audit/page.tsx`, new):
+  read-only, no new migration — the `audit_logs_select` policy already
+  requires `audit.read` or Super Admin, so the page needs no permission
+  check of its own; a member without it simply sees an empty table.
+- **A real pre-existing bug found and fixed while building this**:
+  `ConsoleEntry` (`src/app/console/[locale]/page.tsx`) redirected a
+  returning, already-onboarded owner to `/${locale}/console/t/${slug}` —
+  an *internal*, already-rewritten path, not the external one
+  `src/proxy.ts`'s host-based rewrite expects to receive and rewrite
+  itself. Every sign-in since Phase 1 hit this; it was never manually
+  exercised end to end before now, since Phase 8's invite-accept flow
+  redirects through this exact entry point after a fresh sign-up. Fixed
+  to redirect to `/${locale}/t/${slug}` — the external path in every
+  other redirect in this codebase already uses correctly.
+- **`signInAction`/`signUpAction`** (`src/server/auth/actions.ts`)
+  gained an optional `redirectTo`, guarded to a same-origin relative path
+  only (`startsWith("/")`, rejecting `//`) — an open-redirect guard, not
+  an assumption of trust. This is what lets the invite-accept page send
+  someone who isn't signed in through sign-in/sign-up and back to the
+  same invite link afterward, without giving either action a reason to
+  know anything about invites specifically.
+- **Tests**: `supabase/tests/010_staff_admin.test.sql` adds structural
+  pgTAP checks (RLS, zero direct write policies, all five functions
+  exist, token stored only as a unique hash, both owner-protection guards
+  present in the function source, `profiles.email` and
+  `staff_invites.expires_at` exist) — verified directly against the live
+  project's schema, same as every phase since Section 14, since pgTAP
+  itself isn't installed there. The invite/role/status lifecycle itself
+  was exercised with real data (not just schema shape) directly against
+  the live project, including the wrong-email rejection and both
+  owner-protection guards actually firing.
+- **What Phase 8 does not include**: real email delivery for invites (a
+  Resend/SES integration is a natural later addition — the link itself
+  is already the whole mechanism, only its delivery channel would
+  change); ownership transfer (no function ever reassigns
+  `business_owner`); custom/tenant-defined roles (`roles.tenant_id` has
+  supported a non-null tenant-scoped row since Phase 1's schema, but
+  nothing creates one — every assignable role today is still one of the
+  three system roles); and self-service password reset (unrelated to
+  this phase's scope, still just `signInWithPassword`/`signUp`).

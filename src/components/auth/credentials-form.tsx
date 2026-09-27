@@ -8,14 +8,17 @@ type Props = {
   emailLabel: string;
   passwordLabel: string;
   submitLabel: string;
+  /** Where to send the user after auth succeeds (e.g. back to an invite link) — validated server-side, never followed blindly. */
+  redirectTo?: string;
 };
 
-export function CredentialsForm({ action, locale, emailLabel, passwordLabel, submitLabel }: Props) {
+export function CredentialsForm({ action, locale, emailLabel, passwordLabel, submitLabel, redirectTo }: Props) {
   const [error, formAction, pending] = useActionState(action, undefined);
 
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
       <input type="hidden" name="locale" value={locale} />
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       <label className="flex flex-col gap-1 text-sm">
         {emailLabel}
         <input

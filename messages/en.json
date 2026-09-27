@@ -33,6 +33,8 @@
       "agent": "Agent",
       "conversations": "Conversations",
       "billing": "Billing",
+      "staff": "Staff",
+      "audit": "Audit log",
       "settings": "Settings"
     },
     "comingSoon": "Coming in a later phase.",
