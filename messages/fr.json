@@ -32,6 +32,7 @@
       "businessBrain": "Cerveau de l'entreprise",
       "agent": "Agent",
       "conversations": "Conversations",
+      "billing": "Facturation",
       "settings": "Paramètres"
     },
     "comingSoon": "Disponible dans une prochaine phase.",
@@ -39,6 +40,7 @@
   },
   "platform": {
     "title": "Super Admin",
-    "businesses": "Entreprises"
+    "businesses": "Entreprises",
+    "subscription": "Abonnement"
   }
 }

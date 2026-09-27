@@ -23,6 +23,7 @@ export default async function TenantLayout({
     { key: "businessBrain", href: `/${locale}/t/${slug}/brain` },
     { key: "agent", href: `/${locale}/t/${slug}/agent` },
     { key: "conversations", href: `/${locale}/t/${slug}/conversations` },
+    { key: "billing", href: `/${locale}/t/${slug}/billing` },
     { key: "settings", href: `/${locale}/t/${slug}/settings` },
   ] as const;
 

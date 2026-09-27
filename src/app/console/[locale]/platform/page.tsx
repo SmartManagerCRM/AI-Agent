@@ -14,6 +14,13 @@ export default async function PlatformOverview({ params }: { params: Promise<{ l
     .select("id, slug, business_name, status, business_type_key, created_at")
     .order("created_at", { ascending: false });
 
+  const tenantIds = (tenants ?? []).map((t) => t.id);
+  const { data: subscriptions } = await supabase
+    .from("subscriptions")
+    .select("tenant_id, plan_key, status")
+    .in("tenant_id", tenantIds.length > 0 ? tenantIds : [""]);
+  const subscriptionByTenant = new Map((subscriptions ?? []).map((s) => [s.tenant_id, s]));
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-10">
       <h1 className="mb-6 text-2xl font-semibold">{t("title")}</h1>
@@ -24,19 +31,26 @@ export default async function PlatformOverview({ params }: { params: Promise<{ l
             <th className="py-2 text-start">Business</th>
             <th className="py-2 text-start">Type</th>
             <th className="py-2 text-start">Status</th>
+            <th className="py-2 text-start">{t("subscription")}</th>
           </tr>
         </thead>
         <tbody>
-          {(tenants ?? []).map((tenant) => (
-            <tr key={tenant.id} className="border-b border-neutral-100">
-              <td className="py-2">{tenant.business_name[locale] ?? tenant.slug}</td>
-              <td className="py-2">{tenant.business_type_key}</td>
-              <td className="py-2 capitalize">{tenant.status}</td>
-            </tr>
-          ))}
+          {(tenants ?? []).map((tenant) => {
+            const subscription = subscriptionByTenant.get(tenant.id);
+            return (
+              <tr key={tenant.id} className="border-b border-neutral-100">
+                <td className="py-2">{tenant.business_name[locale] ?? tenant.slug}</td>
+                <td className="py-2">{tenant.business_type_key}</td>
+                <td className="py-2 capitalize">{tenant.status}</td>
+                <td className="py-2 capitalize">
+                  {subscription ? `${subscription.plan_key} — ${subscription.status.replace("_", " ")}` : "—"}
+                </td>
+              </tr>
+            );
+          })}
           {(tenants ?? []).length === 0 && (
             <tr>
-              <td colSpan={3} className="py-4 text-center text-neutral-400">
+              <td colSpan={4} className="py-4 text-center text-neutral-400">
                 No businesses yet.
               </td>
             </tr>

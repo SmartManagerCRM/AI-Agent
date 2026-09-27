@@ -32,6 +32,7 @@
       "businessBrain": "عقل النشاط",
       "agent": "الوكيل",
       "conversations": "المحادثات",
+      "billing": "الفوترة",
       "settings": "الإعدادات"
     },
     "comingSoon": "قادم في مرحلة لاحقة.",
@@ -39,6 +40,7 @@
   },
   "platform": {
     "title": "المشرف العام",
-    "businesses": "الأنشطة التجارية"
+    "businesses": "الأنشطة التجارية",
+    "subscription": "الاشتراك"
   }
 }

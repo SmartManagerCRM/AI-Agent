@@ -506,6 +506,59 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      subscription_plans: {
+        Row: {
+          key: string;
+          name: LocalizedText;
+          price_minor: number;
+          currency: string;
+          billing_interval: "month" | "year";
+          trial_days: number;
+          limits: Json;
+          is_default: boolean;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      subscriptions: {
+        Row: {
+          tenant_id: string;
+          plan_key: string;
+          status: "trialing" | "active" | "past_due" | "canceled";
+          trial_ends_at: string;
+          current_period_end: string | null;
+          canceled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      subscription_payments: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          plan_key: string;
+          provider: string;
+          provider_intent_id: string | null;
+          status: "pending" | "succeeded" | "failed";
+          amount_minor: number;
+          currency: string;
+          failure_reason: string | null;
+          raw_verification: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -616,6 +669,29 @@ export type Database = {
         Returns: undefined;
       };
       mark_payment_failed: {
+        Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json; p_reason?: string | null };
+        Returns: undefined;
+      };
+      create_subscription_payment_attempt: {
+        Args: { p_tenant_id: string; p_plan_key: string; p_provider?: string };
+        Returns: {
+          payment_id: string;
+          provider: string;
+          plan_key: string;
+          amount_minor: number;
+          currency: string;
+          reused: boolean;
+        }[];
+      };
+      record_subscription_payment_provider_intent: {
+        Args: { p_payment_id: string; p_provider_intent_id: string };
+        Returns: undefined;
+      };
+      mark_subscription_payment_succeeded: {
+        Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json };
+        Returns: undefined;
+      };
+      mark_subscription_payment_failed: {
         Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json; p_reason?: string | null };
         Returns: undefined;
       };

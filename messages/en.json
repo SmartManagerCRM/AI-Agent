@@ -32,6 +32,7 @@
       "businessBrain": "Business Brain",
       "agent": "Agent",
       "conversations": "Conversations",
+      "billing": "Billing",
       "settings": "Settings"
     },
     "comingSoon": "Coming in a later phase.",
@@ -39,6 +40,7 @@
   },
   "platform": {
     "title": "Super Admin",
-    "businesses": "Businesses"
+    "businesses": "Businesses",
+    "subscription": "Subscription"
   }
 }

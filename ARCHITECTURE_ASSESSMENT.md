@@ -684,3 +684,96 @@ structurally true, not just documented.
   methods per order; and a provider-choice setting per tenant (there is
   one provider for the whole platform today, the same posture as the AI
   providers in `env-core.ts`).
+
+## 16. Phase 7 implementation notes (Trial & Subscription)
+
+- **A real gap this phase closes**: nothing before it ever moved a tenant
+  out of `tenants.status = 'onboarding'`. `resolvePublicTenant`'s
+  `status = 'active'` check — the External Agent's own gate, in place
+  since Phase 4 — was consequently unreachable for any tenant created so
+  far. `create_business` (extended a third time now, after Phase 1 and
+  Phase 5) fixes this as a side effect of starting the trial: every new
+  business is created directly `active`, on an automatic free trial, no
+  card required.
+- **Entitlement is computed live, never cached**: `tenants.status` stays a
+  purely administrative state (Super Admin suspending/closing a business);
+  whether a tenant is *currently* allowed to use the Agent is a separate
+  question, answered fresh every time by `src/server/billing/entitlement.ts`'s
+  pure `isEntitled(subscription, now)` against `subscriptions.status`/
+  `trial_ends_at`/`current_period_end` — the same "never trust stale
+  state, re-verify" discipline `create_order_from_cart` already applies to
+  prices. There is deliberately no scheduled job that flips a tenant to
+  `suspended` when a trial lapses; expiry is enforced the instant anyone
+  asks, which is simpler and cannot drift out of sync with a cron that
+  didn't run.
+- **One choke point enforces it for every AI/tool cost**: `runAgentGateway`
+  (`src/server/ai/gateway.ts`) checks entitlement — via a service-role
+  read, deliberately ignoring whichever client the caller passed in, so a
+  staff member without `billing.read` can never make an actually-entitled
+  tenant look unentitled — before it does anything else, for both the
+  External Agent and the console's Agent preview. A lapsed trial is
+  recorded as a zero-cost `deterministic`/`trial_expired` interaction, not
+  a wasted AI call. `resolvePublicTenant` (`src/server/agent-public/tenant.ts`)
+  also checks it, so the External Agent page itself 404s cleanly instead
+  of rendering a chat UI that would then refuse every message.
+- **Schema** (migrations `subscriptions`, `phase7_hardening`):
+  `subscription_plans` (a data-driven catalog, not a hard-coded enum — same
+  posture as `business_types`/`ai_model_configs` — seeded with `starter`
+  and `pro`, each with its own `trial_days`; `limits jsonb` is reserved for
+  future enforcement, e.g. a monthly interaction cap, nothing reads it
+  yet), `subscriptions` (one row per tenant, a singleton like
+  `tenant_settings`), and `subscription_payments`. The last is
+  deliberately **not** shaped like `payments` (Phase 6): an order is paid
+  once, so a `succeeded` row blocks any further attempt forever; a
+  subscription is paid again every period, so only a *pending* attempt is
+  exclusive (`subscription_payments_tenant_pending_uidx`) — a past success
+  must never block the next period's payment. Confirmed live: a second
+  `create_subscription_payment_attempt` after a first success created a
+  genuinely new row rather than being rejected or silently reused.
+- **Four SECURITY DEFINER functions, mirroring Phase 6's shape exactly**:
+  `create_subscription_payment_attempt` (owner-only — `billing.write` — 
+  there is no anonymous/customer path here, unlike order payments) and
+  `record_subscription_payment_provider_intent` are reachable from trusted
+  server code; `mark_subscription_payment_succeeded`/`_failed` are
+  **service-role only**, reachable solely from the webhook path. A
+  successful payment sets `subscriptions.status = 'active'`, extends
+  `current_period_end` by the plan's own `billing_interval`, and — the
+  same "restore, don't just unblock" touch as Phase 6's failed-order
+  handling — reactivates a tenant a Super Admin never touched but that had
+  lapsed into `suspended` purely for non-payment. A failed attempt never
+  revokes whatever entitlement (trial or a prior paid period) the tenant
+  already had. Confirmed live against the project, including the exact
+  `create_business` → trial → expire → pay → `active` lifecycle.
+- **One webhook route serves both domains**: `/api/payments/webhook/[provider]`
+  (Phase 6) now tries `processProviderWebhook` (orders) first and only
+  falls through to `processSubscriptionProviderWebhook`
+  (`src/server/billing/webhook.ts`, new) on a `NOT_FOUND` — never on a
+  real error (an invalid signature or a mismatch is definitive regardless
+  of domain) — the same way a real provider integration dispatches one
+  endpoint across every kind of `payment_intent` it issues.
+- **Console**: a Billing page (current subscription, the plan catalog,
+  Subscribe buttons — visible to `billing.read`, owner+admin; only
+  `billing.write`, owner-only, can actually pay, enforced by the SQL
+  function itself) and its own console-scoped mock checkout page
+  (`t/[slug]/billing/pay/[paymentId]`, distinct from Phase 6's
+  agent-facing one — the owner is already signed in, so this one reads via
+  RLS, no service-role bypass needed). The tenant dashboard and the Super
+  Admin `/platform` page both surface subscription status now.
+- **Tests**: `tests/unit/billing-entitlement.test.ts` (pure date-math
+  cases: mid-trial, expired trial, the exact trial-end instant is
+  exclusive, active with/without a recorded period end, `past_due`/
+  `canceled` are never entitled) and `supabase/tests/009_subscriptions.test.sql`
+  (structural pgTAP: RLS, zero direct write policies, all four functions
+  exist, the pending-only partial index, exactly one default plan) —
+  verified directly against the live project's schema, same as Sections
+  14/15's, since pgTAP itself isn't installed there.
+- **What Phase 7 does not include**: real recurring billing (no scheduled
+  job auto-charges a card when a period ends — the owner returns to
+  Billing and pays again; there is no dunning, no automatic retry, no
+  invoice emails); upgrading/downgrading between plans mid-period
+  (Subscribe always starts a fresh full-price payment for the chosen
+  plan); a Super Admin editor for `subscription_plans` (Super Admin edits
+  the seed data directly today, the same posture as `ai_model_configs`);
+  and per-plan feature/usage enforcement (`subscription_plans.limits` is
+  reserved but nothing reads it yet — every plan behaves identically once
+  active).

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isEntitled } from "@/server/billing/entitlement";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { matchDeterministic } from "./deterministic/match";
 import { calculateCostUsd } from "./pricing";
@@ -8,7 +9,7 @@ import { buildSystemPrompt } from "./system-prompt";
 import { AGENT_TOOLS } from "./tools/registry";
 import { executeTool, type ToolContext } from "./tools/handlers";
 import type { AITurnMessage, ContentBlock } from "./provider";
-import type { TypedSupabaseClient } from "@/server/supabase/clients";
+import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
  * The Agent Gateway (spec §7): "Can deterministic logic handle it? YES →
@@ -52,6 +53,38 @@ export type GatewayResult =
   | { handledBy: "ai"; reply: string; error: string };
 
 export async function runAgentGateway(supabase: TypedSupabaseClient, input: GatewayInput): Promise<GatewayResult> {
+  // Entitlement (spec §98 Phase 7) is checked here — the one place every
+  // caller (the External Agent, the console's Agent preview) funnels
+  // through — via a service-role read regardless of which client `supabase`
+  // is, so a caller's own RLS scope (e.g. a staff member without
+  // `billing.read`) can never accidentally make a perfectly entitled
+  // tenant look unentitled. A lapsed trial/subscription is a zero-cost,
+  // deterministic outcome, not a reason to ever reach the AI provider.
+  const { data: subscriptionRow } = await serviceClient()
+    .from("subscriptions")
+    .select("status, trial_ends_at, current_period_end")
+    .eq("tenant_id", input.tenant.id)
+    .maybeSingle();
+  if (
+    !isEntitled(
+      subscriptionRow
+        ? { status: subscriptionRow.status, trialEndsAt: subscriptionRow.trial_ends_at, currentPeriodEnd: subscriptionRow.current_period_end }
+        : null,
+    )
+  ) {
+    await recordInteraction(supabase, {
+      tenantId: input.tenant.id,
+      requestType: input.requestType,
+      handledBy: "deterministic",
+      deterministicRule: "trial_expired",
+    });
+    return {
+      handledBy: "deterministic",
+      reply: "This business's subscription isn't active right now — please check back later.",
+      rule: "trial_expired",
+    };
+  }
+
   const snapshot = await buildBrainSnapshot(supabase, input.tenant, input.locale);
   const deterministic = matchDeterministic(input.message, snapshot);
 
