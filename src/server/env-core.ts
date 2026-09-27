@@ -27,15 +27,17 @@ const serverEnvSchema = z.object({
   PUBLIC_URL_PORT: z.string().regex(/^\d+$/).optional(),
   /**
    * Platform-level AI provider credentials (spec §5) — metered across every
-   * tenant, not per-tenant BYO keys. Gemini is the initial provider (spec §4);
-   * Anthropic is an optional second implementation for the model router's
-   * fallback path (spec §68). Neither is required for Phase 1; without them,
-   * AI features degrade to "not configured" rather than failing.
+   * tenant, not per-tenant BYO keys. Gemini is the primary, paid-tier
+   * provider (added at deploy time — never assumed to be a free-tier key);
+   * Anthropic is the second `AIProvider` implementation, available as the
+   * model router's fallback (spec §68). Neither is required for the app to
+   * boot; without them, AI features degrade to "not configured" rather than
+   * failing. There is deliberately no `*_MODEL` env var — which model serves
+   * a "fast" or "agent" request is read from `ai_model_configs` (spec §6:
+   * never hard-code a model name), not from the environment.
    */
   GEMINI_API_KEY: z.string().min(10).optional(),
-  GEMINI_MODEL: z.string().trim().min(1).default("gemini-2.0-flash"),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
-  ANTHROPIC_MODEL: z.string().trim().min(1).default("claude-sonnet-5"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

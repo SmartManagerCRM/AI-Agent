@@ -223,3 +223,97 @@ authoritative data and reviewed knowledge (§8):
   queued crawling, and multi-page crawls beyond depth 1 (sufficient for a
   typical single-site menu/about/contact page onboarding, not a full site
   map).
+
+---
+
+## 10. Phase 3 implementation notes (AI Gateway)
+
+Two migrations: `ai_gateway` (`ai_model_configs`, `agent_interactions`,
+`record_agent_interaction`, `agent_interaction_stats`) and `ai_model_seed`
+(today's list prices).
+
+- **Deterministic-first is a first-class requirement, not an optimization
+  applied later** (spec §7, §69, and the platform owner's own explicit
+  instruction): `src/server/ai/gateway.ts` is the single entry point every
+  future customer-facing surface (Phase 4's Customer Agent, Phase 10's
+  widget) will call, and it tries `src/server/ai/deterministic/match.ts`
+  — pure, no I/O, unit-tested — *before* it ever reaches for a model.
+  Matchers answer from real Phase 1/2 data (`src/server/ai/deterministic/
+  snapshot.ts` builds the snapshot from `products`, the default `branches`
+  row, and approved+active `business_brain_entries`): greetings/thanks,
+  today's opening hours, delivery/pickup/payment notes, a product's price,
+  and simple keyword-matched FAQs. Anything else falls through to AI. **Every
+  interaction is recorded either way** — `record_agent_interaction` is
+  called on both the deterministic path and the AI path — so
+  `agent_interaction_stats(tenant_id)` gives a real, queryable
+  "% of interactions handled without AI" per tenant, not an estimate. The
+  Agent console page surfaces this number today (see below); a platform-wide
+  rollup is natural Super Admin (Phase 9) material once there is real
+  traffic to roll up.
+- **Provider abstraction** (`src/server/ai/provider.ts`): a vendor-agnostic
+  `AIProvider` (`configured()`, `chat()`), content-block based
+  (text/tool_use/tool_result) so adding the tool-calling loop in Phase 4 is
+  not a breaking change to this shape. `gemini.ts` calls the Generative
+  Language REST API directly (`fetch`, no SDK — there is no first-party
+  Node SDK convention already established in this codebase for Gemini).
+  `anthropic.ts` uses the official `@anthropic-ai/sdk` — unlike Gemini, a
+  first-party TypeScript SDK exists, so this file uses it rather than raw
+  HTTP, per that SDK's own guidance. Thinking is explicitly disabled on the
+  Anthropic path today: this phase's traffic is short deterministic-fallback
+  replies, not open-ended agentic reasoning, and Sonnet 5 runs adaptive
+  thinking by default otherwise — Phase 4's real tool-calling loop should
+  revisit that (low/medium effort rather than disabled, once tools are
+  actually in play, per the model's own documented failure modes for
+  disabled thinking with tools).
+- **Gemini is the paid, primary provider — set at deploy time.** Per the
+  platform owner's explicit instruction, this is not built around a
+  free-tier assumption: `ai_model_seed` marks both Gemini rows
+  `is_default = true` with current *paid* list pricing, and
+  `GEMINI_API_KEY` is documented in `.env.example` as an env var added on
+  Hostinger at deploy time. Anthropic is seeded active (so the router's
+  fallback chain has somewhere to go if a Gemini call fails) but not
+  default; its two rows use verified current Anthropic list pricing
+  (Claude Haiku 4.5 / Claude Sonnet 5). All four rows carry a `notes` column
+  flagging them as today's published prices, to be confirmed by Super Admin
+  (Phase 9 UI) before being relied on for real budget alerts — spec §6's
+  "do not assume permanent... prices" is a data-editability guarantee, not
+  a promise that day-one seed values are eternally correct.
+- **Model routing** (`src/server/ai/router.ts`): `orderModelConfigs` (pure,
+  unit-tested) puts the `is_default` row first among active rows of the
+  requested `kind` (`fast`/`agent` — spec §6's Flash-Lite/Flash split);
+  `pickConfiguredModel`/`fallbackChain` additionally filter to providers
+  that actually have credentials, so a Gemini-only deployment (today's
+  default) never even tries to call Anthropic. `gateway.ts`'s AI path walks
+  the whole fallback chain on failure (spec §68), marking `fallback_used`
+  when a non-first candidate served the request, and records a `success:
+  false` row (never silently swallowed) when every candidate fails or none
+  is configured.
+- **Cost accounting** (`src/server/ai/pricing.ts`, pure, unit-tested):
+  `calculateCostUsd` multiplies actual token usage by whatever
+  `ai_model_configs` currently says — a price change is a data edit. Costs
+  are stored as `numeric(12,6)` USD (not "minor units"): the spec's own
+  $0.50 trial ceiling (a later phase) needs sub-cent precision this format
+  gives directly.
+- **Console**: the Agent page (previously a placeholder) now has a real
+  settings form (active/name/greeting/tone — writes `tenant_settings.agent`,
+  already schema'd since Phase 1) and a clearly labeled test panel (spec
+  §73 "clearly marked test environment... do not accidentally create real
+  orders" — trivially true today, since no cart/order exists yet) that runs
+  a message through the real gateway and shows whether it was handled
+  deterministically (which rule) or by AI (which provider/model/cost),
+  plus a 30-day stats block (interactions, % handled without AI, AI cost)
+  from `agent_interaction_stats`.
+- **No live provider key in this environment** (the same constraint the
+  sibling project's own AI phases documented): the gateway, router, pricing
+  and deterministic-matcher logic are unit-tested without network; the
+  Gemini/Anthropic HTTP calls themselves are not exercised end-to-end here,
+  since neither `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set in this
+  sandbox. That happens once the platform owner adds a paid `GEMINI_API_KEY`
+  on Hostinger.
+- **What Phase 3 does not include** (later phases, per spec §98): the
+  tool-calling loop and tool registry, conversation memory/context
+  management, the Customer Agent's product discovery and recommendations
+  (Phase 4); a Super Admin UI for `ai_model_configs` (Phase 9 — the table
+  and its RLS gate already exist); platform-wide (cross-tenant) AI economics
+  rollups; and per-conversation token/step limits (spec §24, §31 — there is
+  no multi-turn conversation yet for a limit to apply to).

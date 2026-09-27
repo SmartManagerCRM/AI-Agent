@@ -238,6 +238,46 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      ai_model_configs: {
+        Row: {
+          id: string;
+          provider: "gemini" | "anthropic";
+          model: string;
+          kind: "fast" | "agent";
+          input_price_per_million_usd: number;
+          output_price_per_million_usd: number;
+          is_active: boolean;
+          is_default: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
+        Relationships: [];
+      };
+      agent_interactions: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          request_type: string;
+          handled_by: "deterministic" | "ai";
+          deterministic_rule: string | null;
+          provider: string | null;
+          model: string | null;
+          input_tokens: number;
+          output_tokens: number;
+          estimated_cost_usd: number;
+          latency_ms: number | null;
+          success: boolean;
+          fallback_used: boolean;
+          error_message: string | null;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -287,6 +327,34 @@ export type Database = {
       set_brain_entry_active: {
         Args: { p_entry_id: string; p_active: boolean };
         Returns: undefined;
+      };
+      record_agent_interaction: {
+        Args: {
+          p_tenant_id: string;
+          p_request_type: string;
+          p_handled_by: "deterministic" | "ai";
+          p_deterministic_rule: string | null;
+          p_provider: string | null;
+          p_model: string | null;
+          p_input_tokens: number;
+          p_output_tokens: number;
+          p_estimated_cost_usd: number;
+          p_latency_ms: number | null;
+          p_success: boolean;
+          p_fallback_used: boolean;
+          p_error_message: string | null;
+        };
+        Returns: string;
+      };
+      agent_interaction_stats: {
+        Args: { p_tenant_id: string; p_since?: string };
+        Returns: {
+          total_interactions: number;
+          deterministic_count: number;
+          ai_count: number;
+          deterministic_pct: number;
+          total_cost_usd: number;
+        }[];
       };
     };
     Enums: Record<string, never>;
