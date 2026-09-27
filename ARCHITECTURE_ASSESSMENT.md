@@ -536,3 +536,48 @@ schema it acts on.
   add-to-cart (products have no inventory concept yet in this schema);
   and persisting tool-call history per turn (noted above — the reason
   tools use product names today).
+
+## 14. Multimodal-ready communication layer
+
+Before Phase 6, per instruction: design the Agent communication layer so
+Voice can be added later without touching Business Brain, tools, cart,
+orders, payments, or fulfillment — while shipping only Text for the MVP.
+
+- **The boundary already existed by construction**: `runAgentGateway`
+  (`src/server/ai/gateway.ts`) has always taken a plain `string` message
+  and returned a plain `string` reply; the deterministic matcher pipeline,
+  the tool registry, and every commerce module operate purely on
+  structured data (product names, cart/order rows) and never see how a
+  message arrived or how a reply will be delivered. This section makes
+  that boundary an explicit, documented contract instead of an implicit
+  property of the code, and gives it exactly one piece of schema so the
+  claim is checkable rather than aspirational.
+- **`src/server/ai/channel.ts`** (new): defines `AgentModality = "text" |
+  "voice"` and the `AGENT_MODALITY_TEXT` constant, with the doc comment
+  spelling out the intended shape of a future voice channel as a pure
+  I/O adapter — `voice in → speech-to-text → runAgentGateway(text) →
+  reply (text) → text-to-speech → voice out` — that wraps the existing
+  gateway rather than changing it. `runAgentGateway`'s signature is
+  untouched by this phase; nothing in `gateway.ts`, `tools/`, `commerce/`,
+  or the payments layer changes.
+- **Schema** (migration `message_modality`): `conversation_messages`
+  gains one column, `modality text not null default 'text' check
+  (modality in ('text', 'voice'))`. It is delivery metadata recorded
+  alongside a message — never read by the gateway, the matcher, a tool,
+  or any commerce module — so a future voice adapter writes `'voice'`
+  for messages it produces without any of those layers needing to know
+  the column exists. `src/server/agent-public/actions.ts`, the only
+  place that inserts into this table, now stamps both the customer's
+  message and the assistant's reply with `AGENT_MODALITY_TEXT`.
+- **Tests**: `supabase/tests/007_channel_agnostic.test.sql` pins the
+  column, its `'text'` default, and the check constraint (verified live
+  against the project via direct SQL, since pgTAP itself isn't installed
+  on the remote database — consistent with how the prior structural test
+  files in this repo are exercised).
+- **What this section does not include, deliberately**: no speech-to-text
+  or text-to-speech integration, no audio storage or streaming, no voice
+  UI in the console or the External Agent page, and no changes to
+  `AITurnMessage`/`ChatInput`/`ChatResult` in `src/server/ai/provider.ts`.
+  Those all remain future work for whenever a voice channel is actually
+  built; today's change is scoped to proving the boundary holds and
+  reserving the one column a future adapter will need.

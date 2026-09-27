@@ -359,6 +359,7 @@ export type Database = {
           role: "user" | "assistant";
           content: string;
           handled_by: "deterministic" | "ai" | null;
+          modality: "text" | "voice";
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["conversation_messages"]["Row"]> & {

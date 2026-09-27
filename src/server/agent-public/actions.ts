@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { runAgentGateway } from "@/server/ai";
+import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
 import type { AITurnMessage } from "@/server/ai/provider";
 import { generateToken, hashToken, readSessionToken, writeSessionToken } from "@/server/agent-public/session";
 import { resolvePublicTenant } from "@/server/agent-public/tenant";
@@ -63,9 +64,13 @@ export async function sendAgentMessageAction(
 
   const history = await loadHistory(supabase, conversation.id);
 
-  await supabase
-    .from("conversation_messages")
-    .insert({ tenant_id: tenant.id, conversation_id: conversation.id, role: "user", content: parsed.data.message });
+  await supabase.from("conversation_messages").insert({
+    tenant_id: tenant.id,
+    conversation_id: conversation.id,
+    role: "user",
+    content: parsed.data.message,
+    modality: AGENT_MODALITY_TEXT,
+  });
 
   const result = await runAgentGateway(supabase, {
     tenant: { id: tenant.id, currency: tenant.currency, slug: tenant.slug },
@@ -82,6 +87,7 @@ export async function sendAgentMessageAction(
     role: "assistant",
     content: result.reply,
     handled_by: result.handledBy,
+    modality: AGENT_MODALITY_TEXT,
   });
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
 
