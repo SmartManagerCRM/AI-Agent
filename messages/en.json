@@ -26,6 +26,8 @@
   "console": {
     "nav": {
       "dashboard": "Dashboard",
+      "products": "Products / Services",
+      "branches": "Branches",
       "businessBrain": "Business Brain",
       "agent": "Agent",
       "conversations": "Conversations",

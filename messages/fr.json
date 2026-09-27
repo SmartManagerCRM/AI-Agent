@@ -26,6 +26,8 @@
   "console": {
     "nav": {
       "dashboard": "Tableau de bord",
+      "products": "Produits / Services",
+      "branches": "Succursales",
       "businessBrain": "Cerveau de l'entreprise",
       "agent": "Agent",
       "conversations": "Conversations",

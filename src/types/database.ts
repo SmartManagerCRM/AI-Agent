@@ -145,6 +145,99 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["audit_logs"]["Row"]>;
         Relationships: [];
       };
+      branches: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: LocalizedText;
+          address: Json;
+          phone: string | null;
+          opening_hours: Json;
+          is_default: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["branches"]["Row"]> & { tenant_id: string; name: LocalizedText };
+        Update: Partial<Database["public"]["Tables"]["branches"]["Row"]>;
+        Relationships: [];
+      };
+      categories: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: LocalizedText;
+          position: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["categories"]["Row"]> & { tenant_id: string; name: LocalizedText };
+        Update: Partial<Database["public"]["Tables"]["categories"]["Row"]>;
+        Relationships: [];
+      };
+      products: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          category_id: string | null;
+          name: LocalizedText;
+          description: LocalizedText;
+          price_minor: number;
+          status: "draft" | "active" | "archived";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["products"]["Row"]> & {
+          tenant_id: string;
+          name: LocalizedText;
+          price_minor: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["products"]["Row"]>;
+        Relationships: [];
+      };
+      business_sources: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          kind: "website" | "manual";
+          url: string | null;
+          status: "pending" | "crawling" | "completed" | "failed" | "disabled";
+          pages_crawled: number;
+          error_message: string | null;
+          is_active: boolean;
+          last_crawled_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["business_sources"]["Row"]> & { tenant_id: string; kind: string };
+        Update: Partial<Database["public"]["Tables"]["business_sources"]["Row"]>;
+        Relationships: [];
+      };
+      business_brain_entries: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          entry_type: string;
+          entry_key: string;
+          content: Json;
+          version: number;
+          status: "pending_review" | "approved" | "rejected" | "superseded" | "archived";
+          is_active: boolean;
+          source: "admin" | "website";
+          source_id: string | null;
+          rejection_reason: string | null;
+          created_by: string | null;
+          approved_by: string | null;
+          approved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -167,6 +260,33 @@ export type Database = {
           status: string;
           role_key: string;
         }[];
+      };
+      create_brain_entry: {
+        Args: {
+          p_tenant_id: string;
+          p_entry_type: string;
+          p_entry_key: string;
+          p_content: Json;
+          p_source: "admin" | "website";
+          p_source_id: string | null;
+        };
+        Returns: string;
+      };
+      update_brain_entry: {
+        Args: { p_entry_id: string; p_content: Json };
+        Returns: string;
+      };
+      approve_brain_entry: {
+        Args: { p_entry_id: string };
+        Returns: undefined;
+      };
+      reject_brain_entry: {
+        Args: { p_entry_id: string; p_reason: string | null };
+        Returns: undefined;
+      };
+      set_brain_entry_active: {
+        Args: { p_entry_id: string; p_active: boolean };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

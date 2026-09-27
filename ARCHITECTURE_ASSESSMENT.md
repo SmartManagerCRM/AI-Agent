@@ -133,3 +133,93 @@ Following the spec's own phase list (§98), one phase at a time, each with a sho
 8. **Phase 10 — Embeddable Widget**, **Phase 11 — Hardening**.
 
 No destructive changes are possible yet (nothing exists to destroy). Nothing in this phase blocks a later one from revising a decision here — each phase gets its own review point, per the spec's own instruction not to "blindly rewrite" but also not to over-build ahead of need.
+
+---
+
+## 9. Phase 2 implementation notes (Business Brain)
+
+Two migrations, mirroring the spec's own distinction between structured
+authoritative data and reviewed knowledge (§8):
+
+- **`structured_catalog`**: `branches`, `categories`, `products` — owner-managed
+  directly (RLS: `branches.read/write`, `catalog.read/write`, new permission
+  keys added to the Phase 1 `permissions`/`role_permissions` tables). Prices
+  are `price_minor` (bigint, minor units) so a later Cart & Orders phase never
+  has to migrate money representation. Composite `(tenant_id, id)` unique
+  constraints are in place so a future order-line-item table can carry a
+  composite FK, matching the multi-tenancy discipline from Phase 1.
+- **`business_brain`**: `business_sources` (a website URL or "manual") and
+  `business_brain_entries` (about/policy/faq/promotion/instruction/
+  terminology/delivery_info/pickup_info/payment_methods/contact_note/
+  raw_page). `business_brain_entries` has **no insert/update/delete RLS
+  policy at all** — every write goes through one of five `SECURITY DEFINER`
+  functions (`create_brain_entry`, `update_brain_entry`, `approve_brain_entry`,
+  `reject_brain_entry`, `set_brain_entry_active`), each re-checking
+  `brain.write` itself and stamping `created_by`/`approved_by`/`approved_at`/
+  `version` — none of which a client, or the crawler, is trusted to set.
+- **Source priority (spec §10) is enforced structurally, not by convention**:
+  `create_brain_entry`/`update_brain_entry` set `status = 'approved'`
+  immediately for `source = 'admin'` (an owner's own entry, or edit of any
+  entry regardless of its original source, is authoritative on the spot) and
+  `status = 'pending_review'` for `source = 'website'`. A partial unique
+  index allows at most one `approved` and one `pending_review` row per
+  `(tenant_id, entry_key)`, so a fresh crawl can propose a change alongside
+  still-active approved content without colliding — approving the new one
+  supersedes the old. Versions are monotonic per `entry_key`, computed from
+  the existing max, so history (`superseded`/`rejected` rows) is retained
+  rather than overwritten, satisfying "compare changes" (spec §11).
+- **The website crawler (`src/server/brain/`) is deterministic-only.** The
+  spec's own phase order puts Business Brain (Phase 2) before the AI Gateway
+  (Phase 3), so there is no LLM yet to turn crawled text into structured
+  products/branches — and the spec is explicit that AI inference must never
+  silently promote itself to authoritative anyway (§10). So the crawler:
+  - validates the URL and runs an SSRF guard (`url-safety.ts`: rejects
+    non-http(s) schemes, embedded credentials, `localhost`/`.local`/
+    `.internal`, and — via a DNS lookup — any hostname that resolves to a
+    loopback/private/link-local/CGNAT address) before making a single
+    outbound request against an owner-supplied URL;
+  - fetches `robots.txt` (`robots.ts`, a deliberately partial RFC 9309
+    subset: prefix-matched Allow/Disallow for `User-agent: *` plus
+    Crawl-delay) and skips disallowed paths;
+  - crawls same-hostname links only, depth ≤ 1, at most 8 pages, an 8s
+    per-request timeout, and a 400ms–2s inter-request delay (clamped
+    `Crawl-delay` or a safe default) — bounded exactly as spec §9 asks
+    ("reasonable crawl depth ... rate limits");
+  - parses HTML with **cheerio** (`html.ts`), which builds a DOM and never
+    executes page JavaScript — the untrusted-input requirement (spec §23)
+    is structural, not a matter of remembering to sanitize;
+  - extracts only what is deterministically present: `<title>`/meta
+    description → an `about` entry, `LocalBusiness`/`Restaurant`/similar
+    JSON-LD → a `contact_note` entry, and the page's own visible text (capped
+    at 4000 characters) → a `raw_page` entry — **all as `pending_review`,
+    `source = 'website'`**. It never writes to `branches`/`categories`/
+    `products` itself; turning reviewed crawl findings into a structured
+    product or branch is today a manual step for the owner (copy the
+    reviewed fact into the Products/Branches pages). Automatic
+    crawl-to-structured-draft extraction is deferred until the AI Gateway
+    (Phase 3) can do that reasoning reliably.
+  - runs synchronously inside the "Add website" Server Action today (no job
+    queue exists yet) — fine at 8 pages/8s-timeout scale, but a real
+    background worker (the spec's own `/api/jobs/*` pattern, already used
+    elsewhere in this codebase's sibling project) is the natural next step
+    once crawls need to be bigger or retried.
+- **Console**: a "Business Brain" page (add/recrawl/disable a website source,
+  a manual-entry form, and an approve/reject/archive list of entries) plus
+  new "Products / Services" and "Branches" pages (spec §74's subscriber nav).
+  "Agent", "Conversations" and "Settings" got placeholder pages so the nav
+  doesn't lead to a bare 404 before their own phases land.
+- **Tests**: `tests/unit/brain-robots.test.ts`, `brain-html.test.ts`,
+  `brain-url-safety.test.ts` (19 assertions, no network — the SSRF guard's
+  literal-IP path is exercised directly; a live DNS-resolution case is not,
+  since this sandboxed environment's outbound network goes through an agent
+  proxy the crawler's own `fetch` does not use). `supabase/tests/
+  002_business_brain.test.sql` adds structural pgTAP checks (RLS
+  enabled+forced, zero direct write policies on `business_brain_entries`,
+  all five write functions present).
+- **What Phase 2 does not include**: turning crawled facts into structured
+  product/branch drafts automatically (needs the AI Gateway), a "compare
+  versions" diff view in the UI (the data model supports it — `entry_key` +
+  `version` — the UI only lists current-status rows today), asynchronous/
+  queued crawling, and multi-page crawls beyond depth 1 (sufficient for a
+  typical single-site menu/about/contact page onboarding, not a full site
+  map).

@@ -26,6 +26,8 @@
   "console": {
     "nav": {
       "dashboard": "لوحة المعلومات",
+      "products": "المنتجات / الخدمات",
+      "branches": "الفروع",
       "businessBrain": "عقل النشاط",
       "agent": "الوكيل",
       "conversations": "المحادثات",

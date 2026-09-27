@@ -17,6 +17,8 @@ export default async function TenantLayout({
 
   const nav = [
     { key: "dashboard", href: `/${locale}/t/${slug}` },
+    { key: "products", href: `/${locale}/t/${slug}/products` },
+    { key: "branches", href: `/${locale}/t/${slug}/branches` },
     { key: "businessBrain", href: `/${locale}/t/${slug}/brain` },
     { key: "agent", href: `/${locale}/t/${slug}/agent` },
     { key: "conversations", href: `/${locale}/t/${slug}/conversations` },
