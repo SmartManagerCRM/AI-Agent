@@ -3,52 +3,85 @@ import { serverEnv } from "@/server/env-core";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 import { mockPaymentProvider } from "./mock";
-import type { PaymentProvider } from "./provider";
+import { moyasarProvider } from "./moyasar";
+import type { PaymentCredentials, PaymentProvider } from "./provider";
+import { tapProvider } from "./tap";
 
 /**
- * The one payment provider wired in for the MVP. Swapping in a real one
- * (Stripe/PayPal) later means adding a second `PaymentProvider`
- * implementation and changing this one export — `initiatePayment` below,
- * the webhook route, and every commerce/order/tool caller are all written
- * against the interface, not against "mock" specifically.
- *
- * No `import "server-only"` (same reasoning as gemini.ts/mock.ts): kept
- * importable by unit tests.
+ * Every payment provider wired in. Credentials are per-tenant (each
+ * business connects its own Moyasar/Tap merchant account — money goes
+ * straight to that business, never pools in one platform account), loaded
+ * from `tenant_payment_config` inside `initiatePayment` below and passed
+ * into whichever of these the order's chosen payment method names — never
+ * baked into the provider objects themselves. `mock` stays registered for
+ * tests/dev; it's never one of the methods a real tenant can enable
+ * (`tenant_payment_config.enabled_methods`'s own check constraint doesn't
+ * allow it).
  */
-export const paymentProvider: PaymentProvider = mockPaymentProvider;
+export const providers: Record<string, PaymentProvider> = {
+  mock: mockPaymentProvider,
+  moyasar: moyasarProvider,
+  tap: tapProvider,
+};
 
-export type InitiatePaymentResult = { ok: true; checkoutUrl: string } | { ok: false; error: string };
+const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
+
+export type InitiatePaymentResult =
+  | { ok: true; checkoutUrl: string | null }
+  | { ok: false; error: string };
 
 /**
- * Starts (or idempotently resumes) a payment attempt for an order that is
- * `pending_payment` (spec §17). The amount is the order's own total,
- * re-read by `create_payment_attempt` (SQL, SECURITY DEFINER) — never
- * supplied by this function or anything upstream of it, the same
- * "backend computes the total" discipline `create_order_from_cart`
- * already applies to the order itself.
- *
- * A fresh provider intent is created on every call, reused attempt or
- * not — harmless for a provider with no real external side effect; a
- * real provider integration would instead want to reuse a still-valid
- * intent across reloads, which is a refinement for whenever a real
- * provider is actually added, not something the mock needs to solve.
+ * Starts (or idempotently resumes) a payment attempt for an order, or —
+ * for Cash on Delivery / Pay on Table — records that the order is
+ * confirmed and awaiting in-person payment with nothing further to do
+ * (`checkoutUrl: null`, meaning "no redirect needed"). The provider itself
+ * is never asserted by this function or its caller: `create_payment_attempt`
+ * (SQL, SECURITY DEFINER) derives it from the cart's own stored
+ * `payment_method`, the same "the server derives it from what was already
+ * stored" discipline `create_order_from_cart` already applies to
+ * fulfillment type and the order total.
  */
-export async function initiatePayment(supabase: TypedSupabaseClient, orderId: string): Promise<InitiatePaymentResult> {
-  const { data, error } = await supabase.rpc("create_payment_attempt", {
-    p_order_id: orderId,
-    p_provider: paymentProvider.name,
-  });
+export async function initiatePayment(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  orderId: string,
+): Promise<InitiatePaymentResult> {
+  const { data, error } = await supabase.rpc("create_payment_attempt", { p_order_id: orderId });
   if (error || !data?.[0]) {
     return { ok: false, error: error?.message ?? "Could not start a payment for this order." };
   }
   const attempt = data[0];
 
-  const intentResult = await paymentProvider.createIntent({
-    paymentId: attempt.payment_id,
-    orderNumber: attempt.order_number,
-    amountMinor: attempt.amount_minor,
-    currency: attempt.currency,
-  });
+  if (CASH_METHODS.has(attempt.provider)) {
+    return { ok: true, checkoutUrl: null };
+  }
+
+  const provider = providers[attempt.provider];
+  if (!provider) return { ok: false, error: `Unsupported payment method: ${attempt.provider}.` };
+
+  const { data: currencyRow } = await supabase
+    .from("currencies")
+    .select("exponent")
+    .eq("code", attempt.currency)
+    .maybeSingle();
+  const currencyExponent = currencyRow?.exponent ?? 2;
+
+  const credentials = await loadCredentials(supabase, tenantId);
+  if (!provider.configured(credentials)) {
+    return { ok: false, error: `${attempt.provider} isn't set up yet for this business.` };
+  }
+
+  const intentResult = await provider.createIntent(
+    {
+      paymentId: attempt.payment_id,
+      orderNumber: attempt.order_number,
+      amountMinor: attempt.amount_minor,
+      currency: attempt.currency,
+      currencyExponent,
+      callbackUrl: toAbsoluteAgentUrl(`/pay/${attempt.payment_id}`),
+    },
+    credentials,
+  );
   if (!intentResult.ok) return { ok: false, error: intentResult.error };
 
   const { error: recordError } = await supabase.rpc("record_payment_provider_intent", {
@@ -58,6 +91,23 @@ export async function initiatePayment(supabase: TypedSupabaseClient, orderId: st
   if (recordError) return { ok: false, error: recordError.message };
 
   return { ok: true, checkoutUrl: toAbsoluteAgentUrl(intentResult.value.checkoutUrl) };
+}
+
+/**
+ * Reads one tenant's stored Moyasar/Tap secret keys. Callers only ever
+ * come from server-side payment code (`initiatePayment` above, and the
+ * webhook route via `loadCredentialsForTenant`) — never exposed to a
+ * client, and never read through anything but a service-role client, since
+ * `tenant_payment_config`'s own RLS (`settings.write`, not `settings.read`)
+ * would otherwise hide it from plain staff anyway.
+ */
+export async function loadCredentials(supabase: TypedSupabaseClient, tenantId: string): Promise<PaymentCredentials> {
+  const { data } = await supabase
+    .from("tenant_payment_config")
+    .select("moyasar_secret_key, tap_secret_key")
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  return { moyasarSecretKey: data?.moyasar_secret_key ?? null, tapSecretKey: data?.tap_secret_key ?? null };
 }
 
 function toAbsoluteAgentUrl(path: string): string {

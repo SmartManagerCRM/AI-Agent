@@ -117,7 +117,10 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
 
   let toolContext: ToolContext | null = null;
   if (input.conversationId) {
-    const { data: settings } = await supabase.from("tenant_settings").select("checkout").eq("tenant_id", input.tenant.id).maybeSingle();
+    const [{ data: settings }, { data: paymentConfig }] = await Promise.all([
+      supabase.from("tenant_settings").select("checkout").eq("tenant_id", input.tenant.id).maybeSingle(),
+      supabase.from("tenant_payment_config").select("enabled_methods").eq("tenant_id", input.tenant.id).maybeSingle(),
+    ]);
     toolContext = {
       supabase,
       tenantId: input.tenant.id,
@@ -131,6 +134,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         delivery_fee_minor: 0,
         minimum_order_minor: 0,
       },
+      paymentMethods: paymentConfig?.enabled_methods ?? [],
     };
   }
 

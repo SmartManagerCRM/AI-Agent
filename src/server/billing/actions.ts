@@ -4,8 +4,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { signMockWebhookPayload } from "@/server/payments/mock";
-import { paymentProvider } from "@/server/payments/service";
+import { mockPaymentProvider, signMockWebhookPayload } from "@/server/payments/mock";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -78,7 +77,7 @@ export async function simulateMockSubscriptionPaymentAction(formData: FormData):
       amountMinor: payment.amount_minor,
       currency: payment.currency,
     });
-    await processSubscriptionProviderWebhook(paymentProvider, body, signature);
+    await processSubscriptionProviderWebhook(mockPaymentProvider, body, signature);
   }
 
   redirect(`/${parsed.data.locale}/t/${parsed.data.slug}/billing/pay/${parsed.data.paymentId}`);

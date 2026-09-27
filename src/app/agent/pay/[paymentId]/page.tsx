@@ -73,6 +73,9 @@ export default async function PayPage({ params }: { params: Promise<{ paymentId:
         </div>
       )}
 
+      {payment.status === "pending" && payment.provider !== "mock" && (
+        <p className="text-sm text-neutral-500">Confirming your payment — this can take a moment. Refresh to check again.</p>
+      )}
       {payment.status === "succeeded" && <p className="text-sm font-medium text-green-700">Payment received — thank you!</p>}
       {payment.status === "failed" && (
         <p className="text-sm font-medium text-red-700">This payment attempt failed — return to the chat to try again.</p>

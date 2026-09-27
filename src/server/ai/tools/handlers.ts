@@ -10,7 +10,9 @@ import {
   setFulfillment,
   setOrderNotes,
   setCartItemQuantity,
+  setPaymentMethod,
   viewCart,
+  type PaymentMethod,
 } from "@/server/commerce/cart";
 import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
 import { initiatePayment } from "@/server/payments/service";
@@ -29,6 +31,7 @@ export type ToolContext = {
     delivery_fee_minor: number;
     minimum_order_minor: number;
   };
+  paymentMethods: string[];
 };
 
 export type ToolResult = { content: string; isError?: boolean };
@@ -44,6 +47,7 @@ const ORDERING_REQUIRED_TOOLS = new Set([
   "remove_from_cart",
   "clear_cart",
   "set_fulfillment",
+  "set_payment_method",
   "set_customer_details",
   "place_order",
   "check_order_status",
@@ -139,6 +143,16 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       return { content: `Fulfillment set to ${type}.` };
     }
 
+    case "set_payment_method": {
+      const method = String(input.payment_method ?? "") as PaymentMethod;
+      if (!ctx.paymentMethods.includes(method)) {
+        return { content: `${method || "that payment method"} is not available for this business.`, isError: true };
+      }
+      const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
+      await setPaymentMethod(ctx.supabase, ctx.tenantId, cart.id, method);
+      return { content: `Payment method set to ${method.replace(/_/g, " ")}.` };
+    }
+
     case "set_customer_details": {
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await setCustomerDetails(ctx.supabase, ctx.tenantId, cart.id, {
@@ -157,10 +171,15 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       if (!result.ok) return { content: result.error, isError: true };
 
       const total = `${formatMinor(result.totalMinor, ctx.currencyExponent)} ${result.currency}`;
-      const payment = await initiatePayment(ctx.supabase, result.orderId);
-      if (payment.ok) {
+      const payment = await initiatePayment(ctx.supabase, ctx.tenantId, result.orderId);
+      if (payment.ok && payment.checkoutUrl) {
         return {
           content: `Order #${result.orderNumber} placed — total ${total}. Pay now: ${payment.checkoutUrl}`,
+        };
+      }
+      if (payment.ok) {
+        return {
+          content: `Order #${result.orderNumber} confirmed — total ${total}. You'll pay in person, as chosen.`,
         };
       }
       return {

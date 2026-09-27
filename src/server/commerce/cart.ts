@@ -13,10 +13,13 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
  * compile time) so nothing here actually depends on the guarded client
  * module at runtime.
  */
+export type PaymentMethod = "moyasar" | "tap" | "cash_on_delivery" | "pay_on_table";
+
 export type CartRow = {
   id: string;
   status: "active" | "converted" | "abandoned";
   fulfillmentType: "pickup" | "delivery" | null;
+  paymentMethod: PaymentMethod | null;
   branchId: string | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -59,6 +62,7 @@ function toCartRow(row: {
   id: string;
   status: "active" | "converted" | "abandoned";
   fulfillment_type: "pickup" | "delivery" | null;
+  payment_method: PaymentMethod | null;
   branch_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
@@ -70,6 +74,7 @@ function toCartRow(row: {
     id: row.id,
     status: row.status,
     fulfillmentType: row.fulfillment_type,
+    paymentMethod: row.payment_method,
     branchId: row.branch_id,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
@@ -225,6 +230,15 @@ export async function setFulfillment(
     .update({ fulfillment_type: fulfillmentType, branch_id: branchId })
     .eq("id", cartId)
     .eq("tenant_id", tenantId);
+}
+
+export async function setPaymentMethod(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  cartId: string,
+  paymentMethod: PaymentMethod,
+): Promise<void> {
+  await supabase.from("carts").update({ payment_method: paymentMethod }).eq("id", cartId).eq("tenant_id", tenantId);
 }
 
 export async function setCustomerDetails(

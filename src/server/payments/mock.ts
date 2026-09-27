@@ -68,7 +68,16 @@ export const mockPaymentProvider: PaymentProvider = {
     };
   },
 
-  verifyWebhook(rawBody: string, signatureHeader: string | null): PaymentVerification | null {
+  extractProviderIntentId(rawBody: string): string | null {
+    try {
+      const payload = JSON.parse(rawBody) as Partial<MockWebhookPayload>;
+      return typeof payload.providerIntentId === "string" ? payload.providerIntentId : null;
+    } catch {
+      return null;
+    }
+  },
+
+  verifyWebhook(rawBody: string, signatureHeader: string | null, _credentials, _context): PaymentVerification | null {
     if (!signatureHeader) return null;
 
     const expected = Buffer.from(sign(rawBody), "hex");

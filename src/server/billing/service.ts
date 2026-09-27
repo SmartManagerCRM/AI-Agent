@@ -1,5 +1,12 @@
-import { paymentProvider } from "@/server/payments/service";
+import { mockPaymentProvider } from "@/server/payments/mock";
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
+
+// Subscription billing is platform-level (the SaaS's own revenue from
+// tenants, not a tenant's own money), so it stays on the mock provider —
+// Moyasar/Tap (src/server/payments/service.ts) are per-tenant and only
+// wired into order payments. Referenced directly (not via the `providers`
+// map) since there is only ever this one for now.
+const paymentProvider = mockPaymentProvider;
 
 export type InitiateSubscriptionPaymentResult = { ok: true; checkoutPath: string } | { ok: false; error: string };
 
@@ -34,12 +41,19 @@ export async function initiateSubscriptionPayment(
   }
   const attempt = data[0];
 
-  const intentResult = await paymentProvider.createIntent({
-    paymentId: attempt.payment_id,
-    orderNumber: 0,
-    amountMinor: attempt.amount_minor,
-    currency: attempt.currency,
-  });
+  const intentResult = await paymentProvider.createIntent(
+    {
+      paymentId: attempt.payment_id,
+      orderNumber: 0,
+      amountMinor: attempt.amount_minor,
+      currency: attempt.currency,
+      // Both unused by the mock provider (the only one wired into
+      // subscription billing today) — see the module comment above.
+      currencyExponent: 2,
+      callbackUrl: `billing/pay/${attempt.payment_id}`,
+    },
+    {},
+  );
   if (!intentResult.ok) return { ok: false, error: intentResult.error };
 
   const service = serviceClient();

@@ -1232,3 +1232,136 @@ This closes Phase 11, the final phase on the master spec's list (§98:
 Phase 0 Assessment through Phase 11 Hardening). Every phase from the
 original plan has now been built, migrated, live-verified, and checked
 into `main`.
+
+## 22. Real payment providers (Moyasar, Tap) + Cash on Delivery / Pay on Table
+
+Post-Phase-11 work, requested directly: replace the mock-only payment
+system with real gateways, plus two "pay in person later" methods. The
+biggest decision here wasn't code — it was who a payment gateway credential
+belongs to.
+
+- **Credentials are per-tenant, not platform-level.** Each business
+  connects its own Moyasar/Tap merchant account; money for that business's
+  orders goes straight to its own bank account, never pooling in one
+  platform-owned account that would then need manual payout/reconciliation
+  (a marketplace/split-payment model this MVP deliberately doesn't build).
+  This meant `PaymentProvider` (`src/server/payments/provider.ts`) could no
+  longer be a stateless singleton per gateway holding its own secret —
+  every method now takes a `credentials: PaymentCredentials` parameter,
+  loaded fresh per call from a new table, `tenant_payment_config`
+  (`moyasar_secret_key`, `tap_secret_key`, `enabled_methods`). That table
+  is gated by `settings.write` for **both** select and update — deliberately
+  stricter than `tenant_settings` (gated by `settings.read`/`settings.write`
+  respectively), since plain staff having `settings.read` should see
+  checkout config but not a payment gateway's secret key. RLS is row-level,
+  not column-level, so this genuinely needed its own table, not a new
+  `tenant_settings` column.
+- **Webhook verification became two-phase**, because credentials are
+  per-tenant: a single-tenant mock secret could live in one constant, but a
+  real webhook's signature can only be checked with the *specific tenant's*
+  key — and finding out which tenant a webhook is about requires reading
+  the payload first. `PaymentProvider` gained `extractProviderIntentId(rawBody)`
+  — pulls the provider's own opaque id out of the payload with **no trust
+  implied** (used only as a `payments` lookup key) — so
+  `processProviderWebhook` (`src/server/payments/webhook.ts`) now: (1)
+  extracts the id, (2) looks up the matching `payments` row to learn which
+  tenant this claims to be about, (3) loads *that* tenant's stored secret,
+  (4) only then calls `verifyWebhook(rawBody, signatureHeader, credentials,
+  context)` to actually check the signature. A forged id in step 1 just
+  means the lookup in step 2 finds nothing — it can never mark anything
+  paid by itself. `src/server/billing/webhook.ts` (subscription billing —
+  platform-level, still mock-only, deliberately untouched by the per-tenant
+  credential change) was adapted to the same two-phase shape purely for
+  interface uniformity, with empty credentials since mock needs none.
+- **Both gateways use their own hosted checkout page**, not an embedded
+  card form: Moyasar's Invoice API (`POST /v1/invoices`, response `url`)
+  and Tap's Charges API with `source.id: "src_all"` (response
+  `transaction.url`) — `"src_all"` tells Tap to show every payment method
+  enabled on the merchant account on its own page. This is why **Apple Pay
+  needed no separate code path at all**: it's just one more button on
+  Moyasar's/Tap's own hosted page once enabled on the merchant account and
+  the domain is Apple-verified — and critically, since the `ApplePaySession`
+  JS API only ever runs on *their* domain in this architecture (never
+  embedded on ours), the usual requirement to serve an Apple Pay domain
+  association file does not apply to us; that verification is already
+  Moyasar's/Tap's own responsibility as registered Apple Pay processors.
+- **Cash on Delivery / Pay on Table are not payment gateways** — no
+  external API call, no webhook, per the explicit request: "the order
+  should be confirmed and go to the admin panel, the customer will pay
+  later." `create_order_from_cart` now reads the cart's own
+  `payment_method` (a new column, set at checkout alongside
+  `fulfillment_type`) and branches the order's *initial* status: `confirmed`
+  immediately for the two cash methods (skipping `pending_payment`
+  entirely), `pending_payment` as before for online methods. A `payments`
+  row is still created (via `create_payment_attempt`, provider =
+  `cash_on_delivery`/`pay_on_table`, status `pending` — meaning "awaiting
+  collection" rather than "awaiting an online attempt") so the same ledger
+  and console UI serve both kinds of order uniformly. A new function,
+  `mark_cash_payment_collected`, is the staff-facing "yes, I actually got
+  paid" action (console Orders page) — deliberately **not** coupled to the
+  order's own preparing/ready/completed lifecycle, since the order was
+  already confirmed at creation and moves through that lifecycle
+  independent of when (or whether) staff mark the cash collected.
+- **`create_payment_attempt` no longer takes a `p_provider` argument.**
+  Previously the caller (application code) asserted which provider to
+  charge; now the function derives it itself from
+  `orders.cart_id → carts.payment_method` — the same "the server derives
+  it from what was actually stored, never re-asserted by the caller"
+  discipline `fulfillment_type` and the order total already followed. This
+  closes a real (if narrow) trust gap: the payment method a customer
+  actually chose is now what gets charged, by construction, not whatever
+  the calling code happened to pass.
+- **A real bug caught by the live functional test**, same category as
+  Phase 6's original `payments_fix` migration: `create_payment_attempt`'s
+  `RETURN QUERY` selected `v_order.currency`/`v_existing.currency`
+  (`char(3)`) into a `returns table (..., currency text, ...)` column,
+  which Postgres rejects as a structure mismatch. Caught immediately by the
+  first live test call (`begin; ... rollback;`, real fixture data) before
+  it was ever trusted; fixed with an explicit `::text` cast on both
+  `RETURN QUERY` statements, then re-verified.
+- **A regenerated `database.ts` nearly caused an unrelated regression.**
+  Running `generate_typescript_types` against the live project (needed
+  since Docker wasn't available in this session to run `npm run db:types`
+  locally) produced a **structurally looser** file than the one already
+  checked in — generic `string` instead of literal unions for every
+  check-constrained column (`orders.status`, `tenants.business_name`
+  nullability, etc.), breaking type-checking across dozens of unrelated
+  files that depend on those precise literal types. Caught by running
+  `npm run typecheck` immediately after, before committing to that
+  approach; fixed by reverting to the existing (more precise, differently
+  generated) file and hand-patching in only the new pieces
+  (`tenant_payment_config`'s table type, `carts.payment_method`, the
+  updated `create_payment_attempt` signature, `mark_cash_payment_collected`)
+  in the same precise style as the surrounding hand-maintained types,
+  rather than trusting a wholesale regeneration.
+- **A known, disclosed gap: the exact webhook signature algorithms are
+  unconfirmed against live documentation.** This session's network egress
+  is restricted by the environment's proxy — `docs.moyasar.com`,
+  `developers.tap.company`, and even secondary sources describing them
+  (blog posts, an announcement page) were all blocked, while `github.com`
+  was reachable. Moyasar's Invoice API request/response shape and Tap's
+  Charges API request/response shape (`source.id`, `transaction.url`) are
+  corroborated from multiple independent search results and implemented
+  with reasonable confidence. The one piece implemented on best-effort
+  understanding rather than a confirmed primary source: Tap's exact
+  webhook hash recipe (`src/server/payments/tap.ts` uses HMAC-SHA256 of
+  the whole raw JSON body against the `hashstring` header — the simplest,
+  most commonly documented shape, and the one with a concrete worked
+  Node.js example in search results — but some sources describe a
+  different, field-concatenation-based recipe instead). Moyasar's
+  `secret_token` comparison (`src/server/payments/moyasar.ts`) is more
+  directly corroborated and lower-risk. Both modules carry an in-code `⚠`
+  comment flagging exactly this. **Before either provider takes live
+  traffic**, whoever configures it should either widen this environment's
+  network egress allowlist so a follow-up session can confirm directly
+  against the real docs, or test a real webhook delivery against a sandbox
+  account and adjust `tap.ts`'s `computeHash` if it doesn't match.
+- **What this pass does not include**: real card/Apple Pay testing against
+  either provider (no sandbox credentials were available this session —
+  see the point above); a shared/platform-level payment option (explicitly
+  decided against — see the credentials-scope point above); a table-number
+  field or distinct dine-in flow for Pay on Table (explicitly scoped out —
+  it's a payment-timing label, not a new fulfillment type, per instruction);
+  and wiring Moyasar/Tap into subscription billing (`src/server/billing/`)
+  — that domain is platform-level revenue, not a tenant's own money, and
+  stays on the mock provider deliberately, out of scope for this request.

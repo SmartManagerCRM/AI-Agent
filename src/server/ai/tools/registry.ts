@@ -80,6 +80,16 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
     },
   },
   {
+    name: "set_payment_method",
+    description:
+      "Set how the customer will pay: an online gateway (moyasar, tap), or in person later (cash_on_delivery, pay_on_table). Only offer methods the business actually has enabled — check what's available first if unsure.",
+    parameters: {
+      type: "object",
+      properties: { payment_method: { type: "string", enum: ["moyasar", "tap", "cash_on_delivery", "pay_on_table"] } },
+      required: ["payment_method"],
+    },
+  },
+  {
     name: "set_customer_details",
     description: "Record the customer's name/phone/email and, for delivery, their address. Call with whichever fields the customer has given so far.",
     parameters: {
@@ -95,7 +105,7 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   },
   {
     name: "place_order",
-    description: "Place the order once the cart, fulfillment method, and customer details are all confirmed. This is final — only call it when the customer has explicitly confirmed.",
+    description: "Place the order once the cart, fulfillment method, payment method, and customer details are all confirmed. This is final — only call it when the customer has explicitly confirmed.",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {

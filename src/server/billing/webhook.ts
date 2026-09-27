@@ -24,17 +24,27 @@ export async function processSubscriptionProviderWebhook(
   rawBody: string,
   signatureHeader: string | null,
 ): Promise<SubscriptionWebhookOutcome> {
-  const verification = provider.verifyWebhook(rawBody, signatureHeader);
-  if (!verification) return { ok: false, error: "INVALID_SIGNATURE: webhook could not be verified." };
+  // Subscription billing is platform-level (the SaaS's own revenue from
+  // tenants, not a tenant's own money — see ARCHITECTURE_ASSESSMENT.md's
+  // note on why Moyasar/Tap are per-tenant but this domain stayed
+  // mock-only), so there are no per-tenant credentials to load here: the
+  // two-phase extract-then-verify shape below exists only to satisfy
+  // `PaymentProvider`'s shared interface uniformly across both domains.
+  const providerIntentId = provider.extractProviderIntentId(rawBody);
+  if (!providerIntentId) return { ok: false, error: "NOT_FOUND: no payment intent id in this webhook." };
 
   const supabase = serviceClient();
   const { data: payment } = await supabase
     .from("subscription_payments")
     .select("id, amount_minor, currency")
     .eq("provider", provider.name)
-    .eq("provider_intent_id", verification.providerIntentId)
+    .eq("provider_intent_id", providerIntentId)
     .maybeSingle();
   if (!payment) return { ok: false, error: "NOT_FOUND: no subscription payment matches this provider intent." };
+
+  const { data: currencyRow } = await supabase.from("currencies").select("exponent").eq("code", payment.currency).maybeSingle();
+  const verification = provider.verifyWebhook(rawBody, signatureHeader, {}, { currencyExponent: currencyRow?.exponent ?? 2 });
+  if (!verification) return { ok: false, error: "INVALID_SIGNATURE: webhook could not be verified." };
 
   if (payment.amount_minor !== verification.amountMinor || payment.currency !== verification.currency) {
     return { ok: false, error: "MISMATCH: webhook amount/currency does not match the recorded payment." };

@@ -1,22 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { processSubscriptionProviderWebhook } from "@/server/billing/webhook";
-import { mockPaymentProvider } from "@/server/payments/mock";
-import type { PaymentProvider } from "@/server/payments/provider";
+import { providers as PROVIDERS } from "@/server/payments/service";
 import { processProviderWebhook } from "@/server/payments/webhook";
-
-const PROVIDERS: Record<string, PaymentProvider> = {
-  mock: mockPaymentProvider,
-};
 
 /**
  * The real webhook endpoint a payment provider calls (spec §64, §98 Phase
  * 7). It lives under `/api/` so the host-based proxy (src/proxy.ts) never
  * rewrites or locale-redirects it — a provider calling this needs a
- * stable path on whatever host serves the app. Adding a real provider
- * later means adding its `PaymentProvider` implementation to the map
- * above; this route and the verification paths it calls into do not
- * change.
+ * stable path on whatever host serves the app. Every registered provider
+ * (`src/server/payments/service.ts`'s `providers` map — mock, Moyasar,
+ * Tap) shares this one route; adding another means adding its
+ * `PaymentProvider` implementation there, never touching this file.
  *
  * One provider intent belongs to exactly one domain — an order payment
  * (`src/server/payments/webhook.ts`) or a subscription payment

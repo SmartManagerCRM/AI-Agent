@@ -7,13 +7,21 @@ import {
   placeStructuredOrderAction,
   setCustomerDetailsAction,
   setFulfillmentTypeAction,
+  setPaymentMethodAction,
   updateCartItemQuantityAction,
   type PlaceStructuredOrderResult,
 } from "@/server/agent-public/catalog-actions";
-import type { CartView } from "@/server/commerce/cart";
+import type { CartView, PaymentMethod } from "@/server/commerce/cart";
 
 type Category = { id: string; name: Record<string, string> };
 type Product = { id: string; categoryId: string | null; name: Record<string, string>; priceMinor: number };
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  moyasar: "Card / Apple Pay (Moyasar)",
+  tap: "Card / Apple Pay (Tap)",
+  cash_on_delivery: "Cash on Delivery",
+  pay_on_table: "Pay on Table",
+};
 
 type Props = {
   slug: string;
@@ -24,6 +32,7 @@ type Props = {
   currencyExponent: number;
   orderingEnabled: boolean;
   fulfillmentTypes: ("pickup" | "delivery")[];
+  paymentMethods: PaymentMethod[];
   initialCart: CartView | null;
   surface?: "external_agent" | "website_widget";
 };
@@ -54,6 +63,7 @@ export function CatalogPanel({
   currencyExponent,
   orderingEnabled,
   fulfillmentTypes,
+  paymentMethods,
   initialCart,
   surface = "external_agent",
 }: Props) {
@@ -69,6 +79,7 @@ export function CatalogPanel({
 
   const visibleProducts = selectedCategoryId ? products.filter((p) => p.categoryId === selectedCategoryId) : products;
   const fulfillmentType = cart?.cart.fulfillmentType ?? null;
+  const paymentMethod = cart?.cart.paymentMethod ?? null;
 
   function addToCart(productId: string) {
     setError(null);
@@ -97,6 +108,15 @@ export function CatalogPanel({
     });
   }
 
+  function choosePaymentMethod(method: PaymentMethod) {
+    setError(null);
+    startTransition(async () => {
+      const result = await setPaymentMethodAction(slug, { paymentMethod: method }, surface);
+      if (!result.ok) return setError(result.error);
+      setCart(result.cart);
+    });
+  }
+
   function placeOrder() {
     setError(null);
     startTransition(async () => {
@@ -115,10 +135,12 @@ export function CatalogPanel({
         <p className="font-medium">
           Order #{orderResult.orderNumber} placed — total {formatMinor(orderResult.totalMinor, currencyExponent)} {orderResult.currency}.
         </p>
-        {orderResult.checkoutUrl && (
+        {orderResult.checkoutUrl ? (
           <a href={orderResult.checkoutUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block underline">
             Pay now
           </a>
+        ) : (
+          <p className="mt-2 text-neutral-500">Order confirmed — you&apos;ll pay in person, as chosen.</p>
         )}
       </div>
     );
@@ -221,6 +243,23 @@ export function CatalogPanel({
                 </div>
               )}
 
+              {paymentMethods.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {paymentMethods.map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => choosePaymentMethod(method)}
+                      className={`rounded-full border px-3 py-1 text-xs ${
+                        paymentMethod === method ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600"
+                      }`}
+                    >
+                      {PAYMENT_METHOD_LABELS[method]}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <input
                 placeholder="Name"
                 value={details.name}
@@ -243,7 +282,7 @@ export function CatalogPanel({
               )}
               <button
                 type="button"
-                disabled={pending || !fulfillmentType}
+                disabled={pending || !fulfillmentType || (paymentMethods.length > 0 && !paymentMethod)}
                 onClick={placeOrder}
                 className="self-start rounded-md bg-neutral-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-50"
               >

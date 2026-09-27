@@ -28,25 +28,27 @@ export default async function ExternalAgentPage({ params }: { params: Promise<{ 
   if (!tenant) notFound();
 
   const supabase = serviceClient();
-  const [{ data: settings }, { data: categories }, { data: products }, { data: currencyRow }, { data: aboutEntry }] = await Promise.all([
-    supabase.from("tenant_settings").select("agent, checkout").eq("tenant_id", tenant.id).maybeSingle(),
-    supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
-    supabase
-      .from("products")
-      .select("id, category_id, name, price_minor")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "active")
-      .order("created_at"),
-    supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-    supabase
-      .from("business_brain_entries")
-      .select("content")
-      .eq("tenant_id", tenant.id)
-      .eq("entry_type", "about")
-      .eq("status", "approved")
-      .eq("is_active", true)
-      .maybeSingle(),
-  ]);
+  const [{ data: settings }, { data: categories }, { data: products }, { data: currencyRow }, { data: aboutEntry }, { data: paymentConfig }] =
+    await Promise.all([
+      supabase.from("tenant_settings").select("agent, checkout").eq("tenant_id", tenant.id).maybeSingle(),
+      supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
+      supabase
+        .from("products")
+        .select("id, category_id, name, price_minor")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "active")
+        .order("created_at"),
+      supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+      supabase
+        .from("business_brain_entries")
+        .select("content")
+        .eq("tenant_id", tenant.id)
+        .eq("entry_type", "about")
+        .eq("status", "approved")
+        .eq("is_active", true)
+        .maybeSingle(),
+      supabase.from("tenant_payment_config").select("enabled_methods").eq("tenant_id", tenant.id).maybeSingle(),
+    ]);
 
   if (!settings?.agent?.active) {
     return (
@@ -78,6 +80,7 @@ export default async function ExternalAgentPage({ params }: { params: Promise<{ 
         currencyExponent={currencyRow?.exponent ?? 2}
         orderingEnabled={settings.checkout?.ordering_enabled ?? false}
         fulfillmentTypes={settings.checkout?.fulfillment_types ?? ["pickup"]}
+        paymentMethods={paymentConfig?.enabled_methods ?? []}
         initialCart={null}
       />
 

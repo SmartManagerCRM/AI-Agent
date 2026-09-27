@@ -402,6 +402,7 @@ export type Database = {
           conversation_id: string;
           status: "active" | "converted" | "abandoned";
           fulfillment_type: "pickup" | "delivery" | null;
+          payment_method: "moyasar" | "tap" | "cash_on_delivery" | "pay_on_table" | null;
           branch_id: string | null;
           customer_name: string | null;
           customer_phone: string | null;
@@ -413,6 +414,18 @@ export type Database = {
         };
         Insert: Partial<Database["public"]["Tables"]["carts"]["Row"]> & { tenant_id: string; conversation_id: string };
         Update: Partial<Database["public"]["Tables"]["carts"]["Row"]>;
+        Relationships: [];
+      };
+      tenant_payment_config: {
+        Row: {
+          tenant_id: string;
+          enabled_methods: ("moyasar" | "tap" | "cash_on_delivery" | "pay_on_table")[];
+          moyasar_secret_key: string | null;
+          tap_secret_key: string | null;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["tenant_payment_config"]["Row"]> & { tenant_id: string };
+        Update: Partial<Database["public"]["Tables"]["tenant_payment_config"]["Row"]>;
         Relationships: [];
       };
       cart_items: {
@@ -668,7 +681,7 @@ export type Database = {
         Returns: undefined;
       };
       create_payment_attempt: {
-        Args: { p_order_id: string; p_provider?: string };
+        Args: { p_order_id: string };
         Returns: {
           payment_id: string;
           provider: string;
@@ -677,6 +690,10 @@ export type Database = {
           currency: string;
           reused: boolean;
         }[];
+      };
+      mark_cash_payment_collected: {
+        Args: { p_payment_id: string };
+        Returns: undefined;
       };
       record_payment_provider_intent: {
         Args: { p_payment_id: string; p_provider_intent_id: string };

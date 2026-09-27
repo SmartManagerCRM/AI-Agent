@@ -1,5 +1,6 @@
 import { BusinessProfileForm } from "@/components/business/business-profile-form";
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
+import { PaymentSettingsForm } from "@/components/commerce/payment-settings-form";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -8,9 +9,10 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: settings }, { data: currency }] = await Promise.all([
+  const [{ data: settings }, { data: currency }, { data: paymentConfig }] = await Promise.all([
     supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+    supabase.from("tenant_payment_config").select("enabled_methods, moyasar_secret_key, tap_secret_key").eq("tenant_id", tenant.id).maybeSingle(),
   ]);
 
   return (
@@ -53,6 +55,22 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
           }
         />
       </section>
+
+      {paymentConfig && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-neutral-700">Payment methods</h2>
+          <PaymentSettingsForm
+            tenantId={tenant.id}
+            slug={slug}
+            locale={locale}
+            current={{
+              enabled_methods: paymentConfig.enabled_methods,
+              hasMoyasarKey: Boolean(paymentConfig.moyasar_secret_key),
+              hasTapKey: Boolean(paymentConfig.tap_secret_key),
+            }}
+          />
+        </section>
+      )}
     </div>
   );
 }

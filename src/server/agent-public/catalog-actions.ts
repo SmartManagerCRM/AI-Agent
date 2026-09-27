@@ -11,8 +11,10 @@ import {
   setCartItemQuantity,
   setCustomerDetails,
   setFulfillment,
+  setPaymentMethod,
   viewCart,
   type CartView,
+  type PaymentMethod,
 } from "@/server/commerce/cart";
 import { placeOrder } from "@/server/commerce/orders";
 import { initiatePayment } from "@/server/payments/service";
@@ -65,9 +67,20 @@ async function loadContext(slug: string, surface: Surface = "external_agent") {
     crossSite: isWidget,
   });
   const cart = await getOrCreateCart(supabase, tenant.id, conversation.id);
-  const { data: settings } = await supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle();
+  const [{ data: settings }, { data: paymentConfig }] = await Promise.all([
+    supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase.from("tenant_payment_config").select("enabled_methods").eq("tenant_id", tenant.id).maybeSingle(),
+  ]);
   const checkout = settings?.checkout ?? DEFAULT_CHECKOUT;
-  return { tenant, supabase, conversation, cart, orderingEnabled: checkout.ordering_enabled, fulfillmentTypes: checkout.fulfillment_types };
+  return {
+    tenant,
+    supabase,
+    conversation,
+    cart,
+    orderingEnabled: checkout.ordering_enabled,
+    fulfillmentTypes: checkout.fulfillment_types,
+    paymentMethods: (paymentConfig?.enabled_methods ?? []) as PaymentMethod[],
+  };
 }
 
 export async function getCartViewAction(slug: string, surface: Surface = "external_agent"): Promise<ActionResult> {
@@ -169,6 +182,31 @@ export async function setFulfillmentTypeAction(
   return { ok: true, cart };
 }
 
+const paymentMethodSchema = z.object({ paymentMethod: z.enum(["moyasar", "tap", "cash_on_delivery", "pay_on_table"]) });
+
+export async function setPaymentMethodAction(
+  slug: string,
+  input: z.infer<typeof paymentMethodSchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
+  const parsed = paymentMethodSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid payment method." };
+
+  const ctx = await loadContext(slug, surface);
+  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
+  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx.paymentMethods.includes(parsed.data.paymentMethod)) {
+    return { ok: false, error: `${parsed.data.paymentMethod.replace(/_/g, " ")} is not available for this business.` };
+  }
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
+
+  await setPaymentMethod(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.paymentMethod);
+  const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
+  return { ok: true, cart };
+}
+
 const detailsSchema = z.object({
   name: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(40).optional(),
@@ -214,7 +252,7 @@ export async function placeStructuredOrderAction(
   const result = await placeOrder(ctx.supabase, ctx.tenant.id, ctx.cart.id);
   if (!result.ok) return { ok: false, error: result.error };
 
-  const payment = await initiatePayment(ctx.supabase, result.orderId);
+  const payment = await initiatePayment(ctx.supabase, ctx.tenant.id, result.orderId);
   return {
     ok: true,
     orderNumber: result.orderNumber,

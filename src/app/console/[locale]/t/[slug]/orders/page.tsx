@@ -1,6 +1,8 @@
-import { updateOrderStatusAction } from "@/server/commerce/order-actions";
+import { markCashPaymentCollectedAction, updateOrderStatusAction } from "@/server/commerce/order-actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+
+const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
 
 const NEXT_STATUSES: Record<string, string[]> = {
   draft: ["pending_payment", "cancelled"],
@@ -30,13 +32,13 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
   const orderIds = (orders ?? []).map((o) => o.id);
   const { data: payments } = await supabase
     .from("payments")
-    .select("order_id, provider, status, created_at")
+    .select("id, order_id, provider, status, created_at")
     .in("order_id", orderIds.length > 0 ? orderIds : [""])
     .order("created_at", { ascending: false });
   // One row per order — the first (most recent) attempt, since `payments` is ordered newest-first above.
-  const latestPaymentByOrder = new Map<string, { provider: string; status: string }>();
+  const latestPaymentByOrder = new Map<string, { id: string; provider: string; status: string }>();
   for (const p of payments ?? []) {
-    if (!latestPaymentByOrder.has(p.order_id)) latestPaymentByOrder.set(p.order_id, { provider: p.provider, status: p.status });
+    if (!latestPaymentByOrder.has(p.order_id)) latestPaymentByOrder.set(p.order_id, { id: p.id, provider: p.provider, status: p.status });
   }
 
   return (
@@ -80,6 +82,20 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                       </button>
                     </form>
                   ))}
+                  {(() => {
+                    const payment = latestPaymentByOrder.get(order.id);
+                    if (!payment || payment.status !== "pending" || !CASH_METHODS.has(payment.provider)) return null;
+                    return (
+                      <form action={markCashPaymentCollectedAction}>
+                        <input type="hidden" name="paymentId" value={payment.id} />
+                        <input type="hidden" name="slug" value={slug} />
+                        <input type="hidden" name="locale" value={locale} />
+                        <button type="submit" className="text-xs text-green-700 underline">
+                          Mark cash collected
+                        </button>
+                      </form>
+                    );
+                  })()}
                 </div>
               </td>
             </tr>
