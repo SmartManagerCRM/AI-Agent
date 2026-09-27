@@ -22,7 +22,7 @@ select ok(
 select is(
   (select count(*)::int from pg_policies
    where schemaname = 'public' and tablename = 'business_brain_entries'
-     and cmd in ('insert', 'update', 'delete')),
+     and cmd in ('INSERT', 'UPDATE', 'DELETE')),
   0,
   'business_brain_entries has no direct insert/update/delete policy'
 );

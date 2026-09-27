@@ -17,7 +17,7 @@ select ok(
 
 select is(
   (select count(*)::int from pg_policies
-   where schemaname = 'public' and tablename = 'subscriptions' and cmd in ('insert', 'update', 'delete')),
+   where schemaname = 'public' and tablename = 'subscriptions' and cmd in ('INSERT', 'UPDATE', 'DELETE')),
   0,
   'subscriptions has no direct insert/update/delete policy'
 );

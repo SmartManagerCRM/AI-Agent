@@ -18,7 +18,7 @@ select ok(
 -- four SECURITY DEFINER functions below.
 select is(
   (select count(*)::int from pg_policies
-   where schemaname = 'public' and tablename = 'payments' and cmd in ('insert', 'update', 'delete')),
+   where schemaname = 'public' and tablename = 'payments' and cmd in ('INSERT', 'UPDATE', 'DELETE')),
   0,
   'payments has no direct insert/update/delete policy'
 );

@@ -43,6 +43,12 @@
   "platform": {
     "title": "Super Admin",
     "businesses": "Entreprises",
-    "subscription": "Abonnement"
+    "subscription": "Abonnement",
+    "nav": {
+      "overview": "Aperçu",
+      "settings": "Paramètres de la plateforme",
+      "models": "Modèles IA",
+      "admins": "Super Admins"
+    }
   }
 }

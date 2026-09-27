@@ -12,7 +12,7 @@ select ok(
 
 select is(
   (select count(*)::int from pg_policies
-   where schemaname = 'public' and tablename = 'staff_invites' and cmd in ('insert', 'update', 'delete')),
+   where schemaname = 'public' and tablename = 'staff_invites' and cmd in ('INSERT', 'UPDATE', 'DELETE')),
   0,
   'staff_invites has no direct insert/update/delete policy'
 );

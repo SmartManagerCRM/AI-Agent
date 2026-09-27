@@ -733,6 +733,14 @@ export type Database = {
         Args: { p_member_id: string; p_status: string };
         Returns: undefined;
       };
+      add_platform_admin: {
+        Args: { p_email: string; p_level?: string };
+        Returns: undefined;
+      };
+      remove_platform_admin: {
+        Args: { p_user_id: string };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

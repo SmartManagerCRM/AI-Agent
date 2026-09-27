@@ -43,6 +43,12 @@
   "platform": {
     "title": "المشرف العام",
     "businesses": "الأنشطة التجارية",
-    "subscription": "الاشتراك"
+    "subscription": "الاشتراك",
+    "nav": {
+      "overview": "نظرة عامة",
+      "settings": "إعدادات المنصة",
+      "models": "نماذج الذكاء الاصطناعي",
+      "admins": "المشرفون العامون"
+    }
   }
 }

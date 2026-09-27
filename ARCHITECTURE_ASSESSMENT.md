@@ -918,3 +918,78 @@ unbuilt, not just unused.
   nothing creates one — every assignable role today is still one of the
   three system roles); and self-service password reset (unrelated to
   this phase's scope, still just `signInWithPassword`/`signUp`).
+
+## 19. Phase 9 implementation notes (Super Admin)
+
+Most of this phase needed no new migration at all — by design. Reading
+back through Phases 1–8: `app.has_permission`'s own `is_super_admin()`
+bypass already let a Super Admin update any tenant row (`tenants_update`)
+and read every tenant's `agent_interactions`
+(`agent_interactions_select`), and `ai_model_configs_write` (Phase 3) has
+carried a Super-Admin-only `for all` policy since it was written, with
+the comment "Phase 9 adds the UI; the gate exists from the start." This
+phase's job was mostly building the UI those gates were always waiting
+for, plus the two genuinely missing pieces.
+
+- **Tenant lifecycle** (`/platform`, extended): suspend/reactivate/close
+  buttons, a plain RLS-scoped update — no new SQL. Confirmed live: a
+  Super Admin who is not a member of a tenant at all could still suspend
+  it.
+- **Platform-wide AI cost/deterministic-ratio** (`src/server/platform/stats.ts`,
+  new; spec §69): the same `is_super_admin()` bypass that lets Super
+  Admin read one tenant's `agent_interactions` lets them read every
+  tenant's, so this is a single aggregate query across the whole
+  platform, not four separate calls to the existing per-tenant
+  `agent_interaction_stats`. Kept out of the page component itself
+  purely because calling `Date.now()` directly inside a component body
+  trips this repo's React-purity lint rule (`react-hooks/purity`) even
+  though nothing here is ever re-rendered on it.
+- **`ai_model_configs`/`platform_settings` management** (`/platform/models`,
+  `/platform/settings`, new): both are plain RLS-scoped reads/writes —
+  `ai_model_configs` needed nothing new at all; `platform_settings`
+  gained its first-ever update policy (Phase 1 had only ever granted
+  select). Neither needed a SECURITY DEFINER function, unlike almost
+  everything in Phases 4–8 — the difference is that both of these were
+  already "Super Admin can touch this row directly" by design, not
+  "only a specific business-logic transition is allowed."
+- **`add_platform_admin`/`remove_platform_admin`** (new functions,
+  genuinely necessary this time): the one thing plain RLS couldn't do —
+  looking a user up by email requires reading `auth.users`, which no
+  signed-in session, Super Admin included, can do directly.
+  `remove_platform_admin` refuses to remove the last Super Admin (same
+  "refuse, don't just discourage" posture as Phase 8's owner guards);
+  confirmed live, including that a legitimate removal (down to one
+  remaining admin) still succeeds and only removing the *actual* last one
+  is blocked.
+- **A real, if harmless, bug found and fixed in five prior phases' own
+  test files**: every "no direct insert/update/delete policy" pgTAP
+  check since Phase 2 compared `pg_policies.cmd` against lowercase
+  `'insert'`/`'update'`/`'delete'`, but Postgres actually stores (and
+  `pg_policies` returns) these as uppercase `'INSERT'`/`'UPDATE'`/
+  `'DELETE'`/`'ALL'`. The comparison was case-sensitive text equality, so
+  every one of those checks returned `0` regardless of whether a write
+  policy actually existed — they happened to reach the right conclusion
+  only because none of those tables ever actually had one, not because
+  the query could tell the difference. Confirmed directly against the
+  live project (both before and after the fix) that every affected
+  table — `business_brain_entries`, `agent_interactions`, `conversations`/
+  `conversation_messages`, `orders`, `payments`, `subscriptions`,
+  `staff_invites` — genuinely has zero write policies; the fix makes the
+  tests actually capable of catching a future regression, which they
+  could not have done before. Fixed in
+  `supabase/tests/002_business_brain.test.sql` through `010_staff_admin.test.sql`
+  and written correctly from the start in `011_super_admin.test.sql`.
+- **Tests**: `supabase/tests/011_super_admin.test.sql` — both new
+  functions exist, `platform_admins` still has no direct write policy,
+  `platform_settings` gained exactly one Super-Admin-only update policy,
+  `ai_model_configs`' Phase 3 write policy is unchanged, and the
+  last-admin guard's source is present — verified directly against the
+  live project's schema, same as every phase since Section 14.
+- **What Phase 9 does not include**: impersonating a tenant (viewing the
+  console "as" a subscriber for support purposes); platform-wide search
+  across tenants/orders/conversations; scheduled/automated tenant
+  suspension for trial or subscription lapse (Phase 7's compute-on-read
+  entitlement check already makes this unnecessary for gating the Agent
+  itself — Super Admin's manual suspend/close here is an entirely
+  separate, administrative action); and an activity/audit view scoped
+  across all tenants (Phase 8's audit log is per-tenant only).

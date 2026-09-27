@@ -21,7 +21,7 @@ select ok(
 select is(
   (select count(*)::int from pg_policies
    where schemaname = 'public' and tablename in ('conversations', 'conversation_messages')
-     and cmd in ('insert', 'update', 'delete')),
+     and cmd in ('INSERT', 'UPDATE', 'DELETE')),
   0,
   'neither conversations nor conversation_messages has a direct write policy'
 );
