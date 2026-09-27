@@ -777,3 +777,59 @@ structurally true, not just documented.
   and per-plan feature/usage enforcement (`subscription_plans.limits` is
   reserved but nothing reads it yet — every plan behaves identically once
   active).
+
+## 17. Deterministic-first structured UI (ahead of Phase 8)
+
+Per instruction, before Phase 8: category navigation, product browsing,
+price display, cart operations and checkout must never invoke the LLM —
+only genuine natural-language understanding, recommendation, ambiguity
+resolution or personalization should. Until this section, every cart/order
+action (Phase 5) only existed as an AI tool call — reachable exclusively
+through a full gateway turn (deterministic matcher, then a model call if
+that missed, then the tool). Browsing a menu by category therefore cost an
+AI call every time, which is exactly backwards for both latency and spend.
+
+- **`src/server/agent-public/catalog-actions.ts`** (new): a second,
+  deterministic entry point alongside the free-text chat
+  (`src/server/agent-public/actions.ts`), calling the *same* commerce
+  service functions the AI tool-calling loop uses
+  (`src/server/commerce/cart.ts`/`orders.ts`, `src/server/payments/service.ts`)
+  directly from a button click. `runAgentGateway` — and therefore any AI
+  provider, any token cost, any entry in the deterministic-vs-AI metric —
+  is never reached by any of it; these actions are simply not gateway
+  interactions, not "free" ones. Both this and the chat share one cart via
+  the same session cookie (`src/server/agent-public/conversation.ts`,
+  extracted from `actions.ts` so both callers get the exact same
+  conversation).
+- **Every mutating action re-checks what the AI tool handler already
+  checks** — `checkout.ordering_enabled`, `fulfillment_types`, and the
+  product itself re-validated against the live, tenant-scoped catalog by
+  id (never trusted just because the client sent one) — so the structured
+  path can never do something the conversational path would have refused.
+- **`CatalogPanel`** (`src/components/agent-public/catalog-panel.tsx`,
+  new): categories and the full active product list are fetched once,
+  server-side, by the External Agent page itself
+  (`src/app/agent/[slug]/page.tsx`) — category selection is then pure
+  client-side filtering of already-loaded data, not even a network round
+  trip, let alone an AI one. No cart row is created until the customer
+  actually adds something (an empty cart and "no cart yet" render
+  identically, so there is nothing to eagerly create on page load — a
+  visit that never orders costs nothing beyond the initial catalog read).
+- **The greeting is plain server-rendered text** (`tenant_settings.agent.greeting`),
+  shown once above the panel alongside the category browser — both are
+  there "on opening" per the instruction, and neither is an AI call.
+  `ChatPanel`'s own greeting bubble is suppressed (`null`) to avoid
+  showing it twice; the chat remains exactly what it was (deterministic
+  matcher → AI+tools) for whatever a customer types instead of clicking —
+  "what pairs well with X", a complaint, a request for a human.
+- **What this section does not include**: variants and modifiers — the
+  catalog schema (`products`/`categories`, Phase 2) has no concept of
+  either yet, so there is nothing to gate. Whenever they are added, the
+  same shape applies directly: a variant/modifier picker is more
+  structured UI state, and confirming a selection is another deterministic
+  Server Action, never a reason to invoke the model. Also unchanged: the
+  AI tool-calling loop itself (`src/server/ai/tools/`) still exists as-is
+  for the chat surface, and the deterministic-first *matcher* (Phase 3,
+  `src/server/ai/deterministic/match.ts`) is untouched — this section adds
+  a second, independent way to reach zero-AI-cost outcomes, it does not
+  change the first.

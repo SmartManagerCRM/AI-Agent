@@ -5,7 +5,7 @@ import { z } from "zod";
 import { runAgentGateway } from "@/server/ai";
 import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
 import type { AITurnMessage } from "@/server/ai/provider";
-import { generateToken, hashToken, readSessionToken, writeSessionToken } from "@/server/agent-public/session";
+import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant } from "@/server/agent-public/tenant";
 import { serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -92,41 +92,6 @@ export async function sendAgentMessageAction(
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
 
   return { reply: result.reply, handledBy: result.handledBy, message: parsed.data.message };
-}
-
-async function getOrCreateConversation(
-  supabase: TypedSupabaseClient,
-  tenantId: string,
-  tenantSlug: string,
-  defaultLocale: string,
-) {
-  const existingToken = await readSessionToken(tenantSlug);
-  if (existingToken) {
-    const { data } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("session_token_hash", hashToken(existingToken))
-      .eq("status", "open")
-      .maybeSingle();
-    if (data) return data;
-  }
-
-  const token = generateToken();
-  const { data, error } = await supabase
-    .from("conversations")
-    .insert({
-      tenant_id: tenantId,
-      session_token_hash: hashToken(token),
-      channel: "external_agent",
-      locale: defaultLocale,
-    })
-    .select("*")
-    .single();
-  if (error || !data) throw new Error("Failed to start a conversation.");
-
-  await writeSessionToken(tenantSlug, token);
-  return data;
 }
 
 async function loadHistory(supabase: TypedSupabaseClient, conversationId: string): Promise<AITurnMessage[]> {
