@@ -34,12 +34,18 @@ export async function readSessionToken(tenantSlug: string): Promise<string | nul
   return store.get(sessionCookieName(tenantSlug))?.value ?? null;
 }
 
-export async function writeSessionToken(tenantSlug: string, token: string): Promise<void> {
+export async function writeSessionToken(tenantSlug: string, token: string, options?: { crossSite?: boolean }): Promise<void> {
   const store = await cookies();
+  // A cookie set from the widget's iframe (spec §45) is third-party from
+  // the embedding page's point of view — Chrome/Firefox require
+  // `SameSite=None; Secure` for it to be sent at all in that context (a
+  // plain `Lax` cookie is silently dropped there). Safari's ITP still
+  // blocks or expires it regardless; that's a documented Phase 10
+  // limitation, not something this flag can fix.
   store.set(sessionCookieName(tenantSlug), token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: options?.crossSite ? "none" : "lax",
+    secure: options?.crossSite ? true : process.env.NODE_ENV === "production",
     path: "/",
     maxAge: COOKIE_MAX_AGE_SECONDS,
   });

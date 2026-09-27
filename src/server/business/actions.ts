@@ -101,3 +101,31 @@ export async function updateBusinessProfileAction(
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/settings`);
 }
+
+const deploymentModeSchema = z.object({
+  tenantId: z.uuid(),
+  deploymentMode: z.enum(["external_agent", "website_widget", "both"]),
+  locale: z.string(),
+  slug: z.string().min(1),
+});
+
+/**
+ * Which public surface(s) the Agent is reachable on (spec §45, Phase 10):
+ * the standalone External Agent link, the embeddable website widget, or
+ * both. A plain RLS-scoped update, same `settings.write` gate as the
+ * business profile above — no new SQL function needed here either.
+ */
+export async function setDeploymentModeAction(formData: FormData): Promise<void> {
+  const parsed = deploymentModeSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    deploymentMode: formData.get("deploymentMode"),
+    locale: formData.get("locale"),
+    slug: formData.get("slug"),
+  });
+  if (!parsed.success) return;
+
+  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  await supabase.from("tenants").update({ deployment_mode: parsed.data.deploymentMode }).eq("id", parsed.data.tenantId);
+  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/agent`);
+}

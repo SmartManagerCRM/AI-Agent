@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
-import { resolvePublicTenant } from "@/server/agent-public/tenant";
+import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import {
   addToCart,
   getOrCreateCart,
@@ -37,6 +37,7 @@ import { serviceClient } from "@/server/supabase/clients";
  */
 
 type ActionResult = { ok: true; cart: CartView } | { ok: false; error: string };
+type Surface = "external_agent" | "website_widget";
 
 const DEFAULT_CHECKOUT = {
   ordering_enabled: false,
@@ -47,19 +48,23 @@ const DEFAULT_CHECKOUT = {
   tax_included: false,
 };
 
-async function loadContext(slug: string) {
-  const tenant = await resolvePublicTenant(slug);
+async function loadContext(slug: string, surface: Surface = "external_agent") {
+  const isWidget = surface === "website_widget";
+  const tenant = await (isWidget ? resolveWidgetTenant(slug) : resolvePublicTenant(slug));
   if (!tenant) return null;
   const supabase = serviceClient();
-  const conversation = await getOrCreateConversation(supabase, tenant.id, tenant.slug, tenant.defaultLanguage);
+  const conversation = await getOrCreateConversation(supabase, tenant.id, tenant.slug, tenant.defaultLanguage, {
+    channel: surface,
+    crossSite: isWidget,
+  });
   const cart = await getOrCreateCart(supabase, tenant.id, conversation.id);
   const { data: settings } = await supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle();
   const checkout = settings?.checkout ?? DEFAULT_CHECKOUT;
   return { tenant, supabase, conversation, cart, orderingEnabled: checkout.ordering_enabled, fulfillmentTypes: checkout.fulfillment_types };
 }
 
-export async function getCartViewAction(slug: string): Promise<ActionResult> {
-  const ctx = await loadContext(slug);
+export async function getCartViewAction(slug: string, surface: Surface = "external_agent"): Promise<ActionResult> {
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
   return { ok: true, cart };
@@ -67,11 +72,15 @@ export async function getCartViewAction(slug: string): Promise<ActionResult> {
 
 const addSchema = z.object({ productId: z.uuid(), quantity: z.number().int().min(1).max(99) });
 
-export async function addProductToCartAction(slug: string, input: z.infer<typeof addSchema>): Promise<ActionResult> {
+export async function addProductToCartAction(
+  slug: string,
+  input: z.infer<typeof addSchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
   const parsed = addSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid product or quantity." };
 
-  const ctx = await loadContext(slug);
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
 
@@ -94,11 +103,15 @@ export async function addProductToCartAction(slug: string, input: z.infer<typeof
 
 const quantitySchema = z.object({ productId: z.uuid(), quantity: z.number().int().min(0).max(99) });
 
-export async function updateCartItemQuantityAction(slug: string, input: z.infer<typeof quantitySchema>): Promise<ActionResult> {
+export async function updateCartItemQuantityAction(
+  slug: string,
+  input: z.infer<typeof quantitySchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
   const parsed = quantitySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid quantity." };
 
-  const ctx = await loadContext(slug);
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
 
@@ -109,11 +122,15 @@ export async function updateCartItemQuantityAction(slug: string, input: z.infer<
 
 const fulfillmentSchema = z.object({ fulfillmentType: z.enum(["pickup", "delivery"]) });
 
-export async function setFulfillmentTypeAction(slug: string, input: z.infer<typeof fulfillmentSchema>): Promise<ActionResult> {
+export async function setFulfillmentTypeAction(
+  slug: string,
+  input: z.infer<typeof fulfillmentSchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
   const parsed = fulfillmentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid fulfillment type." };
 
-  const ctx = await loadContext(slug);
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
   if (!ctx.fulfillmentTypes.includes(parsed.data.fulfillmentType)) {
@@ -143,11 +160,15 @@ const detailsSchema = z.object({
   deliveryAddress: z.string().trim().max(300).optional(),
 });
 
-export async function setCustomerDetailsAction(slug: string, input: z.infer<typeof detailsSchema>): Promise<ActionResult> {
+export async function setCustomerDetailsAction(
+  slug: string,
+  input: z.infer<typeof detailsSchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
   const parsed = detailsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Check the details you entered." };
 
-  const ctx = await loadContext(slug);
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
 
@@ -160,8 +181,11 @@ export type PlaceStructuredOrderResult =
   | { ok: true; orderNumber: number; totalMinor: number; currency: string; checkoutUrl: string | null }
   | { ok: false; error: string };
 
-export async function placeStructuredOrderAction(slug: string): Promise<PlaceStructuredOrderResult> {
-  const ctx = await loadContext(slug);
+export async function placeStructuredOrderAction(
+  slug: string,
+  surface: Surface = "external_agent",
+): Promise<PlaceStructuredOrderResult> {
+  const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
 

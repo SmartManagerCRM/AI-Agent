@@ -19,9 +19,9 @@ function renderWithLinks(text: string) {
   );
 }
 
-type Props = { slug: string; greeting: string | null; suggestions: string[] };
+type Props = { slug: string; greeting: string | null; suggestions: string[]; surface?: "external_agent" | "website_widget" };
 
-export function ChatPanel({ slug, greeting, suggestions }: Props) {
+export function ChatPanel({ slug, greeting, suggestions, surface = "external_agent" }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(
     greeting ? [{ role: "assistant", text: greeting }] : [],
   );
@@ -39,6 +39,7 @@ export function ChatPanel({ slug, greeting, suggestions }: Props) {
       const formData = new FormData();
       formData.set("slug", slug);
       formData.set("message", trimmed);
+      formData.set("surface", surface);
       const result = await sendAgentMessageAction(undefined, formData);
       if (result && "error" in result) {
         setError(result.error);

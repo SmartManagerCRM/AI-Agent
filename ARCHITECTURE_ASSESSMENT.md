@@ -993,3 +993,75 @@ for, plus the two genuinely missing pieces.
   itself — Super Admin's manual suspend/close here is an entirely
   separate, administrative action); and an activity/audit view scoped
   across all tenants (Phase 8's audit log is per-tenant only).
+
+## 20. Phase 10 implementation notes (Embeddable Widget)
+
+No new migration at all — `tenants.deployment_mode` (`external_agent` |
+`website_widget` | `both`) and `conversations.channel`'s
+`check (channel in ('external_agent', 'website_widget'))` have both
+existed, unused for the second value, since Phase 4. This phase is
+entirely a new surface built on schema that was already waiting for it.
+
+- **One resolver, two entry points**: `resolvePublicTenant` (the
+  standalone External Agent) and the new `resolveWidgetTenant` now share
+  one private implementation (`src/server/agent-public/tenant.ts`) that
+  takes which `deployment_mode` values count — status, entitlement
+  (Phase 7) and the shape returned are identical between the two; only
+  that one check differs.
+- **The widget page reuses `CatalogPanel`/`ChatPanel` verbatim** — no
+  second commerce or chat implementation. Both already took a `surface`
+  prop (or gained one this phase, threaded through every
+  `catalog-actions.ts` export and `sendAgentMessageAction`, each
+  defaulting to `"external_agent"` so the standalone page's existing
+  calls are unaffected) that decides which tenant resolver
+  `catalog-actions.ts`/`actions.ts` calls internally and which `channel`
+  a new conversation is tagged with — the actual cart/chat/checkout logic
+  never branches on it at all.
+- **A widget-originated cookie is cross-site by construction**: the
+  iframe's own document is same-origin with the agent host, but from the
+  *embedding* page's (the tenant's own website) point of view it's a
+  third-party context. `getOrCreateConversation`/`writeSessionToken` gained
+  a `crossSite` flag that sets `SameSite=None; Secure` instead of the
+  standalone surface's `Lax` — required for Chrome/Firefox to send the
+  cookie at all in that context. Documented, not solved: Safari's ITP
+  still blocks or expires third-party cookies regardless, so a widget
+  conversation may not persist across a page reload in Safari — a real
+  MVP limitation, not a silent bug.
+- **The embed snippet** (`src/app/api/widget/embed/route.ts`, new): a
+  business pastes `<script src=".../api/widget/embed?tenant=<slug>" async>`.
+  Lives under `/api/` for the same reason the payment webhook route does
+  (`src/proxy.ts` never rewrites or locale-redirects it) and returns
+  wide-open-CORS plain JavaScript — there is no data in the response to
+  protect; the tenant slug is already public, the same value already
+  shared as the standalone Agent's own link. The script itself only
+  injects a floating launcher button and a toggleable iframe; every
+  actual behavior lives in the widget page it points at, not in the
+  script.
+- **A single-route CSP/frame exception, and a real bug caught before it
+  shipped**: `next.config.ts` applies `X-Frame-Options: DENY` and
+  `frame-ancestors 'none'` to every route (spec §61) — exactly backwards
+  for a page meant to be iframed on a third-party site. The fix needed
+  its own `source` pattern for the widget page, and the first attempt
+  (matching `/agent/widget/:slug*`, the *internal* rewrite target) was
+  silently wrong: confirmed live, with a running dev server, that
+  `next.config.ts`'s `headers()` matches the request path the browser
+  actually sent — the *external* shape (`/widget/<slug>`, no `/agent`
+  prefix, the same convention `/agent/[slug]`'s own external `/<slug>`
+  already uses) — not `src/proxy.ts`'s rewritten target. The DENY header
+  was still being served to the widget page until this was corrected;
+  confirmed after the fix that the widget page gets the permissive CSP,
+  every other route (spot-checked `/api/health` and the standalone Agent
+  page) still gets the strict one.
+- **Console**: the Agent page gained a `deployment_mode` selector and,
+  when `website_widget`/`both` is selected, the copy-pasteable embed
+  snippet — both plain RLS-scoped reads/writes (`tenants_update`'s
+  `settings.write` gate, Phase 1), no new SQL.
+- **What Phase 10 does not include**: a customizable widget appearance
+  (color/position/size are fixed for the MVP); a real distinct public
+  "site key" separate from `slug` (the widget reuses the tenant's own
+  slug, already treated as public/shareable since Phase 4's standalone
+  link — a rotate-able embed key is a reasonable later hardening step,
+  not a gap this MVP needs to close); resizing the iframe to fit its
+  actual content (`OPEN_SIZE` is a fixed 360×560); and any fix for
+  Safari's third-party-cookie blocking (documented above as a real,
+  known limitation).

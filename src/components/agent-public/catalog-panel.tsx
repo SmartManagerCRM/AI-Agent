@@ -25,6 +25,7 @@ type Props = {
   orderingEnabled: boolean;
   fulfillmentTypes: ("pickup" | "delivery")[];
   initialCart: CartView | null;
+  surface?: "external_agent" | "website_widget";
 };
 
 function formatMinor(minor: number, exponent: number): string {
@@ -54,6 +55,7 @@ export function CatalogPanel({
   orderingEnabled,
   fulfillmentTypes,
   initialCart,
+  surface = "external_agent",
 }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(categories[0]?.id ?? null);
   const [cart, setCart] = useState<CartView | null>(initialCart);
@@ -71,7 +73,7 @@ export function CatalogPanel({
   function addToCart(productId: string) {
     setError(null);
     startTransition(async () => {
-      const result = await addProductToCartAction(slug, { productId, quantity: 1 });
+      const result = await addProductToCartAction(slug, { productId, quantity: 1 }, surface);
       if (!result.ok) return setError(result.error);
       setCart(result.cart);
     });
@@ -80,7 +82,7 @@ export function CatalogPanel({
   function changeQuantity(productId: string, quantity: number) {
     setError(null);
     startTransition(async () => {
-      const result = await updateCartItemQuantityAction(slug, { productId, quantity });
+      const result = await updateCartItemQuantityAction(slug, { productId, quantity }, surface);
       if (!result.ok) return setError(result.error);
       setCart(result.cart);
     });
@@ -89,7 +91,7 @@ export function CatalogPanel({
   function chooseFulfillment(type: "pickup" | "delivery") {
     setError(null);
     startTransition(async () => {
-      const result = await setFulfillmentTypeAction(slug, { fulfillmentType: type });
+      const result = await setFulfillmentTypeAction(slug, { fulfillmentType: type }, surface);
       if (!result.ok) return setError(result.error);
       setCart(result.cart);
     });
@@ -98,9 +100,9 @@ export function CatalogPanel({
   function placeOrder() {
     setError(null);
     startTransition(async () => {
-      const detailsResult = await setCustomerDetailsAction(slug, details);
+      const detailsResult = await setCustomerDetailsAction(slug, details, surface);
       if (!detailsResult.ok) return setError(detailsResult.error);
-      const result = await placeStructuredOrderAction(slug);
+      const result = await placeStructuredOrderAction(slug, surface);
       if (!result.ok) return setError(result.error);
       setOrderResult(result);
       setCart(null);

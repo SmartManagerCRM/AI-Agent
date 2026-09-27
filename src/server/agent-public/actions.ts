@@ -6,7 +6,7 @@ import { runAgentGateway } from "@/server/ai";
 import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
 import type { AITurnMessage } from "@/server/ai/provider";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
-import { resolvePublicTenant } from "@/server/agent-public/tenant";
+import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -31,6 +31,7 @@ function isRateLimited(key: string): boolean {
 const sendMessageSchema = z.object({
   slug: z.string().trim().min(1).max(60),
   message: z.string().trim().min(1).max(1000),
+  surface: z.enum(["external_agent", "website_widget"]).default("external_agent"),
 });
 
 export type SendAgentMessageState =
@@ -49,14 +50,22 @@ export async function sendAgentMessageAction(
   _prevState: SendAgentMessageState,
   formData: FormData,
 ): Promise<SendAgentMessageState> {
-  const parsed = sendMessageSchema.safeParse({ slug: formData.get("slug"), message: formData.get("message") });
+  const parsed = sendMessageSchema.safeParse({
+    slug: formData.get("slug"),
+    message: formData.get("message"),
+    surface: formData.get("surface") ?? undefined,
+  });
   if (!parsed.success) return { error: "Enter a message." };
 
-  const tenant = await resolvePublicTenant(parsed.data.slug);
+  const isWidget = parsed.data.surface === "website_widget";
+  const tenant = await (isWidget ? resolveWidgetTenant(parsed.data.slug) : resolvePublicTenant(parsed.data.slug));
   if (!tenant) return { error: "This Agent is not available right now." };
 
   const supabase = serviceClient();
-  const conversation = await getOrCreateConversation(supabase, tenant.id, tenant.slug, tenant.defaultLanguage);
+  const conversation = await getOrCreateConversation(supabase, tenant.id, tenant.slug, tenant.defaultLanguage, {
+    channel: parsed.data.surface,
+    crossSite: isWidget,
+  });
 
   if (isRateLimited(conversation.id)) {
     return { error: "You're sending messages a little fast — please wait a moment and try again." };
@@ -75,7 +84,7 @@ export async function sendAgentMessageAction(
   const result = await runAgentGateway(supabase, {
     tenant: { id: tenant.id, currency: tenant.currency, slug: tenant.slug },
     locale: conversation.locale,
-    requestType: "external_agent",
+    requestType: parsed.data.surface,
     message: parsed.data.message,
     history,
     conversationId: conversation.id,
