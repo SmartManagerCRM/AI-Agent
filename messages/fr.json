@@ -26,6 +26,7 @@
   "console": {
     "nav": {
       "dashboard": "Tableau de bord",
+      "orders": "Commandes",
       "products": "Produits / Services",
       "branches": "Succursales",
       "businessBrain": "Cerveau de l'entreprise",

@@ -86,6 +86,14 @@ export type Database = {
         Row: {
           tenant_id: string;
           agent: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null };
+          checkout: {
+            ordering_enabled: boolean;
+            fulfillment_types: ("pickup" | "delivery")[];
+            delivery_fee_minor: number;
+            minimum_order_minor: number;
+            tax_rate_bps: number;
+            tax_included: boolean;
+          };
           created_at: string;
           updated_at: string;
         };
@@ -362,6 +370,110 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["conversation_messages"]["Row"]>;
         Relationships: [];
       };
+      tenant_counters: {
+        Row: { tenant_id: string; next_order_number: number };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      carts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          conversation_id: string;
+          status: "active" | "converted" | "abandoned";
+          fulfillment_type: "pickup" | "delivery" | null;
+          branch_id: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          delivery_address: Json | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["carts"]["Row"]> & { tenant_id: string; conversation_id: string };
+        Update: Partial<Database["public"]["Tables"]["carts"]["Row"]>;
+        Relationships: [];
+      };
+      cart_items: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          cart_id: string;
+          product_id: string;
+          quantity: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["cart_items"]["Row"]> & {
+          tenant_id: string;
+          cart_id: string;
+          product_id: string;
+          quantity: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["cart_items"]["Row"]>;
+        Relationships: [];
+      };
+      orders: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          order_number: number;
+          conversation_id: string | null;
+          cart_id: string | null;
+          status: "draft" | "pending_payment" | "paid" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled" | "refunded";
+          fulfillment_type: "pickup" | "delivery";
+          branch_id: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          delivery_address: Json | null;
+          notes: string | null;
+          currency: string;
+          subtotal_minor: number;
+          delivery_fee_minor: number;
+          tax_minor: number;
+          total_minor: number;
+          placed_at: string;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      order_items: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          order_id: string;
+          product_id: string | null;
+          product_name: LocalizedText;
+          unit_price_minor: number;
+          quantity: number;
+          total_minor: number;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      order_status_history: {
+        Row: {
+          id: number;
+          tenant_id: string;
+          order_id: string;
+          from_status: string | null;
+          to_status: string;
+          actor: "customer" | "staff" | "system";
+          note: string | null;
+          at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -443,6 +555,14 @@ export type Database = {
           deterministic_pct: number;
           total_cost_usd: number;
         }[];
+      };
+      create_order_from_cart: {
+        Args: { p_cart_id: string };
+        Returns: string;
+      };
+      update_order_status: {
+        Args: { p_order_id: string; p_new_status: string; p_note?: string | null };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;

@@ -73,6 +73,7 @@ export async function sendAgentMessageAction(
     requestType: "external_agent",
     message: parsed.data.message,
     history,
+    conversationId: conversation.id,
   });
 
   await supabase.from("conversation_messages").insert({

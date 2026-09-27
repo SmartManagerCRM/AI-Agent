@@ -466,3 +466,73 @@ addendum says not to depend on.
   locations sections and QR code (addendum §16–§18 — the page shows name,
   about text and featured products today, the rest follows once Branches/
   Business Brain have more to show and Phase 10's polish pass lands).
+
+---
+
+## 13. Phase 5 implementation notes (Cart & Orders)
+
+This phase is where the Customer Agent stopped being chat-only: Phase 4
+deferred the tool-calling loop for lack of anything to act on, so the
+first thing this phase builds is that loop itself, then the cart/order
+schema it acts on.
+
+- **Schema** (migration `cart_and_orders`): `carts`/`cart_items` (one
+  active cart per conversation — the same hashed-cookie session that
+  identifies a conversation identifies its cart, no separate customer
+  account needed), `orders`/`order_items`/`order_status_history`
+  (spec §16's exact 9 statuses: draft/pending_payment/paid/confirmed/
+  preparing/ready/completed/cancelled/refunded), `tenant_counters` for
+  human-friendly per-tenant order numbers. Same access pattern as
+  `conversations`: **no RLS write policy anywhere** — every write is
+  either the service-role client (customer path, via the cart/order
+  service in `src/server/commerce/`) or one of two SQL functions.
+- **`create_order_from_cart` is the one place a total is ever computed**
+  (spec §15) — it re-reads every product's live price, applies the
+  tenant's own delivery fee/tax settings, and only then writes the order.
+  Nothing upstream (the AI, the cart, the customer) ever supplies a total.
+  Seeding `tenant_counters` at tenant creation (a small `create_business`
+  change) closes a first-order race two concurrent orders could otherwise
+  hit. `update_order_status` is a second function enforcing spec §16's
+  transition table — a `confirmed` order can become `preparing` or
+  `cancelled`, never anything else, staff-only (`orders.write`).
+- **The tool-calling loop now exists** (`src/server/ai/gateway.ts`
+  rewritten, `src/server/ai/tools/registry.ts` + `tools/handlers.ts`):
+  11 tools (search/get_product, view/add/update/remove/clear cart,
+  set_fulfillment, set_customer_details, place_order,
+  request_human_handoff), capped at `MAX_AGENT_STEPS = 8` (spec §24) per
+  user message. Every handler is a thin wrapper over the cart/order
+  service — the model can never do anything a customer couldn't already
+  do by hand, and `place_order` calls the same `create_order_from_cart`
+  regardless of who's asking.
+- **Tools are addressed by product *name*, not id** — a deliberate scope
+  decision, not an oversight: tool_use/tool_result blocks live only
+  within one gateway call and are never persisted (only plain message
+  text is, in `conversation_messages`), so an id `search_products` handed
+  out in an earlier customer message wouldn't survive to a later one.
+  Name matching against the live catalog does. `matchProductByName`
+  (`src/server/commerce/cart.ts`) is pure and unit-tested; a future phase
+  that persists per-turn tool history could move to ids.
+- **Tools are only enabled when a real `conversationId` is supplied** —
+  the console's Agent preview (Phase 3/4) deliberately omits it, so a
+  staff test message still gets a text-only reply and can never create a
+  real cart or order, honoring spec §73's "do not accidentally create
+  real orders" for the one surface meant to be a safe sandbox.
+- **Console**: an Orders page (list, per-status next-action buttons calling
+  `update_order_status`) and a Settings → "Ordering & checkout" section
+  (ordering on/off, pickup/delivery, delivery fee, minimum order, tax) —
+  without the latter, `tenant_settings.checkout.ordering_enabled` has no
+  UI path to ever become `true`, so it shipped in the same phase as the
+  tools it gates.
+- **Tests**: `tests/unit/commerce-cart.test.ts` (pure name-matching logic,
+  no network) plus the existing gateway/router/pricing suites still pass
+  unchanged since the tool loop is additive to the same `runAgentGateway`
+  signature. `supabase/tests/006_cart_and_orders.test.sql` adds structural
+  pgTAP checks (RLS, zero direct write policies, order-number uniqueness).
+- **What Phase 5 does not include**: payment — every order is created
+  `pending_payment` and stays there until staff manually mark it `paid`
+  (Phase 6 adds the `PaymentProvider` abstraction and a real/mock
+  provider); delivery zones with distance-based fees (today's delivery
+  fee is one flat tenant-wide amount); stock/inventory checks on
+  add-to-cart (products have no inventory concept yet in this schema);
+  and persisting tool-call history per turn (noted above — the reason
+  tools use product names today).

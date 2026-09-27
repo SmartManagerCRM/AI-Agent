@@ -5,7 +5,9 @@ import { matchDeterministic } from "./deterministic/match";
 import { calculateCostUsd } from "./pricing";
 import { fallbackChain, loadModelConfigs, type ModelKind } from "./router";
 import { buildSystemPrompt } from "./system-prompt";
-import type { AITurnMessage } from "./provider";
+import { AGENT_TOOLS } from "./tools/registry";
+import { executeTool, type ToolContext } from "./tools/handlers";
+import type { AITurnMessage, ContentBlock } from "./provider";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
@@ -16,12 +18,15 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
  * (`agent_interaction_stats`) instead of an aspiration.
  *
  * This module knows nothing about the `conversations` table — the caller
- * (`src/server/agent-public/actions.ts` for the External Agent, the console's
- * Agent preview for a one-off test) loads whatever history it wants
- * remembered and passes it in as `history`. Keeping conversation storage
- * out of the gateway means the same gateway serves a stored multi-turn
- * conversation and a single stateless test message identically.
+ * loads whatever history it wants remembered and passes it in as `history`.
+ * Tool execution (Phase 5's cart/order tools, spec §13) is **only enabled
+ * when `conversationId` is supplied** — the console's Agent preview
+ * (spec §73's "clearly marked test environment... do not accidentally
+ * create real orders") deliberately omits it, so a staff test message
+ * still gets a text-only reply and can never write a real cart or order.
  */
+const MAX_AGENT_STEPS = 8;
+
 export type GatewayInput = {
   tenant: { id: string; currency: string; slug: string };
   locale: string;
@@ -29,6 +34,8 @@ export type GatewayInput = {
   message: string;
   /** Prior turns, oldest first — omit for a stateless single-turn call. */
   history?: AITurnMessage[];
+  /** Enables tool execution (cart/orders) scoped to this conversation. Omit for a tool-free preview reply. */
+  conversationId?: string;
   kind?: ModelKind;
 };
 
@@ -75,28 +82,74 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     return { handledBy: "ai", reply, error: "NOT_CONFIGURED: no AI provider is configured." };
   }
 
+  let toolContext: ToolContext | null = null;
+  if (input.conversationId) {
+    const { data: settings } = await supabase.from("tenant_settings").select("checkout").eq("tenant_id", input.tenant.id).maybeSingle();
+    toolContext = {
+      supabase,
+      tenantId: input.tenant.id,
+      conversationId: input.conversationId,
+      locale: input.locale,
+      currency: input.tenant.currency,
+      currencyExponent: snapshot.currencyExponent,
+      checkout: settings?.checkout ?? {
+        ordering_enabled: false,
+        fulfillment_types: ["pickup"],
+        delivery_fee_minor: 0,
+        minimum_order_minor: 0,
+      },
+    };
+  }
+
   const system = buildSystemPrompt(snapshot);
   const messages: AITurnMessage[] = [
     ...(input.history ?? []),
     { role: "user", content: [{ type: "text", text: input.message }] },
   ];
+  const tools = toolContext ? AGENT_TOOLS : undefined;
 
   let lastError = "";
   for (let i = 0; i < chain.length; i++) {
     const { row, provider } = chain[i];
     const startedAt = Date.now();
-    const result = await provider.chat({ model: row.model, system, messages, maxTokens: 512 });
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let finalText = "";
+    let stepError: string | null = null;
+
+    for (let step = 0; step < MAX_AGENT_STEPS; step++) {
+      const result = await provider.chat({ model: row.model, system, messages, tools, maxTokens: 512 });
+      if (!result.ok) {
+        stepError = result.error;
+        break;
+      }
+      totalInputTokens += result.value.usage.inputTokens;
+      totalOutputTokens += result.value.usage.outputTokens;
+
+      const textBlock = result.value.content.find((b): b is Extract<ContentBlock, { type: "text" }> => b.type === "text");
+      if (textBlock?.text) finalText = textBlock.text;
+
+      const toolUseBlocks = result.value.content.filter((b): b is Extract<ContentBlock, { type: "tool_use" }> => b.type === "tool_use");
+      if (result.value.stopReason !== "tool_use" || toolUseBlocks.length === 0 || !toolContext) {
+        break;
+      }
+
+      messages.push({ role: "assistant", content: result.value.content });
+      const toolResults: ContentBlock[] = [];
+      for (const toolUse of toolUseBlocks) {
+        const toolResult = await executeTool(toolUse.name, toolUse.input, toolContext);
+        toolResults.push({ type: "tool_result", toolUseId: toolUse.id, content: toolResult.content, isError: toolResult.isError });
+      }
+      messages.push({ role: "user", content: toolResults });
+    }
+
     const latencyMs = Date.now() - startedAt;
 
-    if (result.ok) {
-      const text = result.value.content.find((b) => b.type === "text")?.text ?? "";
+    if (!stepError) {
       const costUsd = calculateCostUsd(
-        {
-          inputPricePerMillionUsd: row.input_price_per_million_usd,
-          outputPricePerMillionUsd: row.output_price_per_million_usd,
-        },
-        result.value.usage.inputTokens,
-        result.value.usage.outputTokens,
+        { inputPricePerMillionUsd: row.input_price_per_million_usd, outputPricePerMillionUsd: row.output_price_per_million_usd },
+        totalInputTokens,
+        totalOutputTokens,
       );
       await recordInteraction(supabase, {
         tenantId: input.tenant.id,
@@ -104,17 +157,24 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         handledBy: "ai",
         provider: row.provider,
         model: row.model,
-        inputTokens: result.value.usage.inputTokens,
-        outputTokens: result.value.usage.outputTokens,
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
         costUsd,
         latencyMs,
         success: true,
         fallbackUsed: i > 0,
       });
-      return { handledBy: "ai", reply: text, provider: row.provider, model: row.model, costUsd, fallbackUsed: i > 0 };
+      return {
+        handledBy: "ai",
+        reply: finalText || "Sorry, I didn't catch that — could you rephrase?",
+        provider: row.provider,
+        model: row.model,
+        costUsd,
+        fallbackUsed: i > 0,
+      };
     }
 
-    lastError = result.error;
+    lastError = stepError;
   }
 
   await recordInteraction(supabase, {
