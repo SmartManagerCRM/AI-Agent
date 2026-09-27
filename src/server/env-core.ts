@@ -21,6 +21,15 @@ const serverEnvSchema = z.object({
     .string()
     .regex(/^[a-z0-9-]+$/)
     .default("app"),
+  /**
+   * Subdomain that serves the standalone External Agent (addendum §14):
+   * `agent.<root>/<tenant-slug>`, configurable per the addendum's own
+   * instruction ("the domain must be configurable").
+   */
+  AGENT_SUBDOMAIN: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .default("agent"),
   /** Supabase secret (service-role) key. Only used by narrowly scoped server services. */
   SUPABASE_SECRET_KEY: z.string().min(20).optional(),
   PUBLIC_URL_SCHEME: z.enum(["http", "https"]).default("https"),

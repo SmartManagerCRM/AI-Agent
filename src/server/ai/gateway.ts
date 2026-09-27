@@ -4,6 +4,8 @@ import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { matchDeterministic } from "./deterministic/match";
 import { calculateCostUsd } from "./pricing";
 import { fallbackChain, loadModelConfigs, type ModelKind } from "./router";
+import { buildSystemPrompt } from "./system-prompt";
+import type { AITurnMessage } from "./provider";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
@@ -12,12 +14,21 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
  * recorded through `record_agent_interaction`, which is what makes "% of
  * interactions handled without AI" (spec §69) a real, queryable number
  * (`agent_interaction_stats`) instead of an aspiration.
+ *
+ * This module knows nothing about the `conversations` table — the caller
+ * (`src/server/agent-public/actions.ts` for the External Agent, the console's
+ * Agent preview for a one-off test) loads whatever history it wants
+ * remembered and passes it in as `history`. Keeping conversation storage
+ * out of the gateway means the same gateway serves a stored multi-turn
+ * conversation and a single stateless test message identically.
  */
 export type GatewayInput = {
   tenant: { id: string; currency: string; slug: string };
   locale: string;
   requestType: string;
   message: string;
+  /** Prior turns, oldest first — omit for a stateless single-turn call. */
+  history?: AITurnMessage[];
   kind?: ModelKind;
 };
 
@@ -47,21 +58,13 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     return { handledBy: "deterministic", reply: deterministic.reply, rule: deterministic.rule };
   }
 
-  return runAiFallback(supabase, input, snapshot.assistantName, snapshot.greeting);
-}
-
-async function runAiFallback(
-  supabase: TypedSupabaseClient,
-  input: GatewayInput,
-  assistantName: string | null,
-  greeting: string | null,
-): Promise<GatewayResult> {
   const kind = input.kind ?? "fast";
   const rows = await loadModelConfigs(supabase);
   const chain = fallbackChain(rows, kind);
 
   if (chain.length === 0) {
-    const reply = greeting || "I'm sorry, I can't help with that right now — please contact the business directly.";
+    const reply =
+      snapshot.greeting || "I'm sorry, I can't help with that right now — please contact the business directly.";
     await recordInteraction(supabase, {
       tenantId: input.tenant.id,
       requestType: input.requestType,
@@ -72,29 +75,26 @@ async function runAiFallback(
     return { handledBy: "ai", reply, error: "NOT_CONFIGURED: no AI provider is configured." };
   }
 
-  const system = [
-    `You are ${assistantName || "a helpful assistant"} for this business.`,
-    "Answer only from information you are given in this conversation.",
-    "If you do not know something, say so honestly rather than guessing — never invent prices, availability, or policies.",
-    "Keep replies short and conversational.",
-  ].join(" ");
+  const system = buildSystemPrompt(snapshot);
+  const messages: AITurnMessage[] = [
+    ...(input.history ?? []),
+    { role: "user", content: [{ type: "text", text: input.message }] },
+  ];
 
   let lastError = "";
   for (let i = 0; i < chain.length; i++) {
     const { row, provider } = chain[i];
     const startedAt = Date.now();
-    const result = await provider.chat({
-      model: row.model,
-      system,
-      messages: [{ role: "user", content: [{ type: "text", text: input.message }] }],
-      maxTokens: 512,
-    });
+    const result = await provider.chat({ model: row.model, system, messages, maxTokens: 512 });
     const latencyMs = Date.now() - startedAt;
 
     if (result.ok) {
       const text = result.value.content.find((b) => b.type === "text")?.text ?? "";
       const costUsd = calculateCostUsd(
-        { inputPricePerMillionUsd: row.input_price_per_million_usd, outputPricePerMillionUsd: row.output_price_per_million_usd },
+        {
+          inputPricePerMillionUsd: row.input_price_per_million_usd,
+          outputPricePerMillionUsd: row.output_price_per_million_usd,
+        },
         result.value.usage.inputTokens,
         result.value.usage.outputTokens,
       );

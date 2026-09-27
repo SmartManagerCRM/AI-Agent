@@ -17,8 +17,8 @@ export type BrainSnapshot = {
   currencyExponent: number;
   products: { name: string; priceMinor: number }[];
   defaultBranch: { name: string; phone: string | null; openingHours: Record<string, OpeningHoursDay> } | null;
-  /** entry_type -> best-available-locale text, for delivery/pickup/payment/policy notes. */
-  notes: Partial<Record<"delivery_info" | "pickup_info" | "payment_methods" | "policy", string>>;
+  /** entry_type -> best-available-locale text, for about/delivery/pickup/payment/policy notes. */
+  notes: Partial<Record<"about" | "delivery_info" | "pickup_info" | "payment_methods" | "policy", string>>;
   /** FAQ entries: entry_key (hyphenated keywords) -> best-available-locale answer text. */
   faqs: { entryKey: string; answer: string }[];
 };

@@ -399,3 +399,70 @@ framing and the instruction that came with it.
   than a redesign. Scheduled/automatic rescans (`scan_frequency` is stored
   but nothing reads it yet), and the External Agent's own page/URL/QR code
   (Phase 10, now scoped by this addendum rather than newly invented).
+
+---
+
+## 12. Phase 4 implementation notes (Customer Agent)
+
+The addendum moved the External Agent forward: it is the first real
+customer-facing surface, built now rather than deferred to Phase 10,
+because the addendum's own critical rule ("the Agent must function with
+NO WEBSITE") makes it the natural way to exercise the Customer Agent at
+all — a website widget would have meant building the one thing the
+addendum says not to depend on.
+
+- **New host: `agent.<root>/<tenant-slug>`** (`src/lib/hosts.ts`,
+  `AGENT_SUBDOMAIN` env var, default `agent`). Deliberately **no locale in
+  the URL** — addendum §17 wants a clean, shareable link (Instagram bio,
+  QR code, receipts), so the proxy negotiates locale silently
+  (cookie/Accept-Language) instead of redirecting to inject one, unlike
+  the platform/console hosts.
+- **`tenants.deployment_mode`** (added by the addendum retrofit, §11
+  above) gates the page: only `active` tenants with `external_agent` or
+  `both` resolve; anything else 404s. `resolvePublicTenant()`
+  (`src/server/agent-public/tenant.ts`) is the one place that check lives.
+- **No customer account system exists, so identity is a hashed cookie,
+  not a login** — the same pattern this product's sibling project uses
+  for guest carts/bookings. `src/server/agent-public/session.ts` generates
+  a random token, stores only its SHA-256 hash on the `conversations` row,
+  and sets it HttpOnly. Because there is no Supabase Auth user at all on
+  this path, `conversations`/`conversation_messages` (migration
+  `conversations`) have **no RLS write policy and no SECURITY DEFINER
+  function** — the only way to reach them is the service-role client,
+  used exclusively inside `src/server/agent-public/actions.ts`, a trusted
+  Server Action that resolves and validates the tenant itself before
+  touching anything. Staff get read-only access via the ordinary
+  `agent.read` permission (the new Conversations console page).
+- **The AI Gateway (Phase 3) needed one real change to serve a multi-turn
+  conversation**: it previously sent the model a single message with no
+  business context and no history. `runAgentGateway` now accepts an
+  optional `history: AITurnMessage[]` (the caller's job to load — the
+  gateway still knows nothing about the `conversations` table, so the same
+  gateway serves a stored conversation and a stateless console test
+  message identically), and the AI fallback path's system prompt is built
+  by the new, unit-tested `buildSystemPrompt()` (`src/server/ai/
+  system-prompt.ts`) from the same `BrainSnapshot` the deterministic
+  matchers already use — the business's own products (capped at 40, spec
+  §19: never the entire catalog), branch, and delivery/pickup/payment/
+  about notes — so "something spicy and cheap" (spec §7's own example of
+  a query deterministic matching can't handle) reaches the model with
+  real product names and prices to recommend from, and an explicit
+  instruction that no order/payment exists yet to falsely confirm.
+- **A best-effort in-process rate limit** (20 messages/minute per
+  conversation) on the one public entry point — spec §65 for "public
+  widget" traffic; a real multi-instance deployment would need a shared
+  store, noted in the code rather than silently assumed away.
+- **Console**: the Agent page now shows the tenant's public Agent URL
+  (when `deployment_mode` allows it) right next to the settings/test panel
+  it already had; the Conversations page (previously a placeholder) lists
+  real conversations and their most recent message.
+- **What Phase 4 does not include**: a formal tool-calling loop and tool
+  registry (spec §92) — the AI path today is a single-turn-per-message
+  chat grounded in a system-prompt snapshot, not yet able to call
+  `add_to_cart`/`create_booking`-style tools, because Cart & Orders
+  (Phase 5) doesn't exist yet for a tool to act on; conversation
+  summarization for very long histories (spec §18 — today it just sends
+  the last 12 messages); and the External Agent's branded logo/offers/
+  locations sections and QR code (addendum §16–§18 — the page shows name,
+  about text and featured products today, the rest follows once Branches/
+  Business Brain have more to show and Phase 10's polish pass lands).

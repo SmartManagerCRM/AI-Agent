@@ -26,7 +26,7 @@ export async function buildBrainSnapshot(
         .select("entry_type, entry_key, content")
         .eq("status", "approved")
         .eq("is_active", true)
-        .in("entry_type", ["delivery_info", "pickup_info", "payment_methods", "policy", "faq"]),
+        .in("entry_type", ["about", "delivery_info", "pickup_info", "payment_methods", "policy", "faq"]),
     ]);
 
   const bestText = (content: unknown): string | null => {
@@ -43,6 +43,7 @@ export async function buildBrainSnapshot(
     if (!text) continue;
     if (entry.entry_type === "faq") faqs.push({ entryKey: entry.entry_key, answer: text });
     else if (
+      entry.entry_type === "about" ||
       entry.entry_type === "delivery_info" ||
       entry.entry_type === "pickup_info" ||
       entry.entry_type === "payment_methods" ||

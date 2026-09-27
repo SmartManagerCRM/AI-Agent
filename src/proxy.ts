@@ -9,13 +9,18 @@ import { serverEnv } from "@/server/env-core";
 /**
  * Request entry point (Next.js "proxy", Node.js runtime).
  *
- *   hostname ──► classifyHost ──► platform | console
+ *   hostname ──► classifyHost ──► platform | console | agent
  *
- * Public URLs are always `/<locale>/…`; they are rewritten to internal route
- * trees that carry the area:
+ * Public URLs on the platform/console hosts are always `/<locale>/…`;
+ * they are rewritten to internal route trees that carry the area:
  *
  *   platform    /fr/pricing    → /site/fr/pricing
  *   console     /ar/t/acme     → /console/ar/t/acme
+ *
+ * The agent host is different on purpose (addendum §17: a clean,
+ * shareable link) — `agent.<root>/<tenant-slug>` carries no locale segment
+ * at all; locale is negotiated silently (cookie/Accept-Language) and the
+ * URL is never redirected to inject one.
  */
 const INTERNAL_HEADERS = ["x-site-area", "x-next-intl-locale"];
 
@@ -24,6 +29,7 @@ export async function proxy(request: NextRequest) {
   const site = classifyHost(request.headers.get("host"), {
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
+    agentSubdomain: env.AGENT_SUBDOMAIN,
   });
 
   const { pathname, search } = request.nextUrl;
@@ -70,6 +76,12 @@ export async function proxy(request: NextRequest) {
         url.pathname = `/console/${locale}${rest}`;
         return NextResponse.rewrite(url, { request: { headers } });
       });
+    }
+
+    case "agent": {
+      const locale = negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
+      requestHeaders.set("x-site-area", "agent");
+      return rewrite(`/agent${pathname === "/" ? "" : pathname}`, locale);
     }
   }
 }

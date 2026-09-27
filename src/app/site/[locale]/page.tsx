@@ -9,6 +9,7 @@ export default async function MarketingHome() {
   const consoleHref = platformOrigin(env.CONSOLE_SUBDOMAIN, {
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
+    agentSubdomain: env.AGENT_SUBDOMAIN,
     scheme: env.PUBLIC_URL_SCHEME,
     port: env.PUBLIC_URL_PORT,
   });

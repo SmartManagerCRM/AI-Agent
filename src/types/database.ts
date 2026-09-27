@@ -323,6 +323,45 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      conversations: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          session_token_hash: string;
+          channel: "external_agent" | "website_widget";
+          locale: string;
+          status: "open" | "closed";
+          started_at: string;
+          last_message_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["conversations"]["Row"]> & {
+          tenant_id: string;
+          session_token_hash: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["conversations"]["Row"]>;
+        Relationships: [];
+      };
+      conversation_messages: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          conversation_id: string;
+          role: "user" | "assistant";
+          content: string;
+          handled_by: "deterministic" | "ai" | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["conversation_messages"]["Row"]> & {
+          tenant_id: string;
+          conversation_id: string;
+          role: "user" | "assistant";
+          content: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["conversation_messages"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
