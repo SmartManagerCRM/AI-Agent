@@ -8,12 +8,19 @@ import { assertSafeCrawlTarget, parseCrawlUrl, UnsafeCrawlTargetError } from "./
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
- * Deterministic website crawler (spec §9). Everything it finds lands as
+ * The `website` source connector (spec §9; multi-source addendum §2–§3):
+ * one implementation of the general ingestion pipeline (Business Sources →
+ * Source Connector → Content Extraction → Normalization → Business Brain →
+ * Validation → Approved Knowledge). Everything it finds lands as
  * `pending_review` Business Brain entries (via `create_brain_entry`, source
- * "website") — never as authoritative structured data. AI-based extraction
- * (turning this raw text into draft products/policies automatically) is
- * deferred to the AI Gateway (Phase 3); this phase only gets the reviewable
- * facts in front of the owner.
+ * `"website"`) — never as authoritative structured data. Other connectors
+ * (Instagram, PDF, image OCR, ...) are additive: each is its own module that
+ * ends the same way — one or more `create_brain_entry` calls against a
+ * `business_sources` row of its own `source_type` — never a change to the
+ * Business Brain schema itself. AI-based extraction (turning raw text into
+ * draft products/policies automatically) is deferred to the AI Gateway
+ * (Phase 3, already built); this connector only gets the reviewable facts
+ * in front of the owner.
  */
 const MAX_PAGES = 8;
 const MAX_DEPTH = 1;
@@ -79,7 +86,12 @@ export async function runWebsiteCrawl(
 
     await supabase
       .from("business_sources")
-      .update({ status: "completed", pages_crawled: pagesCrawled, last_crawled_at: new Date().toISOString() })
+      .update({
+        status: "completed",
+        items_processed: pagesCrawled,
+        last_scanned_at: new Date().toISOString(),
+        extraction_status: "raw_only",
+      })
       .eq("id", sourceId);
 
     return { pagesCrawled, entriesCreated };
@@ -88,7 +100,7 @@ export async function runWebsiteCrawl(
       error instanceof UnsafeCrawlTargetError || error instanceof Error ? error.message : "Crawl failed unexpectedly.";
     await supabase
       .from("business_sources")
-      .update({ status: "failed", error_message: message.slice(0, 500), last_crawled_at: new Date().toISOString() })
+      .update({ status: "failed", error_message: message.slice(0, 500), last_scanned_at: new Date().toISOString() })
       .eq("id", sourceId);
     throw error;
   }

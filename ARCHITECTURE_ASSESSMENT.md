@@ -317,3 +317,85 @@ Two migrations: `ai_gateway` (`ai_model_configs`, `agent_interactions`,
   and its RLS gate already exist); platform-wide (cross-tenant) AI economics
   rollups; and per-conversation token/step limits (spec §24, §31 — there is
   no multi-turn conversation yet for a limit to apply to).
+
+---
+
+## 11. Addendum — Multi-Source Business Brain & Standalone Agent
+
+A separate addendum document arrived after Phase 3 shipped, with one
+"CRITICAL ARCHITECTURE ADDENDUM" line: **the AI Agent must not depend on a
+website.** Phase 2, as built, modeled Business Brain sources as
+`kind in ('website', 'manual')` — correct for what existed, but the wrong
+shape for where the addendum says this is going (Instagram, Facebook, PDF
+menus, images, Google Business, API integrations — each just one more
+`source_type`, never a reason to touch the Business Brain schema itself).
+This section is the retrofit — schema and code changes to already-shipped
+Phase 2/3 work — done *before* starting Phase 4, per the addendum's own
+framing and the instruction that came with it.
+
+**Migration `multi_source_business_brain`** (all tables were empty — 0 rows
+— so every rename below is a pure schema change, no data migration):
+
+- `business_sources.kind` → `source_type`, widened to the addendum's full
+  vocabulary (`website, instagram, facebook, online_menu, pdf, document,
+  image, google_business, manual, api`) — only `website` and `manual` have
+  a real connector today; the rest exist so adding one is additive (spec
+  addendum §2: "allow new source connectors without redesigning the
+  Business Brain"). `last_crawled_at` → `last_scanned_at`, `pages_crawled`
+  → `items_processed` (a PDF page count and an Instagram post count are
+  both "items processed", not "pages crawled"). New columns matching the
+  addendum's own field list (§2): `scan_frequency` (manual/daily/weekly),
+  `content_hash` (change detection for a future scheduled-refresh job —
+  not wired up yet, spec §23), `extraction_status` (`raw_only` today for
+  every connector — no connector produces structured drafts yet, since that
+  needs AI reasoning; `partial`/`structured` are there for when one does).
+- `business_brain_entries.source` → `source_type` (same vocabulary), plus
+  `confidence` (`high`/`medium`/`low`), `source_url`, `last_verified_at` —
+  the addendum's §24 traceability requirement ("every important fact
+  should retain its source... confidence... last verified").
+- **New table `business_brain_conflicts`** (addendum §6: "Detect and
+  record conflicts. Never silently choose an arbitrary value.") — an
+  array of `{source_type, source_id, value, confidence, detected_at}` per
+  disagreement, `status` open/resolved, resolved by
+  `resolve_brain_conflict()` (SECURITY DEFINER, same pattern as every other
+  Business Brain write). **Conflict detection lives inside
+  `create_brain_entry` itself**, not a separate batch job: proposing a new
+  value for a key that already has an `approved` value from a *different*
+  source, with genuinely different content, both records the conflict and
+  (for a non-`manual` proposal) leaves the existing approved fact live
+  while the new one waits in `pending_review` — the two coexist by design
+  (same partial-unique-index mechanism Phase 2 already had). This also
+  fixed a latent bug the addendum's own conflict scenario exposed: a
+  `manual` entry reusing an already-`approved` key would previously have
+  hit the `(tenant_id, entry_key) where status = 'approved'` unique index
+  and errored; `create_brain_entry` now supersedes the old approved row
+  first when the new source is `manual` (an owner's entry always wins
+  immediately, per source priority), so the override succeeds instead of
+  crashing.
+- **Confidence defaults by source** (addendum §8: "treat social content as
+  lower-confidence than owner-confirmed data"): `manual` → `high`;
+  `instagram`/`facebook`/`image` → `low`; everything else (`website`,
+  `online_menu`, `pdf`, `document`, `google_business`, `api`) → `medium`.
+  `admin` was renamed to `manual` throughout (the entries table's source
+  vocabulary now matches the sources table's exactly) — an owner typing
+  something into the console *is* the `MANUAL_INPUT` source type, not a
+  separate concept needing its own word.
+- **`tenants.deployment_mode`** (`website_widget` | `external_agent` |
+  `both`), default **`external_agent`** — not an opt-in. The addendum's
+  critical rule is that a subscriber needs no website at all; defaulting
+  new tenants to the mode that doesn't require one makes that the actual
+  behavior, not just a claim in this document. Phase 10 (Embeddable
+  Widget) is now understood to *also* cover the addendum's External Agent
+  page and QR code (§14–§18) — the same Agent Engine and Business Brain
+  behind both `website_widget` and `external_agent`, never a duplicated
+  agent per channel (addendum §20).
+- **Console**: the Business Brain page now shows an open-conflicts section
+  (pick which source's value is correct, per key) above the sources list,
+  and each knowledge entry shows its confidence alongside its source.
+- **What is *not* built yet** (this was a schema/architecture retrofit,
+  not new connectors): the Instagram, Facebook, PDF, document, image-OCR,
+  Google Business and API connectors themselves — each is real,
+  scoped work for whichever future phase needs it, now additive rather
+  than a redesign. Scheduled/automatic rescans (`scan_frequency` is stored
+  but nothing reads it yet), and the External Agent's own page/URL/QR code
+  (Phase 10, now scoped by this addendum rather than newly invented).

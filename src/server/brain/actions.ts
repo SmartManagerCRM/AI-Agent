@@ -6,6 +6,7 @@ import { z } from "zod";
 import { runWebsiteCrawl } from "@/server/brain/crawler";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import type { Json } from "@/types/database";
 
 const addSourceSchema = z.object({
   tenantId: z.uuid(),
@@ -32,7 +33,7 @@ export async function addWebsiteSourceAction(
 
   const { data: source, error: insertError } = await supabase
     .from("business_sources")
-    .insert({ tenant_id: parsed.data.tenantId, kind: "website", url: parsed.data.url })
+    .insert({ tenant_id: parsed.data.tenantId, source_type: "website", url: parsed.data.url })
     .select("id")
     .single();
   if (insertError || !source) return `VALIDATION_ERROR: ${insertError?.message ?? "could not add that source."}`;
@@ -183,10 +184,40 @@ export async function createBrainEntryAction(
     p_entry_type: parsed.data.entryType,
     p_entry_key: parsed.data.entryKey,
     p_content: { [parsed.data.locale]: parsed.data.text },
-    p_source: "admin",
+    p_source: "manual",
     p_source_id: null,
   });
   if (error) return `VALIDATION_ERROR: ${error.message}`;
 
+  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+}
+
+const resolveConflictSchema = z.object({
+  conflictId: z.uuid(),
+  resolvedValueJson: z.string().min(1),
+  slug: z.string().min(1),
+  locale: z.string(),
+});
+
+/** Owner picks which of two disagreeing source values is correct (addendum §6, §12). */
+export async function resolveBrainConflictAction(formData: FormData): Promise<void> {
+  const parsed = resolveConflictSchema.safeParse({
+    conflictId: formData.get("conflictId"),
+    resolvedValueJson: formData.get("resolvedValueJson"),
+    slug: formData.get("slug"),
+    locale: formData.get("locale"),
+  });
+  if (!parsed.success) return;
+
+  let resolvedValue: Json;
+  try {
+    resolvedValue = JSON.parse(parsed.data.resolvedValueJson) as Json;
+  } catch {
+    return;
+  }
+
+  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  await supabase.rpc("resolve_brain_conflict", { p_conflict_id: parsed.data.conflictId, p_resolved_value: resolvedValue });
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
 }

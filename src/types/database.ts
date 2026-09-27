@@ -7,6 +7,24 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type LocalizedText = Record<string, string>;
 
+/**
+ * Business Brain source vocabulary (multi-source addendum). Only `website`
+ * and `manual` have a real connector implementation today — the rest exist
+ * so a future connector (Instagram, PDF, ...) is additive, never a schema
+ * redesign.
+ */
+export type SourceType =
+  | "website"
+  | "instagram"
+  | "facebook"
+  | "online_menu"
+  | "pdf"
+  | "document"
+  | "image"
+  | "google_business"
+  | "manual"
+  | "api";
+
 export type Database = {
   public: {
     Tables: {
@@ -53,6 +71,7 @@ export type Database = {
           contact_email: string | null;
           contact_phone: string | null;
           website_url: string | null;
+          deployment_mode: "website_widget" | "external_agent" | "both";
           created_at: string;
           updated_at: string;
         };
@@ -200,18 +219,24 @@ export type Database = {
         Row: {
           id: string;
           tenant_id: string;
-          kind: "website" | "manual";
+          source_type: SourceType;
           url: string | null;
           status: "pending" | "crawling" | "completed" | "failed" | "disabled";
-          pages_crawled: number;
+          items_processed: number;
           error_message: string | null;
           is_active: boolean;
-          last_crawled_at: string | null;
+          last_scanned_at: string | null;
+          scan_frequency: "manual" | "daily" | "weekly";
+          content_hash: string | null;
+          extraction_status: "raw_only" | "partial" | "structured";
           created_by: string | null;
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["business_sources"]["Row"]> & { tenant_id: string; kind: string };
+        Insert: Partial<Database["public"]["Tables"]["business_sources"]["Row"]> & {
+          tenant_id: string;
+          source_type: string;
+        };
         Update: Partial<Database["public"]["Tables"]["business_sources"]["Row"]>;
         Relationships: [];
       };
@@ -225,14 +250,34 @@ export type Database = {
           version: number;
           status: "pending_review" | "approved" | "rejected" | "superseded" | "archived";
           is_active: boolean;
-          source: "admin" | "website";
+          source_type: SourceType;
           source_id: string | null;
+          confidence: "high" | "medium" | "low";
+          source_url: string | null;
+          last_verified_at: string | null;
           rejection_reason: string | null;
           created_by: string | null;
           approved_by: string | null;
           approved_at: string | null;
           created_at: string;
           updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      business_brain_conflicts: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          entry_key: string;
+          entry_type: string;
+          conflicting_values: { source_type: SourceType; source_id: string | null; value: Json; confidence: string; detected_at: string }[];
+          status: "open" | "resolved";
+          resolved_value: Json | null;
+          resolved_by: string | null;
+          resolved_at: string | null;
+          created_at: string;
         };
         Insert: never;
         Update: never;
@@ -307,7 +352,7 @@ export type Database = {
           p_entry_type: string;
           p_entry_key: string;
           p_content: Json;
-          p_source: "admin" | "website";
+          p_source: SourceType;
           p_source_id: string | null;
         };
         Returns: string;
@@ -326,6 +371,10 @@ export type Database = {
       };
       set_brain_entry_active: {
         Args: { p_entry_id: string; p_active: boolean };
+        Returns: undefined;
+      };
+      resolve_brain_conflict: {
+        Args: { p_conflict_id: string; p_resolved_value: Json };
         Returns: undefined;
       };
       record_agent_interaction: {
