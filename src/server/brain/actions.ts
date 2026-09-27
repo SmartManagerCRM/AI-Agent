@@ -36,7 +36,7 @@ export async function addWebsiteSourceAction(
     .insert({ tenant_id: parsed.data.tenantId, source_type: "website", url: parsed.data.url })
     .select("id")
     .single();
-  if (insertError || !source) return `VALIDATION_ERROR: ${insertError?.message ?? "could not add that source."}`;
+  if (insertError || !source) return "VALIDATION_ERROR: could not add that source.";
 
   try {
     await runWebsiteCrawl(supabase, { tenantId: parsed.data.tenantId, sourceId: source.id, url: parsed.data.url });
@@ -187,7 +187,7 @@ export async function createBrainEntryAction(
     p_source: "manual",
     p_source_id: null,
   });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not save that entry — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
+import { isRateLimited } from "@/server/shared/rate-limit";
 import {
   addToCart,
   getOrCreateCart,
@@ -38,6 +39,12 @@ import { serviceClient } from "@/server/supabase/clients";
 
 type ActionResult = { ok: true; cart: CartView } | { ok: false; error: string };
 type Surface = "external_agent" | "website_widget";
+
+// Cheap DB writes, not an AI call — a much looser bound than the chat's
+// own rate limit (spec §65) exists purely to stop a scripted client from
+// hammering cart/checkout endpoints, not to ration a scarce resource.
+const MUTATION_RATE_LIMIT_WINDOW_MS = 60_000;
+const MUTATION_RATE_LIMIT_MAX = 60;
 
 const DEFAULT_CHECKOUT = {
   ordering_enabled: false,
@@ -83,6 +90,9 @@ export async function addProductToCartAction(
   const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
 
   // Re-validated against the live, tenant-scoped catalog — never trusted
   // just because the client sent an id (spec §14: the browser never gets
@@ -114,6 +124,9 @@ export async function updateCartItemQuantityAction(
   const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
 
   await setCartItemQuantity(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.productId, parsed.data.quantity);
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
@@ -135,6 +148,9 @@ export async function setFulfillmentTypeAction(
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
   if (!ctx.fulfillmentTypes.includes(parsed.data.fulfillmentType)) {
     return { ok: false, error: `${parsed.data.fulfillmentType} is not available for this business.` };
+  }
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
   }
 
   let branchId: string | null = null;
@@ -171,6 +187,9 @@ export async function setCustomerDetailsAction(
   const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
 
   await setCustomerDetails(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data);
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
@@ -188,6 +207,9 @@ export async function placeStructuredOrderAction(
   const ctx = await loadContext(slug, surface);
   if (!ctx) return { ok: false, error: "This Agent is not available right now." };
   if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
 
   const result = await placeOrder(ctx.supabase, ctx.tenant.id, ctx.cart.id);
   if (!result.ok) return { ok: false, error: result.error };

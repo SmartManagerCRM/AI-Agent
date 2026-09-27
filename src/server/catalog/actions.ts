@@ -42,7 +42,7 @@ export async function createBranchAction(
     phone: parsed.data.phone || null,
     is_default: parsed.data.isDefault === "on",
   });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not create that branch — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/branches`);
 }
@@ -71,7 +71,7 @@ export async function createCategoryAction(
   const { error } = await supabase
     .from("categories")
     .insert({ tenant_id: parsed.data.tenantId, name: { [parsed.data.locale]: parsed.data.name } });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not create that category — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/products`);
 }
@@ -114,7 +114,7 @@ export async function createProductAction(
     price_minor: priceMinor,
     status: parsed.data.status,
   });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not create that product — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/products`);
 }

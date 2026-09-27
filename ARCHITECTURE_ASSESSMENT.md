@@ -1065,3 +1065,170 @@ entirely a new surface built on schema that was already waiting for it.
   actual content (`OPEN_SIZE` is a fixed 360×560); and any fix for
   Safari's third-party-cookie blocking (documented above as a real,
   known limitation).
+
+## 21. Phase 11 implementation notes (Hardening — final phase)
+
+Unlike every prior phase, this one adds no feature — it is a pass over
+Phases 1–10's own output, in four parts: a performance-advisor migration,
+application-layer rate limiting, a nonce-based script CSP, and a
+raw-error-leakage review. Per spec §98, Phase 11 is the last phase on the
+master plan's list.
+
+- **Performance advisors, checked for the first time this project**: every
+  prior phase's live-verification step checked `get_advisors(type:
+  "security")` only. This phase ran `type: "performance"` for the first
+  time and found two real classes of finding, both fixed in
+  `supabase/migrations/20260927240001_hardening.sql`:
+  - **`auth_rls_initplan`**: `profiles_select`, `profiles_update`, and
+    `tenant_members_select` called `auth.uid()` directly in their `USING`
+    clause, which Postgres re-evaluates per row instead of once per query.
+    Rewritten as `(select auth.uid())` — same behavior, confirmed via a
+    live functional RLS test with a simulated JWT before considering it
+    done, but the planner now treats it as a stable subquery.
+  - **`multiple_permissive_policies`**: `ai_model_configs` carried one
+    `for all` Super-Admin policy sitting alongside its own `select`
+    policy — for a `select`, Postgres has to evaluate both permissive
+    policies and OR them, doing twice the work for no behavioral gain
+    (nothing the `for all` policy allowed for `select` that the dedicated
+    `select` policy didn't already allow). Split into `insert`/`update`/
+    `delete` policies, same `app.is_super_admin()` gate, `select` untouched.
+    `supabase/tests/011_super_admin.test.sql`'s assertion #5 (written in
+    Phase 9) still checked for the old `cmd = 'ALL'` policy — a real,
+    caught-before-commit test regression, fixed to check for the three
+    split policies instead, then re-verified live against the actual
+    `pg_policies` rows before trusting it.
+  - **Curated FK indexes**: the advisor's `unindexed_foreign_keys` finding
+    listed 27 unindexed foreign keys project-wide. Only 9 were indexed —
+    the ones covering columns a live customer-facing or staff-facing query
+    actually filters or joins on in a hot path (`cart_items.product_id`,
+    `order_items.product_id`, `orders.branch_id`/`cart_id`/
+    `conversation_id`, `tenant_members.role_id`, `payments.tenant_id`,
+    `conversation_messages.tenant_id`, `carts.branch_id`). The other 18
+    were deliberately left unindexed: five are `_currency_fkey`/
+    `_plan_key_fkey`/`permission_key_fkey` columns referencing tiny, near-
+    static lookup tables (`currencies`, `subscription_plans`, `roles`) —
+    an index on the *referencing* side buys nothing when the table being
+    joined against has a handful of rows; three are `tenant_id` FKs on
+    child tables (`cart_items`, `order_items`, `order_status_history`)
+    already reached through an indexed parent id in every real query path;
+    the remaining ten are audit/actor columns (`audit_logs.actor_id`,
+    `business_brain_entries.approved_by`/`created_by`, `business_brain_conflicts.resolved_by`,
+    `business_sources.created_by`, `staff_invites.invited_by`, and
+    similar) — written often, read rarely (an audit trail is scanned by
+    tenant or entity, never by actor), so an index there is pure write
+    overhead with no matching read pattern. The advisor's separate
+    `unused_index` finding on the 9 new indexes (and on every other index
+    in the project) is expected, not a problem: this is a fresh project
+    with no production traffic yet, so *no* index has been used — that
+    finding would go away with real load, not by removing indexes chosen
+    for a real query shape.
+- **Rate limiting** (`src/server/shared/rate-limit.ts`, new): a single
+  pure `isRateLimited(key, windowMs, maxHits)` function over an in-process
+  `Map<string, number[]>` — best-effort, per-Node-process, no I/O. Not a
+  substitute for a shared store (Redis, or Supabase itself) in a real
+  multi-instance deployment, but enough to stop a runaway client loop or a
+  scripted attacker from hammering any one endpoint today. Unit-tested
+  (`tests/unit/rate-limit.test.ts`: allows up to max, blocks over max,
+  tracks keys independently, resets once hits age out of the window — the
+  last one caught and fixed a wrong assertion in its own first draft
+  before being trusted, per this project's habit of never taking a test's
+  first version on faith). Wired into:
+  - The External Agent's chat action (`src/server/agent-public/actions.ts`)
+    — replaces an inline, ad hoc rate limiter that predates this shared
+    module, same window/threshold (20 messages/minute per conversation).
+  - All 5 structured-commerce mutating actions
+    (`src/server/agent-public/catalog-actions.ts`: add-to-cart, set
+    quantity, set fulfillment, set customer details, place order) — a much
+    looser bound (60/minute per conversation) since these are cheap DB
+    writes, not AI calls; the point is stopping a scripted client, not
+    rationing a scarce resource.
+  - Sign-in and sign-up (`src/server/auth/actions.ts`) — 10 attempts per 5
+    minutes, keyed by the attempted email (whether or not it exists, so an
+    attacker gets no signal either way from timing/behavior differences).
+  - **Deliberately not applied** to `acceptInviteAction`
+    (`src/server/staff/actions.ts`, Phase 8): the invite token itself is
+    the rate-limiting-relevant secret here, not an email/IP, and it
+    already carries enough entropy (a random UUID) that a rate limit
+    keyed on anything else would either do nothing (keyed on token: each
+    guess is a different key) or rate-limit the legitimate invitee
+    (keyed on the caller's session, which doesn't exist pre-auth). The
+    real defense is the token's own entropy, not a request-rate cap.
+- **Nonce-based script CSP** (`src/proxy.ts`): deferred since Phase 1 (the
+  original `next.config.ts` comment: "added once payment/AI provider
+  origins are finalized" — true as of this phase). `next.config.ts`'s
+  static `headers()` can't express a per-request nonce, so the
+  `Content-Security-Policy` header moved there in full: `src/proxy.ts` now
+  generates a fresh `crypto.randomUUID()`-derived nonce on every request,
+  sets it as both `x-nonce` (readable from a Server Component via
+  `headers()`) and inside the CSP's own `script-src`, following Next's
+  documented proxy-nonce pattern
+  (`node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`).
+  `frame-ancestors` stays path-dependent exactly as it was in
+  `next.config.ts` — `*` for `/widget/…`, `'none'` everywhere else — just
+  computed dynamically now instead of via two static `source` patterns.
+  `next.config.ts` keeps every other static header (`X-Frame-Options`,
+  `Permissions-Policy`, HSTS, etc.) unchanged; only `Content-Security-
+  Policy` moved out of it. Verified live with a background dev server and
+  curl across all four host kinds (platform/console/agent/invalid) plus
+  both widget and non-widget agent-host paths: every response carries the
+  CSP header, the nonce is different on every single request (confirmed
+  via two consecutive calls to the same path), `frame-ancestors` is `*`
+  only under `/widget/`, and Next's own framework-injected `Link`
+  preload header carries the same nonce the response's CSP declared —
+  live proof the documented automatic-nonce-application mechanism is
+  actually working, not just configured.
+- **Raw error-message leakage review**: a repo-wide audit (dispatched as a
+  read-only subagent search across every Server Action and API route)
+  found that beyond the one already-known, deliberately benign case
+  (`signUpAction` surfacing Supabase Auth's own generic strings, e.g.
+  "User already registered" — never a DB-internal detail), a recurring
+  pattern across many actions returned `` `VALIDATION_ERROR: ${error.message}` ``
+  straight from a Postgres/PostgREST error, which can leak constraint,
+  column, or table names to whoever triggers the failure. Fixed by
+  replacing the raw message with a static, generic string in every case
+  found: `src/server/business/actions.ts` (create/update business
+  profile), `src/server/brain/actions.ts` (add source, create entry),
+  `src/server/commerce/settings-actions.ts` (checkout settings),
+  `src/server/ai/actions.ts` (Agent settings), `src/server/catalog/
+  actions.ts` (branch/category/product creation), and `src/server/
+  platform/actions.ts` (platform settings, AI model config creation —
+  Super-Admin-only, lower risk, fixed anyway for consistency).
+  The most severe instance was the **payment webhook route**
+  (`src/app/api/payments/webhook/[provider]/route.ts` via
+  `src/server/payments/webhook.ts` and `src/server/billing/webhook.ts`):
+  a **public, unauthenticated** endpoint (gated only by provider-signature
+  verification) that echoed a raw `mark_payment_succeeded`/
+  `mark_payment_failed` RPC error straight into its JSON response — fixed
+  to a static `"INTERNAL_ERROR: could not record payment outcome."`
+  Left unchanged, as genuinely benign: `add_platform_admin`'s own
+  controlled error-prefix contract (Super-Admin-only, and the message is
+  the function's own deliberate business-logic text, not a raw Postgres
+  error); third-party AI provider error text (upstream API text, not a DB
+  internal); the website crawler's own network/fetch error surfaced as
+  `CRAWL_ERROR:` (not DB-origin); and a few uncaught exceptions
+  (`src/server/tenant/context.ts`, `src/server/ai/router.ts`) that hit
+  Next's generic 500 page rather than being serialized into a response
+  body.
+- **`npm audit`**: zero vulnerabilities at any severity across all 589
+  dependencies (113 prod, rest dev/optional/peer) — nothing to fix.
+- **New pgTAP file** (`supabase/tests/012_hardening.test.sql`): asserts
+  the migration's own new structural state — the three `(select
+  auth.uid())`-wrapped policies, the disappearance of `ai_model_configs`'s
+  old `for all` policy alongside the three that replaced it, all 9 curated
+  indexes existing, and RLS still enabled+forced on the two tables this
+  migration's policy rewrites touched. Every assertion re-verified against
+  the live database directly (not just trusted from the migration's own
+  text) before being written into the test file, per this project's
+  standing practice since Phase 9's case-sensitivity bug.
+- **What this phase does not include**: a shared, multi-instance-safe rate
+  limit store (documented above as a known, accepted gap for a
+  single-process deployment); Subresource Integrity as a nonce alternative
+  (Next's experimental SRI mode was considered — nonces were already the
+  right fit given dynamic rendering is already required everywhere in this
+  app); and indexing the remaining 18 flagged foreign keys (documented
+  above, per-column, as a deliberate choice rather than an oversight).
+
+This closes Phase 11, the final phase on the master spec's list (§98:
+Phase 0 Assessment through Phase 11 Hardening). Every phase from the
+original plan has now been built, migrated, live-verified, and checked
+into `main`.

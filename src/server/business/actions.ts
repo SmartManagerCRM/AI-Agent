@@ -42,7 +42,7 @@ export async function createBusinessAction(_prevState: string | undefined, formD
     p_default_language: parsed.data.defaultLanguage,
     p_currency: parsed.data.currency,
   });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not create the business — please try again.";
 
   redirect(`/${parsed.data.locale}/t/${parsed.data.slug}`);
 }
@@ -97,7 +97,7 @@ export async function updateBusinessProfileAction(
       city: parsed.data.city || null,
     })
     .eq("id", parsed.data.tenantId);
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not save the business profile — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/settings`);
 }

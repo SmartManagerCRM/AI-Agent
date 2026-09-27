@@ -22,7 +22,28 @@ import { serverEnv } from "@/server/env-core";
  * at all; locale is negotiated silently (cookie/Accept-Language) and the
  * URL is never redirected to inject one.
  */
-const INTERNAL_HEADERS = ["x-site-area", "x-next-intl-locale"];
+const INTERNAL_HEADERS = ["x-site-area", "x-next-intl-locale", "x-nonce", "content-security-policy"];
+
+/**
+ * Script CSP is nonce-based (Next's documented proxy-nonce pattern,
+ * `node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`)
+ * — it must be computed per-request here, not in `next.config.ts`'s static
+ * `headers()`, which cannot express a per-request value. `frame-ancestors`
+ * stays path-dependent (spec §45: the widget page is the one route meant to
+ * be framed by a tenant's own site; everything else must never be
+ * frameable), keyed off the same external `/widget/…` shape
+ * `next.config.ts` used to split on, now folded into this single dynamic
+ * source of truth.
+ */
+function buildCsp(nonce: string, pathname: string): string {
+  const frameAncestors = pathname.startsWith("/widget/") ? "*" : "'none'";
+  return `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; frame-ancestors ${frameAncestors}; base-uri 'self'; object-src 'none'`;
+}
+
+function withCsp(response: NextResponse, csp: string): NextResponse {
+  response.headers.set("Content-Security-Policy", csp);
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   const env = serverEnv();
@@ -37,6 +58,9 @@ export async function proxy(request: NextRequest) {
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
   const acceptLanguage = request.headers.get("accept-language");
 
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = buildCsp(nonce, pathname);
+
   const withLocale = () => {
     if (pathLocale) return { redirect: null, locale: pathLocale };
     const locale = negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
@@ -46,6 +70,8 @@ export async function proxy(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   for (const header of INTERNAL_HEADERS) requestHeaders.delete(header);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", csp);
 
   const rewrite = (internalPath: string, locale: Locale) => {
     requestHeaders.set("x-next-intl-locale", locale);
@@ -57,31 +83,32 @@ export async function proxy(request: NextRequest) {
 
   switch (site.kind) {
     case "invalid":
-      return new NextResponse("Unknown host", { status: 400 });
+      return withCsp(new NextResponse("Unknown host", { status: 400 }), csp);
 
     case "platform": {
       const { redirect, locale } = withLocale();
-      if (redirect) return redirect;
+      if (redirect) return withCsp(redirect, csp);
       requestHeaders.set("x-site-area", "platform");
-      return rewrite(`/site/${locale}${rest}`, locale);
+      return withCsp(rewrite(`/site/${locale}${rest}`, locale), csp);
     }
 
     case "console": {
       const { redirect, locale } = withLocale();
-      if (redirect) return redirect;
+      if (redirect) return withCsp(redirect, csp);
       requestHeaders.set("x-site-area", "console");
-      return refreshSession(request, requestHeaders, (headers) => {
+      const response = await refreshSession(request, requestHeaders, (headers) => {
         headers.set("x-next-intl-locale", locale);
         const url = request.nextUrl.clone();
         url.pathname = `/console/${locale}${rest}`;
         return NextResponse.rewrite(url, { request: { headers } });
       });
+      return withCsp(response, csp);
     }
 
     case "agent": {
       const locale = negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
       requestHeaders.set("x-site-area", "agent");
-      return rewrite(`/agent${pathname === "/" ? "" : pathname}`, locale);
+      return withCsp(rewrite(`/agent${pathname === "/" ? "" : pathname}`, locale), csp);
     }
   }
 }

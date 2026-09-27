@@ -51,7 +51,10 @@ export async function processProviderWebhook(
       p_provider_event_id: verification.providerEventId,
       p_raw: JSON.parse(rawBody),
     });
-    if (error) return { ok: false, error: error.message };
+    // Raw `error.message` is never returned here (spec §61 hardening): this
+    // route is public and unauthenticated — a provider's own retried
+    // request is all a real caller needs, not our internal error text.
+    if (error) return { ok: false, error: "INTERNAL_ERROR: could not record payment outcome." };
     return { ok: true, result: "succeeded" };
   }
 
@@ -61,6 +64,6 @@ export async function processProviderWebhook(
     p_raw: JSON.parse(rawBody),
     p_reason: verification.failureReason ?? null,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: "INTERNAL_ERROR: could not record payment outcome." };
   return { ok: true, result: "failed" };
 }

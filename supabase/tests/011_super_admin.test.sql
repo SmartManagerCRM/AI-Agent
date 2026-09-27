@@ -29,12 +29,17 @@ select ok(
   'platform_settings update is Super-Admin-only'
 );
 
--- ai_model_configs' write gate has existed since Phase 3 — confirm it
--- survived unchanged into this phase, which is the whole point (no new
--- migration touches it, only a new console UI in front of it).
-select ok(
-  (select count(*) > 0 from pg_policies where schemaname = 'public' and tablename = 'ai_model_configs' and cmd = 'ALL') = true,
-  'ai_model_configs still has its Super-Admin write policy from Phase 3'
+-- ai_model_configs' write gate has existed since Phase 3, still
+-- Super-Admin-only — Phase 11's hardening migration split the original
+-- single `for all` policy into separate insert/update/delete policies (to
+-- clear the `multiple_permissive_policies` performance advisor alongside
+-- the pre-existing `select` policy), so this now checks all three exist
+-- rather than one `cmd = 'ALL'` policy.
+select is(
+  (select count(*)::int from pg_policies
+   where schemaname = 'public' and tablename = 'ai_model_configs' and cmd in ('INSERT', 'UPDATE', 'DELETE')),
+  3,
+  'ai_model_configs has Super-Admin insert/update/delete policies'
 );
 
 select ok(

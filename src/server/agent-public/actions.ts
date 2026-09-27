@@ -7,26 +7,13 @@ import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
 import type { AITurnMessage } from "@/server/ai/provider";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
+import { isRateLimited } from "@/server/shared/rate-limit";
 import { serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 const MAX_HISTORY_MESSAGES = 12;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_MESSAGES = 20;
-
-// In-process, best-effort per-conversation rate limit (spec §65). A single
-// Node process is what this app runs as today; a real multi-instance
-// deployment would need a shared store, but this still stops a runaway
-// client loop from hammering the AI Gateway.
-const recentMessageTimestamps = new Map<string, number[]>();
-
-function isRateLimited(key: string): boolean {
-  const now = Date.now();
-  const timestamps = (recentMessageTimestamps.get(key) ?? []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  timestamps.push(now);
-  recentMessageTimestamps.set(key, timestamps);
-  return timestamps.length > RATE_LIMIT_MAX_MESSAGES;
-}
 
 const sendMessageSchema = z.object({
   slug: z.string().trim().min(1).max(60),
@@ -67,7 +54,7 @@ export async function sendAgentMessageAction(
     crossSite: isWidget,
   });
 
-  if (isRateLimited(conversation.id)) {
+  if (isRateLimited(conversation.id, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_MESSAGES)) {
     return { error: "You're sending messages a little fast — please wait a moment and try again." };
   }
 

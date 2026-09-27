@@ -4,14 +4,16 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 /**
- * Baseline security headers for every response (spec §61). A nonce-based
- * script CSP is added once payment/AI provider origins are finalized.
+ * Baseline security headers for every response (spec §61). The
+ * `Content-Security-Policy` itself is NOT here — it needs a fresh nonce on
+ * every request (script-src 'nonce-…'), which this static config can't
+ * express, so it's computed and set in `src/proxy.ts` instead, once, for
+ * every response path.
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(self)" },
   { key: "Strict-Transport-Security", value: "max-age=63072000" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
@@ -25,10 +27,12 @@ const securityHeaders = [
 // internal rewrite target — the agent host's own convention (like
 // `/agent/[slug]`'s external `/<slug>`, no `/agent` prefix) means the
 // external shape here is `/widget/<slug>`, not `/agent/widget/<slug>`.
+// (No `X-Frame-Options` here — it has no per-origin allowlist, only ALLOW/DENY,
+// so it can't express "framed by any site" the way CSP's `frame-ancestors *`,
+// set dynamically in `src/proxy.ts`, does.)
 const widgetHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Content-Security-Policy", value: "frame-ancestors *; base-uri 'self'; object-src 'none'" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(self)" },
   { key: "Strict-Transport-Security", value: "max-age=63072000" },
 ];

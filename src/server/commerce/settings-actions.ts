@@ -62,7 +62,7 @@ export async function updateCheckoutSettingsAction(
       },
     })
     .eq("tenant_id", parsed.data.tenantId);
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not save checkout settings — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/settings`);
 }

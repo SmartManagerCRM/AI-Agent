@@ -40,7 +40,7 @@ export async function updatePlatformSettingsAction(
     .from("platform_settings")
     .update({ platform_name: parsed.data.platformName, maintenance_mode: parsed.data.maintenanceMode === "on" })
     .eq("id", true);
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/platform/settings`);
 }
@@ -97,7 +97,7 @@ export async function createAiModelConfigAction(
     input_price_per_million_usd: parsed.data.inputPrice,
     output_price_per_million_usd: parsed.data.outputPrice,
   });
-  if (error) return `VALIDATION_ERROR: ${error.message}`;
+  if (error) return "VALIDATION_ERROR: could not create that model config — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/platform/models`);
 }
