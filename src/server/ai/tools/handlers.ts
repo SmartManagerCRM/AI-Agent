@@ -12,7 +12,8 @@ import {
   setCartItemQuantity,
   viewCart,
 } from "@/server/commerce/cart";
-import { placeOrder } from "@/server/commerce/orders";
+import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
+import { initiatePayment } from "@/server/payments/service";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type ToolContext = {
@@ -45,6 +46,7 @@ const ORDERING_REQUIRED_TOOLS = new Set([
   "set_fulfillment",
   "set_customer_details",
   "place_order",
+  "check_order_status",
 ]);
 
 /** Executes one tool call. Every handler re-derives the cart from the conversation — never trusts an id the model might supply. */
@@ -153,8 +155,26 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       const result = await placeOrder(ctx.supabase, ctx.tenantId, cart.id);
       if (!result.ok) return { content: result.error, isError: true };
+
+      const total = `${formatMinor(result.totalMinor, ctx.currencyExponent)} ${result.currency}`;
+      const payment = await initiatePayment(ctx.supabase, result.orderId);
+      if (payment.ok) {
+        return {
+          content: `Order #${result.orderNumber} placed — total ${total}. Pay now: ${payment.checkoutUrl}`,
+        };
+      }
       return {
-        content: `Order #${result.orderNumber} placed — total ${formatMinor(result.totalMinor, ctx.currencyExponent)} ${result.currency}. Payment will be arranged by the business (online payment is coming soon).`,
+        content: `Order #${result.orderNumber} placed — total ${total}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).`,
+      };
+    }
+
+    case "check_order_status": {
+      const orderNumber = Number(input.order_number);
+      if (!Number.isInteger(orderNumber)) return { content: "Please give the order number to check.", isError: true };
+      const status = await getOrderStatusByNumber(ctx.supabase, ctx.tenantId, orderNumber);
+      if (!status) return { content: `No order #${orderNumber} found.`, isError: true };
+      return {
+        content: `Order #${orderNumber}: ${status.status.replace("_", " ")} — total ${formatMinor(status.totalMinor, ctx.currencyExponent)} ${status.currency}.`,
       };
     }
 

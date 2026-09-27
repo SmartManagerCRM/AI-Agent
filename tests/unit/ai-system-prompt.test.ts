@@ -27,7 +27,7 @@ describe("buildSystemPrompt", () => {
     const prompt = buildSystemPrompt(baseSnapshot);
     expect(prompt).toContain("Aria");
     expect(prompt).toContain("never invent products, prices, availability, or policies");
-    expect(prompt).toContain("no ordering system connected");
+    expect(prompt).toContain("never assert it from memory");
   });
 
   it("includes product names and correctly formatted prices", () => {

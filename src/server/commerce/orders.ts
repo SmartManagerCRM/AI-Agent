@@ -3,7 +3,7 @@ import "server-only";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type PlaceOrderResult =
-  | { ok: true; orderNumber: number; totalMinor: number; currency: string }
+  | { ok: true; orderId: string; orderNumber: number; totalMinor: number; currency: string }
   | { ok: false; error: string };
 
 /**
@@ -28,7 +28,7 @@ export async function placeOrder(supabase: TypedSupabaseClient, tenantId: string
     return { ok: false, error: "Order was created but could not be read back." };
   }
 
-  return { ok: true, orderNumber: order.order_number, totalMinor: order.total_minor, currency: order.currency };
+  return { ok: true, orderId, orderNumber: order.order_number, totalMinor: order.total_minor, currency: order.currency };
 }
 
 export async function getOrderStatusByNumber(

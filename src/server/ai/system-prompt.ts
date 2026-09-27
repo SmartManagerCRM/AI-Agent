@@ -16,7 +16,7 @@ export function buildSystemPrompt(snapshot: BrainSnapshot): string {
     `You are ${snapshot.assistantName || "a helpful assistant"} for this business.`,
     "Answer only from the information given below and in this conversation.",
     "If you do not know something, say so honestly rather than guessing — never invent products, prices, availability, or policies.",
-    "Never state that an order or payment succeeded — there is no ordering system connected to this conversation yet.",
+    "Only confirm an order or payment as placed, paid, or completed when a tool result says so — never assert it from memory.",
     "Keep replies short and conversational.",
   ];
 

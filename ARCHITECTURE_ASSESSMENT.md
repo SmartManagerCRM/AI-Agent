@@ -581,3 +581,106 @@ orders, payments, or fulfillment — while shipping only Text for the MVP.
   Those all remain future work for whenever a voice channel is actually
   built; today's change is scoped to proving the boundary holds and
   reserving the one column a future adapter will need.
+
+## 15. Phase 6 implementation notes (Payments)
+
+The one rule this phase exists to enforce (spec §17, §63, §64): an order
+only ever becomes `paid` through **server-side verification of a
+provider's own notification** — never from anything the frontend, the
+customer, or the LLM claims. Everything below is built to make that rule
+structurally true, not just documented.
+
+- **`PaymentProvider` abstraction** (`src/server/payments/provider.ts`),
+  mirroring `AIProvider` (spec §5's pattern applied to payments): nothing
+  outside `src/server/payments/` calls a vendor SDK or verifies a webhook
+  signature directly. `createIntent` starts an attempt with the provider;
+  `verifyWebhook` authenticates a delivery and returns `null` — never a
+  best-guess payload — when the signature doesn't check out.
+- **The mock provider** (`src/server/payments/mock.ts`) is the one
+  implementation wired in for the MVP. There is no real gateway behind
+  it, but it still exercises the real mechanism: it HMAC-signs its own
+  webhook payloads and verifies them with `timingSafeEqual`, the same as
+  a real provider's SDK would. Its signing secret lives in code, not an
+  env var — unlike `GEMINI_API_KEY`/`ANTHROPIC_API_KEY`, there is no
+  external vendor to inject a deploy-time credential for, since the mock
+  provider *is* our own code. A real provider (Stripe/PayPal) is a second
+  `PaymentProvider` implementation added later, wired in from
+  `src/server/payments/service.ts`'s one `paymentProvider` export —
+  nothing else in this phase changes.
+- **Schema** (migrations `payments`, `phase6_hardening`, `payments_fix`):
+  `payments` (one row per attempt; `provider_intent_id`, `status`
+  pending/succeeded/failed, the amount/currency the order itself already
+  computed) and `payment_webhook_events` (a dedupe ledger — a provider
+  may retry the same event, and the unique `(provider, event_id)`
+  constraint is what makes a duplicate delivery a no-op instead of a
+  double-charge or a duplicate order-status transition). A unique partial
+  index (`payments_order_active_uidx`, `where status in ('pending',
+  'succeeded')`) is the actual idempotency guarantee behind "resume, don't
+  duplicate, a payment attempt" — enforced by Postgres, not trusted to
+  application logic. `payments_fix` corrects a `char(3)` vs `text` type
+  mismatch in `create_payment_attempt`'s `RETURNS TABLE` that a live
+  functional test caught before this migration was ever committed (see
+  that migration's own comment).
+- **Four SECURITY DEFINER functions, and no others, ever touch this
+  data**: `create_payment_attempt` (re-reads the order's own total —
+  never trusts a caller-supplied amount, the same discipline
+  `create_order_from_cart` already applies) and `record_payment_provider_intent`
+  are reachable from trusted server code (staff console or the
+  service-role customer path); `mark_payment_succeeded` and
+  `mark_payment_failed` are **service-role only** — reachable only from
+  `processProviderWebhook` (`src/server/payments/webhook.ts`), which has
+  already verified a signature before calling either. Confirmed against
+  the live project: `create_payment_attempt` reused an existing pending
+  attempt rather than duplicating it, a duplicate webhook event
+  no-opped instead of erroring, a successful payment flipped both
+  `payments.status` and `orders.status` in the same function, and a
+  failed payment left the order `pending_payment` so `create_payment_attempt`
+  starts a genuinely new attempt on retry.
+- **The webhook route** (`src/app/api/payments/webhook/[provider]/route.ts`)
+  lives under `/api/`, so `src/proxy.ts`'s host-based rewriting never
+  touches it — a provider needs one stable path regardless of which host
+  serves the app. It reads the raw body, resolves the provider's own
+  signature header (`PaymentProvider.webhookSignatureHeader`), and calls
+  `processProviderWebhook`, which re-reads the matching `payments` row and
+  cross-checks the webhook's amount/currency against what was recorded
+  when the intent was created before ever calling `mark_payment_succeeded`
+  /`mark_payment_failed` — defense in depth against a provider integration
+  bug, not just its signature.
+- **The mock checkout page** (`src/app/agent/pay/[paymentId]/page.tsx`,
+  reachable at `agent.<root>/pay/<paymentId>` — same host as the External
+  Agent, addendum-style clean link) is explicitly labeled a test page. Its
+  two buttons never mark the payment directly: `simulateMockPaymentAction`
+  (`src/server/payments/actions.ts`) has the mock provider sign a webhook
+  payload and hands it to the exact same `processProviderWebhook` a real
+  provider's own server-to-server call would go through — the honest way
+  to keep "only server-verified" true even when the provider is fake.
+- **Agent integration**: `place_order` (`src/server/ai/tools/handlers.ts`)
+  now calls `initiatePayment` right after the order is created and
+  includes the checkout URL in its tool result text; the chat panel
+  (`src/components/agent-public/chat-panel.tsx`) linkifies bare URLs in
+  assistant messages so the link is clickable. A new `check_order_status`
+  tool (wrapping `getOrderStatusByNumber`, unused since Phase 5) lets a
+  customer ask whether their order has been paid without the model ever
+  answering from memory — `system-prompt.ts`'s stale Phase 4 line ("there
+  is no ordering system connected") was corrected to "only confirm an
+  order or payment... when a tool result says so," which is what actually
+  holds now that Phase 5's tools exist.
+- **Console**: the Orders page gets a read-only Payment column (latest
+  attempt's status per order) — staff marking an order `paid` manually
+  (cash/COD, via the existing `update_order_status`) is a distinct, still
+  legitimate human-verified path this phase does not touch or gate.
+- **Tests**: `tests/unit/payments-mock.test.ts` (signature acceptance,
+  tampered-body/wrong-signature/wrong-length/malformed-JSON/unknown-status
+  rejection, all pure, no network); `supabase/tests/008_payments.test.sql`
+  adds structural pgTAP checks (RLS, zero direct write policies, the four
+  functions exist, the active-attempt unique index, webhook-event
+  uniqueness) — verified directly against the live project's schema, same
+  as Section 14's, since pgTAP itself isn't installed there.
+- **What Phase 6 does not include**: a real payment gateway (Stripe/PayPal
+  — this phase's whole point is that adding one later is a second
+  `PaymentProvider` implementation, not a redesign); refunds (`orders.status`
+  already has a `refunded` state from Phase 5, but nothing computes or
+  records a refund amount yet); partial payments or multiple payment
+  methods per order; and a provider-choice setting per tenant (there is
+  one provider for the whole platform today, the same posture as the AI
+  providers in `env-core.ts`).

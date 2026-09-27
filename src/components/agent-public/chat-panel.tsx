@@ -6,6 +6,19 @@ import { sendAgentMessageAction } from "@/server/agent-public/actions";
 
 type ChatMessage = { role: "user" | "assistant"; text: string; handledBy?: "deterministic" | "ai" };
 
+/** Renders assistant text with bare URLs (e.g. a payment link from `place_order`) as clickable links. */
+function renderWithLinks(text: string) {
+  return text.split(/(https?:\/\/[^\s]+)/g).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="underline">
+        {part}
+      </a>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
 type Props = { slug: string; greeting: string | null; suggestions: string[] };
 
 export function ChatPanel({ slug, greeting, suggestions }: Props) {
@@ -53,7 +66,7 @@ export function ChatPanel({ slug, greeting, suggestions }: Props) {
                     : "inline-block rounded-2xl bg-neutral-100 px-3 py-2 text-sm text-neutral-900"
                 }
               >
-                {m.text}
+                {m.role === "assistant" ? renderWithLinks(m.text) : m.text}
               </p>
             </div>
           ))}

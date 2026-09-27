@@ -99,6 +99,15 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
+    name: "check_order_status",
+    description: "Look up the status and total of a previously placed order by its order number.",
+    parameters: {
+      type: "object",
+      properties: { order_number: { type: "integer", description: "The order number, e.g. 1001." } },
+      required: ["order_number"],
+    },
+  },
+  {
     name: "request_human_handoff",
     description: "Use when the customer needs a human — a complaint, something outside what you can help with, or they explicitly ask for a person.",
     parameters: { type: "object", properties: { reason: { type: "string" } }, required: [] },

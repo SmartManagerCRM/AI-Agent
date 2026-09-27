@@ -475,6 +475,37 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      payments: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          order_id: string;
+          provider: string;
+          provider_intent_id: string | null;
+          status: "pending" | "succeeded" | "failed";
+          amount_minor: number;
+          currency: string;
+          failure_reason: string | null;
+          raw_verification: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      payment_webhook_events: {
+        Row: {
+          id: number;
+          provider: string;
+          event_id: string;
+          payload: Json | null;
+          received_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -563,6 +594,29 @@ export type Database = {
       };
       update_order_status: {
         Args: { p_order_id: string; p_new_status: string; p_note?: string | null };
+        Returns: undefined;
+      };
+      create_payment_attempt: {
+        Args: { p_order_id: string; p_provider?: string };
+        Returns: {
+          payment_id: string;
+          provider: string;
+          order_number: number;
+          amount_minor: number;
+          currency: string;
+          reused: boolean;
+        }[];
+      };
+      record_payment_provider_intent: {
+        Args: { p_payment_id: string; p_provider_intent_id: string };
+        Returns: undefined;
+      };
+      mark_payment_succeeded: {
+        Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json };
+        Returns: undefined;
+      };
+      mark_payment_failed: {
+        Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json; p_reason?: string | null };
         Returns: undefined;
       };
     };

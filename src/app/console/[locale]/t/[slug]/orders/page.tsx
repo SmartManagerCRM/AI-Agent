@@ -27,6 +27,18 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
   const { data: currency } = await supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle();
   const exponent = currency?.exponent ?? 2;
 
+  const orderIds = (orders ?? []).map((o) => o.id);
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("order_id, provider, status, created_at")
+    .in("order_id", orderIds.length > 0 ? orderIds : [""])
+    .order("created_at", { ascending: false });
+  // One row per order — the first (most recent) attempt, since `payments` is ordered newest-first above.
+  const latestPaymentByOrder = new Map<string, { provider: string; status: string }>();
+  for (const p of payments ?? []) {
+    if (!latestPaymentByOrder.has(p.order_id)) latestPaymentByOrder.set(p.order_id, { provider: p.provider, status: p.status });
+  }
+
   return (
     <div className="flex max-w-4xl flex-col gap-4">
       <h1 className="text-2xl font-semibold">Orders</h1>
@@ -38,6 +50,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
             <th className="py-2 text-start">Fulfillment</th>
             <th className="py-2 text-start">Total</th>
             <th className="py-2 text-start">Status</th>
+            <th className="py-2 text-start">Payment</th>
             <th className="py-2 text-start">Actions</th>
           </tr>
         </thead>
@@ -51,6 +64,9 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
                 {(order.total_minor / 10 ** exponent).toFixed(exponent)} {order.currency}
               </td>
               <td className="py-2 capitalize">{order.status.replace("_", " ")}</td>
+              <td className="py-2 capitalize text-neutral-500">
+                {latestPaymentByOrder.get(order.id)?.status ?? "—"}
+              </td>
               <td className="py-2">
                 <div className="flex flex-wrap gap-2">
                   {(NEXT_STATUSES[order.status] ?? []).map((next) => (
@@ -70,7 +86,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ locale:
           ))}
           {(orders ?? []).length === 0 && (
             <tr>
-              <td colSpan={6} className="py-4 text-center text-neutral-400">
+              <td colSpan={7} className="py-4 text-center text-neutral-400">
                 No orders yet.
               </td>
             </tr>
