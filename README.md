@@ -15,9 +15,13 @@ embeddable widget, and Phase 11's hardening pass (rate limiting, nonce
 CSP, RLS/index performance tuning). See `ARCHITECTURE_ASSESSMENT.md` for
 the full phase-by-phase audit.
 
-**One known gap before this can take real money**: payments
-(`src/server/payments/`) run on a mock provider only — there is no real
-Stripe/PayPal/etc. integration wired in yet.
+Payments (`src/server/payments/`) support real gateways — Moyasar and Tap,
+each connected per-tenant from the business's own console Settings page —
+plus Cash on Delivery and Pay on Table for in-person payment. See
+`ARCHITECTURE_ASSESSMENT.md` §22 for the one disclosed gap: this
+environment's network access couldn't do a final live confirmation of
+Tap's exact webhook signature algorithm — verify against a real sandbox
+delivery before relying on it for live charges.
 
 ## Development
 
@@ -40,10 +44,11 @@ control this in every environment.
 
 ## Database
 
-Supabase project: `AI-Agent` (`irwpsewtevnzqzbsfchj`). Migrations are in
-`supabase/migrations/`, applied through the Supabase MCP against the hosted
-project (no local Postgres is required to develop against it, though
-`npm run db:start` brings up a local stack for `npm run test:db`).
+See `DATABASE_SETUP.md` for provisioning a Supabase project and applying
+all migrations from scratch. Migrations live in `supabase/migrations/`
+(no local Postgres is required to develop against a linked remote
+project, though `npm run db:start` brings up a local stack for
+`npm run test:db`).
 
 ## Checks
 
@@ -60,4 +65,4 @@ PR to `main`.
 ## Deployment
 
 See `DEPLOYMENT.md` — Hostinger shared hosting, `output: "standalone"`,
-manual deploy runbook.
+manual deploy runbook, and the manual post-deploy configuration checklist.

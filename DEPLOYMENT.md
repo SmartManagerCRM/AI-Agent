@@ -81,11 +81,12 @@ applies here from day one, not only once you scale further.
 
 ## 4. Environment variables
 
-Set these identically across all three Node.js applications:
+Start from `.env.example` (every variable is documented there). Set these
+identically across all three Node.js applications:
 
 | Variable | Value |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://irwpsewtevnzqzbsfchj.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_URL` | your Supabase project's URL (see DATABASE_SETUP.md) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the project's publishable key |
 | `SUPABASE_SECRET_KEY` | the project's service-role secret key |
 | `PLATFORM_ROOT_DOMAIN` | `yourdomain.com` |
@@ -95,12 +96,13 @@ Set these identically across all three Node.js applications:
 | `PUBLIC_URL_PORT` | leave unset (only needed for a non-default port, e.g. local dev) |
 | `GEMINI_API_KEY` | paid-tier Gemini key (optional — AI features degrade to "not configured" without it) |
 | `ANTHROPIC_API_KEY` | optional fallback provider |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | generate once with `openssl rand -base64 32`, reuse the same value everywhere — required correctness insurance for this three-instance setup (§3), even though a shared build artifact makes it unlikely to bite in practice; see `.env.example` |
 | `PORT` | set automatically by hPanel to whatever port it assigns your app — don't override it |
 
-Get the Supabase keys from the Supabase dashboard for project `AI-Agent`
-(`irwpsewtevnzqzbsfchj`) → Project Settings → API. `SUPABASE_SECRET_KEY` is
-sensitive (service-role) — set it only in hPanel's env-var panel, never
-commit it.
+Get the Supabase keys from the Supabase dashboard for your project →
+Project Settings → API (see DATABASE_SETUP.md for provisioning the
+project itself). `SUPABASE_SECRET_KEY` is sensitive (service-role) — set
+it only in hPanel's env-var panel, never commit it.
 
 ## 5. Manual deploy runbook
 
@@ -139,11 +141,43 @@ run with `npm run test:db`) and Playwright e2e (`npm run test:e2e`). Both
 are run manually today; wiring either into CI is a reasonable future
 addition, not something this pass includes.
 
+## 7. Manual configuration checklist (must be done after every fresh deploy)
+
+Nothing below is code — these are one-time, human steps a deploy cannot
+automate:
+
+- [ ] **Database provisioned and migrated** — see `DATABASE_SETUP.md` in
+      full (project creation, applying all 29 migrations in order,
+      verifying reference data landed).
+- [ ] **Supabase Auth email/SMTP configured** — the built-in sender is
+      rate-limited and shows a generic "via supabase.io" address; set a
+      real SMTP provider before onboarding real users (`DATABASE_SETUP.md` §4).
+- [ ] **First Super Admin bootstrapped** — a genuine chicken-and-egg step;
+      the normal "add an admin" path requires already being one. See
+      `DATABASE_SETUP.md`'s bootstrap section (one direct SQL `insert`).
+- [ ] **DNS for all three hostnames** (§2 above) pointed at the server.
+- [ ] **All three Node.js applications created in hPanel** (§3), same
+      build artifact, same env vars, all started.
+- [ ] **Per-tenant payment setup is NOT a deploy step** — each business
+      enables Moyasar/Tap/Cash on Delivery/Pay on Table and enters its own
+      gateway credentials from its own console Settings page, after it
+      signs up. Nothing to configure platform-wide for this.
+- [ ] **Moyasar/Tap webhook signature verification should be confirmed
+      against a real sandbox delivery before either takes live traffic** —
+      flagged in `ARCHITECTURE_ASSESSMENT.md` §22: this codebase's
+      Moyasar/Tap integration was built from documentation this
+      development environment's network access couldn't fully verify live
+      (see that section for exactly which piece and why). Low risk for
+      Moyasar (its check is a direct secret comparison, well-corroborated);
+      worth a real test delivery for Tap before relying on it for live
+      charges.
+- [ ] **`npm audit`** — clean (0 vulnerabilities) as of this package's
+      build; re-run it if you update any dependency before going live, or
+      periodically thereafter, since new vulnerabilities get disclosed
+      against unchanged code all the time.
+
 ## Known limitations at this deploy target
 
-- **Payments are still mocked** (`src/server/payments/mock.ts`) — no real
-  provider is wired in yet. Deploying doesn't change that; see
-  `ARCHITECTURE_ASSESSMENT.md` for where a real `PaymentProvider` slots in.
 - **Rate limiting is per-process**, so it's partitioned three ways here
   (§3 above) — acceptable for an MVP's traffic levels, not a shared/
   distributed limiter.
