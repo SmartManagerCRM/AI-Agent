@@ -1,0 +1,41 @@
+{
+  "marketing": {
+    "title": "SmartManager AI Agent",
+    "tagline": "Offrez à votre entreprise un employé IA.",
+    "description": "Connectez votre site et les informations de votre entreprise. Votre agent IA apprend votre activité, échange avec vos clients, recommande des produits, prend les commandes et vous informe — en toute sécurité, vos données faisant foi.",
+    "cta": "Ouvrir la console"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signUp": "Créer un compte",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "submit": "Continuer",
+    "switchToSignUp": "Pas de compte ? Créez-en un",
+    "switchToSignIn": "Déjà un compte ? Connectez-vous"
+  },
+  "onboarding": {
+    "title": "Créez votre entreprise",
+    "businessName": "Nom de l'entreprise",
+    "businessType": "Type d'activité",
+    "language": "Langue principale",
+    "currency": "Devise",
+    "slug": "URL de la console",
+    "submit": "Créer l'entreprise"
+  },
+  "console": {
+    "nav": {
+      "dashboard": "Tableau de bord",
+      "businessBrain": "Cerveau de l'entreprise",
+      "agent": "Agent",
+      "conversations": "Conversations",
+      "settings": "Paramètres"
+    },
+    "comingSoon": "Disponible dans une prochaine phase.",
+    "signOut": "Se déconnecter"
+  },
+  "platform": {
+    "title": "Super Admin",
+    "businesses": "Entreprises"
+  }
+}

@@ -1,0 +1,5 @@
+-- Local development seed. Reference data (currencies, business types, system
+-- roles/permissions, platform_settings) is already inserted by the
+-- `reference_data` migration, which also runs against `supabase db reset`. No
+-- demo tenant is seeded here yet — Phase 2 (Business Brain) will add one to
+-- develop against, once there is a Business Brain worth seeding.

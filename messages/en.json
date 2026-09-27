@@ -1,0 +1,41 @@
+{
+  "marketing": {
+    "title": "SmartManager AI Agent",
+    "tagline": "Give your business an AI employee.",
+    "description": "Connect your website and business information. Your AI Agent learns your business, talks to customers, recommends products, takes orders and reports back — safely, with your data as the source of truth.",
+    "cta": "Open the console"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Continue",
+    "switchToSignUp": "Need an account? Create one",
+    "switchToSignIn": "Already have an account? Sign in"
+  },
+  "onboarding": {
+    "title": "Create your business",
+    "businessName": "Business name",
+    "businessType": "Business type",
+    "language": "Primary language",
+    "currency": "Currency",
+    "slug": "Console URL",
+    "submit": "Create business"
+  },
+  "console": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "businessBrain": "Business Brain",
+      "agent": "Agent",
+      "conversations": "Conversations",
+      "settings": "Settings"
+    },
+    "comingSoon": "Coming in a later phase.",
+    "signOut": "Sign out"
+  },
+  "platform": {
+    "title": "Super Admin",
+    "businesses": "Businesses"
+  }
+}
