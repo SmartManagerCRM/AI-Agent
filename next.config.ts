@@ -39,6 +39,14 @@ const widgetHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Deploy target is Hostinger shared hosting's Node.js App feature (see
+  // DEPLOYMENT.md), which runs a plain `node <startup file>` — not `next
+  // start` — and benefits from a minimal, dependency-pruned server rather
+  // than the full `node_modules` tree. `output: "standalone"` produces
+  // `.next/standalone/server.js`, a self-contained server that reads
+  // `PORT`/`HOSTNAME` from the environment, which is exactly the shape a
+  // shared-hosting "startup file" expects. Has no effect on `next dev`.
+  output: "standalone",
   async headers() {
     return [
       { source: "/((?!widget/).*)", headers: securityHeaders },

@@ -8,15 +8,16 @@ for the audit and phase plan).
 
 ## Status
 
-**Phase 1 — Foundation.** Multi-tenant schema (tenants, staff roles/permissions,
-RLS), Supabase auth, a minimal console shell (sign in/up, "create your
-business" onboarding, a per-tenant dashboard shell, a Super Admin businesses
-list), i18n (en/ar/fr) and base security headers.
+All phases in the master spec's phase list are built (`ARCHITECTURE_ASSESSMENT.md`
+§98): multi-tenant schema/auth/RLS, Business Brain, the AI Gateway and
+Customer Agent (deterministic-first, spec §7/§69), cart/orders, the
+embeddable widget, and Phase 11's hardening pass (rate limiting, nonce
+CSP, RLS/index performance tuning). See `ARCHITECTURE_ASSESSMENT.md` for
+the full phase-by-phase audit.
 
-Not built yet, in spec order (`ARCHITECTURE_ASSESSMENT.md` §8):
-Business Brain, the AI Gateway, the Customer Agent and its tools, cart/orders,
-payments, the trial/subscription engine, the full Subscriber/Super Admin
-dashboards, and the embeddable widget.
+**One known gap before this can take real money**: payments
+(`src/server/payments/`) run on a mock provider only — there is no real
+Stripe/PayPal/etc. integration wired in yet.
 
 ## Development
 
@@ -32,9 +33,10 @@ Hosts (see `src/lib/hosts.ts`):
 |---|---|
 | `localhost:3000` | Platform marketing site |
 | `app.localhost:3000` | Subscriber console + Super Admin (`/platform`) |
+| `agent.localhost:3000` | Standalone External Agent (`/<tenant-slug>`) + embeddable widget (`/widget/<tenant-slug>`) |
 
-`PLATFORM_ROOT_DOMAIN`/`CONSOLE_SUBDOMAIN` in `.env.local` control this in
-every environment.
+`PLATFORM_ROOT_DOMAIN`/`CONSOLE_SUBDOMAIN`/`AGENT_SUBDOMAIN` in `.env.local`
+control this in every environment.
 
 ## Database
 
@@ -51,3 +53,11 @@ npm run lint
 npm run test        # vitest unit tests
 npm run test:db     # pgTAP (requires Docker)
 ```
+
+`.github/workflows/ci.yml` runs typecheck/lint/test/build on every push and
+PR to `main`.
+
+## Deployment
+
+See `DEPLOYMENT.md` — Hostinger shared hosting, `output: "standalone"`,
+manual deploy runbook.

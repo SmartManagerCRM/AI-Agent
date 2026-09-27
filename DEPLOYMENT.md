@@ -1,0 +1,152 @@
+# Deployment
+
+Target: **Hostinger shared hosting**, using hPanel's Node.js application
+feature. This app is a single Next.js server (no separate backend) whose
+`src/proxy.ts` tells three different hostnames apart by their `Host` header
+— the platform marketing site, the subscriber console, and the standalone
+Agent — so deployment is really "run this one build three times, once per
+hostname."
+
+> Hostinger's panel labels and steps change over time and differ between
+> plans. What follows is accurate as of this writing but treat the exact
+> button names as approximate — match them to whatever your panel actually
+> shows, and use Hostinger's own help center if something's moved.
+
+## 1. What gets deployed
+
+`next.config.ts` sets `output: "standalone"`, so the build produces a
+self-contained server instead of relying on `next start` against a full
+`node_modules` tree — a better fit for shared hosting's tighter resource
+caps. Build it with:
+
+```bash
+npm ci
+npm run build:standalone
+```
+
+This runs `next build` and then copies `public/` and `.next/static/` into
+`.next/standalone/` (the generated `server.js` doesn't include those by
+default — see the `output` doc in `node_modules/next/dist/docs/01-app/
+03-api-reference/05-config/01-next-config-js/output.md`). The result,
+`.next/standalone/`, is the entire deployable artifact: it does **not**
+need `node_modules` installed separately on the server, since Next already
+traced and copied the runtime dependencies it actually needs into it.
+
+**Build once, deploy the same artifact everywhere.** Don't run
+`npm run build:standalone` separately for each of the three hostnames below
+— copy the one `.next/standalone/` output to all three app roots. Next
+generates a random build ID per build; three independently-built copies
+would carry mismatched IDs, which can surface as spurious "failed to find
+Server Action" errors if a request ever crosses between them.
+
+## 2. DNS
+
+Point all three at your Hostinger server's IP:
+
+| Hostname | Serves |
+|---|---|
+| `yourdomain.com` (root) | Platform marketing site |
+| `app.yourdomain.com` | Subscriber console + Super Admin |
+| `agent.yourdomain.com` | Standalone External Agent + embeddable widget |
+
+`PLATFORM_ROOT_DOMAIN`, `CONSOLE_SUBDOMAIN`, `AGENT_SUBDOMAIN` (below) must
+match whatever you actually configure here.
+
+## 3. hPanel: three Node.js applications
+
+Shared hosting's Node.js App feature ties one application instance to one
+domain/subdomain. Since all three hostnames need to run the exact same
+code (they're told apart at request time by `src/proxy.ts`, not by
+being different apps), create **three separate Node.js applications** in
+hPanel, one per hostname, all pointed at the same uploaded `.next/standalone/`
+build:
+
+1. hPanel → **Advanced → Node.js** → **Create Application** (×3).
+2. For each: pick the Node version (≥ 20.9, matching this repo's `engines`
+   field), set the domain/subdomain, and set the **Application startup
+   file** to `server.js` inside that app's copy of `.next/standalone/`.
+3. Set the environment variables below in each application's own env-var
+   panel (all three need the same values — a Super Admin session, for
+   instance, is expected to work identically regardless of which
+   subdomain issued it).
+4. Start (or restart) each application after every deploy.
+
+This does mean three separate Node processes rather than one — an accepted
+tradeoff of shared hosting's per-domain app model, not a bug. One concrete
+consequence: `src/server/shared/rate-limit.ts`'s in-process rate limiting
+is now partitioned three ways (once per hostname) instead of shared across
+one process — already a documented limitation for any multi-instance
+deployment (see `ARCHITECTURE_ASSESSMENT.md` §21), just worth knowing it
+applies here from day one, not only once you scale further.
+
+## 4. Environment variables
+
+Set these identically across all three Node.js applications:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://irwpsewtevnzqzbsfchj.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the project's publishable key |
+| `SUPABASE_SECRET_KEY` | the project's service-role secret key |
+| `PLATFORM_ROOT_DOMAIN` | `yourdomain.com` |
+| `CONSOLE_SUBDOMAIN` | `app` |
+| `AGENT_SUBDOMAIN` | `agent` |
+| `PUBLIC_URL_SCHEME` | `https` |
+| `PUBLIC_URL_PORT` | leave unset (only needed for a non-default port, e.g. local dev) |
+| `GEMINI_API_KEY` | paid-tier Gemini key (optional — AI features degrade to "not configured" without it) |
+| `ANTHROPIC_API_KEY` | optional fallback provider |
+| `PORT` | set automatically by hPanel to whatever port it assigns your app — don't override it |
+
+Get the Supabase keys from the Supabase dashboard for project `AI-Agent`
+(`irwpsewtevnzqzbsfchj`) → Project Settings → API. `SUPABASE_SECRET_KEY` is
+sensitive (service-role) — set it only in hPanel's env-var panel, never
+commit it.
+
+## 5. Manual deploy runbook
+
+Since this is checks-only CI (`.github/workflows/ci.yml` runs typecheck/
+lint/test/build on every push/PR — it does not deploy), shipping a change
+is a manual step:
+
+```bash
+# 1. On your machine (or via Hostinger's SSH terminal, if your plan has one):
+git pull origin main
+npm ci
+npm run build:standalone
+
+# 2. Upload .next/standalone/ to each of the three hPanel application roots
+#    (SSH/SFTP, or hPanel's File Manager).
+
+# 3. Restart each of the three Node.js applications in hPanel.
+
+# 4. Verify: curl each hostname's /api/health and confirm {"status":"ok"}.
+```
+
+`/api/health` (`src/app/api/health/route.ts`) checks real Supabase
+connectivity — a 503 there after a deploy means the env vars on that
+specific app instance are wrong or the Supabase project is unreachable,
+not that the deploy itself failed.
+
+## 6. What CI does and doesn't cover
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`:
+typecheck → lint → unit tests → build, using placeholder env values (never
+real secrets — nothing in the build path makes a network call, since every
+route in this app is dynamically rendered, not statically generated).
+
+Not covered by CI: pgTAP tests (`supabase/tests/`, need a local Postgres —
+run with `npm run test:db`) and Playwright e2e (`npm run test:e2e`). Both
+are run manually today; wiring either into CI is a reasonable future
+addition, not something this pass includes.
+
+## Known limitations at this deploy target
+
+- **Payments are still mocked** (`src/server/payments/mock.ts`) — no real
+  provider is wired in yet. Deploying doesn't change that; see
+  `ARCHITECTURE_ASSESSMENT.md` for where a real `PaymentProvider` slots in.
+- **Rate limiting is per-process**, so it's partitioned three ways here
+  (§3 above) — acceptable for an MVP's traffic levels, not a shared/
+  distributed limiter.
+- **No CDN** in front of static assets — Hostinger serves them directly
+  from `.next/standalone/.next/static/`. Fine at MVP scale; revisit if
+  asset load time becomes a problem.

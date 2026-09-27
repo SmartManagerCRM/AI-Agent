@@ -1,0 +1,52 @@
+name: CI
+
+# Checks only — no deploy step. Deployment to Hostinger is a manual runbook
+# (see DEPLOYMENT.md) by design for now; this workflow exists to catch a
+# regression before it ever reaches that manual step, not to perform it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # Build-time-only placeholders — never real secrets. NEXT_PUBLIC_* values
+  # are inlined into the client bundle at build time (src/lib/env.public.ts
+  # requires them to be present and well-formed), but nothing in this repo
+  # makes a network call *during* typecheck/lint/test/build: every route is
+  # dynamically rendered (see ARCHITECTURE_ASSESSMENT.md), so a Supabase
+  # client is constructed but never actually called before a real request
+  # arrives. GEMINI_API_KEY/ANTHROPIC_API_KEY/SUPABASE_SECRET_KEY are
+  # optional in src/server/env-core.ts and deliberately left unset here.
+  NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "placeholder_publishable_key_for_ci_build_only"
+  PLATFORM_ROOT_DOMAIN: "localhost"
+  CONSOLE_SUBDOMAIN: "app"
+  AGENT_SUBDOMAIN: "agent"
+  PUBLIC_URL_SCHEME: "http"
+  PUBLIC_URL_PORT: "3000"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.9.0"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
