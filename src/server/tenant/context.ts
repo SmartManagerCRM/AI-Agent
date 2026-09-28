@@ -56,9 +56,20 @@ export async function requireTenantMember(locale: string, slug: string) {
 
 export async function requireSuperAdmin(locale: string) {
   const user = await requireUser(locale);
-  const supabase = await createUserClient();
-  const { data, error } = await supabase.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
-  if (error) throw new Error(`Failed to check Super Admin status: ${error.message}`);
-  if (!data) redirect(`/${locale}`);
+  if (!(await isSuperAdmin(user.id))) redirect(`/${locale}`);
   return user;
+}
+
+/**
+ * Non-redirecting check — a Super Admin who also owns a business (the
+ * common case: the first Super Admin bootstraps into a real tenant, e.g.
+ * during onboarding) still lands in their own tenant console by default;
+ * this is what lets the tenant nav offer a way into `/platform` instead of
+ * forcing a choice.
+ */
+export async function isSuperAdmin(userId: string): Promise<boolean> {
+  const supabase = await createUserClient();
+  const { data, error } = await supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
+  if (error) throw new Error(`Failed to check Super Admin status: ${error.message}`);
+  return data !== null;
 }

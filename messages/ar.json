@@ -37,12 +37,23 @@
       "settings": "الإعدادات"
     },
     "comingSoon": "قادم في مرحلة لاحقة.",
-    "signOut": "تسجيل الخروج"
+    "signOut": "تسجيل الخروج",
+    "superAdminLink": "المشرف العام"
   },
   "platform": {
     "title": "المشرف العام",
+    "subtitle": "نظرة عامة على المنصة — كل الأنشطة التجارية في سمارت مانجر",
     "businesses": "الأنشطة التجارية",
     "subscription": "الاشتراك",
+    "totalBusinesses": "إجمالي الأنشطة التجارية",
+    "activeBusinesses": "نشطة",
+    "onboardingBusinesses": "قيد الإعداد",
+    "totalUsers": "مستخدمو المنصة",
+    "aiInteractions": "تفاعلات الذكاء الاصطناعي (30 يومًا)",
+    "aiCost": "تكلفة الذكاء الاصطناعي (30 يومًا)",
+    "businessGrowth": "تسجيلات الأنشطة التجارية",
+    "backToConsole": "العودة إلى لوحتي",
+    "signOut": "تسجيل الخروج",
     "nav": {
       "overview": "نظرة عامة",
       "settings": "إعدادات المنصة",

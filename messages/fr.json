@@ -37,12 +37,23 @@
       "settings": "Paramètres"
     },
     "comingSoon": "Disponible dans une prochaine phase.",
-    "signOut": "Se déconnecter"
+    "signOut": "Se déconnecter",
+    "superAdminLink": "Super Admin"
   },
   "platform": {
     "title": "Super Admin",
+    "subtitle": "Aperçu de la plateforme — toutes les entreprises sur SmartManager",
     "businesses": "Entreprises",
     "subscription": "Abonnement",
+    "totalBusinesses": "Entreprises au total",
+    "activeBusinesses": "Actives",
+    "onboardingBusinesses": "En cours d'intégration",
+    "totalUsers": "Utilisateurs de la plateforme",
+    "aiInteractions": "Interactions IA (30 j)",
+    "aiCost": "Coût IA (30 j)",
+    "businessGrowth": "Inscriptions d'entreprises",
+    "backToConsole": "Retour à ma console",
+    "signOut": "Se déconnecter",
     "nav": {
       "overview": "Aperçu",
       "settings": "Paramètres de la plateforme",

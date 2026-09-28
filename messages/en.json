@@ -37,12 +37,23 @@
       "settings": "Settings"
     },
     "comingSoon": "Coming in a later phase.",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "superAdminLink": "Super Admin"
   },
   "platform": {
     "title": "Super Admin",
+    "subtitle": "Platform overview — every business on SmartManager",
     "businesses": "Businesses",
     "subscription": "Subscription",
+    "totalBusinesses": "Total businesses",
+    "activeBusinesses": "Active",
+    "onboardingBusinesses": "Onboarding",
+    "totalUsers": "Platform users",
+    "aiInteractions": "AI interactions (30d)",
+    "aiCost": "AI cost (30d)",
+    "businessGrowth": "Business signups",
+    "backToConsole": "Back to my console",
+    "signOut": "Sign out",
     "nav": {
       "overview": "Overview",
       "settings": "Platform settings",

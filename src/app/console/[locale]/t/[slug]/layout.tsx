@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
-import { requireTenantMember } from "@/server/tenant/context";
+import { currentUser, isSuperAdmin, requireTenantMember } from "@/server/tenant/context";
 import { signOutAction } from "@/server/auth/actions";
 
 export default async function TenantLayout({
@@ -14,6 +14,8 @@ export default async function TenantLayout({
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const t = await getTranslations("console");
+  const user = await currentUser();
+  const showSuperAdminLink = user ? await isSuperAdmin(user.id) : false;
 
   const nav = [
     { key: "dashboard", href: `/${locale}/t/${slug}` },
@@ -40,6 +42,15 @@ export default async function TenantLayout({
             </a>
           ))}
         </nav>
+        {showSuperAdminLink && (
+          <a
+            href={`/${locale}/platform`}
+            className="mt-6 flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+          >
+            <span aria-hidden="true">⚙</span>
+            {t("superAdminLink")}
+          </a>
+        )}
         <form action={signOutAction} className="mt-8">
           <input type="hidden" name="locale" value={locale} />
           <button type="submit" className="text-sm text-neutral-500 underline">
