@@ -47,7 +47,16 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Businesses</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-slate-900">Businesses</h1>
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
+        <a
+          href="/api/super-admin/export/businesses"
+          className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+        >
+          Export CSV
+        </a>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(all.length)} trend={null} />

@@ -79,12 +79,13 @@ export type PlatformPaymentRow = {
 export async function getRecentPayments(
   supabase: TypedSupabaseClient,
   status?: "succeeded" | "failed" | "pending",
+  limit = 100,
 ): Promise<PlatformPaymentRow[]> {
   let query = supabase
     .from("subscription_payments")
     .select("id, tenant_id, plan_key, status, amount_minor, currency, failure_reason, created_at")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(limit);
   if (status) query = query.eq("status", status);
   const { data: payments } = await query;
   const rows = payments ?? [];
