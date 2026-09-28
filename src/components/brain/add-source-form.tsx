@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/console/button";
 import { addWebsiteSourceAction } from "@/server/brain/actions";
 
 type Props = { tenantId: string; slug: string; locale: string };
@@ -24,13 +25,9 @@ export function AddSourceForm({ tenantId, slug, locale }: Props) {
           className="w-72 rounded-md border border-neutral-300 px-3 py-2"
         />
       </label>
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending}>
         {pending ? "Crawling…" : "Add & crawl"}
-      </button>
+      </Button>
       {error && <p className="basis-full text-sm text-red-600">{error}</p>}
     </form>
   );

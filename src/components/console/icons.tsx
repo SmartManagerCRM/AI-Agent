@@ -22,6 +22,8 @@ export const NAV_ICON_PATHS = {
   plus: "M12 5v14M5 12h14",
   filter: "M22 3H2l8 9.46V19l4 2v-8.54L22 3z",
   chevronDown: "M6 9l6 6 6-6",
+  copy: "M20 9h-9a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zM5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+  check: "M20 6L9 17l-5-5",
   sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z",
 } as const;
 

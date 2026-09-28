@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/console/button";
 import { createBrainEntryAction } from "@/server/brain/actions";
 
 type Props = { tenantId: string; slug: string; locale: string };
@@ -53,13 +54,9 @@ export function CreateEntryForm({ tenantId, slug, locale }: Props) {
         <textarea name="text" required rows={3} maxLength={4000} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-fit rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} className="w-fit">
         Add entry
-      </button>
+      </Button>
     </form>
   );
 }
