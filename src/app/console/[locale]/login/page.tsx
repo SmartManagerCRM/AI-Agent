@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
@@ -18,6 +19,7 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-6 px-6">
+      <Image src="/brand/logo-mark.png" alt="SmartManager AI Agent" width={64} height={64} className="rounded-xl" priority />
       <h1 className="text-2xl font-semibold">{isSignUp ? t("signUp") : t("signIn")}</h1>
       <CredentialsForm
         action={isSignUp ? signUpAction : signInAction}
