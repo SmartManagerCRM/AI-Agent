@@ -40,6 +40,7 @@ export default async function PlatformLayout({
         { key: "dashboard", href: `/${locale}/super-admin`, label: "Dashboard" },
         { key: "customers", href: `/${locale}/super-admin/subscribers`, label: "Subscribers" },
         { key: "building", href: `/${locale}/super-admin/businesses`, label: "Businesses" },
+        { key: "bell", href: `/${locale}/super-admin/leads`, label: "Leads" },
         { key: "sparkle", href: `/${locale}/super-admin/analytics`, label: "Analytics" },
         { key: "pulse", href: `/${locale}/super-admin/system-health`, label: "System Health" },
       ],
