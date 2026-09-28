@@ -82,7 +82,7 @@ export function matchDeterministic(message: string, snapshot: BrainSnapshot): De
   return null;
 }
 
-function describeOpeningHours(branch: BrainSnapshot["defaultBranch"]): string | null {
+export function describeOpeningHours(branch: BrainSnapshot["defaultBranch"]): string | null {
   if (!branch) return null;
   const today = WEEKDAY_KEYS[(new Date().getDay() + 6) % 7]; // getDay(): 0=Sun -> map to mon-first index
   const slots = branch.openingHours[today];

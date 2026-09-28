@@ -8,6 +8,7 @@ import type { AITurnMessage } from "@/server/ai/provider";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { isRateLimited } from "@/server/shared/rate-limit";
+import type { CartView } from "@/server/commerce/cart";
 import { serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -22,7 +23,7 @@ const sendMessageSchema = z.object({
 });
 
 export type SendAgentMessageState =
-  | { reply: string; handledBy: "deterministic" | "ai"; message: string }
+  | { reply: string; handledBy: "deterministic" | "ai"; message: string; cart?: CartView | null }
   | { error: string }
   | undefined;
 
@@ -87,7 +88,12 @@ export async function sendAgentMessageAction(
   });
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
 
-  return { reply: result.reply, handledBy: result.handledBy, message: parsed.data.message };
+  return {
+    reply: result.reply,
+    handledBy: result.handledBy,
+    message: parsed.data.message,
+    cart: "cart" in result ? (result.cart ?? null) : null,
+  };
 }
 
 async function loadHistory(supabase: TypedSupabaseClient, conversationId: string): Promise<AITurnMessage[]> {

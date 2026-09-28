@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 
+import { AgentAvatar } from "@/components/agent-public/agent-avatar";
 import { CatalogPanel } from "@/components/agent-public/catalog-panel";
 import { ChatPanel } from "@/components/agent-public/chat-panel";
+import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import { resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { serviceClient } from "@/server/supabase/clients";
 
@@ -28,7 +30,14 @@ export default async function WidgetPage({ params }: { params: Promise<{ slug: s
   if (!tenant) notFound();
 
   const supabase = serviceClient();
-  const [{ data: settings }, { data: categories }, { data: products }, { data: currencyRow }, { data: paymentConfig }] = await Promise.all([
+  const [
+    { data: settings },
+    { data: categories },
+    { data: products },
+    { data: currencyRow },
+    { data: paymentConfig },
+    popularity,
+  ] = await Promise.all([
     supabase.from("tenant_settings").select("agent, checkout").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
     supabase
@@ -39,6 +48,7 @@ export default async function WidgetPage({ params }: { params: Promise<{ slug: s
       .order("created_at"),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
     supabase.from("tenant_payment_config").select("enabled_methods").eq("tenant_id", tenant.id).maybeSingle(),
+    getPopularityByProduct(supabase, tenant.id),
   ]);
 
   if (!settings?.agent?.active) {
@@ -49,22 +59,35 @@ export default async function WidgetPage({ params }: { params: Promise<{ slug: s
     );
   }
 
-  const businessName = tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
+  const businessName =
+    tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
+  const assistantName: string | null = settings.agent.assistant_name ?? null;
   const suggestions = ["What do you recommend?", "What are your hours?", "Do you deliver?"];
+  const popularProductIds = [...popularity.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id);
 
   return (
     <main className="flex h-screen flex-col gap-3 bg-white p-3">
-      <header className="text-center">
-        <h1 className="text-sm font-bold tracking-tight">{businessName.toUpperCase()}</h1>
-        {settings.agent.greeting && <p className="mt-1 text-xs text-neutral-500">{settings.agent.greeting}</p>}
+      <header className="flex items-center gap-2 text-center">
+        <AgentAvatar businessName={businessName} size={28} />
+        <div className="min-w-0 text-start">
+          <h1 className="truncate text-sm font-bold tracking-tight text-slate-900">{businessName}</h1>
+          {settings.agent.greeting && <p className="truncate text-xs text-neutral-500">{settings.agent.greeting}</p>}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto">
         <CatalogPanel
           slug={tenant.slug}
           locale={tenant.defaultLanguage}
+          businessName={businessName}
           categories={categories ?? []}
-          products={(products ?? []).map((p) => ({ id: p.id, categoryId: p.category_id, name: p.name, priceMinor: p.price_minor }))}
+          products={(products ?? []).map((p) => ({
+            id: p.id,
+            categoryId: p.category_id,
+            name: p.name,
+            priceMinor: p.price_minor,
+          }))}
+          popularProductIds={popularProductIds}
           currency={tenant.currency}
           currencyExponent={currencyRow?.exponent ?? 2}
           orderingEnabled={settings.checkout?.ordering_enabled ?? false}
@@ -75,7 +98,16 @@ export default async function WidgetPage({ params }: { params: Promise<{ slug: s
         />
       </div>
 
-      <ChatPanel slug={tenant.slug} greeting={null} suggestions={suggestions} surface="website_widget" />
+      <ChatPanel
+        slug={tenant.slug}
+        greeting={null}
+        suggestions={suggestions}
+        businessName={businessName}
+        assistantName={assistantName}
+        currency={tenant.currency}
+        currencyExponent={currencyRow?.exponent ?? 2}
+        surface="website_widget"
+      />
 
       <p className="text-center text-[10px] text-neutral-400">Powered by SmartManager AI Agent</p>
     </main>

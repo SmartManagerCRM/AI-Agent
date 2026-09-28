@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isEntitled } from "@/server/billing/entitlement";
+import { getOrCreateCart, viewCart, type CartView } from "@/server/commerce/cart";
 import { getCostGuardStatus } from "./cost-guard";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { matchDeterministic } from "./deterministic/match";
@@ -11,6 +12,17 @@ import { AGENT_TOOLS } from "./tools/registry";
 import { executeTool, type ToolContext } from "./tools/handlers";
 import type { AITurnMessage, ContentBlock } from "./provider";
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
+
+/** Tool names whose execution can change what `view_cart` would now show — spec §32 "AI + UI hybrid responses". */
+const CART_MUTATING_TOOLS = new Set([
+  "add_to_cart",
+  "update_cart_item",
+  "remove_from_cart",
+  "clear_cart",
+  "set_fulfillment",
+  "set_payment_method",
+  "apply_coupon",
+]);
 
 /**
  * The Agent Gateway (spec §7): "Can deterministic logic handle it? YES →
@@ -50,6 +62,8 @@ export type GatewayResult =
       model: string;
       costUsd: number;
       fallbackUsed: boolean;
+      /** Set only when a cart-mutating tool actually ran this turn (spec §32) — never a stale or guessed cart. */
+      cart?: CartView | null;
     }
   | { handledBy: "ai"; reply: string; error: string };
 
@@ -170,6 +184,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   const tools = toolContext ? AGENT_TOOLS : undefined;
 
   let lastError = "";
+  let cartMutated = false;
   for (let i = 0; i < chain.length; i++) {
     const { row, provider } = chain[i];
     const startedAt = Date.now();
@@ -202,6 +217,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       messages.push({ role: "assistant", content: result.value.content });
       const toolResults: ContentBlock[] = [];
       for (const toolUse of toolUseBlocks) {
+        if (CART_MUTATING_TOOLS.has(toolUse.name)) cartMutated = true;
         const toolResult = await executeTool(toolUse.name, toolUse.input, toolContext);
         toolResults.push({
           type: "tool_result",
@@ -237,6 +253,11 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         success: true,
         fallbackUsed: i > 0,
       });
+      let cart: CartView | null = null;
+      if (cartMutated && toolContext) {
+        const cartRow = await getOrCreateCart(supabase, input.tenant.id, toolContext.conversationId);
+        cart = await viewCart(supabase, input.tenant.id, cartRow.id, input.locale);
+      }
       return {
         handledBy: "ai",
         reply: finalText || "Sorry, I didn't catch that — could you rephrase?",
@@ -244,6 +265,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         model: row.model,
         costUsd,
         fallbackUsed: i > 0,
+        cart,
       };
     }
 
