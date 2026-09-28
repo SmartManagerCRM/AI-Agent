@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
 import { slugify } from "@/lib/slugify";
 import { createUserClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -18,24 +19,32 @@ const createBusinessSchema = z.object({
 });
 
 /**
- * The tenant's slug (its console/web address, e.g. `/t/<slug>`) is a
+ * The tenant's slug (its console/web address, e.g. `/<slug>`) is a
  * system-generated identifier, never something the subscriber types — see
  * the comment on `CreateBusinessForm`. Matches the DB's own
- * `tenants_slug_format` check constraint (same shape, same 48-char cap).
+ * `tenants_slug_format` check constraint (same shape, same 48-char cap),
+ * and — via `RESERVED_SLUGS` — the routing architecture's fixed top-level
+ * words, so a business can never be assigned a slug that would collide
+ * with `/login`, `/super-admin`, etc.
  */
 async function generateUniqueSlug(supabase: TypedSupabaseClient, businessName: string): Promise<string> {
   const base = slugify(businessName) || "business";
   let candidate = base;
   for (let attempt = 1; attempt <= 50; attempt++) {
-    const { data } = await supabase.from("tenants").select("id").eq("slug", candidate).maybeSingle();
-    if (!data) return candidate;
+    if (!RESERVED_SLUGS.has(candidate)) {
+      const { data } = await supabase.from("tenants").select("id").eq("slug", candidate).maybeSingle();
+      if (!data) return candidate;
+    }
     const suffix = `-${attempt + 1}`;
     candidate = `${base.slice(0, 48 - suffix.length)}${suffix}`;
   }
   return `${base.slice(0, 40)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export async function createBusinessAction(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
+export async function createBusinessAction(
+  _prevState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
   const parsed = createBusinessSchema.safeParse({
     businessName: formData.get("businessName"),
     businessTypeKey: formData.get("businessTypeKey"),
@@ -57,7 +66,7 @@ export async function createBusinessAction(_prevState: string | undefined, formD
   });
   if (error) return "VALIDATION_ERROR: could not create the business — please try again.";
 
-  redirect(`/${parsed.data.locale}/t/${slug}`);
+  redirect(`/${parsed.data.locale}/${slug}`);
 }
 
 const profileSchema = z.object({
@@ -112,7 +121,7 @@ export async function updateBusinessProfileAction(
     .eq("id", parsed.data.tenantId);
   if (error) return "VALIDATION_ERROR: could not save the business profile — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/settings`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/settings`);
 }
 
 const deploymentModeSchema = z.object({
@@ -140,5 +149,5 @@ export async function setDeploymentModeAction(formData: FormData): Promise<void>
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.from("tenants").update({ deployment_mode: parsed.data.deploymentMode }).eq("id", parsed.data.tenantId);
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/agent`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
 }

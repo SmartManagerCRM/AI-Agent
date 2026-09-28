@@ -21,7 +21,7 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
         <p className="font-medium text-white">No active plan</p>
         <p className="mt-1 text-slate-400">Start a subscription to unlock billing and usage tracking.</p>
         <a
-          href={`/${locale}/t/${slug}/billing`}
+          href={`/${locale}/${slug}/billing`}
           className="mt-3 block rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-emerald-500"
         >
           View plans
@@ -55,7 +55,7 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
         </div>
       )}
       <a
-        href={`/${locale}/t/${slug}/billing`}
+        href={`/${locale}/${slug}/billing`}
         className="mt-3 block rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-emerald-500"
       >
         {subscription.status === "trialing" ? "Upgrade now" : "Manage billing"}

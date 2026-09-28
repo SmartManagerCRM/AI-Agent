@@ -42,7 +42,7 @@ export async function updatePlatformSettingsAction(
     .eq("id", true);
   if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/platform/settings`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/settings`);
 }
 
 const tenantStatusSchema = z.object({
@@ -62,7 +62,7 @@ export async function setTenantStatusAction(formData: FormData): Promise<void> {
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
   await supabase.from("tenants").update({ status: parsed.data.status }).eq("id", parsed.data.tenantId);
-  revalidatePath(`/${parsed.data.locale}/platform`);
+  revalidatePath(`/${parsed.data.locale}/super-admin`);
 }
 
 const createModelSchema = z.object({
@@ -99,10 +99,15 @@ export async function createAiModelConfigAction(
   });
   if (error) return "VALIDATION_ERROR: could not create that model config — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/platform/models`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/models`);
 }
 
-const toggleModelSchema = z.object({ configId: z.uuid(), field: z.enum(["is_active", "is_default"]), value: z.enum(["true", "false"]), locale: z.string() });
+const toggleModelSchema = z.object({
+  configId: z.uuid(),
+  field: z.enum(["is_active", "is_default"]),
+  value: z.enum(["true", "false"]),
+  locale: z.string(),
+});
 
 export async function setAiModelConfigFieldAction(formData: FormData): Promise<void> {
   const parsed = toggleModelSchema.safeParse({
@@ -118,12 +123,15 @@ export async function setAiModelConfigFieldAction(formData: FormData): Promise<v
   const value = parsed.data.value === "true";
   const patch = parsed.data.field === "is_active" ? { is_active: value } : { is_default: value };
   await supabase.from("ai_model_configs").update(patch).eq("id", parsed.data.configId);
-  revalidatePath(`/${parsed.data.locale}/platform/models`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/models`);
 }
 
 const addAdminSchema = z.object({ email: z.email(), locale: z.string() });
 
-export async function addPlatformAdminAction(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
+export async function addPlatformAdminAction(
+  _prevState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
   const parsed = addAdminSchema.safeParse({ email: formData.get("email"), locale: formData.get("locale") });
   if (!parsed.success) return "VALIDATION_ERROR: enter a valid email.";
 
@@ -132,7 +140,7 @@ export async function addPlatformAdminAction(_prevState: string | undefined, for
   const { error } = await supabase.rpc("add_platform_admin", { p_email: parsed.data.email, p_level: "admin" });
   if (error) return error.message.replace(/^[A-Z_]+: /, "");
 
-  revalidatePath(`/${parsed.data.locale}/platform/admins`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/admins`);
 }
 
 const removeAdminSchema = z.object({ userId: z.uuid(), locale: z.string() });
@@ -144,5 +152,5 @@ export async function removePlatformAdminAction(formData: FormData): Promise<voi
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
   await supabase.rpc("remove_platform_admin", { p_user_id: parsed.data.userId });
-  revalidatePath(`/${parsed.data.locale}/platform/admins`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/admins`);
 }

@@ -74,7 +74,7 @@ export default async function OrdersPage({
       ? allOrders.filter((o) => orderStatusGroup(o.status) === statusFilter)
       : allOrders;
 
-  const baseHref = `/${locale}/t/${slug}/orders`;
+  const baseHref = `/${locale}/${slug}/orders`;
   const tabs: Tab[] = GROUPS.map((group) => ({
     key: group,
     label: group.charAt(0).toUpperCase() + group.slice(1),
@@ -179,7 +179,7 @@ export default async function OrdersPage({
                   : "Try a different status or clear your search."
               }
               actionLabel={allOrders.length === 0 ? "Add a product" : undefined}
-              actionHref={allOrders.length === 0 ? `/${locale}/t/${slug}/products` : undefined}
+              actionHref={allOrders.length === 0 ? `/${locale}/${slug}/products` : undefined}
             />
           </div>
         )}

@@ -76,7 +76,7 @@ export async function createCouponAction(
     return "VALIDATION_ERROR: could not create that coupon — please try again.";
   }
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/marketing`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/marketing`);
 }
 
 const toggleCouponSchema = z.object({
@@ -98,5 +98,5 @@ export async function toggleCouponAction(formData: FormData): Promise<void> {
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.from("coupons").update({ status: parsed.data.status }).eq("id", parsed.data.couponId);
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/marketing`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/marketing`);
 }

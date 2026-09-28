@@ -16,7 +16,7 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Root domain of the platform (spec §21 multi-tenancy, §45 widget bootstrap). */
   PLATFORM_ROOT_DOMAIN: hostname.default("localhost"),
-  /** Subdomain that serves the subscriber console and Super Admin (`/platform`). */
+  /** Subdomain that can serve the subscriber console and Super Admin (`/super-admin`) — the canonical routing model answers both on the root host instead; see `src/lib/hosts.ts`. */
   CONSOLE_SUBDOMAIN: z
     .string()
     .regex(/^[a-z0-9-]+$/)

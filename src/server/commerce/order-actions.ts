@@ -26,7 +26,7 @@ export async function updateOrderStatusAction(formData: FormData): Promise<void>
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("update_order_status", { p_order_id: parsed.data.orderId, p_new_status: parsed.data.newStatus });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/orders`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/orders`);
 }
 
 const cashSchema = z.object({ paymentId: z.uuid(), slug: z.string().min(1), locale: z.string() });
@@ -50,5 +50,5 @@ export async function markCashPaymentCollectedAction(formData: FormData): Promis
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("mark_cash_payment_collected", { p_payment_id: parsed.data.paymentId });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/orders`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/orders`);
 }

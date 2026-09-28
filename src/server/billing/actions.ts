@@ -33,7 +33,7 @@ export async function subscribeAction(formData: FormData): Promise<void> {
   const result = await initiateSubscriptionPayment(supabase, parsed.data.tenantId, parsed.data.planKey);
   if (!result.ok) return;
 
-  redirect(`/${parsed.data.locale}/t/${parsed.data.slug}/${result.checkoutPath}`);
+  redirect(`/${parsed.data.locale}/${parsed.data.slug}/${result.checkoutPath}`);
 }
 
 const simulateSchema = z.object({
@@ -80,5 +80,5 @@ export async function simulateMockSubscriptionPaymentAction(formData: FormData):
     await processSubscriptionProviderWebhook(mockPaymentProvider, body, signature);
   }
 
-  redirect(`/${parsed.data.locale}/t/${parsed.data.slug}/billing/pay/${parsed.data.paymentId}`);
+  redirect(`/${parsed.data.locale}/${parsed.data.slug}/billing/pay/${parsed.data.paymentId}`);
 }

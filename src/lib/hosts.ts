@@ -2,19 +2,25 @@
  * Pure host classification — no I/O, so it is shared by the proxy, server
  * components and unit tests.
  *
- *   ai-agent.smartmanager.me           → platform marketing site
- *   app.ai-agent.smartmanager.me       → subscriber console + Super Admin (/platform)
+ *   ai-agent.smartmanager.me           → platform marketing site, and (by
+ *                                        path — see `resolveConsolePath`)
+ *                                        the subscriber console at
+ *                                        `/<locale>/<business-slug>` and
+ *                                        Super Admin at `/<locale>/super-admin`
  *   agent.ai-agent.smartmanager.me     → the standalone External Agent (addendum §14):
  *                                        agent.<root>/<tenant-slug>, no locale in the URL
  *                                        (deliberately — this is the shareable link/QR
  *                                        target, addendum §17)
  *
- * The console subdomain above is the default shape; on a host that can't
- * serve additional subdomains, `CONSOLE_URL` overrides the console's public
- * origin to something that does resolve (`consoleOrigin()` below) — this
- * file's own routing still only recognizes `CONSOLE_SUBDOMAIN` as a host,
- * since that override changes where links point, not what `classifyHost`
- * accepts.
+ * The routing architecture spec is explicit that the console must never
+ * live on its own subdomain (`app.<root>`, `admin.<root>`, …) — it answers
+ * on the same root host as the marketing site, disambiguated by path.
+ * `CONSOLE_SUBDOMAIN` still exists as a configuration knob (a deployment
+ * that *can* serve a dedicated console subdomain may still point one at
+ * it), but the canonical, documented shape above never uses it — and
+ * `CONSOLE_URL` overrides the console's public origin to whatever actually
+ * resolves in a given deployment (`consoleOrigin()` below), independent of
+ * whether `classifyHost` would also recognize a `CONSOLE_SUBDOMAIN` host.
  *
  * A website-embedded widget (spec §45) is a later phase: it identifies its
  * tenant through a public embed/site key resolved by a dedicated RPC, never

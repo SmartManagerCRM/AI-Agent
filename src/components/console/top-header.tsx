@@ -39,7 +39,7 @@ export function TopHeader({
       <div className="flex shrink-0 items-center gap-3">
         <LocaleSwitcher locale={locale} />
         <a
-          href={`/${locale}/t/${workspace.slug}/conversations`}
+          href={`/${locale}/${workspace.slug}/conversations`}
           className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
           aria-label="Open conversations"
         >

@@ -64,8 +64,8 @@ export async function requireSuperAdmin(locale: string) {
  * Non-redirecting check — a Super Admin who also owns a business (the
  * common case: the first Super Admin bootstraps into a real tenant, e.g.
  * during onboarding) still lands in their own tenant console by default;
- * this is what lets the tenant nav offer a way into `/platform` instead of
- * forcing a choice.
+ * this is what lets the tenant nav offer a way into `/super-admin` instead
+ * of forcing a choice.
  */
 export async function isSuperAdmin(userId: string): Promise<boolean> {
   const supabase = await createUserClient();

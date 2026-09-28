@@ -138,7 +138,7 @@ export default async function CustomersPage({
                   : "Try a different search term."
               }
               actionLabel={allCustomers.length === 0 ? "Set up your Agent" : undefined}
-              actionHref={allCustomers.length === 0 ? `/${locale}/t/${slug}/agent` : undefined}
+              actionHref={allCustomers.length === 0 ? `/${locale}/${slug}/agent` : undefined}
             />
           </div>
         )}

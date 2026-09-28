@@ -44,7 +44,7 @@ export async function createBranchAction(
   });
   if (error) return "VALIDATION_ERROR: could not create that branch — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/branches`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/branches`);
 }
 
 const createCategorySchema = z.object({
@@ -73,7 +73,7 @@ export async function createCategoryAction(
     .insert({ tenant_id: parsed.data.tenantId, name: { [parsed.data.locale]: parsed.data.name } });
   if (error) return "VALIDATION_ERROR: could not create that category — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/products`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
 
 const createProductSchema = z.object({
@@ -116,5 +116,5 @@ export async function createProductAction(
   });
   if (error) return "VALIDATION_ERROR: could not create that product — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/products`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }

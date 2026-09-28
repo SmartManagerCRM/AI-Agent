@@ -1,0 +1,77 @@
+import "server-only";
+
+import type { TypedSupabaseClient } from "@/server/supabase/clients";
+
+export type SearchResult = { id: string; title: string; subtitle: string; href: string };
+export type SearchResults = { businesses: SearchResult[]; subscribers: SearchResult[]; orders: SearchResult[] };
+
+/**
+ * Deterministic database search (spec §7) — plain `ilike`/exact-match
+ * queries, never an LLM call, for ordinary exact search across the
+ * platform's core entities. Every result links into a Super-Admin-only
+ * page (the Businesses list, anchored to the matching row) rather than
+ * into a tenant's own subscriber console — Super Admin does not yet have
+ * a granted way to open another tenant's console without weakening tenant
+ * isolation (see the Businesses/Subscribers pages' notes), so this never
+ * links somewhere that would just redirect away.
+ */
+export async function searchPlatform(supabase: TypedSupabaseClient, query: string): Promise<SearchResults> {
+  const q = query.trim();
+  if (!q) return { businesses: [], subscribers: [], orders: [] };
+
+  const like = `%${q}%`;
+  const orderNumber = Number(q);
+
+  const [{ data: slugMatches }, { data: allTenants }, { data: profiles }, { data: orders }] = await Promise.all([
+    supabase.from("tenants").select("id, slug, business_name").ilike("slug", like).limit(8),
+    supabase.from("tenants").select("id, slug, business_name").limit(500),
+    supabase.from("profiles").select("id, full_name, email").or(`full_name.ilike.${like},email.ilike.${like}`).limit(8),
+    Number.isInteger(orderNumber) && orderNumber > 0
+      ? supabase
+          .from("orders")
+          .select("id, order_number, tenant_id, customer_name")
+          .eq("order_number", orderNumber)
+          .limit(5)
+      : Promise.resolve({
+          data: [] as { id: string; order_number: number; tenant_id: string; customer_name: string | null }[],
+        }),
+  ]);
+
+  // business_name is a jsonb map, not filterable by `ilike` server-side —
+  // matched here against every language's value from an already-fetched list.
+  const nameMatches = (allTenants ?? []).filter((t) =>
+    Object.values(t.business_name).some((v) => v.toLowerCase().includes(q.toLowerCase())),
+  );
+  const tenantById = new Map([...(slugMatches ?? []), ...nameMatches].map((t) => [t.id, t]));
+
+  const businesses: SearchResult[] = Array.from(tenantById.values())
+    .slice(0, 8)
+    .map((t) => ({
+      id: t.id,
+      title: t.business_name.en ?? t.slug,
+      subtitle: `/${t.slug}`,
+      href: `/super-admin/businesses#${t.slug}`,
+    }));
+
+  const subscribers: SearchResult[] = (profiles ?? []).map((p) => ({
+    id: p.id,
+    title: p.full_name ?? p.email ?? "—",
+    subtitle: p.email ?? "",
+    href: "/super-admin/subscribers",
+  }));
+
+  const orderTenantIds = [...new Set((orders ?? []).map((o) => o.tenant_id))];
+  const { data: orderTenants } = orderTenantIds.length
+    ? await supabase.from("tenants").select("id, slug").in("id", orderTenantIds)
+    : { data: [] };
+  const slugByTenant = new Map((orderTenants ?? []).map((t) => [t.id, t.slug]));
+
+  const orderResults: SearchResult[] = (orders ?? []).map((o) => ({
+    id: o.id,
+    title: `Order #${o.order_number}`,
+    subtitle: o.customer_name ?? "",
+    href: `/super-admin/businesses#${slugByTenant.get(o.tenant_id) ?? ""}`,
+  }));
+
+  return { businesses, subscribers, orders: orderResults };
+}

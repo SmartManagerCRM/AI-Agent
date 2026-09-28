@@ -47,7 +47,7 @@ export function WorkspaceSwitcher({
             {[current, ...others].map((workspace) => (
               <a
                 key={workspace.slug}
-                href={`/${locale}/t/${workspace.slug}`}
+                href={`/${locale}/${workspace.slug}`}
                 className={`block px-3 py-2 text-sm ${
                   workspace.slug === current.slug
                     ? "bg-emerald-50 font-medium text-emerald-700"

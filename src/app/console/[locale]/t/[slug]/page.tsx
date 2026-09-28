@@ -93,7 +93,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
               title={t("dashboard.noSalesTitle")}
               description={t("dashboard.noSalesDescription")}
               actionLabel={t("dashboard.noSalesAction")}
-              actionHref={`/${locale}/t/${slug}/products`}
+              actionHref={`/${locale}/${slug}/products`}
             />
           )}
         </div>
@@ -112,7 +112,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentOrders")}</h2>
             <a
-              href={`/${locale}/t/${slug}/orders`}
+              href={`/${locale}/${slug}/orders`}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               {t("dashboard.viewAll")}
@@ -150,7 +150,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
               title={t("dashboard.noOrdersTitle")}
               description={t("dashboard.noOrdersDescription")}
               actionLabel={t("dashboard.noSalesAction")}
-              actionHref={`/${locale}/t/${slug}/products`}
+              actionHref={`/${locale}/${slug}/products`}
             />
           )}
         </div>
@@ -159,7 +159,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentConversations")}</h2>
             <a
-              href={`/${locale}/t/${slug}/conversations`}
+              href={`/${locale}/${slug}/conversations`}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               {t("dashboard.viewAll")}
@@ -186,7 +186,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
               title={t("dashboard.noConversationsTitle")}
               description={t("dashboard.noConversationsDescription")}
               actionLabel={t("dashboard.noConversationsAction")}
-              actionHref={`/${locale}/t/${slug}/agent`}
+              actionHref={`/${locale}/${slug}/agent`}
             />
           )}
         </div>
@@ -196,7 +196,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.topProducts")}</h2>
           <a
-            href={`/${locale}/t/${slug}/products`}
+            href={`/${locale}/${slug}/products`}
             className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
           >
             {t("dashboard.viewAll")}
@@ -224,7 +224,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
             title={t("dashboard.noProductsSoldTitle")}
             description={t("dashboard.noProductsSoldDescription")}
             actionLabel={t("dashboard.noSalesAction")}
-            actionHref={`/${locale}/t/${slug}/products`}
+            actionHref={`/${locale}/${slug}/products`}
           />
         )}
       </section>

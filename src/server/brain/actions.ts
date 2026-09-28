@@ -43,11 +43,11 @@ export async function addWebsiteSourceAction(
   } catch (error) {
     // The crawler already recorded the failure on the source row itself;
     // surface a short message but don't block the page from rendering it.
-    revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+    revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
     return `CRAWL_ERROR: ${error instanceof Error ? error.message : "the crawl failed."}`;
   }
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 const recrawlSchema = z.object({
@@ -75,7 +75,7 @@ export async function recrawlSourceAction(formData: FormData): Promise<void> {
   } catch {
     // Failure is recorded on the source row; the page reflects it on reload.
   }
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 const toggleSourceSchema = z.object({
@@ -100,7 +100,7 @@ export async function toggleSourceActiveAction(formData: FormData): Promise<void
     .from("business_sources")
     .update({ is_active: parsed.data.isActive === "true" })
     .eq("id", parsed.data.sourceId);
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 const entryActionSchema = z.object({
@@ -119,7 +119,7 @@ export async function approveBrainEntryAction(formData: FormData): Promise<void>
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("approve_brain_entry", { p_entry_id: parsed.data.entryId });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 export async function rejectBrainEntryAction(formData: FormData): Promise<void> {
@@ -132,7 +132,7 @@ export async function rejectBrainEntryAction(formData: FormData): Promise<void> 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("reject_brain_entry", { p_entry_id: parsed.data.entryId, p_reason: null });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 export async function archiveBrainEntryAction(formData: FormData): Promise<void> {
@@ -145,7 +145,7 @@ export async function archiveBrainEntryAction(formData: FormData): Promise<void>
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("set_brain_entry_active", { p_entry_id: parsed.data.entryId, p_active: false });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 const createEntrySchema = z.object({
@@ -189,7 +189,7 @@ export async function createBrainEntryAction(
   });
   if (error) return "VALIDATION_ERROR: could not save that entry — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
 const resolveConflictSchema = z.object({
@@ -219,5 +219,5 @@ export async function resolveBrainConflictAction(formData: FormData): Promise<vo
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("resolve_brain_conflict", { p_conflict_id: parsed.data.conflictId, p_resolved_value: resolvedValue });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/brain`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }

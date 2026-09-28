@@ -36,7 +36,12 @@ export function AccountMenu({ locale, name, roleLabel, initial, isSuperAdmin, su
       </button>
       {open && (
         <>
-          <button type="button" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} aria-label="Close menu" />
+          <button
+            type="button"
+            className="fixed inset-0 z-10 cursor-default"
+            onClick={() => setOpen(false)}
+            aria-label="Close menu"
+          />
           <div className="absolute end-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             <div className="border-b border-slate-100 px-3 py-2">
               <p className="text-sm font-medium text-slate-900">{name}</p>
@@ -44,7 +49,7 @@ export function AccountMenu({ locale, name, roleLabel, initial, isSuperAdmin, su
             </div>
             {isSuperAdmin && (
               <a
-                href={`/${locale}/platform`}
+                href={`/${locale}/super-admin`}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <Icon path={NAV_ICON_PATHS.shield} size={16} />

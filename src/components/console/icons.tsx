@@ -32,6 +32,11 @@ export const NAV_ICON_PATHS = {
   menu: "M3 6h18M3 12h18M3 18h18",
   close: "M18 6L6 18M6 6l12 12",
   alert: "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
+  building:
+    "M3 21h18M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16M9 8h.01M9 12h.01M9 16h.01M12 8h.01M12 12h.01M12 16h.01M14 21v-8h4a1 1 0 0 1 1 1v7",
+  crown: "M3 18h18l-1.5-9-4.5 3-3-6-3 6-4.5-3L3 18zM5 21h14",
+  pulse: "M22 12h-4l-3 9L9 3l-3 9H2",
+  models: "M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3M6 6h12v12H6z",
 } as const;
 
 export type NavIconKey = keyof typeof NAV_ICON_PATHS;

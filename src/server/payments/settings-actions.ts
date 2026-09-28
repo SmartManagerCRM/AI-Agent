@@ -65,5 +65,5 @@ export async function updatePaymentSettingsAction(
   const { error } = await supabase.from("tenant_payment_config").update(patch).eq("tenant_id", parsed.data.tenantId);
   if (error) return "VALIDATION_ERROR: could not save payment settings — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/settings`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/settings`);
 }

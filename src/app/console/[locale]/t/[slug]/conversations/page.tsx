@@ -48,16 +48,19 @@ export default async function ConversationsPage({
   }
   const customerByConversation = new Map<string, string>();
   for (const order of relatedOrders ?? []) {
-    if (order.conversation_id && order.customer_name) customerByConversation.set(order.conversation_id, order.customer_name);
+    if (order.conversation_id && order.customer_name)
+      customerByConversation.set(order.conversation_id, order.customer_name);
   }
 
   const counts = { all: (allConversations ?? []).length, open: 0, closed: 0 };
   for (const c of allConversations ?? []) counts[c.status === "open" ? "open" : "closed"]++;
 
   const conversations =
-    statusFilter && statusFilter !== "all" ? (allConversations ?? []).filter((c) => c.status === statusFilter) : (allConversations ?? []);
+    statusFilter && statusFilter !== "all"
+      ? (allConversations ?? []).filter((c) => c.status === statusFilter)
+      : (allConversations ?? []);
 
-  const baseHref = `/${locale}/t/${slug}/conversations`;
+  const baseHref = `/${locale}/${slug}/conversations`;
   const tabs: Tab[] = (["all", "open", "closed"] as const).map((key) => ({
     key,
     label: key.charAt(0).toUpperCase() + key.slice(1),
@@ -86,7 +89,10 @@ export default async function ConversationsPage({
               const last = lastByConversation.get(conversation.id);
               const customerName = customerByConversation.get(conversation.id);
               return (
-                <li key={conversation.id} className="flex items-start gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-0">
+                <li
+                  key={conversation.id}
+                  className="flex items-start gap-3 border-b border-slate-100 px-4 py-3 text-sm last:border-0"
+                >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                     <Icon path={NAV_ICON_PATHS.conversations} size={16} />
                   </span>
@@ -97,7 +103,9 @@ export default async function ConversationsPage({
                       </p>
                       <span
                         className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                          conversation.status === "open" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                          conversation.status === "open"
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "bg-slate-100 text-slate-500"
                         }`}
                       >
                         {conversation.status}
@@ -127,7 +135,7 @@ export default async function ConversationsPage({
                   : "Try a different status filter."
               }
               actionLabel={counts.all === 0 ? "Set up your Agent" : undefined}
-              actionHref={counts.all === 0 ? `/${locale}/t/${slug}/agent` : undefined}
+              actionHref={counts.all === 0 ? `/${locale}/${slug}/agent` : undefined}
             />
           </div>
         )}

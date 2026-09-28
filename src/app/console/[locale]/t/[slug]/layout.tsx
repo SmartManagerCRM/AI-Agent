@@ -46,20 +46,20 @@ export default async function TenantLayout({
   ]);
 
   const nav: NavItem[] = [
-    { key: "dashboard", href: `/${locale}/t/${slug}`, label: t("nav.dashboard") },
-    { key: "orders", href: `/${locale}/t/${slug}/orders`, label: t("nav.orders") },
-    { key: "products", href: `/${locale}/t/${slug}/products`, label: t("nav.products") },
-    { key: "branches", href: `/${locale}/t/${slug}/branches`, label: t("nav.branches") },
-    { key: "businessBrain", href: `/${locale}/t/${slug}/brain`, label: t("nav.businessBrain") },
-    { key: "agent", href: `/${locale}/t/${slug}/agent`, label: t("nav.agent") },
-    { key: "conversations", href: `/${locale}/t/${slug}/conversations`, label: t("nav.conversations") },
-    { key: "customers", href: `/${locale}/t/${slug}/customers`, label: t("nav.customers") },
-    { key: "analytics", href: `/${locale}/t/${slug}/analytics`, label: t("nav.analytics") },
-    { key: "marketing", href: `/${locale}/t/${slug}/marketing`, label: t("nav.marketing") },
-    { key: "billing", href: `/${locale}/t/${slug}/billing`, label: t("nav.billing") },
-    { key: "staff", href: `/${locale}/t/${slug}/staff`, label: t("nav.staff") },
-    { key: "audit", href: `/${locale}/t/${slug}/audit`, label: t("nav.audit") },
-    { key: "settings", href: `/${locale}/t/${slug}/settings`, label: t("nav.settings") },
+    { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
+    { key: "orders", href: `/${locale}/${slug}/orders`, label: t("nav.orders") },
+    { key: "products", href: `/${locale}/${slug}/products`, label: t("nav.products") },
+    { key: "branches", href: `/${locale}/${slug}/branches`, label: t("nav.branches") },
+    { key: "businessBrain", href: `/${locale}/${slug}/brain`, label: t("nav.businessBrain") },
+    { key: "agent", href: `/${locale}/${slug}/agent`, label: t("nav.agent") },
+    { key: "conversations", href: `/${locale}/${slug}/conversations`, label: t("nav.conversations") },
+    { key: "customers", href: `/${locale}/${slug}/customers`, label: t("nav.customers") },
+    { key: "analytics", href: `/${locale}/${slug}/analytics`, label: t("nav.analytics") },
+    { key: "marketing", href: `/${locale}/${slug}/marketing`, label: t("nav.marketing") },
+    { key: "billing", href: `/${locale}/${slug}/billing`, label: t("nav.billing") },
+    { key: "staff", href: `/${locale}/${slug}/staff`, label: t("nav.staff") },
+    { key: "audit", href: `/${locale}/${slug}/audit`, label: t("nav.audit") },
+    { key: "settings", href: `/${locale}/${slug}/settings`, label: t("nav.settings") },
   ];
 
   const businessName = tenant.business_name[locale] ?? tenant.slug;

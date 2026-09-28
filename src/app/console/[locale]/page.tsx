@@ -13,5 +13,5 @@ export default async function ConsoleEntry({ params }: { params: Promise<{ local
   // src/proxy.ts's host-based rewrite, which adds its own "/console"
   // prefix internally) — a pre-existing bug found while building Phase 8's
   // invite-accept flow, which redirects through this exact entry point.
-  redirect(`/${locale}/t/${memberships[0].slug}`);
+  redirect(`/${locale}/${memberships[0].slug}`);
 }

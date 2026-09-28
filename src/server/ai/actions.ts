@@ -47,7 +47,7 @@ export async function updateAgentSettingsAction(
     .eq("tenant_id", parsed.data.tenantId);
   if (error) return "VALIDATION_ERROR: could not save Agent settings — please try again.";
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/agent`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
 }
 
 const testMessageSchema = z.object({
@@ -87,6 +87,6 @@ export async function testAgentMessageAction(_prevState: TestAgentState, formDat
     message: parsed.data.message,
   });
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/agent`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
   return { message: parsed.data.message, result };
 }

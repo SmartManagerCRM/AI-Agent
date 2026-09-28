@@ -61,7 +61,7 @@ export async function inviteStaffAction(_prevState: InviteStaffState, formData: 
   });
   if (error || !data?.[0]) return { error: error?.message ?? "Could not create the invite." };
 
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/staff`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
   return { inviteLink: consoleUrl(`/${parsed.data.locale}/invite/${data[0].token}`), email: parsed.data.email };
 }
 
@@ -78,7 +78,7 @@ export async function revokeInviteAction(formData: FormData): Promise<void> {
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("revoke_staff_invite", { p_invite_id: parsed.data.inviteId });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/staff`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
 }
 
 const roleSchema = z.object({
@@ -100,7 +100,7 @@ export async function updateMemberRoleAction(formData: FormData): Promise<void> 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("update_staff_member_role", { p_member_id: parsed.data.memberId, p_role_key: parsed.data.roleKey });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/staff`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
 }
 
 const statusSchema = z.object({
@@ -122,7 +122,7 @@ export async function setMemberStatusAction(formData: FormData): Promise<void> {
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   await supabase.rpc("set_staff_member_status", { p_member_id: parsed.data.memberId, p_status: parsed.data.status });
-  revalidatePath(`/${parsed.data.locale}/t/${parsed.data.slug}/staff`);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
 }
 
 const acceptSchema = z.object({ token: z.string().min(1), locale: z.string() });
@@ -141,5 +141,5 @@ export async function acceptInviteAction(_prevState: AcceptInviteState, formData
 
   const { data: tenant } = await supabase.from("tenants").select("slug").eq("id", tenantId).maybeSingle();
   if (!tenant) return "Joined, but could not find the business to redirect to.";
-  redirect(`/${parsed.data.locale}/t/${tenant.slug}`);
+  redirect(`/${parsed.data.locale}/${tenant.slug}`);
 }

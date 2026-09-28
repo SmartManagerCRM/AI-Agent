@@ -35,7 +35,7 @@ export default async function AnalyticsPage({
   const exponent = currencyRow?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 
-  const baseHref = `/${locale}/t/${slug}/analytics`;
+  const baseHref = `/${locale}/${slug}/analytics`;
   const tabs: Tab[] = ANALYTICS_RANGES.map((days) => ({
     key: String(days),
     label: RANGE_LABEL[days],
@@ -55,7 +55,7 @@ export default async function AnalyticsPage({
           title="No activity in this period"
           description="Sales, orders, and AI usage will appear here once your Agent starts taking orders."
           actionLabel="Set up your Agent"
-          actionHref={`/${locale}/t/${slug}/agent`}
+          actionHref={`/${locale}/${slug}/agent`}
         />
       ) : (
         <>
