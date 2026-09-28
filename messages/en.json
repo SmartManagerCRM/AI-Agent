@@ -20,7 +20,6 @@
     "businessType": "Business type",
     "language": "Primary language",
     "currency": "Currency",
-    "slug": "Console URL",
     "submit": "Create business"
   },
   "console": {

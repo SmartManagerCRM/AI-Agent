@@ -4,27 +4,41 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { slugify } from "@/lib/slugify";
 import { createUserClient } from "@/server/supabase/clients";
+import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
 const createBusinessSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
   businessTypeKey: z.string().trim().min(1),
-  slug: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/, "Use lowercase letters, numbers and hyphens only."),
   defaultLanguage: z.enum(["en", "ar", "fr"]),
   currency: z.string().length(3),
   locale: z.string(),
 });
 
+/**
+ * The tenant's slug (its console/web address, e.g. `/t/<slug>`) is a
+ * system-generated identifier, never something the subscriber types — see
+ * the comment on `CreateBusinessForm`. Matches the DB's own
+ * `tenants_slug_format` check constraint (same shape, same 48-char cap).
+ */
+async function generateUniqueSlug(supabase: TypedSupabaseClient, businessName: string): Promise<string> {
+  const base = slugify(businessName) || "business";
+  let candidate = base;
+  for (let attempt = 1; attempt <= 50; attempt++) {
+    const { data } = await supabase.from("tenants").select("id").eq("slug", candidate).maybeSingle();
+    if (!data) return candidate;
+    const suffix = `-${attempt + 1}`;
+    candidate = `${base.slice(0, 48 - suffix.length)}${suffix}`;
+  }
+  return `${base.slice(0, 40)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export async function createBusinessAction(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {
   const parsed = createBusinessSchema.safeParse({
     businessName: formData.get("businessName"),
     businessTypeKey: formData.get("businessTypeKey"),
-    slug: formData.get("slug"),
     defaultLanguage: formData.get("defaultLanguage"),
     currency: formData.get("currency"),
     locale: formData.get("locale"),
@@ -32,19 +46,18 @@ export async function createBusinessAction(_prevState: string | undefined, formD
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
 
   const supabase = await createUserClient();
-  const { data: slugTaken } = await supabase.from("tenants").select("id").eq("slug", parsed.data.slug).maybeSingle();
-  if (slugTaken) return "VALIDATION_ERROR: that console URL is already taken.";
+  const slug = await generateUniqueSlug(supabase, parsed.data.businessName);
 
   const { error } = await supabase.rpc("create_business", {
     p_business_name: { [parsed.data.defaultLanguage]: parsed.data.businessName },
     p_business_type_key: parsed.data.businessTypeKey,
-    p_slug: parsed.data.slug,
+    p_slug: slug,
     p_default_language: parsed.data.defaultLanguage,
     p_currency: parsed.data.currency,
   });
   if (error) return "VALIDATION_ERROR: could not create the business — please try again.";
 
-  redirect(`/${parsed.data.locale}/t/${parsed.data.slug}`);
+  redirect(`/${parsed.data.locale}/t/${slug}`);
 }
 
 const profileSchema = z.object({

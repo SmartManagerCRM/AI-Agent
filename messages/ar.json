@@ -20,7 +20,6 @@
     "businessType": "نوع النشاط",
     "language": "اللغة الأساسية",
     "currency": "العملة",
-    "slug": "رابط لوحة التحكم",
     "submit": "إنشاء النشاط"
   },
   "console": {

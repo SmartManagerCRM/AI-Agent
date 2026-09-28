@@ -20,7 +20,6 @@
     "businessType": "Type d'activité",
     "language": "Langue principale",
     "currency": "Devise",
-    "slug": "URL de la console",
     "submit": "Créer l'entreprise"
   },
   "console": {

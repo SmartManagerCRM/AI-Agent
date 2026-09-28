@@ -27,7 +27,6 @@ export default async function OnboardingPage({ params }: { params: Promise<{ loc
           businessType: t("businessType"),
           language: t("language"),
           currency: t("currency"),
-          slug: t("slug"),
           submit: t("submit"),
         }}
       />
