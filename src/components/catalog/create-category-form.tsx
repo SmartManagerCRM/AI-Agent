@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/console/button";
 import { createCategoryAction } from "@/server/catalog/actions";
 
 type Props = { tenantId: string; slug: string; locale: string };
@@ -19,13 +20,9 @@ export function CreateCategoryForm({ tenantId, slug, locale }: Props) {
         <input name="name" required maxLength={120} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
       {error && <p className="basis-full text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium disabled:opacity-50"
-      >
+      <Button type="submit" variant="secondary" disabled={pending}>
         Add category
-      </button>
+      </Button>
     </form>
   );
 }

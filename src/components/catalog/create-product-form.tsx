@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/console/button";
 import { createProductAction } from "@/server/catalog/actions";
 
 type Category = { id: string; name: Record<string, string> };
@@ -57,13 +58,9 @@ export function CreateProductForm({ tenantId, slug, locale, categories, currency
         </select>
       </label>
       {error && <p className="basis-full text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending}>
         Add product
-      </button>
+      </Button>
     </form>
   );
 }

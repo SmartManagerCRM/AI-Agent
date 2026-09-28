@@ -1,25 +1,7 @@
 import "server-only";
 
+import { ORDER_STATUS_GROUP_COLOR, orderStatusGroup } from "@/lib/order-status";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
-
-const STATUS_GROUPS: Record<string, "pending" | "active" | "completed" | "cancelled"> = {
-  draft: "pending",
-  pending_payment: "pending",
-  paid: "active",
-  confirmed: "active",
-  preparing: "active",
-  ready: "active",
-  completed: "completed",
-  cancelled: "cancelled",
-  refunded: "cancelled",
-};
-
-const STATUS_GROUP_COLOR: Record<string, string> = {
-  pending: "#f59e0b",
-  active: "#3b82f6",
-  completed: "#10b981",
-  cancelled: "#ef4444",
-};
 
 const WINDOW_DAYS = 30;
 
@@ -120,13 +102,13 @@ export async function getTenantDashboardStats(supabase: TypedSupabaseClient, ten
 
   const groupCounts: Record<string, number> = { pending: 0, active: 0, completed: 0, cancelled: 0 };
   for (const order of allOrders) {
-    const group = STATUS_GROUPS[order.status] ?? "pending";
+    const group = orderStatusGroup(order.status);
     groupCounts[group] = (groupCounts[group] ?? 0) + 1;
   }
   const ordersByStatusGroup = (["pending", "active", "completed", "cancelled"] as const).map((group) => ({
     label: group.charAt(0).toUpperCase() + group.slice(1),
     count: groupCounts[group],
-    color: STATUS_GROUP_COLOR[group],
+    color: ORDER_STATUS_GROUP_COLOR[group],
   }));
 
   const recentOrders = allOrders.slice(0, 5).map((order) => ({
