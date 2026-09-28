@@ -6,7 +6,7 @@ import { serverEnv } from "@/server/env";
 export default async function MarketingHome() {
   const t = await getTranslations("marketing");
   const env = serverEnv();
-  const consoleHref = consoleOrigin({
+  const origin = consoleOrigin({
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
     agentSubdomain: env.AGENT_SUBDOMAIN,
@@ -14,6 +14,11 @@ export default async function MarketingHome() {
     port: env.PUBLIC_URL_PORT,
     consoleUrl: env.CONSOLE_URL,
   });
+  // On a real console subdomain, its own bare root already is the console.
+  // When CONSOLE_URL points this at the platform host instead, that host's
+  // bare root is the marketing page, so the link needs the `/subscriber`
+  // alias (see src/proxy.ts) to actually reach the console.
+  const consoleHref = env.CONSOLE_URL ? `${origin}/subscriber` : origin;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-start justify-center gap-6 px-6 py-24">

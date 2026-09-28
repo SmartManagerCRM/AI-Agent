@@ -21,8 +21,29 @@ import { serverEnv } from "@/server/env-core";
  * shareable link) — `agent.<root>/<tenant-slug>` carries no locale segment
  * at all; locale is negotiated silently (cookie/Accept-Language) and the
  * URL is never redirected to inject one.
+ *
+ * On a host that can't serve `CONSOLE_SUBDOMAIN` as a real subdomain
+ * (`CONSOLE_URL`, see `env-core.ts`), the platform host also answers
+ * console requests directly, disambiguated by path instead of by host:
+ * every console route's own `redirect()`/`Link` calls already emit the
+ * bare, unprefixed shape (`/${locale}/t/${slug}`, `/${locale}/login`, …
+ * — see `src/app/console/[locale]/page.tsx`'s comment), and none of those
+ * shapes collide with the platform's own routes (it only has one:
+ * `/${locale}` itself), so they can be recognized directly. The one shape
+ * the console has no unprefixed form for is its own bare entry
+ * (`/${locale}` — already the platform's marketing homepage), so
+ * `/subscriber` exists purely as a stable, bookmarkable alias for that.
  */
 const INTERNAL_HEADERS = ["x-site-area", "x-next-intl-locale", "x-nonce", "content-security-policy"];
+
+const CONSOLE_PATH_RE = /^\/(?:subscriber|login|onboarding|platform)(?:\/|$)|^\/(?:t|invite)\//;
+
+/** The `/subscriber` alias has no route of its own under `/console/[locale]` — it stands in for the bare entry. */
+function stripSubscriberAlias(rest: string): string {
+  if (rest === "/subscriber") return "";
+  if (rest.startsWith("/subscriber/")) return rest.slice("/subscriber".length);
+  return rest;
+}
 
 /**
  * Script CSP is nonce-based (Next's documented proxy-nonce pattern,
@@ -93,29 +114,33 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   };
 
+  const renderConsole = async () => {
+    const { redirect, locale } = withLocale();
+    if (redirect) return redirect;
+    requestHeaders.set("x-site-area", "console");
+    return refreshSession(request, requestHeaders, (headers) => {
+      headers.set("x-next-intl-locale", locale);
+      const url = request.nextUrl.clone();
+      url.pathname = `/console/${locale}${stripSubscriberAlias(rest)}`;
+      url.search = search;
+      return NextResponse.rewrite(url, { request: { headers } });
+    });
+  };
+
   switch (site.kind) {
     case "invalid":
       return withCsp(new NextResponse("Unknown host", { status: 400 }), csp);
 
     case "platform": {
+      if (CONSOLE_PATH_RE.test(rest)) return withCsp(await renderConsole(), csp);
       const { redirect, locale } = withLocale();
       if (redirect) return withCsp(redirect, csp);
       requestHeaders.set("x-site-area", "platform");
       return withCsp(rewrite(`/site/${locale}${rest}`, locale), csp);
     }
 
-    case "console": {
-      const { redirect, locale } = withLocale();
-      if (redirect) return withCsp(redirect, csp);
-      requestHeaders.set("x-site-area", "console");
-      const response = await refreshSession(request, requestHeaders, (headers) => {
-        headers.set("x-next-intl-locale", locale);
-        const url = request.nextUrl.clone();
-        url.pathname = `/console/${locale}${rest}`;
-        return NextResponse.rewrite(url, { request: { headers } });
-      });
-      return withCsp(response, csp);
-    }
+    case "console":
+      return withCsp(await renderConsole(), csp);
 
     case "agent": {
       const locale = negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
