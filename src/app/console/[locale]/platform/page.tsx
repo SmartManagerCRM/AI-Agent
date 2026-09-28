@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { BusinessGrowthChart } from "@/components/platform/business-growth-chart";
+import { LineChart } from "@/components/charts/line-chart";
 import { setTenantStatusAction } from "@/server/platform/actions";
 import { getPlatformAgentStats, getPlatformOverviewStats } from "@/server/platform/stats";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -63,7 +63,7 @@ export default async function PlatformOverview({ params }: { params: Promise<{ l
       <section className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-neutral-200 bg-white p-4 lg:col-span-2">
           <h2 className="mb-3 text-sm font-medium text-neutral-500">{t("businessGrowth")}</h2>
-          <BusinessGrowthChart data={overview.signupSeries} label={t("totalBusinesses")} />
+          <LineChart data={overview.signupSeries} label={t("totalBusinesses")} />
         </div>
         <div className="rounded-lg border border-neutral-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-medium text-neutral-500">

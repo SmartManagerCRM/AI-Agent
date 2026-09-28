@@ -9,11 +9,24 @@ const HEIGHT = 220;
 const PADDING = { top: 16, right: 16, bottom: 24, left: 32 };
 
 /**
- * Single-series line chart (cumulative business signups) — dataviz skill
- * mark spec: 2px line, rounded caps, recessive axes, hover crosshair +
- * tooltip. One series needs no legend (the title names it).
+ * Single-series line chart — dataviz skill mark spec: 2px line, rounded
+ * caps, recessive axes, hover crosshair + tooltip. One series needs no
+ * legend (the title/label names it). Shared by the Super Admin overview
+ * (business signups) and the tenant dashboard (sales over time).
  */
-export function BusinessGrowthChart({ data, label }: { data: Point[]; label: string }) {
+export function LineChart({
+  data,
+  label,
+  formatValue = (value) => String(value),
+  formatAxis = formatValue,
+}: {
+  data: Point[];
+  label: string;
+  /** Formats the tooltip value — e.g. currency for a sales chart. */
+  formatValue?: (value: number) => string;
+  /** Formats the axis min/max labels — defaults to formatValue. */
+  formatAxis?: (value: number) => string;
+}) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   const innerWidth = WIDTH - PADDING.left - PADDING.right;
@@ -56,10 +69,10 @@ export function BusinessGrowthChart({ data, label }: { data: Point[]; label: str
           stroke="var(--grid)"
         />
         <text x={PADDING.left} y={PADDING.top - 2} fontSize="11" fill="var(--text-secondary)">
-          {maxValue}
+          {formatAxis(maxValue)}
         </text>
         <text x={PADDING.left} y={HEIGHT - 6} fontSize="11" fill="var(--text-secondary)">
-          0
+          {formatAxis(0)}
         </text>
         <path d={areaPath} fill="var(--series-1)" opacity={0.08} stroke="none" />
         <path d={linePath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -87,7 +100,7 @@ export function BusinessGrowthChart({ data, label }: { data: Point[]; label: str
         >
           <p className="font-medium text-neutral-900">{hovered.date}</p>
           <p className="text-neutral-500">
-            {label}: {hovered.count}
+            {label}: {formatValue(hovered.count)}
           </p>
         </div>
       )}

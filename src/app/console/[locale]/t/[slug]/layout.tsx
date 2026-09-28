@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
-import { currentUser, isSuperAdmin, requireTenantMember } from "@/server/tenant/context";
-import { signOutAction } from "@/server/auth/actions";
+import { TenantNav, type NavItem } from "@/components/console/tenant-nav";
+import { TopHeader } from "@/components/console/top-header";
+import { TrialCard } from "@/components/console/trial-card";
+import type { Locale } from "@/i18n/locales";
+import { daysUntil } from "@/lib/dates";
+import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
+import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
   children,
@@ -12,53 +17,83 @@ export default async function TenantLayout({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant, membership } = await requireTenantMember(locale, slug);
   const t = await getTranslations("console");
   const user = await currentUser();
-  const showSuperAdminLink = user ? await isSuperAdmin(user.id) : false;
+  const supabase = await createUserClient();
 
-  const nav = [
-    { key: "dashboard", href: `/${locale}/t/${slug}` },
-    { key: "orders", href: `/${locale}/t/${slug}/orders` },
-    { key: "products", href: `/${locale}/t/${slug}/products` },
-    { key: "branches", href: `/${locale}/t/${slug}/branches` },
-    { key: "businessBrain", href: `/${locale}/t/${slug}/brain` },
-    { key: "agent", href: `/${locale}/t/${slug}/agent` },
-    { key: "conversations", href: `/${locale}/t/${slug}/conversations` },
-    { key: "billing", href: `/${locale}/t/${slug}/billing` },
-    { key: "staff", href: `/${locale}/t/${slug}/staff` },
-    { key: "audit", href: `/${locale}/t/${slug}/audit` },
-    { key: "settings", href: `/${locale}/t/${slug}/settings` },
-  ] as const;
+  const [showSuperAdminLink, memberships, { data: profile }, { data: subscription }, { count: conversationCount }, { count: openConversationCount }] =
+    await Promise.all([
+      user ? isSuperAdmin(user.id) : Promise.resolve(false),
+      myTenantMemberships(),
+      user ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
+      supabase.from("subscriptions").select("status, trial_ends_at, plan_key").eq("tenant_id", tenant.id).maybeSingle(),
+      supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+      supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("status", "open"),
+    ]);
+
+  const nav: NavItem[] = [
+    { key: "dashboard", href: `/${locale}/t/${slug}`, label: t("nav.dashboard") },
+    { key: "orders", href: `/${locale}/t/${slug}/orders`, label: t("nav.orders") },
+    { key: "products", href: `/${locale}/t/${slug}/products`, label: t("nav.products") },
+    { key: "branches", href: `/${locale}/t/${slug}/branches`, label: t("nav.branches") },
+    { key: "businessBrain", href: `/${locale}/t/${slug}/brain`, label: t("nav.businessBrain") },
+    { key: "agent", href: `/${locale}/t/${slug}/agent`, label: t("nav.agent") },
+    { key: "conversations", href: `/${locale}/t/${slug}/conversations`, label: t("nav.conversations") },
+    { key: "billing", href: `/${locale}/t/${slug}/billing`, label: t("nav.billing") },
+    { key: "staff", href: `/${locale}/t/${slug}/staff`, label: t("nav.staff") },
+    { key: "audit", href: `/${locale}/t/${slug}/audit`, label: t("nav.audit") },
+    { key: "settings", href: `/${locale}/t/${slug}/settings`, label: t("nav.settings") },
+  ];
+
+  const businessName = tenant.business_name[locale] ?? tenant.slug;
+  const userName = profile?.full_name ?? profile?.email ?? user?.email ?? "";
+  const otherWorkspaces = memberships
+    .filter((m) => m.slug !== slug)
+    .map((m) => ({ slug: m.slug, name: m.business_name[locale] ?? m.slug }));
+
+  const daysRemaining =
+    subscription?.status === "trialing" && subscription.trial_ends_at ? daysUntil(subscription.trial_ends_at) : null;
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-56 shrink-0 border-e border-neutral-200 bg-white px-4 py-6">
-        <p className="mb-6 truncate text-sm font-semibold">{tenant.business_name[locale] ?? tenant.slug}</p>
-        <nav className="flex flex-col gap-1 text-sm">
-          {nav.map((item) => (
-            <a key={item.key} href={item.href} className="rounded-md px-3 py-2 text-neutral-700 hover:bg-neutral-100">
-              {t(`nav.${item.key}`)}
-            </a>
-          ))}
-        </nav>
-        {showSuperAdminLink && (
-          <a
-            href={`/${locale}/platform`}
-            className="mt-6 flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-          >
-            <span aria-hidden="true">⚙</span>
-            {t("superAdminLink")}
-          </a>
-        )}
-        <form action={signOutAction} className="mt-8">
-          <input type="hidden" name="locale" value={locale} />
-          <button type="submit" className="text-sm text-neutral-500 underline">
-            {t("signOut")}
-          </button>
-        </form>
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="flex w-60 shrink-0 flex-col justify-between bg-slate-900 px-4 py-6">
+        <div>
+          <div className="mb-6 flex items-center gap-2 px-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
+              {businessName.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">{businessName}</p>
+              <p className="text-xs text-slate-400">SmartManager AI Agent</p>
+            </div>
+          </div>
+          <TenantNav items={nav} />
+        </div>
+        <div className="mt-6">
+          <TrialCard
+            locale={locale}
+            slug={slug}
+            subscription={subscription ? { status: subscription.status, planKey: subscription.plan_key } : null}
+            daysRemaining={daysRemaining}
+            conversationCount={conversationCount ?? 0}
+          />
+        </div>
       </aside>
-      <div className="flex-1 px-8 py-6">{children}</div>
+      <div className="flex flex-1 flex-col">
+        <TopHeader
+          locale={locale as Locale}
+          workspace={{ slug, name: businessName }}
+          otherWorkspaces={otherWorkspaces}
+          userName={userName}
+          roleLabel={membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+          isSuperAdmin={showSuperAdminLink}
+          superAdminLabel={t("superAdminLink")}
+          signOutLabel={t("signOut")}
+          openConversationCount={openConversationCount ?? 0}
+        />
+        <main className="flex-1 px-8 py-6">{children}</main>
+      </div>
     </div>
   );
 }
