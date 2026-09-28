@@ -1,17 +1,18 @@
 import { getTranslations } from "next-intl/server";
 
-import { platformOrigin } from "@/lib/hosts";
+import { consoleOrigin } from "@/lib/hosts";
 import { serverEnv } from "@/server/env";
 
 export default async function MarketingHome() {
   const t = await getTranslations("marketing");
   const env = serverEnv();
-  const consoleHref = platformOrigin(env.CONSOLE_SUBDOMAIN, {
+  const consoleHref = consoleOrigin({
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
     agentSubdomain: env.AGENT_SUBDOMAIN,
     scheme: env.PUBLIC_URL_SCHEME,
     port: env.PUBLIC_URL_PORT,
+    consoleUrl: env.CONSOLE_URL,
   });
 
   return (

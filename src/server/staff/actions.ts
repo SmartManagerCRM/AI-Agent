@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { platformOrigin } from "@/lib/hosts";
+import { consoleOrigin } from "@/lib/hosts";
 import { serverEnv } from "@/server/env";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember, requireUser } from "@/server/tenant/context";
@@ -21,12 +21,13 @@ import { requireTenantMember, requireUser } from "@/server/tenant/context";
 
 function consoleUrl(path: string): string {
   const env = serverEnv();
-  const origin = platformOrigin(env.CONSOLE_SUBDOMAIN, {
+  const origin = consoleOrigin({
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
     agentSubdomain: env.AGENT_SUBDOMAIN,
     scheme: env.PUBLIC_URL_SCHEME,
     port: env.PUBLIC_URL_PORT,
+    consoleUrl: env.CONSOLE_URL,
   });
   return `${origin}${path}`;
 }

@@ -30,6 +30,16 @@ const serverEnvSchema = z.object({
     .string()
     .regex(/^[a-z0-9-]+$/)
     .default("agent"),
+  /**
+   * Overrides the console's public origin, bypassing `CONSOLE_SUBDOMAIN`
+   * entirely. Some hosts (e.g. shared hosting plans without wildcard/
+   * additional-subdomain support) can only serve the root domain — in that
+   * case set this to that same root origin (no subdomain) so console/staff
+   * links point somewhere that actually resolves instead of a dead
+   * subdomain. Leave unset to keep building the console origin from
+   * `CONSOLE_SUBDOMAIN` + `PLATFORM_ROOT_DOMAIN` as before.
+   */
+  CONSOLE_URL: z.url().optional(),
   /** Supabase secret (service-role) key. Only used by narrowly scoped server services. */
   SUPABASE_SECRET_KEY: z.string().min(20).optional(),
   PUBLIC_URL_SCHEME: z.enum(["http", "https"]).default("https"),

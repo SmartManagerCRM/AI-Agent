@@ -111,6 +111,7 @@ identically across all three Node.js applications:
 | `PLATFORM_ROOT_DOMAIN` | `yourdomain.com` |
 | `CONSOLE_SUBDOMAIN` | `app` |
 | `AGENT_SUBDOMAIN` | `agent` |
+| `CONSOLE_URL` | only if your plan can't serve `CONSOLE_SUBDOMAIN` as a real subdomain — set to your root domain (e.g. `https://yourdomain.com`, no subdomain) and every console/staff link uses that instead. Leave unset otherwise. |
 | `PUBLIC_URL_SCHEME` | `https` |
 | `PUBLIC_URL_PORT` | leave unset (only needed for a non-default port, e.g. local dev) |
 | `GEMINI_API_KEY` | paid-tier Gemini key (optional — AI features degrade to "not configured" without it) |

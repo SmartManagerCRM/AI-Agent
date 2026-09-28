@@ -41,6 +41,19 @@ export function platformOrigin(
   return `${config.scheme}://${host}${config.port ? `:${config.port}` : ""}`;
 }
 
+/**
+ * Builds the console's public origin, honoring `CONSOLE_URL` when the host
+ * can't serve the console subdomain at all (see `env-core.ts`). Every
+ * console/staff link should be built through this, never `platformOrigin`
+ * directly, so a single override fixes them all.
+ */
+export function consoleOrigin(
+  config: HostConfig & { scheme: "http" | "https"; port?: string; consoleUrl?: string },
+): string {
+  if (config.consoleUrl) return config.consoleUrl.replace(/\/+$/, "");
+  return platformOrigin(config.consoleSubdomain, config);
+}
+
 export function classifyHost(rawHost: string | null | undefined, config: HostConfig): SiteTarget {
   const host = normalizeHost(rawHost);
   const root = config.rootDomain.toLowerCase();
