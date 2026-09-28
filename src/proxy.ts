@@ -46,7 +46,19 @@ function withCsp(response: NextResponse, csp: string): NextResponse {
 }
 
 export async function proxy(request: NextRequest) {
-  const env = serverEnv();
+  let env: ReturnType<typeof serverEnv>;
+  try {
+    env = serverEnv();
+  } catch (err) {
+    // serverEnv() runs on every request; an invalid value (never a missing
+    // one — every field here has a default) throws and, uncaught, would
+    // otherwise surface as an opaque "Internal Server Error" with no way to
+    // tell which variable is wrong. Log field names/messages only, never
+    // values, then keep failing the same way (a config bug should still be
+    // visible as a 500, not silently masked).
+    console.error("[proxy] serverEnv() rejected the current environment:", err instanceof Error ? err.message : err);
+    throw err;
+  }
   const site = classifyHost(request.headers.get("host"), {
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,

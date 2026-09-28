@@ -9,6 +9,13 @@
  *                                        (deliberately — this is the shareable link/QR
  *                                        target, addendum §17)
  *
+ * The console subdomain above is the default shape; on a host that can't
+ * serve additional subdomains, `CONSOLE_URL` overrides the console's public
+ * origin to something that does resolve (`consoleOrigin()` below) — this
+ * file's own routing still only recognizes `CONSOLE_SUBDOMAIN` as a host,
+ * since that override changes where links point, not what `classifyHost`
+ * accepts.
+ *
  * A website-embedded widget (spec §45) is a later phase: it identifies its
  * tenant through a public embed/site key resolved by a dedicated RPC, never
  * through its own hostname (the business's own site), so it needs no `kind`
