@@ -46,6 +46,8 @@ export default async function PlatformLayout({
     {
       label: "Content & Configuration",
       items: [
+        { key: "billing", href: `/${locale}/super-admin/plans`, label: "Subscriptions & Plans" },
+        { key: "analytics", href: `/${locale}/super-admin/payments`, label: "Payments & Revenue" },
         { key: "models", href: `/${locale}/super-admin/models`, label: "AI Models" },
         { key: "settings", href: `/${locale}/super-admin/settings`, label: "Platform Settings" },
       ],

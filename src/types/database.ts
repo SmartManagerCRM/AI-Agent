@@ -597,8 +597,9 @@ export type Database = {
           created_at: string;
           updated_at: string;
         };
-        Insert: never;
-        Update: never;
+        Insert: Partial<Database["public"]["Tables"]["subscription_plans"]["Row"]> &
+          Pick<Database["public"]["Tables"]["subscription_plans"]["Row"], "key" | "price_minor" | "currency">;
+        Update: Partial<Database["public"]["Tables"]["subscription_plans"]["Row"]>;
         Relationships: [];
       };
       subscriptions: {
