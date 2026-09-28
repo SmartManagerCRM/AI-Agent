@@ -29,23 +29,37 @@ export default async function ProductsPage({
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 
   const products = q
-    ? (allProducts ?? []).filter((p) => (p.name[locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(q.toLowerCase()))
+    ? (allProducts ?? []).filter((p) =>
+        (p.name[locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(q.toLowerCase()),
+      )
     : (allProducts ?? []);
   const activeCount = (allProducts ?? []).filter((p) => p.status === "active").length;
   const draftCount = (allProducts ?? []).filter((p) => p.status === "draft").length;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Products &amp; Services</h1>
         <SearchInput placeholder="Search products..." defaultValue={q} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="products" accent="emerald" label="Total products" value={String((allProducts ?? []).length)} trend={null} />
+        <KpiTile
+          icon="products"
+          accent="emerald"
+          label="Total products"
+          value={String((allProducts ?? []).length)}
+          trend={null}
+        />
         <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount)} trend={null} />
         <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount)} trend={null} />
-        <KpiTile icon="branches" accent="purple" label="Categories" value={String((categories ?? []).length)} trend={null} />
+        <KpiTile
+          icon="branches"
+          accent="purple"
+          label="Categories"
+          value={String((categories ?? []).length)}
+          trend={null}
+        />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
@@ -62,7 +76,13 @@ export default async function ProductsPage({
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Products</h2>
-        <CreateProductForm tenantId={tenant.id} slug={slug} locale={locale} categories={categories ?? []} currencyExponent={exponent} />
+        <CreateProductForm
+          tenantId={tenant.id}
+          slug={slug}
+          locale={locale}
+          categories={categories ?? []}
+          currencyExponent={exponent}
+        />
         {products.length > 0 ? (
           <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (

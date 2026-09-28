@@ -45,7 +45,7 @@ export default async function AnalyticsPage({
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
         <Tabs tabs={tabs} />
       </div>
@@ -126,24 +126,26 @@ export default async function AnalyticsPage({
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Top products</h2>
             {analytics.topProducts.length > 0 ? (
-              <table className="w-full text-start text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 text-slate-500">
-                    <th className="py-2 text-start font-medium">Product</th>
-                    <th className="py-2 text-start font-medium">Quantity sold</th>
-                    <th className="py-2 text-start font-medium">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {analytics.topProducts.map((product) => (
-                    <tr key={product.name} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2 font-medium text-slate-900">{product.name}</td>
-                      <td className="py-2 text-slate-600">{product.quantity}</td>
-                      <td className="py-2 text-slate-600">{money(product.revenueMinor)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-start text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-slate-500">
+                      <th className="py-2 text-start font-medium">Product</th>
+                      <th className="py-2 text-start font-medium">Quantity sold</th>
+                      <th className="py-2 text-start font-medium">Revenue</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {analytics.topProducts.map((product) => (
+                      <tr key={product.name} className="border-b border-slate-100 last:border-0">
+                        <td className="py-2 font-medium text-slate-900">{product.name}</td>
+                        <td className="py-2 text-slate-600">{product.quantity}</td>
+                        <td className="py-2 text-slate-600">{money(product.revenueMinor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <p className="text-sm text-slate-500">No product sales in this period yet.</p>
             )}

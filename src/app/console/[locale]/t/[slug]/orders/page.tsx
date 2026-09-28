@@ -46,7 +46,11 @@ export default async function OrdersPage({
   const { data: ordersRaw } = await query;
   const allOrders = ordersRaw ?? [];
 
-  const { data: currency } = await supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle();
+  const { data: currency } = await supabase
+    .from("currencies")
+    .select("exponent")
+    .eq("code", tenant.currency)
+    .maybeSingle();
   const exponent = currency?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 
@@ -58,13 +62,17 @@ export default async function OrdersPage({
     .order("created_at", { ascending: false });
   const latestPaymentByOrder = new Map<string, { id: string; provider: string; status: string }>();
   for (const p of payments ?? []) {
-    if (!latestPaymentByOrder.has(p.order_id)) latestPaymentByOrder.set(p.order_id, { id: p.id, provider: p.provider, status: p.status });
+    if (!latestPaymentByOrder.has(p.order_id))
+      latestPaymentByOrder.set(p.order_id, { id: p.id, provider: p.provider, status: p.status });
   }
 
   const counts = { all: allOrders.length, pending: 0, active: 0, completed: 0, cancelled: 0 };
   for (const order of allOrders) counts[orderStatusGroup(order.status)]++;
 
-  const orders = statusFilter && statusFilter !== "all" ? allOrders.filter((o) => orderStatusGroup(o.status) === statusFilter) : allOrders;
+  const orders =
+    statusFilter && statusFilter !== "all"
+      ? allOrders.filter((o) => orderStatusGroup(o.status) === statusFilter)
+      : allOrders;
 
   const baseHref = `/${locale}/t/${slug}/orders`;
   const tabs: Tab[] = GROUPS.map((group) => ({
@@ -77,7 +85,7 @@ export default async function OrdersPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
         <SearchInput placeholder="Search by customer..." defaultValue={q} />
       </div>
@@ -94,62 +102,73 @@ export default async function OrdersPage({
           <Tabs tabs={tabs} />
         </div>
         {orders.length > 0 ? (
-          <table className="w-full text-start text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="px-4 py-2 text-start font-medium">#</th>
-                <th className="px-4 py-2 text-start font-medium">Customer</th>
-                <th className="px-4 py-2 text-start font-medium">Fulfillment</th>
-                <th className="px-4 py-2 text-start font-medium">Total</th>
-                <th className="px-4 py-2 text-start font-medium">Status</th>
-                <th className="px-4 py-2 text-start font-medium">Payment</th>
-                <th className="px-4 py-2 text-start font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-3 font-medium text-slate-900">#{order.order_number}</td>
-                  <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
-                  <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
-                  <td className="px-4 py-3 text-slate-700">{money(order.total_minor)}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={order.status} />
-                  </td>
-                  <td className="px-4 py-3 capitalize text-slate-500">{latestPaymentByOrder.get(order.id)?.status ?? "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {(NEXT_STATUSES[order.status] ?? []).map((next) => (
-                        <form key={next} action={updateOrderStatusAction}>
-                          <input type="hidden" name="orderId" value={order.id} />
-                          <input type="hidden" name="newStatus" value={next} />
-                          <input type="hidden" name="slug" value={slug} />
-                          <input type="hidden" name="locale" value={locale} />
-                          <button type="submit" className="text-xs font-medium text-emerald-600 underline-offset-2 capitalize hover:underline">
-                            Mark {next.replace("_", " ")}
-                          </button>
-                        </form>
-                      ))}
-                      {(() => {
-                        const payment = latestPaymentByOrder.get(order.id);
-                        if (!payment || payment.status !== "pending" || !CASH_METHODS.has(payment.provider)) return null;
-                        return (
-                          <form action={markCashPaymentCollectedAction}>
-                            <input type="hidden" name="paymentId" value={payment.id} />
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="px-4 py-2 text-start font-medium">#</th>
+                  <th className="px-4 py-2 text-start font-medium">Customer</th>
+                  <th className="px-4 py-2 text-start font-medium">Fulfillment</th>
+                  <th className="px-4 py-2 text-start font-medium">Total</th>
+                  <th className="px-4 py-2 text-start font-medium">Status</th>
+                  <th className="px-4 py-2 text-start font-medium">Payment</th>
+                  <th className="px-4 py-2 text-start font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <tr key={order.id} className="border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-3 font-medium text-slate-900">#{order.order_number}</td>
+                    <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
+                    <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
+                    <td className="px-4 py-3 text-slate-700">{money(order.total_minor)}</td>
+                    <td className="px-4 py-3">
+                      <StatusPill status={order.status} />
+                    </td>
+                    <td className="px-4 py-3 capitalize text-slate-500">
+                      {latestPaymentByOrder.get(order.id)?.status ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {(NEXT_STATUSES[order.status] ?? []).map((next) => (
+                          <form key={next} action={updateOrderStatusAction}>
+                            <input type="hidden" name="orderId" value={order.id} />
+                            <input type="hidden" name="newStatus" value={next} />
                             <input type="hidden" name="slug" value={slug} />
                             <input type="hidden" name="locale" value={locale} />
-                            <button type="submit" className="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline">
-                              Mark cash collected
+                            <button
+                              type="submit"
+                              className="text-xs font-medium text-emerald-600 underline-offset-2 capitalize hover:underline"
+                            >
+                              Mark {next.replace("_", " ")}
                             </button>
                           </form>
-                        );
-                      })()}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        ))}
+                        {(() => {
+                          const payment = latestPaymentByOrder.get(order.id);
+                          if (!payment || payment.status !== "pending" || !CASH_METHODS.has(payment.provider))
+                            return null;
+                          return (
+                            <form action={markCashPaymentCollectedAction}>
+                              <input type="hidden" name="paymentId" value={payment.id} />
+                              <input type="hidden" name="slug" value={slug} />
+                              <input type="hidden" name="locale" value={locale} />
+                              <button
+                                type="submit"
+                                className="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline"
+                              >
+                                Mark cash collected
+                              </button>
+                            </form>
+                          );
+                        })()}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="p-4">
             <EmptyState

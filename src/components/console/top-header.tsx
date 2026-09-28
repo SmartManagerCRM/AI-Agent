@@ -1,6 +1,7 @@
 import { AccountMenu } from "@/components/console/account-menu";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { LocaleSwitcher } from "@/components/console/locale-switcher";
+import { MobileMenuButton } from "@/components/console/mobile-sidebar";
 import { WorkspaceSwitcher } from "@/components/console/workspace-switcher";
 import type { Locale } from "@/i18n/locales";
 
@@ -30,9 +31,12 @@ export function TopHeader({
   const initial = userName.trim().charAt(0).toUpperCase() || "?";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
-      <WorkspaceSwitcher locale={locale} current={workspace} others={otherWorkspaces} />
-      <div className="flex items-center gap-3">
+    <header className="flex h-16 items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <MobileMenuButton />
+        <WorkspaceSwitcher locale={locale} current={workspace} others={otherWorkspaces} />
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
         <LocaleSwitcher locale={locale} />
         <a
           href={`/${locale}/t/${workspace.slug}/conversations`}

@@ -70,7 +70,9 @@ export async function getTenantAnalytics(
     return t >= now - 2 * windowMs && t < now - windowMs;
   });
 
-  const currentInteractions = (comparisonInteractions ?? []).filter((i) => new Date(i.created_at).getTime() >= now - windowMs);
+  const currentInteractions = (comparisonInteractions ?? []).filter(
+    (i) => new Date(i.created_at).getTime() >= now - windowMs,
+  );
   const priorInteractions = (comparisonInteractions ?? []).filter((i) => {
     const t = new Date(i.created_at).getTime();
     return t >= now - 2 * windowMs && t < now - windowMs;
@@ -122,7 +124,10 @@ export async function getTenantAnalytics(
 
   const [{ data: orderItems }, { data: succeededPayments }] = await Promise.all([
     settledOrderIds.length
-      ? supabase.from("order_items").select("product_name, quantity, total_minor, order_id").in("order_id", settledOrderIds)
+      ? supabase
+          .from("order_items")
+          .select("product_name, quantity, total_minor, order_id")
+          .in("order_id", settledOrderIds)
       : Promise.resolve({ data: [] }),
     settledOrderIds.length
       ? supabase.from("payments").select("order_id, provider").eq("status", "succeeded").in("order_id", settledOrderIds)
@@ -131,7 +136,10 @@ export async function getTenantAnalytics(
 
   const productTotals = new Map<string, { name: string; quantity: number; revenueMinor: number }>();
   for (const item of orderItems ?? []) {
-    const name = (item.product_name as Record<string, string> | null)?.[locale] ?? (item.product_name as Record<string, string> | null)?.en ?? "—";
+    const name =
+      (item.product_name as Record<string, string> | null)?.[locale] ??
+      (item.product_name as Record<string, string> | null)?.en ??
+      "—";
     const existing = productTotals.get(name) ?? { name, quantity: 0, revenueMinor: 0 };
     existing.quantity += item.quantity;
     existing.revenueMinor += item.total_minor;

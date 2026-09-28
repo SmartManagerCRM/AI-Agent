@@ -20,7 +20,9 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
   const [stats, { data: currencyRow }, { data: profile }] = await Promise.all([
     getTenantDashboardStats(supabase, tenant.id, locale),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-    user ? supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
+    user
+      ? supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const exponent = currencyRow?.exponent ?? 2;
@@ -38,13 +40,27 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
             placeholder={t("dashboard.aiPlaceholder")}
             className="flex-1 bg-transparent text-sm text-slate-500 outline-none placeholder:text-slate-400"
           />
-          <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400">{t("dashboard.aiSoon")}</span>
+          <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400">
+            {t("dashboard.aiSoon")}
+          </span>
         </form>
       </section>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="orders" accent="emerald" label={t("dashboard.kpiSales")} value={money(stats.totalSalesMinor)} trend={stats.trends.sales} />
-        <KpiTile icon="billing" accent="blue" label={t("dashboard.kpiOrders")} value={String(stats.ordersCount)} trend={stats.trends.orders} />
+        <KpiTile
+          icon="orders"
+          accent="emerald"
+          label={t("dashboard.kpiSales")}
+          value={money(stats.totalSalesMinor)}
+          trend={stats.trends.sales}
+        />
+        <KpiTile
+          icon="billing"
+          accent="blue"
+          label={t("dashboard.kpiOrders")}
+          value={String(stats.ordersCount)}
+          trend={stats.trends.orders}
+        />
         <KpiTile
           icon="customers"
           accent="purple"
@@ -95,35 +111,40 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
         <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentOrders")}</h2>
-            <a href={`/${locale}/t/${slug}/orders`} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+            <a
+              href={`/${locale}/t/${slug}/orders`}
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
               {t("dashboard.viewAll")}
             </a>
           </div>
           {stats.recentOrders.length > 0 ? (
-            <table className="w-full text-start text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">#</th>
-                  <th className="py-2 text-start font-medium">{t("dashboard.customer")}</th>
-                  <th className="py-2 text-start font-medium">{t("dashboard.total")}</th>
-                  <th className="py-2 text-start font-medium">{t("dashboard.status")}</th>
-                  <th className="py-2 text-start font-medium">{t("dashboard.date")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-slate-100">
-                    <td className="py-2 font-medium text-slate-900">#{order.orderNumber}</td>
-                    <td className="py-2 text-slate-700">{order.customerName ?? "—"}</td>
-                    <td className="py-2 text-slate-700">{money(order.totalMinor)}</td>
-                    <td className="py-2">
-                      <StatusPill status={order.status} />
-                    </td>
-                    <td className="py-2 text-slate-500">{new Date(order.createdAt).toLocaleDateString(locale)}</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-start text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-500">
+                    <th className="py-2 text-start font-medium">#</th>
+                    <th className="py-2 text-start font-medium">{t("dashboard.customer")}</th>
+                    <th className="py-2 text-start font-medium">{t("dashboard.total")}</th>
+                    <th className="py-2 text-start font-medium">{t("dashboard.status")}</th>
+                    <th className="py-2 text-start font-medium">{t("dashboard.date")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {stats.recentOrders.map((order) => (
+                    <tr key={order.id} className="border-b border-slate-100">
+                      <td className="py-2 font-medium text-slate-900">#{order.orderNumber}</td>
+                      <td className="py-2 text-slate-700">{order.customerName ?? "—"}</td>
+                      <td className="py-2 text-slate-700">{money(order.totalMinor)}</td>
+                      <td className="py-2">
+                        <StatusPill status={order.status} />
+                      </td>
+                      <td className="py-2 text-slate-500">{new Date(order.createdAt).toLocaleDateString(locale)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <EmptyState
               title={t("dashboard.noOrdersTitle")}
@@ -137,7 +158,10 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentConversations")}</h2>
-            <a href={`/${locale}/t/${slug}/conversations`} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+            <a
+              href={`/${locale}/t/${slug}/conversations`}
+              className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+            >
               {t("dashboard.viewAll")}
             </a>
           </div>
@@ -146,7 +170,9 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
               {stats.recentConversations.map((conversation) => (
                 <li key={conversation.id} className="flex items-center justify-between text-sm">
                   <span className="text-slate-700">
-                    {conversation.channel === "external_agent" ? t("dashboard.channelAgent") : t("dashboard.channelWidget")}
+                    {conversation.channel === "external_agent"
+                      ? t("dashboard.channelAgent")
+                      : t("dashboard.channelWidget")}
                     <span className="ms-2 text-xs capitalize text-slate-400">({conversation.status})</span>
                   </span>
                   <span className="text-xs text-slate-400">
@@ -169,7 +195,10 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.topProducts")}</h2>
-          <a href={`/${locale}/t/${slug}/products`} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+          <a
+            href={`/${locale}/t/${slug}/products`}
+            className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
+          >
             {t("dashboard.viewAll")}
           </a>
         </div>

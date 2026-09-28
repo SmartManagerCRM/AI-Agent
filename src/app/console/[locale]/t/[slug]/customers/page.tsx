@@ -77,7 +77,13 @@ export default async function CustomersPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label="Total customers" value={String(allCustomers.length)} trend={null} />
+        <KpiTile
+          icon="customers"
+          accent="emerald"
+          label="Total customers"
+          value={String(allCustomers.length)}
+          trend={null}
+        />
         <KpiTile icon="orders" accent="blue" label="Repeat customers" value={String(repeatCustomers)} trend={null} />
         <KpiTile icon="billing" accent="purple" label="Total spent" value={money(totalSpentMinor)} trend={null} />
         <KpiTile
@@ -91,33 +97,37 @@ export default async function CustomersPage({
 
       <div className="rounded-xl border border-slate-200 bg-white">
         {customers.length > 0 ? (
-          <table className="w-full text-start text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="px-4 py-2 text-start font-medium">Customer</th>
-                <th className="px-4 py-2 text-start font-medium">Contact</th>
-                <th className="px-4 py-2 text-start font-medium">Orders</th>
-                <th className="px-4 py-2 text-start font-medium">Total spent</th>
-                <th className="px-4 py-2 text-start font-medium">Last order</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((customer) => (
-                <tr key={customer.key} className="border-b border-slate-100 last:border-0">
-                  <td className="flex items-center gap-2 px-4 py-3 font-medium text-slate-900">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">
-                      {customer.name.charAt(0).toUpperCase()}
-                    </span>
-                    {customer.name}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">{customer.email ?? customer.phone ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-700">{customer.orderCount}</td>
-                  <td className="px-4 py-3 text-slate-700">{money(customer.totalSpentMinor)}</td>
-                  <td className="px-4 py-3 text-slate-500">{new Date(customer.lastOrderAt).toLocaleDateString(locale)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-start text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="px-4 py-2 text-start font-medium">Customer</th>
+                  <th className="px-4 py-2 text-start font-medium">Contact</th>
+                  <th className="px-4 py-2 text-start font-medium">Orders</th>
+                  <th className="px-4 py-2 text-start font-medium">Total spent</th>
+                  <th className="px-4 py-2 text-start font-medium">Last order</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {customers.map((customer) => (
+                  <tr key={customer.key} className="border-b border-slate-100 last:border-0">
+                    <td className="flex items-center gap-2 px-4 py-3 font-medium text-slate-900">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">
+                        {customer.name.charAt(0).toUpperCase()}
+                      </span>
+                      {customer.name}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">{customer.email ?? customer.phone ?? "—"}</td>
+                    <td className="px-4 py-3 text-slate-700">{customer.orderCount}</td>
+                    <td className="px-4 py-3 text-slate-700">{money(customer.totalSpentMinor)}</td>
+                    <td className="px-4 py-3 text-slate-500">
+                      {new Date(customer.lastOrderAt).toLocaleDateString(locale)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="p-4">
             <EmptyState
