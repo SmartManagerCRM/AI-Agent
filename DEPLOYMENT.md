@@ -32,6 +32,25 @@ default — see the `output` doc in `node_modules/next/dist/docs/01-app/
 need `node_modules` installed separately on the server, since Next already
 traced and copied the runtime dependencies it actually needs into it.
 
+> **Why `next build` here actually runs Webpack, not Turbopack**: both
+> `build` and `build:standalone` pass `--webpack` explicitly. This
+> version of Next.js defaults `next build` to Turbopack, but on at least
+> one real deploy attempt (Hostinger's zip-upload/auto-build path, Node
+> 22.x, "Default" build settings) Turbopack's build crashed with `FATAL:
+> An unexpected Turbopack error occurred` while processing
+> `src/app/globals.css` — a child process Turbopack spawns for the
+> PostCSS transform exited silently, with no useful error. This is **not**
+> a Tailwind/PostCSS misconfiguration in this project: `tailwindcss`
+> (4.3.3), `@tailwindcss/postcss`, and `postcss` (8.5.x) were all already
+> well past every version a few "fix" suggestions floating around this
+> error message ask you to upgrade to, and `postcss.config.mjs` already
+> had the recommended config — none of that was the cause. Proof: the
+> exact same code, unchanged, builds cleanly under Webpack. If your
+> hosting platform runs its own build command instead of reading
+> `package.json`'s `scripts.build` (check for a "custom build command"
+> field under its build settings), set it explicitly to
+> `next build --webpack` there too.
+
 **Build once, deploy the same artifact everywhere.** Don't run
 `npm run build:standalone` separately for each of the three hostnames below
 — copy the one `.next/standalone/` output to all three app roots. Next
