@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/console/button";
 import { updateBusinessProfileAction } from "@/server/business/actions";
 
 type Props = {
@@ -22,7 +23,7 @@ export function BusinessProfileForm({ tenantId, slug, locale, current }: Props) 
   const [error, formAction, pending] = useActionState(updateBusinessProfileAction, undefined);
 
   return (
-    <form action={formAction} className="flex max-w-md flex-col gap-3 rounded-md border border-neutral-200 p-4">
+    <form action={formAction} className="flex max-w-md flex-col gap-3">
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="locale" value={locale} />
@@ -79,13 +80,9 @@ export function BusinessProfileForm({ tenantId, slug, locale, current }: Props) 
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-fit rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} className="w-fit">
         Save
-      </button>
+      </Button>
     </form>
   );
 }

@@ -32,12 +32,12 @@
       "agent": "Agent",
       "conversations": "Conversations",
       "customers": "Customers",
+      "analytics": "Analytics",
       "billing": "Billing",
       "staff": "Staff",
       "audit": "Audit log",
       "settings": "Settings"
     },
-    "comingSoon": "Coming in a later phase.",
     "signOut": "Sign out",
     "superAdminLink": "Super Admin",
     "dashboard": {

@@ -32,12 +32,12 @@
       "agent": "Agent",
       "conversations": "Conversations",
       "customers": "Clients",
+      "analytics": "Analytique",
       "billing": "Facturation",
       "staff": "Équipe",
       "audit": "Journal d'audit",
       "settings": "Paramètres"
     },
-    "comingSoon": "Disponible dans une prochaine phase.",
     "signOut": "Se déconnecter",
     "superAdminLink": "Super Admin",
     "dashboard": {

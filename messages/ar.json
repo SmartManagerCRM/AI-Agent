@@ -32,12 +32,12 @@
       "agent": "الوكيل",
       "conversations": "المحادثات",
       "customers": "العملاء",
+      "analytics": "التحليلات",
       "billing": "الفوترة",
       "staff": "الموظفون",
       "audit": "سجل التدقيق",
       "settings": "الإعدادات"
     },
-    "comingSoon": "قادم في مرحلة لاحقة.",
     "signOut": "تسجيل الخروج",
     "superAdminLink": "المشرف العام",
     "dashboard": {

@@ -1,10 +1,16 @@
+import { Button } from "@/components/console/button";
+import { daysUntil } from "@/lib/dates";
+import { formatMoney } from "@/lib/money";
 import { subscribeAction } from "@/server/billing/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
-function formatMoney(minor: number, exponent: number, currency: string): string {
-  return `${(minor / 10 ** exponent).toFixed(exponent)} ${currency}`;
-}
+const STATUS_STYLE: Record<string, string> = {
+  active: "bg-emerald-50 text-emerald-700",
+  trialing: "bg-blue-50 text-blue-700",
+  past_due: "bg-red-50 text-red-700",
+  canceled: "bg-slate-100 text-slate-500",
+};
 
 /**
  * Billing (spec §98 Phase 7). Any tenant member with `billing.read`
@@ -25,61 +31,65 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
     supabase.from("currencies").select("code, exponent"),
   ]);
   const exponentByCode = new Map((planCurrencies ?? []).map((c) => [c.code, c.exponent]));
+  const trialDaysRemaining = subscription?.status === "trialing" ? daysUntil(subscription.trial_ends_at) : null;
 
   return (
-    <div className="flex max-w-2xl flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Billing</h1>
+    <div className="flex max-w-3xl flex-col gap-6">
+      <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
 
-      <section className="rounded-md border border-neutral-200 p-4">
-        <h2 className="mb-2 text-sm font-semibold text-neutral-700">Current subscription</h2>
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Current subscription</h2>
         {subscription ? (
-          <dl className="grid grid-cols-2 gap-y-2 text-sm">
-            <dt className="text-neutral-500">Plan</dt>
-            <dd className="capitalize">{subscription.plan_key}</dd>
-            <dt className="text-neutral-500">Status</dt>
-            <dd className="capitalize">{subscription.status.replace("_", " ")}</dd>
-            {subscription.status === "trialing" && (
-              <>
-                <dt className="text-neutral-500">Trial ends</dt>
-                <dd>{new Date(subscription.trial_ends_at).toLocaleDateString(locale)}</dd>
-              </>
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLE[subscription.status] ?? "bg-slate-100 text-slate-500"}`}
+            >
+              {subscription.status.replace("_", " ")}
+            </span>
+            <span className="text-sm font-medium capitalize text-slate-900">{subscription.plan_key}</span>
+            {trialDaysRemaining !== null && (
+              <span className="text-sm text-slate-500">
+                {trialDaysRemaining} day{trialDaysRemaining === 1 ? "" : "s"} left in trial
+              </span>
             )}
             {subscription.current_period_end && (
-              <>
-                <dt className="text-neutral-500">Renews / expires</dt>
-                <dd>{new Date(subscription.current_period_end).toLocaleDateString(locale)}</dd>
-              </>
+              <span className="text-sm text-slate-500">
+                {subscription.status === "active" ? "Renews" : "Expires"} {new Date(subscription.current_period_end).toLocaleDateString(locale)}
+              </span>
             )}
-          </dl>
+          </div>
         ) : (
-          <p className="text-sm text-neutral-500">No subscription found.</p>
+          <p className="text-sm text-slate-500">No active plan yet — pick one below to get started.</p>
         )}
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-neutral-700">Plans</h2>
+        <h2 className="text-sm font-semibold text-slate-900">Plans</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(plans ?? []).map((plan) => {
             const exponent = exponentByCode.get(plan.currency) ?? 2;
             const isCurrent = subscription?.plan_key === plan.key && subscription.status === "active";
             return (
-              <div key={plan.key} className="flex flex-col gap-2 rounded-md border border-neutral-200 p-4">
-                <p className="font-semibold">{plan.name[locale] ?? plan.name.en ?? plan.key}</p>
-                <p className="text-2xl font-bold">
-                  {formatMoney(plan.price_minor, exponent, plan.currency)}
-                  <span className="text-sm font-normal text-neutral-500"> / {plan.billing_interval}</span>
+              <div
+                key={plan.key}
+                className={`flex flex-col gap-2 rounded-xl border p-4 ${isCurrent ? "border-emerald-300 bg-emerald-50/40" : "border-slate-200 bg-white"}`}
+              >
+                <p className="font-semibold text-slate-900">{plan.name[locale] ?? plan.name.en ?? plan.key}</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {formatMoney(plan.price_minor, plan.currency, exponent, locale)}
+                  <span className="text-sm font-normal text-slate-500"> / {plan.billing_interval}</span>
                 </p>
                 {isCurrent ? (
-                  <p className="text-sm text-green-700">Current plan</p>
+                  <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">Current plan</span>
                 ) : (
                   <form action={subscribeAction}>
                     <input type="hidden" name="tenantId" value={tenant.id} />
                     <input type="hidden" name="planKey" value={plan.key} />
                     <input type="hidden" name="locale" value={locale} />
                     <input type="hidden" name="slug" value={slug} />
-                    <button type="submit" className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white">
+                    <Button type="submit" className="w-fit">
                       Subscribe
-                    </button>
+                    </Button>
                   </form>
                 )}
               </div>

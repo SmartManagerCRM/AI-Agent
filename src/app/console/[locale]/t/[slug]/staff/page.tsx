@@ -1,4 +1,6 @@
 import { InviteStaffForm } from "@/components/staff/invite-staff-form";
+import { EmptyState } from "@/components/console/empty-state";
+import { KpiTile } from "@/components/console/kpi-tile";
 import { revokeInviteAction, setMemberStatusAction, updateMemberRoleAction } from "@/server/staff/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -27,100 +29,119 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
     ? await supabase.from("profiles").select("id, full_name, email").in("id", userIds)
     : { data: [] };
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const activeCount = (members ?? []).filter((m) => m.status === "active").length;
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Staff</h1>
+    <div className="flex max-w-3xl flex-col gap-6">
+      <h1 className="text-2xl font-semibold text-slate-900">Staff</h1>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-neutral-700">Invite someone</h2>
+      <div className="grid grid-cols-3 gap-4">
+        <KpiTile icon="staff" accent="emerald" label="Team members" value={String((members ?? []).length)} trend={null} />
+        <KpiTile icon="conversations" accent="blue" label="Active" value={String(activeCount)} trend={null} />
+        <KpiTile icon="billing" accent="orange" label="Pending invites" value={String((invites ?? []).length)} trend={null} />
+      </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Invite someone</h2>
         <InviteStaffForm tenantId={tenant.id} locale={locale} slug={slug} />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-neutral-700">Team</h2>
-        <table className="w-full text-start text-sm">
-          <thead>
-            <tr className="border-b border-neutral-200 text-neutral-500">
-              <th className="py-2 text-start">Name</th>
-              <th className="py-2 text-start">Email</th>
-              <th className="py-2 text-start">Role</th>
-              <th className="py-2 text-start">Status</th>
-              <th className="py-2 text-start">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(members ?? []).map((member) => {
-              const role = roleById.get(member.role_id);
-              const profile = profileById.get(member.user_id);
-              const isOwner = role?.key === "business_owner";
-              return (
-                <tr key={member.id} className="border-b border-neutral-100">
-                  <td className="py-2">{profile?.full_name ?? "—"}</td>
-                  <td className="py-2">{profile?.email ?? "—"}</td>
-                  <td className="py-2 capitalize">{(role?.key ?? "").replace("_", " ")}</td>
-                  <td className="py-2 capitalize">{member.status}</td>
-                  <td className="py-2">
-                    {!isOwner && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <form action={updateMemberRoleAction} className="flex items-center gap-1">
-                          <input type="hidden" name="memberId" value={member.id} />
-                          <input type="hidden" name="locale" value={locale} />
-                          <input type="hidden" name="slug" value={slug} />
-                          <select name="roleKey" defaultValue={role?.key} className="rounded-md border border-neutral-300 px-2 py-1 text-xs">
-                            {ASSIGNABLE_ROLES.map((key) => (
-                              <option key={key} value={key}>
-                                {key.replace("_", " ")}
-                              </option>
-                            ))}
-                          </select>
-                          <button type="submit" className="text-xs text-blue-700 underline">
-                            Change
-                          </button>
-                        </form>
-                        <form action={setMemberStatusAction}>
-                          <input type="hidden" name="memberId" value={member.id} />
-                          <input type="hidden" name="status" value={member.status === "active" ? "disabled" : "active"} />
-                          <input type="hidden" name="locale" value={locale} />
-                          <input type="hidden" name="slug" value={slug} />
-                          <button type="submit" className="text-xs text-blue-700 underline">
-                            {member.status === "active" ? "Disable" : "Re-enable"}
-                          </button>
-                        </form>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Team</h2>
+        {(members ?? []).length > 0 ? (
+          <table className="w-full text-start text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="py-2 text-start font-medium">Name</th>
+                <th className="py-2 text-start font-medium">Email</th>
+                <th className="py-2 text-start font-medium">Role</th>
+                <th className="py-2 text-start font-medium">Status</th>
+                <th className="py-2 text-start font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(members ?? []).map((member) => {
+                const role = roleById.get(member.role_id);
+                const profile = profileById.get(member.user_id);
+                const isOwner = role?.key === "business_owner";
+                return (
+                  <tr key={member.id} className="border-b border-slate-100 last:border-0">
+                    <td className="py-2 font-medium text-slate-900">{profile?.full_name ?? "—"}</td>
+                    <td className="py-2 text-slate-600">{profile?.email ?? "—"}</td>
+                    <td className="py-2 capitalize text-slate-600">{(role?.key ?? "").replace("_", " ")}</td>
+                    <td className="py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                          member.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {member.status}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      {!isOwner && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <form action={updateMemberRoleAction} className="flex items-center gap-1.5">
+                            <input type="hidden" name="memberId" value={member.id} />
+                            <input type="hidden" name="locale" value={locale} />
+                            <input type="hidden" name="slug" value={slug} />
+                            <select name="roleKey" defaultValue={role?.key} className="rounded-lg border border-slate-300 px-2 py-1 text-xs">
+                              {ASSIGNABLE_ROLES.map((key) => (
+                                <option key={key} value={key}>
+                                  {key.replace("_", " ")}
+                                </option>
+                              ))}
+                            </select>
+                            <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
+                              Change
+                            </button>
+                          </form>
+                          <form action={setMemberStatusAction}>
+                            <input type="hidden" name="memberId" value={member.id} />
+                            <input type="hidden" name="status" value={member.status === "active" ? "disabled" : "active"} />
+                            <input type="hidden" name="locale" value={locale} />
+                            <input type="hidden" name="slug" value={slug} />
+                            <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
+                              {member.status === "active" ? "Disable" : "Re-enable"}
+                            </button>
+                          </form>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <EmptyState title="No team members yet" description="You're the only one here so far." />
+        )}
       </section>
 
       {(invites ?? []).length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-neutral-700">Pending invites</h2>
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Pending invites</h2>
           <table className="w-full text-start text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-neutral-500">
-                <th className="py-2 text-start">Email</th>
-                <th className="py-2 text-start">Role</th>
-                <th className="py-2 text-start">Expires</th>
-                <th className="py-2 text-start">Actions</th>
+              <tr className="border-b border-slate-200 text-slate-500">
+                <th className="py-2 text-start font-medium">Email</th>
+                <th className="py-2 text-start font-medium">Role</th>
+                <th className="py-2 text-start font-medium">Expires</th>
+                <th className="py-2 text-start font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {(invites ?? []).map((invite) => (
-                <tr key={invite.id} className="border-b border-neutral-100">
-                  <td className="py-2">{invite.email}</td>
-                  <td className="py-2 capitalize">{invite.role_key.replace("_", " ")}</td>
-                  <td className="py-2">{new Date(invite.expires_at).toLocaleDateString(locale)}</td>
+                <tr key={invite.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-2 text-slate-900">{invite.email}</td>
+                  <td className="py-2 capitalize text-slate-600">{invite.role_key.replace("_", " ")}</td>
+                  <td className="py-2 text-slate-600">{new Date(invite.expires_at).toLocaleDateString(locale)}</td>
                   <td className="py-2">
                     <form action={revokeInviteAction}>
                       <input type="hidden" name="inviteId" value={invite.id} />
                       <input type="hidden" name="locale" value={locale} />
                       <input type="hidden" name="slug" value={slug} />
-                      <button type="submit" className="text-xs text-red-700 underline">
+                      <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                         Revoke
                       </button>
                     </form>

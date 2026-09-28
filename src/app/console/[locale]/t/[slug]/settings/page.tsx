@@ -16,11 +16,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   ]);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
-      <h1 className="text-2xl font-semibold">Settings</h1>
+    <div className="flex max-w-3xl flex-col gap-6">
+      <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-neutral-700">Business profile</h2>
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Business profile</h2>
         <BusinessProfileForm
           tenantId={tenant.id}
           slug={slug}
@@ -36,8 +36,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-neutral-700">Ordering &amp; checkout</h2>
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Ordering &amp; checkout</h2>
         <CheckoutSettingsForm
           tenantId={tenant.id}
           slug={slug}
@@ -57,8 +57,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
       </section>
 
       {paymentConfig && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-neutral-700">Payment methods</h2>
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">Payment methods</h2>
           <PaymentSettingsForm
             tenantId={tenant.id}
             slug={slug}

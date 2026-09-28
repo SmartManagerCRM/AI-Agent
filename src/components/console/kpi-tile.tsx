@@ -15,12 +15,15 @@ export function KpiTile({
   label,
   value,
   trend,
+  trendLabel = "vs prior 30 days",
 }: {
   icon: NavIconKey;
   accent: keyof typeof ICON_BG;
   label: string;
   value: string;
   trend: Trend;
+  /** Text after the percentage — defaults to the Dashboard's fixed 30-day comparison. */
+  trendLabel?: string;
 }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -33,7 +36,7 @@ export function KpiTile({
       <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
       {trend && (
         <p className={`mt-1 text-xs font-medium ${trend.direction === "up" ? "text-emerald-600" : "text-red-600"}`}>
-          {trend.direction === "up" ? "↑" : "↓"} {trend.pct}% vs prior 30 days
+          {trend.direction === "up" ? "↑" : "↓"} {trend.pct}% {trendLabel}
         </p>
       )}
     </div>
