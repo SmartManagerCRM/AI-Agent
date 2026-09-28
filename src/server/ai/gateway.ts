@@ -50,6 +50,8 @@ export type GatewayInput = {
   history?: AITurnMessage[];
   /** Enables tool execution (cart/orders) scoped to this conversation. Omit for a tool-free preview reply. */
   conversationId?: string;
+  /** The real, already-validated `branch_tables` row this conversation started from (a dine-in QR link) — never a raw id, always re-validated by the caller against `branch_tables` first (spec §25/§39). Omit outside dine-in mode. */
+  activeTable?: { id: string; branchId: string; label: string } | null;
   kind?: ModelKind;
 };
 
@@ -173,6 +175,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         minimum_order_minor: 0,
       },
       paymentMethods: paymentConfig?.enabled_methods ?? [],
+      activeTable: input.activeTable ?? null,
     };
   }
 

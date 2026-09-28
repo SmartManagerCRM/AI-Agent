@@ -6,6 +6,7 @@ import { ChatPanel } from "@/components/agent-public/chat-panel";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import { resolvePublicTenant } from "@/server/agent-public/tenant";
 import { describeOpeningHours } from "@/server/ai/deterministic/match";
+import { findActiveTable } from "@/server/commerce/tables";
 import { serviceClient } from "@/server/supabase/clients";
 
 export const dynamic = "force-dynamic";
@@ -29,12 +30,20 @@ export const dynamic = "force-dynamic";
  * from this business's own order history (`getPopularityByProduct`) —
  * never fabricated.
  */
-export default async function ExternalAgentPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ExternalAgentPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ table?: string }>;
+}) {
   const { slug } = await params;
+  const { table: rawTableId } = await searchParams;
   const tenant = await resolvePublicTenant(slug);
   if (!tenant) notFound();
 
   const supabase = serviceClient();
+  const activeTable = rawTableId ? await findActiveTable(supabase, tenant.id, rawTableId) : null;
   const [
     { data: settings },
     { data: categories },
@@ -114,6 +123,11 @@ export default async function ExternalAgentPage({ params }: { params: Promise<{ 
             {branch?.phone && <span className="rounded-full bg-slate-100 px-3 py-1">{branch.phone}</span>}
           </div>
         )}
+        {activeTable && (
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+            Table {activeTable.label}
+          </span>
+        )}
       </header>
 
       <CatalogPanel
@@ -134,6 +148,7 @@ export default async function ExternalAgentPage({ params }: { params: Promise<{ 
         fulfillmentTypes={settings.checkout?.fulfillment_types ?? ["pickup"]}
         paymentMethods={paymentConfig?.enabled_methods ?? []}
         initialCart={null}
+        activeTable={activeTable}
       />
 
       {/* The greeting already renders once, above, alongside the structured
@@ -147,6 +162,7 @@ export default async function ExternalAgentPage({ params }: { params: Promise<{ 
         assistantName={assistantName}
         currency={tenant.currency}
         currencyExponent={currencyRow?.exponent ?? 2}
+        tableId={activeTable?.id ?? null}
       />
 
       <p className="text-center text-xs text-neutral-400">Powered by SmartManager AI Agent</p>

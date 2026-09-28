@@ -73,10 +73,11 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   },
   {
     name: "set_fulfillment",
-    description: "Set whether the order is for pickup or delivery.",
+    description:
+      "Set whether the order is for pickup, delivery, or dine-in. Only offer dine-in if the customer opened this Agent from their table's own QR code — never claim a table on the customer's behalf; if they ask for dine-in and it's not available, tell them to scan the table's QR code.",
     parameters: {
       type: "object",
-      properties: { fulfillment_type: { type: "string", enum: ["pickup", "delivery"] } },
+      properties: { fulfillment_type: { type: "string", enum: ["pickup", "delivery", "dine_in"] } },
       required: ["fulfillment_type"],
     },
   },

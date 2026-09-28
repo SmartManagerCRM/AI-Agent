@@ -18,6 +18,12 @@ import { AgentAvatar } from "./agent-avatar";
 type Category = { id: string; name: Record<string, string> };
 type Product = { id: string; categoryId: string | null; name: Record<string, string>; priceMinor: number };
 
+const FULFILLMENT_LABELS: Record<"pickup" | "delivery" | "dine_in", string> = {
+  pickup: "pickup",
+  delivery: "delivery",
+  dine_in: "dine-in",
+};
+
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   moyasar: "Card / Apple Pay (Moyasar)",
   tap: "Card / Apple Pay (Tap)",
@@ -36,10 +42,12 @@ type Props = {
   currency: string;
   currencyExponent: number;
   orderingEnabled: boolean;
-  fulfillmentTypes: ("pickup" | "delivery")[];
+  fulfillmentTypes: ("pickup" | "delivery" | "dine_in")[];
   paymentMethods: PaymentMethod[];
   initialCart: CartView | null;
   surface?: "external_agent" | "website_widget";
+  /** The real, already-validated table this page opened for (from its own `?table=` QR link), or null outside dine-in mode. */
+  activeTable?: { id: string; label: string } | null;
 };
 
 function formatMinor(minor: number, exponent: number): string {
@@ -92,6 +100,7 @@ export function CatalogPanel({
   paymentMethods,
   initialCart,
   surface = "external_agent",
+  activeTable = null,
 }: Props) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(categories[0]?.id ?? null);
   const [cart, setCart] = useState<CartView | null>(initialCart);
@@ -137,10 +146,14 @@ export function CatalogPanel({
     });
   }
 
-  function chooseFulfillment(type: "pickup" | "delivery") {
+  function chooseFulfillment(type: "pickup" | "delivery" | "dine_in") {
     setError(null);
     startTransition(async () => {
-      const result = await setFulfillmentTypeAction(slug, { fulfillmentType: type }, surface);
+      const result = await setFulfillmentTypeAction(
+        slug,
+        { fulfillmentType: type, tableId: type === "dine_in" ? (activeTable?.id ?? undefined) : undefined },
+        surface,
+      );
       if (!result.ok) return setError(result.error);
       setCart(result.cart);
     });
@@ -204,6 +217,11 @@ export function CatalogPanel({
 
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4">
+      {activeTable && (
+        <div className="rounded-full bg-emerald-50 px-3 py-1.5 text-center text-xs font-medium text-emerald-700">
+          Ordering for Table {activeTable.label}
+        </div>
+      )}
       {categories.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
@@ -338,7 +356,7 @@ export function CatalogPanel({
                           : "border-slate-200 text-slate-600"
                       }`}
                     >
-                      {type}
+                      {FULFILLMENT_LABELS[type]}
                     </button>
                   ))}
                 </div>

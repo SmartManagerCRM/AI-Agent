@@ -39,6 +39,8 @@ type Props = {
   currency: string;
   currencyExponent: number;
   surface?: "external_agent" | "website_widget";
+  /** The real, already-validated table id this page opened for (from its own `?table=` QR link) — re-validated again server-side before it's ever trusted. */
+  tableId?: string | null;
 };
 
 /** A compact, real cart snapshot rendered inline in the conversation — spec §32's "AI + UI hybrid responses", never plain text for a cart change. */
@@ -89,6 +91,7 @@ export function ChatPanel({
   currency,
   currencyExponent,
   surface = "external_agent",
+  tableId = null,
 }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(greeting ? [{ role: "assistant", text: greeting }] : []);
   const [error, setError] = useState<string | null>(null);
@@ -107,6 +110,7 @@ export function ChatPanel({
       formData.set("slug", slug);
       formData.set("message", trimmed);
       formData.set("surface", surface);
+      if (tableId) formData.set("tableId", tableId);
       const result = await sendAgentMessageAction(undefined, formData);
       if (result && "error" in result) {
         setError(result.error);

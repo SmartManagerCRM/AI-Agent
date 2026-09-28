@@ -18,6 +18,7 @@ import {
   type PaymentMethod,
 } from "@/server/commerce/cart";
 import { placeOrder } from "@/server/commerce/orders";
+import { findActiveTable } from "@/server/commerce/tables";
 import { initiatePayment } from "@/server/payments/service";
 import { serviceClient } from "@/server/supabase/clients";
 
@@ -51,7 +52,7 @@ const MUTATION_RATE_LIMIT_MAX = 60;
 
 const DEFAULT_CHECKOUT = {
   ordering_enabled: false,
-  fulfillment_types: ["pickup"] as ("pickup" | "delivery")[],
+  fulfillment_types: ["pickup"] as ("pickup" | "delivery" | "dine_in")[],
   delivery_fee_minor: 0,
   minimum_order_minor: 0,
   tax_rate_bps: 0,
@@ -147,7 +148,11 @@ export async function updateCartItemQuantityAction(
   return { ok: true, cart };
 }
 
-const fulfillmentSchema = z.object({ fulfillmentType: z.enum(["pickup", "delivery"]) });
+const fulfillmentSchema = z.object({
+  fulfillmentType: z.enum(["pickup", "delivery", "dine_in"]),
+  /** Raw, unvalidated — re-checked against `branch_tables` below before it's trusted for anything (spec §25/§39). */
+  tableId: z.string().trim().max(100).optional(),
+});
 
 export async function setFulfillmentTypeAction(
   slug: string,
@@ -168,7 +173,13 @@ export async function setFulfillmentTypeAction(
   }
 
   let branchId: string | null = null;
-  if (parsed.data.fulfillmentType === "pickup") {
+  let tableId: string | null = null;
+  if (parsed.data.fulfillmentType === "dine_in") {
+    const table = parsed.data.tableId ? await findActiveTable(ctx.supabase, ctx.tenant.id, parsed.data.tableId) : null;
+    if (!table) return { ok: false, error: "This table's QR code isn't recognized — please rescan it." };
+    branchId = table.branchId;
+    tableId = table.id;
+  } else if (parsed.data.fulfillmentType === "pickup") {
     const { data: branch } = await ctx.supabase
       .from("branches")
       .select("id")
@@ -178,7 +189,7 @@ export async function setFulfillmentTypeAction(
       .maybeSingle();
     branchId = branch?.id ?? null;
   }
-  await setFulfillment(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.fulfillmentType, branchId);
+  await setFulfillment(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.fulfillmentType, branchId, tableId);
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
   return { ok: true, cart };
 }

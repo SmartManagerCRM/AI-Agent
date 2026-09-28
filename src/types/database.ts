@@ -89,7 +89,7 @@ export type Database = {
           agent: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null };
           checkout: {
             ordering_enabled: boolean;
-            fulfillment_types: ("pickup" | "delivery")[];
+            fulfillment_types: ("pickup" | "delivery" | "dine_in")[];
             delivery_fee_minor: number;
             minimum_order_minor: number;
             tax_rate_bps: number;
@@ -233,6 +233,23 @@ export type Database = {
         };
         Insert: Partial<Database["public"]["Tables"]["branches"]["Row"]> & { tenant_id: string; name: LocalizedText };
         Update: Partial<Database["public"]["Tables"]["branches"]["Row"]>;
+        Relationships: [];
+      };
+      branch_tables: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          branch_id: string;
+          label: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["branch_tables"]["Row"]> & {
+          tenant_id: string;
+          branch_id: string;
+          label: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["branch_tables"]["Row"]>;
         Relationships: [];
       };
       categories: {
@@ -496,9 +513,10 @@ export type Database = {
           tenant_id: string;
           conversation_id: string;
           status: "active" | "converted" | "abandoned";
-          fulfillment_type: "pickup" | "delivery" | null;
+          fulfillment_type: "pickup" | "delivery" | "dine_in" | null;
           payment_method: "moyasar" | "tap" | "cash_on_delivery" | "pay_on_table" | null;
           branch_id: string | null;
+          table_id: string | null;
           customer_name: string | null;
           customer_phone: string | null;
           customer_email: string | null;
@@ -560,8 +578,9 @@ export type Database = {
             | "completed"
             | "cancelled"
             | "refunded";
-          fulfillment_type: "pickup" | "delivery";
+          fulfillment_type: "pickup" | "delivery" | "dine_in";
           branch_id: string | null;
+          table_id: string | null;
           customer_name: string | null;
           customer_phone: string | null;
           customer_email: string | null;

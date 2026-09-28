@@ -57,6 +57,7 @@ export default async function TenantLayout({
     { key: "orders", href: `/${locale}/${slug}/orders`, label: t("nav.orders") },
     { key: "products", href: `/${locale}/${slug}/products`, label: t("nav.products") },
     { key: "branches", href: `/${locale}/${slug}/branches`, label: t("nav.branches") },
+    { key: "building", href: `/${locale}/${slug}/tables`, label: t("nav.tables") },
     { key: "businessBrain", href: `/${locale}/${slug}/brain`, label: t("nav.businessBrain") },
     { key: "agent", href: `/${locale}/${slug}/agent`, label: t("nav.agent") },
     { key: "conversations", href: `/${locale}/${slug}/conversations`, label: t("nav.conversations") },

@@ -18,9 +18,10 @@ export type PaymentMethod = "moyasar" | "tap" | "cash_on_delivery" | "pay_on_tab
 export type CartRow = {
   id: string;
   status: "active" | "converted" | "abandoned";
-  fulfillmentType: "pickup" | "delivery" | null;
+  fulfillmentType: "pickup" | "delivery" | "dine_in" | null;
   paymentMethod: PaymentMethod | null;
   branchId: string | null;
+  tableId: string | null;
   customerName: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
@@ -71,9 +72,10 @@ export async function getOrCreateCart(
 function toCartRow(row: {
   id: string;
   status: "active" | "converted" | "abandoned";
-  fulfillment_type: "pickup" | "delivery" | null;
+  fulfillment_type: "pickup" | "delivery" | "dine_in" | null;
   payment_method: PaymentMethod | null;
   branch_id: string | null;
+  table_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   customer_email: string | null;
@@ -87,6 +89,7 @@ function toCartRow(row: {
     fulfillmentType: row.fulfillment_type,
     paymentMethod: row.payment_method,
     branchId: row.branch_id,
+    tableId: row.table_id,
     customerName: row.customer_name,
     customerPhone: row.customer_phone,
     customerEmail: row.customer_email,
@@ -272,12 +275,13 @@ export async function setFulfillment(
   supabase: TypedSupabaseClient,
   tenantId: string,
   cartId: string,
-  fulfillmentType: "pickup" | "delivery",
+  fulfillmentType: "pickup" | "delivery" | "dine_in",
   branchId: string | null,
+  tableId: string | null,
 ): Promise<void> {
   await supabase
     .from("carts")
-    .update({ fulfillment_type: fulfillmentType, branch_id: branchId })
+    .update({ fulfillment_type: fulfillmentType, branch_id: branchId, table_id: tableId })
     .eq("id", cartId)
     .eq("tenant_id", tenantId);
 }

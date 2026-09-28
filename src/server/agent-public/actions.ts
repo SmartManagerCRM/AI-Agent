@@ -9,6 +9,7 @@ import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import type { CartView } from "@/server/commerce/cart";
+import { findActiveTable } from "@/server/commerce/tables";
 import { serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -20,6 +21,8 @@ const sendMessageSchema = z.object({
   slug: z.string().trim().min(1).max(60),
   message: z.string().trim().min(1).max(1000),
   surface: z.enum(["external_agent", "website_widget"]).default("external_agent"),
+  /** Raw, unvalidated — re-checked against `branch_tables` below before it's trusted for anything (spec §25/§39). */
+  tableId: z.string().trim().max(100).optional(),
 });
 
 export type SendAgentMessageState =
@@ -42,6 +45,7 @@ export async function sendAgentMessageAction(
     slug: formData.get("slug"),
     message: formData.get("message"),
     surface: formData.get("surface") ?? undefined,
+    tableId: formData.get("tableId") ?? undefined,
   });
   if (!parsed.success) return { error: "Enter a message." };
 
@@ -50,6 +54,7 @@ export async function sendAgentMessageAction(
   if (!tenant) return { error: "This Agent is not available right now." };
 
   const supabase = serviceClient();
+  const activeTable = parsed.data.tableId ? await findActiveTable(supabase, tenant.id, parsed.data.tableId) : null;
   const conversation = await getOrCreateConversation(supabase, tenant.id, tenant.slug, tenant.defaultLanguage, {
     channel: parsed.data.surface,
     crossSite: isWidget,
@@ -76,6 +81,7 @@ export async function sendAgentMessageAction(
     message: parsed.data.message,
     history,
     conversationId: conversation.id,
+    activeTable,
   });
 
   await supabase.from("conversation_messages").insert({

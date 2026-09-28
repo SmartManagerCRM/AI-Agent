@@ -11,6 +11,7 @@ const checkoutSchema = z.object({
   orderingEnabled: z.enum(["on"]).optional(),
   pickup: z.enum(["on"]).optional(),
   delivery: z.enum(["on"]).optional(),
+  dineIn: z.enum(["on"]).optional(),
   deliveryFeeMajor: z.coerce.number().min(0).default(0),
   minimumOrderMajor: z.coerce.number().min(0).default(0),
   taxRatePercent: z.coerce.number().min(0).max(100).default(0),
@@ -30,6 +31,7 @@ export async function updateCheckoutSettingsAction(
     orderingEnabled: formData.get("orderingEnabled") ?? undefined,
     pickup: formData.get("pickup") ?? undefined,
     delivery: formData.get("delivery") ?? undefined,
+    dineIn: formData.get("dineIn") ?? undefined,
     deliveryFeeMajor: formData.get("deliveryFeeMajor"),
     minimumOrderMajor: formData.get("minimumOrderMajor"),
     taxRatePercent: formData.get("taxRatePercent"),
@@ -40,9 +42,10 @@ export async function updateCheckoutSettingsAction(
   });
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
 
-  const fulfillmentTypes: ("pickup" | "delivery")[] = [];
+  const fulfillmentTypes: ("pickup" | "delivery" | "dine_in")[] = [];
   if (parsed.data.pickup === "on") fulfillmentTypes.push("pickup");
   if (parsed.data.delivery === "on") fulfillmentTypes.push("delivery");
+  if (parsed.data.dineIn === "on") fulfillmentTypes.push("dine_in");
   if (fulfillmentTypes.length === 0) return "VALIDATION_ERROR: enable at least one fulfillment method.";
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);

@@ -7,7 +7,7 @@ import { updateCheckoutSettingsAction } from "@/server/commerce/settings-actions
 
 type Checkout = {
   ordering_enabled: boolean;
-  fulfillment_types: ("pickup" | "delivery")[];
+  fulfillment_types: ("pickup" | "delivery" | "dine_in")[];
   delivery_fee_minor: number;
   minimum_order_minor: number;
   tax_rate_bps: number;
@@ -40,6 +40,10 @@ export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent,
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="delivery" defaultChecked={current.fulfillment_types.includes("delivery")} />
           Delivery
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="dineIn" defaultChecked={current.fulfillment_types.includes("dine_in")} />
+          Dine-in (tables)
         </label>
       </div>
 

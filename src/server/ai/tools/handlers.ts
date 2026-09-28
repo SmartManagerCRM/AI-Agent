@@ -35,11 +35,13 @@ export type ToolContext = {
   currencyExponent: number;
   checkout: {
     ordering_enabled: boolean;
-    fulfillment_types: ("pickup" | "delivery")[];
+    fulfillment_types: ("pickup" | "delivery" | "dine_in")[];
     delivery_fee_minor: number;
     minimum_order_minor: number;
   };
   paymentMethods: string[];
+  /** The real, already-validated `branch_tables` row for this conversation, if it started from a dine-in QR link — never a raw id the model could supply itself (spec §25/§39). Null outside dine-in mode. */
+  activeTable: { id: string; branchId: string; label: string } | null;
 };
 
 export type ToolResult = { content: string; isError?: boolean };
@@ -172,13 +174,25 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
     }
 
     case "set_fulfillment": {
-      const type = input.fulfillment_type === "delivery" ? "delivery" : "pickup";
-      if (!ctx.checkout.fulfillment_types.includes(type)) {
-        return { content: `${type} is not available for this business.`, isError: true };
+      const rawType = input.fulfillment_type === "delivery" || input.fulfillment_type === "dine_in"
+        ? input.fulfillment_type
+        : "pickup";
+      if (rawType === "dine_in" && !ctx.activeTable) {
+        return {
+          content: "Dine-in is only available when you've opened this Agent from your table's QR code.",
+          isError: true,
+        };
+      }
+      if (!ctx.checkout.fulfillment_types.includes(rawType)) {
+        return { content: `${rawType} is not available for this business.`, isError: true };
       }
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       let branchId: string | null = null;
-      if (type === "pickup") {
+      let tableId: string | null = null;
+      if (rawType === "dine_in") {
+        branchId = ctx.activeTable!.branchId;
+        tableId = ctx.activeTable!.id;
+      } else if (rawType === "pickup") {
         const { data: branch } = await ctx.supabase
           .from("branches")
           .select("id")
@@ -188,8 +202,8 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
           .maybeSingle();
         branchId = branch?.id ?? null;
       }
-      await setFulfillment(ctx.supabase, ctx.tenantId, cart.id, type, branchId);
-      return { content: `Fulfillment set to ${type}.` };
+      await setFulfillment(ctx.supabase, ctx.tenantId, cart.id, rawType, branchId, tableId);
+      return { content: `Fulfillment set to ${rawType === "dine_in" ? `dine-in (table ${ctx.activeTable!.label})` : rawType}.` };
     }
 
     case "set_payment_method": {
