@@ -43,7 +43,7 @@ export function CreateEntryForm({ tenantId, slug, locale }: Props) {
             name="entryKey"
             required
             placeholder="e.g. delivery-area"
-            pattern="[a-z0-9][a-z0-9-]{0,78}[a-z0-9]?"
+            pattern="[a-z0-9][a-z0-9\-]{0,78}[a-z0-9]?"
             className="rounded-md border border-neutral-300 px-3 py-2"
           />
         </label>

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
+import { slugify } from "@/lib/slugify";
 import { createBusinessAction } from "@/server/business/actions";
 
 type BusinessType = { key: string; name: Record<string, string> };
@@ -23,6 +24,11 @@ type Props = {
 
 export function CreateBusinessForm({ locale, businessTypes, currencies, labels }: Props) {
   const [error, formAction, pending] = useActionState(createBusinessAction, undefined);
+  // Suggests a slug from the business name as the user types it; once they
+  // touch the slug field directly, their own input always wins — this
+  // never overwrites a slug they've started editing.
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
 
   return (
     <form action={formAction} className="flex w-full max-w-md flex-col gap-4">
@@ -31,7 +37,15 @@ export function CreateBusinessForm({ locale, businessTypes, currencies, labels }
 
       <label className="flex flex-col gap-1 text-sm">
         {labels.businessName}
-        <input name="businessName" required maxLength={120} className="rounded-md border border-neutral-300 px-3 py-2" />
+        <input
+          name="businessName"
+          required
+          maxLength={120}
+          onChange={(event) => {
+            if (!slugTouched) setSlug(slugify(event.target.value));
+          }}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
@@ -40,8 +54,13 @@ export function CreateBusinessForm({ locale, businessTypes, currencies, labels }
           <input
             name="slug"
             required
-            pattern="[a-z0-9][a-z0-9-]{0,46}[a-z0-9]?"
+            pattern="[a-z0-9][a-z0-9\-]{0,46}[a-z0-9]?"
             placeholder="my-business"
+            value={slug}
+            onChange={(event) => {
+              setSlugTouched(true);
+              setSlug(event.target.value);
+            }}
             className="w-full rounded-md border border-neutral-300 px-3 py-2 text-neutral-900"
           />
         </div>
