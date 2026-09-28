@@ -8,6 +8,7 @@ import { TrialCard } from "@/components/console/trial-card";
 import type { Locale } from "@/i18n/locales";
 import { daysUntil } from "@/lib/dates";
 import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
+import { endImpersonationAction } from "@/server/platform/impersonation-actions";
 import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
@@ -18,7 +19,7 @@ export default async function TenantLayout({
   params: Promise<{ locale: string; slug: string }>;
 }) {
   const { locale, slug } = await params;
-  const { tenant, membership } = await requireTenantMember(locale, slug);
+  const { tenant, membership, impersonating } = await requireTenantMember(locale, slug);
   const t = await getTranslations("console");
   const user = await currentUser();
   const supabase = await createUserClient();
@@ -70,46 +71,69 @@ export default async function TenantLayout({
 
   const daysRemaining =
     subscription?.status === "trialing" && subscription.trial_ends_at ? daysUntil(subscription.trial_ends_at) : null;
+  const roleLabel = membership
+    ? membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Super Admin";
 
   return (
     <MobileSidebarProvider>
-      <div className="flex min-h-screen bg-slate-50">
-        <MobileSidebarFrame>
-          <div>
-            <div className="mb-6 flex items-center gap-2 px-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-                {businessName.charAt(0).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{businessName}</p>
-                <p className="text-xs text-slate-400">SmartManager AI Agent</p>
+      <div className="flex min-h-screen flex-col">
+        {impersonating && (
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
+            <span>
+              You&apos;re viewing <strong>{businessName}</strong>&apos;s console as Super Admin — actions you take here
+              are real.
+            </span>
+            <form action={endImpersonationAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="slug" value={slug} />
+              <button
+                type="submit"
+                className="rounded-md bg-amber-950/10 px-3 py-1 text-xs font-semibold hover:bg-amber-950/20"
+              >
+                Exit
+              </button>
+            </form>
+          </div>
+        )}
+        <div className="flex min-h-0 flex-1 bg-slate-50">
+          <MobileSidebarFrame>
+            <div>
+              <div className="mb-6 flex items-center gap-2 px-1">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
+                  {businessName.charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{businessName}</p>
+                  <p className="text-xs text-slate-400">SmartManager AI Agent</p>
+                </div>
               </div>
+              <TenantNav items={nav} />
             </div>
-            <TenantNav items={nav} />
-          </div>
-          <div className="mt-6">
-            <TrialCard
-              locale={locale}
-              slug={slug}
-              subscription={subscription ? { status: subscription.status, planKey: subscription.plan_key } : null}
-              daysRemaining={daysRemaining}
-              conversationCount={conversationCount ?? 0}
+            <div className="mt-6">
+              <TrialCard
+                locale={locale}
+                slug={slug}
+                subscription={subscription ? { status: subscription.status, planKey: subscription.plan_key } : null}
+                daysRemaining={daysRemaining}
+                conversationCount={conversationCount ?? 0}
+              />
+            </div>
+          </MobileSidebarFrame>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <TopHeader
+              locale={locale as Locale}
+              workspace={{ slug, name: businessName }}
+              otherWorkspaces={otherWorkspaces}
+              userName={userName}
+              roleLabel={roleLabel}
+              isSuperAdmin={showSuperAdminLink}
+              superAdminLabel={t("superAdminLink")}
+              signOutLabel={t("signOut")}
+              openConversationCount={openConversationCount ?? 0}
             />
+            <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</main>
           </div>
-        </MobileSidebarFrame>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <TopHeader
-            locale={locale as Locale}
-            workspace={{ slug, name: businessName }}
-            otherWorkspaces={otherWorkspaces}
-            userName={userName}
-            roleLabel={membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            isSuperAdmin={showSuperAdminLink}
-            superAdminLabel={t("superAdminLink")}
-            signOutLabel={t("signOut")}
-            openConversationCount={openConversationCount ?? 0}
-          />
-          <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>
     </MobileSidebarProvider>

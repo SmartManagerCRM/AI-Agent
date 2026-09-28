@@ -121,6 +121,19 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["platform_admins"]["Row"]>;
         Relationships: [];
       };
+      super_admin_impersonations: {
+        Row: {
+          id: string;
+          admin_user_id: string;
+          tenant_id: string;
+          started_at: string;
+          expires_at: string;
+          ended_at: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       roles: {
         Row: { id: string; tenant_id: string | null; key: string; name: LocalizedText };
         Insert: Partial<Database["public"]["Tables"]["roles"]["Row"]> & { key: string; name: LocalizedText };
@@ -811,6 +824,14 @@ export type Database = {
       };
       remove_platform_admin: {
         Args: { p_user_id: string };
+        Returns: undefined;
+      };
+      start_tenant_impersonation: {
+        Args: { p_tenant_id: string };
+        Returns: undefined;
+      };
+      end_tenant_impersonation: {
+        Args: Record<string, never>;
         Returns: undefined;
       };
     };

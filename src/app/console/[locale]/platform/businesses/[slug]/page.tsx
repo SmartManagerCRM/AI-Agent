@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
+import { endImpersonationAction, startImpersonationAction } from "@/server/platform/impersonation-actions";
 import { getBusinessDetail } from "@/server/platform/business-detail";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -31,12 +32,21 @@ export default async function BusinessDetailPage({
 }) {
   const { locale, slug } = await params;
   const { tab: tabParam } = await searchParams;
-  await requireSuperAdmin(locale);
+  const admin = await requireSuperAdmin(locale);
   const tab = parseTab(tabParam);
 
   const supabase = await createUserClient();
   const detail = await getBusinessDetail(supabase, slug);
   if (!detail) notFound();
+
+  const { data: activeGrant } = await supabase
+    .from("super_admin_impersonations")
+    .select("expires_at")
+    .eq("admin_user_id", admin.id)
+    .eq("tenant_id", detail.tenant.id)
+    .is("ended_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .maybeSingle();
 
   const { data: currencyRow } = await supabase
     .from("currencies")
@@ -67,11 +77,42 @@ export default async function BusinessDetailPage({
             {detail.tenant.country && ` · ${detail.tenant.country}`}
           </p>
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLE[detail.tenant.status]}`}
-        >
-          {detail.tenant.status}
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLE[detail.tenant.status]}`}
+          >
+            {detail.tenant.status}
+          </span>
+          {activeGrant ? (
+            <div className="flex items-center gap-2">
+              <a
+                href={`/${locale}/${slug}`}
+                className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+              >
+                Continue in console
+              </a>
+              <form action={endImpersonationAction}>
+                <input type="hidden" name="locale" value={locale} />
+                <input type="hidden" name="slug" value={slug} />
+                <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
+                  End access
+                </button>
+              </form>
+            </div>
+          ) : (
+            <form action={startImpersonationAction}>
+              <input type="hidden" name="tenantId" value={detail.tenant.id} />
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="locale" value={locale} />
+              <button
+                type="submit"
+                className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
+              >
+                Enter as support
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       <Tabs tabs={tabs} />
