@@ -26,14 +26,24 @@ export type CartRow = {
   customerEmail: string | null;
   deliveryAddress: unknown;
   notes: string | null;
+  couponCode: string | null;
 };
 
-export type CartItemView = { productId: string; name: string; quantity: number; unitPriceMinor: number; totalMinor: number };
+export type CartItemView = {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitPriceMinor: number;
+  totalMinor: number;
+};
+
+export type CouponPreview = { valid: boolean; message: string | null; discountMinor: number };
 
 export type CartView = {
   cart: CartRow;
   items: CartItemView[];
   subtotalMinor: number;
+  coupon: CouponPreview | null;
 };
 
 export async function getOrCreateCart(
@@ -69,6 +79,7 @@ function toCartRow(row: {
   customer_email: string | null;
   delivery_address: unknown;
   notes: string | null;
+  coupon_code: string | null;
 }): CartRow {
   return {
     id: row.id,
@@ -81,6 +92,7 @@ function toCartRow(row: {
     customerEmail: row.customer_email,
     deliveryAddress: row.delivery_address,
     notes: row.notes,
+    couponCode: row.coupon_code,
   };
 }
 
@@ -104,7 +116,8 @@ export function matchProductByName(
   for (const product of products) {
     const localizedName = (product.name[locale] ?? Object.values(product.name)[0] ?? "").toLowerCase();
     if (!localizedName) continue;
-    if (localizedName === normalizedQuery) return { id: product.id, name: localizedName, priceMinor: product.price_minor };
+    if (localizedName === normalizedQuery)
+      return { id: product.id, name: localizedName, priceMinor: product.price_minor };
     if (!best && (localizedName.includes(normalizedQuery) || normalizedQuery.includes(localizedName))) {
       best = { id: product.id, name: localizedName, priceMinor: product.price_minor };
     }
@@ -119,7 +132,11 @@ export async function findActiveProductByName(
   locale: string,
   query: string,
 ): Promise<NamedProduct | null> {
-  const { data } = await supabase.from("products").select("id, name, price_minor").eq("tenant_id", tenantId).eq("status", "active");
+  const { data } = await supabase
+    .from("products")
+    .select("id, name, price_minor")
+    .eq("tenant_id", tenantId)
+    .eq("status", "active");
   return matchProductByName(data ?? [], locale, query);
 }
 
@@ -129,10 +146,19 @@ export async function viewCart(
   cartId: string,
   locale: string,
 ): Promise<CartView> {
-  const { data: cartRow, error: cartError } = await supabase.from("carts").select("*").eq("id", cartId).eq("tenant_id", tenantId).single();
+  const { data: cartRow, error: cartError } = await supabase
+    .from("carts")
+    .select("*")
+    .eq("id", cartId)
+    .eq("tenant_id", tenantId)
+    .single();
   if (cartError || !cartRow) throw new Error("Cart not found.");
 
-  const { data: items } = await supabase.from("cart_items").select("product_id, quantity").eq("cart_id", cartId).eq("tenant_id", tenantId);
+  const { data: items } = await supabase
+    .from("cart_items")
+    .select("product_id, quantity")
+    .eq("cart_id", cartId)
+    .eq("tenant_id", tenantId);
   const productIds = (items ?? []).map((i) => i.product_id);
   const { data: products } = productIds.length
     ? await supabase.from("products").select("id, name, price_minor").in("id", productIds)
@@ -155,7 +181,18 @@ export async function viewCart(
     });
   }
 
-  return { cart: toCartRow(cartRow), items: itemViews, subtotalMinor };
+  let coupon: CouponPreview | null = null;
+  if (cartRow.coupon_code) {
+    const { data } = await supabase.rpc("validate_coupon", {
+      p_tenant_id: tenantId,
+      p_code: cartRow.coupon_code,
+      p_subtotal_minor: subtotalMinor,
+    });
+    const result = data?.[0];
+    if (result) coupon = { valid: result.valid, message: result.message, discountMinor: result.discount_minor };
+  }
+
+  return { cart: toCartRow(cartRow), items: itemViews, subtotalMinor, coupon };
 }
 
 export async function addToCart(
@@ -174,7 +211,10 @@ export async function addToCart(
     .maybeSingle();
 
   if (existing) {
-    await supabase.from("cart_items").update({ quantity: existing.quantity + quantity }).eq("id", existing.id);
+    await supabase
+      .from("cart_items")
+      .update({ quantity: existing.quantity + quantity })
+      .eq("id", existing.id);
   } else {
     await supabase.from("cart_items").insert({ tenant_id: tenantId, cart_id: cartId, product_id: productId, quantity });
   }
@@ -188,7 +228,12 @@ export async function setCartItemQuantity(
   quantity: number,
 ): Promise<void> {
   if (quantity <= 0) {
-    await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("tenant_id", tenantId).eq("product_id", productId);
+    await supabase
+      .from("cart_items")
+      .delete()
+      .eq("cart_id", cartId)
+      .eq("tenant_id", tenantId)
+      .eq("product_id", productId);
     return;
   }
   const { data: existing } = await supabase
@@ -211,7 +256,12 @@ export async function removeFromCart(
   cartId: string,
   productId: string,
 ): Promise<void> {
-  await supabase.from("cart_items").delete().eq("cart_id", cartId).eq("tenant_id", tenantId).eq("product_id", productId);
+  await supabase
+    .from("cart_items")
+    .delete()
+    .eq("cart_id", cartId)
+    .eq("tenant_id", tenantId)
+    .eq("product_id", productId);
 }
 
 export async function clearCart(supabase: TypedSupabaseClient, tenantId: string, cartId: string): Promise<void> {
@@ -241,6 +291,16 @@ export async function setPaymentMethod(
   await supabase.from("carts").update({ payment_method: paymentMethod }).eq("id", cartId).eq("tenant_id", tenantId);
 }
 
+/** Stores the code as entered — never validated here. `create_order_from_cart` is the only place a coupon is ever actually applied. */
+export async function setCouponCode(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  cartId: string,
+  couponCode: string | null,
+): Promise<void> {
+  await supabase.from("carts").update({ coupon_code: couponCode }).eq("id", cartId).eq("tenant_id", tenantId);
+}
+
 export async function setCustomerDetails(
   supabase: TypedSupabaseClient,
   tenantId: string,
@@ -261,6 +321,11 @@ export async function setCustomerDetails(
   await supabase.from("carts").update(patch).eq("id", cartId).eq("tenant_id", tenantId);
 }
 
-export async function setOrderNotes(supabase: TypedSupabaseClient, tenantId: string, cartId: string, notes: string): Promise<void> {
+export async function setOrderNotes(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  cartId: string,
+  notes: string,
+): Promise<void> {
   await supabase.from("carts").update({ notes }).eq("id", cartId).eq("tenant_id", tenantId);
 }

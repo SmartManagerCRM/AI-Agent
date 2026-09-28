@@ -38,7 +38,8 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   },
   {
     name: "add_to_cart",
-    description: "Add a quantity of a named product to the cart. Call this only after the customer confirms what they want.",
+    description:
+      "Add a quantity of a named product to the cart. Call this only after the customer confirms what they want.",
     parameters: {
       type: "object",
       properties: {
@@ -90,22 +91,37 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
     },
   },
   {
+    name: "apply_coupon",
+    description:
+      "Apply a discount/coupon code the customer gave you to the cart. Tell the customer the result — whether it worked and, if not, why.",
+    parameters: {
+      type: "object",
+      properties: { code: { type: "string", description: "The coupon code the customer gave you, e.g. 'SAVE10'." } },
+      required: ["code"],
+    },
+  },
+  {
     name: "set_customer_details",
-    description: "Record the customer's name/phone/email and, for delivery, their address. Call with whichever fields the customer has given so far.",
+    description:
+      "Record the customer's name/phone/email and, for delivery, their address. Call with whichever fields the customer has given so far.",
     parameters: {
       type: "object",
       properties: {
         name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
-        delivery_address: { type: "string", description: "Free-text delivery address, required before placing a delivery order." },
+        delivery_address: {
+          type: "string",
+          description: "Free-text delivery address, required before placing a delivery order.",
+        },
       },
       required: [],
     },
   },
   {
     name: "place_order",
-    description: "Place the order once the cart, fulfillment method, payment method, and customer details are all confirmed. This is final — only call it when the customer has explicitly confirmed.",
+    description:
+      "Place the order once the cart, fulfillment method, payment method, and customer details are all confirmed. This is final — only call it when the customer has explicitly confirmed.",
     parameters: { type: "object", properties: {}, required: [] },
   },
   {
@@ -119,7 +135,8 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   },
   {
     name: "request_human_handoff",
-    description: "Use when the customer needs a human — a complaint, something outside what you can help with, or they explicitly ask for a person.",
+    description:
+      "Use when the customer needs a human — a complaint, something outside what you can help with, or they explicitly ask for a person.",
     parameters: { type: "object", properties: { reason: { type: "string" } }, required: [] },
   },
 ];

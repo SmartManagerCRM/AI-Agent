@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
   addProductToCartAction,
   placeStructuredOrderAction,
+  setCouponCodeAction,
   setCustomerDetailsAction,
   setFulfillmentTypeAction,
   setPaymentMethodAction,
@@ -73,6 +74,7 @@ export function CatalogPanel({
   const [checkingOut, setCheckingOut] = useState(false);
   const [details, setDetails] = useState({ name: "", phone: "", email: "", deliveryAddress: "" });
   const [orderResult, setOrderResult] = useState<PlaceStructuredOrderResult | null>(null);
+  const [couponInput, setCouponInput] = useState("");
   const [pending, startTransition] = useTransition();
 
   if (!orderingEnabled) return null;
@@ -117,6 +119,15 @@ export function CatalogPanel({
     });
   }
 
+  function applyCoupon() {
+    setError(null);
+    startTransition(async () => {
+      const result = await setCouponCodeAction(slug, { code: couponInput }, surface);
+      if (!result.ok) return setError(result.error);
+      setCart(result.cart);
+    });
+  }
+
   function placeOrder() {
     setError(null);
     startTransition(async () => {
@@ -133,10 +144,19 @@ export function CatalogPanel({
     return (
       <div className="rounded-lg border border-neutral-200 bg-white p-4 text-sm">
         <p className="font-medium">
-          Order #{orderResult.orderNumber} placed — total {formatMinor(orderResult.totalMinor, currencyExponent)} {orderResult.currency}.
+          Order #{orderResult.orderNumber} placed — total {formatMinor(orderResult.totalMinor, currencyExponent)}{" "}
+          {orderResult.currency}
+          {orderResult.discountMinor > 0 &&
+            ` (saved ${formatMinor(orderResult.discountMinor, currencyExponent)} ${orderResult.currency})`}
+          .
         </p>
         {orderResult.checkoutUrl ? (
-          <a href={orderResult.checkoutUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block underline">
+          <a
+            href={orderResult.checkoutUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-block underline"
+          >
             Pay now
           </a>
         ) : (
@@ -156,7 +176,9 @@ export function CatalogPanel({
               type="button"
               onClick={() => setSelectedCategoryId(c.id)}
               className={`rounded-full border px-3 py-1 text-xs ${
-                selectedCategoryId === c.id ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600"
+                selectedCategoryId === c.id
+                  ? "border-neutral-900 bg-neutral-900 text-white"
+                  : "border-neutral-200 text-neutral-600"
               }`}
             >
               {localized(c.name, locale)}
@@ -215,6 +237,12 @@ export function CatalogPanel({
           <p className="font-medium">
             Subtotal: {formatMinor(cart.subtotalMinor, currencyExponent)} {currency}
           </p>
+          {cart.coupon?.valid && (
+            <p className="text-emerald-700">
+              Coupon applied: −{formatMinor(cart.coupon.discountMinor, currencyExponent)} {currency}
+            </p>
+          )}
+          {cart.coupon && !cart.coupon.valid && <p className="text-red-600">{cart.coupon.message}</p>}
 
           {!checkingOut ? (
             <button
@@ -234,7 +262,9 @@ export function CatalogPanel({
                       type="button"
                       onClick={() => chooseFulfillment(type)}
                       className={`rounded-full border px-3 py-1 text-xs capitalize ${
-                        fulfillmentType === type ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600"
+                        fulfillmentType === type
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-200 text-neutral-600"
                       }`}
                     >
                       {type}
@@ -251,7 +281,9 @@ export function CatalogPanel({
                       type="button"
                       onClick={() => choosePaymentMethod(method)}
                       className={`rounded-full border px-3 py-1 text-xs ${
-                        paymentMethod === method ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 text-neutral-600"
+                        paymentMethod === method
+                          ? "border-neutral-900 bg-neutral-900 text-white"
+                          : "border-neutral-200 text-neutral-600"
                       }`}
                     >
                       {PAYMENT_METHOD_LABELS[method]}
@@ -260,6 +292,22 @@ export function CatalogPanel({
                 </div>
               )}
 
+              <div className="flex gap-2">
+                <input
+                  placeholder="Coupon code"
+                  value={couponInput}
+                  onChange={(e) => setCouponInput(e.target.value)}
+                  className="rounded-md border border-neutral-300 px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  disabled={pending || !couponInput.trim()}
+                  onClick={applyCoupon}
+                  className="rounded-md border border-neutral-300 px-3 py-2 text-xs font-medium disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
               <input
                 placeholder="Name"
                 value={details.name}

@@ -298,7 +298,13 @@ export type Database = {
           tenant_id: string;
           entry_key: string;
           entry_type: string;
-          conflicting_values: { source_type: SourceType; source_id: string | null; value: Json; confidence: string; detected_at: string }[];
+          conflicting_values: {
+            source_type: SourceType;
+            source_id: string | null;
+            value: Json;
+            confidence: string;
+            detected_at: string;
+          }[];
           status: "open" | "resolved";
           resolved_value: Json | null;
           resolved_by: string | null;
@@ -409,6 +415,7 @@ export type Database = {
           customer_email: string | null;
           delivery_address: Json | null;
           notes: string | null;
+          coupon_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -454,7 +461,16 @@ export type Database = {
           order_number: number;
           conversation_id: string | null;
           cart_id: string | null;
-          status: "draft" | "pending_payment" | "paid" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled" | "refunded";
+          status:
+            | "draft"
+            | "pending_payment"
+            | "paid"
+            | "confirmed"
+            | "preparing"
+            | "ready"
+            | "completed"
+            | "cancelled"
+            | "refunded";
           fulfillment_type: "pickup" | "delivery";
           branch_id: string | null;
           customer_name: string | null;
@@ -467,6 +483,8 @@ export type Database = {
           delivery_fee_minor: number;
           tax_minor: number;
           total_minor: number;
+          coupon_id: string | null;
+          discount_minor: number;
           placed_at: string;
           completed_at: string | null;
           created_at: string;
@@ -474,6 +492,33 @@ export type Database = {
         };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      coupons: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          code: string;
+          description: string | null;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+          min_order_minor: number;
+          usage_limit: number | null;
+          times_used: number;
+          starts_at: string | null;
+          ends_at: string | null;
+          status: "active" | "disabled";
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["coupons"]["Row"]> & {
+          tenant_id: string;
+          code: string;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["coupons"]["Row"]>;
         Relationships: [];
       };
       order_items: {
@@ -670,6 +715,15 @@ export type Database = {
           ai_count: number;
           deterministic_pct: number;
           total_cost_usd: number;
+        }[];
+      };
+      validate_coupon: {
+        Args: { p_tenant_id: string; p_code: string; p_subtotal_minor: number };
+        Returns: {
+          valid: boolean;
+          message: string | null;
+          coupon_id: string | null;
+          discount_minor: number;
         }[];
       };
       create_order_from_cart: {

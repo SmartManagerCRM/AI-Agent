@@ -6,6 +6,7 @@ import {
   findActiveProductByName,
   getOrCreateCart,
   removeFromCart,
+  setCouponCode,
   setCustomerDetails,
   setFulfillment,
   setOrderNotes,
@@ -48,6 +49,7 @@ const ORDERING_REQUIRED_TOOLS = new Set([
   "clear_cart",
   "set_fulfillment",
   "set_payment_method",
+  "apply_coupon",
   "set_customer_details",
   "place_order",
   "check_order_status",
@@ -56,26 +58,43 @@ const ORDERING_REQUIRED_TOOLS = new Set([
 /** Executes one tool call. Every handler re-derives the cart from the conversation — never trusts an id the model might supply. */
 export async function executeTool(name: string, input: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult> {
   if (!ctx.checkout.ordering_enabled && ORDERING_REQUIRED_TOOLS.has(name)) {
-    return { content: "Ordering isn't available yet for this business — you can still ask about products and hours.", isError: true };
+    return {
+      content: "Ordering isn't available yet for this business — you can still ask about products and hours.",
+      isError: true,
+    };
   }
 
   switch (name) {
     case "search_products": {
       const query = String(input.query ?? "").trim();
-      const { data } = await ctx.supabase.from("products").select("name, price_minor").eq("tenant_id", ctx.tenantId).eq("status", "active");
+      const { data } = await ctx.supabase
+        .from("products")
+        .select("name, price_minor")
+        .eq("tenant_id", ctx.tenantId)
+        .eq("status", "active");
       const matches = (data ?? [])
-        .filter((p) => (p.name[ctx.locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(query.toLowerCase()))
+        .filter((p) =>
+          (p.name[ctx.locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(query.toLowerCase()),
+        )
         .slice(0, 5);
       if (matches.length === 0) return { content: `No products found matching "${query}".` };
       return {
         content: matches
-          .map((p) => `${p.name[ctx.locale] ?? Object.values(p.name)[0]} — ${formatMinor(p.price_minor, ctx.currencyExponent)} ${ctx.currency}`)
+          .map(
+            (p) =>
+              `${p.name[ctx.locale] ?? Object.values(p.name)[0]} — ${formatMinor(p.price_minor, ctx.currencyExponent)} ${ctx.currency}`,
+          )
           .join("; "),
       };
     }
 
     case "get_product": {
-      const product = await findActiveProductByName(ctx.supabase, ctx.tenantId, ctx.locale, String(input.product_name ?? ""));
+      const product = await findActiveProductByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.product_name ?? ""),
+      );
       if (!product) return { content: `No product found named "${input.product_name}".`, isError: true };
       return { content: `${product.name} — ${formatMinor(product.priceMinor, ctx.currencyExponent)} ${ctx.currency}` };
     }
@@ -84,14 +103,24 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       const view = await viewCart(ctx.supabase, ctx.tenantId, cart.id, ctx.locale);
       if (view.items.length === 0) return { content: "The cart is empty." };
-      const lines = view.items.map((i) => `${i.quantity} × ${i.name} = ${formatMinor(i.totalMinor, ctx.currencyExponent)} ${ctx.currency}`);
-      return { content: `${lines.join("; ")}. Subtotal: ${formatMinor(view.subtotalMinor, ctx.currencyExponent)} ${ctx.currency}.` };
+      const lines = view.items.map(
+        (i) => `${i.quantity} × ${i.name} = ${formatMinor(i.totalMinor, ctx.currencyExponent)} ${ctx.currency}`,
+      );
+      return {
+        content: `${lines.join("; ")}. Subtotal: ${formatMinor(view.subtotalMinor, ctx.currencyExponent)} ${ctx.currency}.`,
+      };
     }
 
     case "add_to_cart": {
       const quantity = Number(input.quantity);
-      if (!Number.isInteger(quantity) || quantity < 1) return { content: "Quantity must be a positive whole number.", isError: true };
-      const product = await findActiveProductByName(ctx.supabase, ctx.tenantId, ctx.locale, String(input.product_name ?? ""));
+      if (!Number.isInteger(quantity) || quantity < 1)
+        return { content: "Quantity must be a positive whole number.", isError: true };
+      const product = await findActiveProductByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.product_name ?? ""),
+      );
       if (!product) return { content: `No product found named "${input.product_name}".`, isError: true };
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await addToCart(ctx.supabase, ctx.tenantId, cart.id, product.id, quantity);
@@ -100,16 +129,29 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
 
     case "update_cart_item": {
       const quantity = Number(input.quantity);
-      if (!Number.isInteger(quantity) || quantity < 0) return { content: "Quantity must be zero or a positive whole number.", isError: true };
-      const product = await findActiveProductByName(ctx.supabase, ctx.tenantId, ctx.locale, String(input.product_name ?? ""));
+      if (!Number.isInteger(quantity) || quantity < 0)
+        return { content: "Quantity must be zero or a positive whole number.", isError: true };
+      const product = await findActiveProductByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.product_name ?? ""),
+      );
       if (!product) return { content: `No product found named "${input.product_name}".`, isError: true };
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await setCartItemQuantity(ctx.supabase, ctx.tenantId, cart.id, product.id, quantity);
-      return { content: quantity === 0 ? `Removed ${product.name} from the cart.` : `Set ${product.name} to ${quantity}.` };
+      return {
+        content: quantity === 0 ? `Removed ${product.name} from the cart.` : `Set ${product.name} to ${quantity}.`,
+      };
     }
 
     case "remove_from_cart": {
-      const product = await findActiveProductByName(ctx.supabase, ctx.tenantId, ctx.locale, String(input.product_name ?? ""));
+      const product = await findActiveProductByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.product_name ?? ""),
+      );
       if (!product) return { content: `No product found named "${input.product_name}".`, isError: true };
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await removeFromCart(ctx.supabase, ctx.tenantId, cart.id, product.id);
@@ -153,6 +195,24 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       return { content: `Payment method set to ${method.replace(/_/g, " ")}.` };
     }
 
+    case "apply_coupon": {
+      const code = String(input.code ?? "").trim();
+      if (!code) return { content: "What's the coupon code?", isError: true };
+      const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
+      const view = await viewCart(ctx.supabase, ctx.tenantId, cart.id, ctx.locale);
+      const { data } = await ctx.supabase.rpc("validate_coupon", {
+        p_tenant_id: ctx.tenantId,
+        p_code: code,
+        p_subtotal_minor: view.subtotalMinor,
+      });
+      const result = data?.[0];
+      if (!result?.valid) return { content: result?.message ?? "That code didn't work.", isError: true };
+      await setCouponCode(ctx.supabase, ctx.tenantId, cart.id, code);
+      return {
+        content: `Applied — that saves ${formatMinor(result.discount_minor, ctx.currencyExponent)} ${ctx.currency}.`,
+      };
+    }
+
     case "set_customer_details": {
       const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await setCustomerDetails(ctx.supabase, ctx.tenantId, cart.id, {
@@ -171,19 +231,23 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       if (!result.ok) return { content: result.error, isError: true };
 
       const total = `${formatMinor(result.totalMinor, ctx.currencyExponent)} ${result.currency}`;
+      const savings =
+        result.discountMinor > 0
+          ? ` (saved ${formatMinor(result.discountMinor, ctx.currencyExponent)} ${result.currency})`
+          : "";
       const payment = await initiatePayment(ctx.supabase, ctx.tenantId, result.orderId);
       if (payment.ok && payment.checkoutUrl) {
         return {
-          content: `Order #${result.orderNumber} placed — total ${total}. Pay now: ${payment.checkoutUrl}`,
+          content: `Order #${result.orderNumber} placed — total ${total}${savings}. Pay now: ${payment.checkoutUrl}`,
         };
       }
       if (payment.ok) {
         return {
-          content: `Order #${result.orderNumber} confirmed — total ${total}. You'll pay in person, as chosen.`,
+          content: `Order #${result.orderNumber} confirmed — total ${total}${savings}. You'll pay in person, as chosen.`,
         };
       }
       return {
-        content: `Order #${result.orderNumber} placed — total ${total}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).`,
+        content: `Order #${result.orderNumber} placed — total ${total}${savings}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).`,
       };
     }
 
@@ -198,7 +262,9 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
     }
 
     case "request_human_handoff":
-      return { content: "I've noted that you'd like to speak with a person — the business will follow up with you directly." };
+      return {
+        content: "I've noted that you'd like to speak with a person — the business will follow up with you directly.",
+      };
 
     default:
       return { content: `Unknown tool: ${name}`, isError: true };

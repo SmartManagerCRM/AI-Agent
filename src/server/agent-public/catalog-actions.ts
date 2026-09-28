@@ -9,6 +9,7 @@ import {
   addToCart,
   getOrCreateCart,
   setCartItemQuantity,
+  setCouponCode,
   setCustomerDetails,
   setFulfillment,
   setPaymentMethod,
@@ -207,6 +208,31 @@ export async function setPaymentMethodAction(
   return { ok: true, cart };
 }
 
+const couponSchema = z.object({ code: z.string().trim().max(40) });
+
+export async function setCouponCodeAction(
+  slug: string,
+  input: z.infer<typeof couponSchema>,
+  surface: Surface = "external_agent",
+): Promise<ActionResult> {
+  const parsed = couponSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid code." };
+
+  const ctx = await loadContext(slug, surface);
+  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
+  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "Too many requests — please slow down." };
+  }
+
+  // Stored as entered, not validated here — the cart's own live view below
+  // calls validate_coupon for a preview, and create_order_from_cart is the
+  // only place a coupon is ever actually applied (spec §15's discipline).
+  await setCouponCode(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.code || null);
+  const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
+  return { ok: true, cart };
+}
+
 const detailsSchema = z.object({
   name: z.string().trim().max(120).optional(),
   phone: z.string().trim().max(40).optional(),
@@ -235,7 +261,14 @@ export async function setCustomerDetailsAction(
 }
 
 export type PlaceStructuredOrderResult =
-  | { ok: true; orderNumber: number; totalMinor: number; currency: string; checkoutUrl: string | null }
+  | {
+      ok: true;
+      orderNumber: number;
+      totalMinor: number;
+      currency: string;
+      discountMinor: number;
+      checkoutUrl: string | null;
+    }
   | { ok: false; error: string };
 
 export async function placeStructuredOrderAction(
@@ -258,6 +291,7 @@ export async function placeStructuredOrderAction(
     orderNumber: result.orderNumber,
     totalMinor: result.totalMinor,
     currency: result.currency,
+    discountMinor: result.discountMinor,
     checkoutUrl: payment.ok ? payment.checkoutUrl : null,
   };
 }

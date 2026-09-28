@@ -3,7 +3,7 @@ import "server-only";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type PlaceOrderResult =
-  | { ok: true; orderId: string; orderNumber: number; totalMinor: number; currency: string }
+  | { ok: true; orderId: string; orderNumber: number; totalMinor: number; currency: string; discountMinor: number }
   | { ok: false; error: string };
 
 /**
@@ -12,7 +12,11 @@ export type PlaceOrderResult =
  * this function only calls it and shapes the result; it never computes a
  * total itself.
  */
-export async function placeOrder(supabase: TypedSupabaseClient, tenantId: string, cartId: string): Promise<PlaceOrderResult> {
+export async function placeOrder(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  cartId: string,
+): Promise<PlaceOrderResult> {
   const { data: orderId, error } = await supabase.rpc("create_order_from_cart", { p_cart_id: cartId });
   if (error || !orderId) {
     return { ok: false, error: error?.message ?? "Could not place the order." };
@@ -20,7 +24,7 @@ export async function placeOrder(supabase: TypedSupabaseClient, tenantId: string
 
   const { data: order, error: fetchError } = await supabase
     .from("orders")
-    .select("order_number, total_minor, currency")
+    .select("order_number, total_minor, currency, discount_minor")
     .eq("id", orderId)
     .eq("tenant_id", tenantId)
     .single();
@@ -28,7 +32,14 @@ export async function placeOrder(supabase: TypedSupabaseClient, tenantId: string
     return { ok: false, error: "Order was created but could not be read back." };
   }
 
-  return { ok: true, orderId, orderNumber: order.order_number, totalMinor: order.total_minor, currency: order.currency };
+  return {
+    ok: true,
+    orderId,
+    orderNumber: order.order_number,
+    totalMinor: order.total_minor,
+    currency: order.currency,
+    discountMinor: order.discount_minor,
+  };
 }
 
 export async function getOrderStatusByNumber(
