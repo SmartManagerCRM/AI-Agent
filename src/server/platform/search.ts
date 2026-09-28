@@ -9,11 +9,11 @@ export type SearchResults = { businesses: SearchResult[]; subscribers: SearchRes
  * Deterministic database search (spec §7) — plain `ilike`/exact-match
  * queries, never an LLM call, for ordinary exact search across the
  * platform's core entities. Every result links into a Super-Admin-only
- * page (the Businesses list, anchored to the matching row) rather than
- * into a tenant's own subscriber console — Super Admin does not yet have
- * a granted way to open another tenant's console without weakening tenant
- * isolation (see the Businesses/Subscribers pages' notes), so this never
- * links somewhere that would just redirect away.
+ * page (the Business 360 detail view, or the Businesses list for an order
+ * whose business can't be resolved) rather than into a tenant's own
+ * subscriber console — Super Admin does not yet have a granted way to open
+ * another tenant's console without weakening tenant isolation, so this
+ * never links somewhere that would just redirect away.
  */
 export async function searchPlatform(supabase: TypedSupabaseClient, query: string): Promise<SearchResults> {
   const q = query.trim();
@@ -50,7 +50,7 @@ export async function searchPlatform(supabase: TypedSupabaseClient, query: strin
       id: t.id,
       title: t.business_name.en ?? t.slug,
       subtitle: `/${t.slug}`,
-      href: `/super-admin/businesses#${t.slug}`,
+      href: `/super-admin/businesses/${t.slug}`,
     }));
 
   const subscribers: SearchResult[] = (profiles ?? []).map((p) => ({
@@ -70,7 +70,9 @@ export async function searchPlatform(supabase: TypedSupabaseClient, query: strin
     id: o.id,
     title: `Order #${o.order_number}`,
     subtitle: o.customer_name ?? "",
-    href: `/super-admin/businesses#${slugByTenant.get(o.tenant_id) ?? ""}`,
+    href: slugByTenant.has(o.tenant_id)
+      ? `/super-admin/businesses/${slugByTenant.get(o.tenant_id)}?tab=orders`
+      : "/super-admin/businesses",
   }));
 
   return { businesses, subscribers, orders: orderResults };

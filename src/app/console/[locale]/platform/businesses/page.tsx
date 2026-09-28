@@ -82,7 +82,12 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
                       className="scroll-mt-24 border-b border-slate-100 last:border-0"
                     >
                       <td className="py-2">
-                        <p className="font-medium text-slate-900">{tenant.business_name.en ?? tenant.slug}</p>
+                        <a
+                          href={`/${locale}/super-admin/businesses/${tenant.slug}`}
+                          className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
+                        >
+                          {tenant.business_name.en ?? tenant.slug}
+                        </a>
                         <p className="text-xs text-slate-400">/{tenant.slug}</p>
                       </td>
                       <td className="py-2 text-slate-600">
