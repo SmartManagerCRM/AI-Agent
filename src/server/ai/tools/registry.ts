@@ -134,6 +134,49 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
     },
   },
   {
+    name: "list_services",
+    description: "List this business's bookable services (e.g. haircut, consultation), with duration and price.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "check_availability",
+    description:
+      "Get the real open time slots for a named bookable service on a given date. Always call this before offering the customer a time.",
+    parameters: {
+      type: "object",
+      properties: {
+        service_name: { type: "string" },
+        date: { type: "string", description: "Date in YYYY-MM-DD format. Use today or a future date." },
+      },
+      required: ["service_name", "date"],
+    },
+  },
+  {
+    name: "create_booking",
+    description:
+      "Book a specific, already-confirmed-available time slot for a service. Only call this after the customer has picked an exact slot from check_availability's real results and confirmed their name and phone.",
+    parameters: {
+      type: "object",
+      properties: {
+        service_name: { type: "string" },
+        slot_start: { type: "string", description: "The exact ISO start time of the slot the customer picked." },
+        name: { type: "string" },
+        phone: { type: "string" },
+        email: { type: "string" },
+      },
+      required: ["service_name", "slot_start", "name", "phone"],
+    },
+  },
+  {
+    name: "cancel_booking",
+    description: "Cancel a previously made booking by its booking id (given to the customer when it was created).",
+    parameters: {
+      type: "object",
+      properties: { booking_id: { type: "string" } },
+      required: ["booking_id"],
+    },
+  },
+  {
     name: "capture_lead",
     description:
       "Record a lead when the customer's request needs a human follow-up rather than a simple catalog purchase — a custom project, a consultation, a quote request, or anything the business needs to call them back about. Ask only for what you don't already have.",

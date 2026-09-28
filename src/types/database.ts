@@ -403,6 +403,50 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["conversations"]["Row"]>;
         Relationships: [];
       };
+      bookable_services: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: LocalizedText;
+          duration_minutes: number;
+          price_minor: number | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bookable_services"]["Row"]> & {
+          tenant_id: string;
+          name: LocalizedText;
+          duration_minutes: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["bookable_services"]["Row"]>;
+        Relationships: [];
+      };
+      bookings: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          service_id: string;
+          conversation_id: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          starts_at: string;
+          ends_at: string;
+          status: "confirmed" | "completed" | "canceled";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["bookings"]["Row"]> & {
+          tenant_id: string;
+          service_id: string;
+          starts_at: string;
+          ends_at: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["bookings"]["Row"]>;
+        Relationships: [];
+      };
       leads: {
         Row: {
           id: string;

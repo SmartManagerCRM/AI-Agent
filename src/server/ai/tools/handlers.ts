@@ -15,6 +15,13 @@ import {
   viewCart,
   type PaymentMethod,
 } from "@/server/commerce/cart";
+import {
+  cancelBookingById,
+  createBooking,
+  findActiveServiceByName,
+  getAvailableSlots,
+  listActiveServices,
+} from "@/server/commerce/booking";
 import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
 import { initiatePayment } from "@/server/payments/service";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -259,6 +266,69 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       return {
         content: `Order #${orderNumber}: ${status.status.replace("_", " ")} — total ${formatMinor(status.totalMinor, ctx.currencyExponent)} ${status.currency}.`,
       };
+    }
+
+    case "list_services": {
+      const services = await listActiveServices(ctx.supabase, ctx.tenantId, ctx.locale);
+      if (services.length === 0) return { content: "This business doesn't have any bookable services set up yet." };
+      return {
+        content: services
+          .map(
+            (s) =>
+              `${s.name} (${s.durationMinutes} min${s.priceMinor !== null ? `, ${formatMinor(s.priceMinor, ctx.currencyExponent)} ${ctx.currency}` : ""})`,
+          )
+          .join("; "),
+      };
+    }
+
+    case "check_availability": {
+      const service = await findActiveServiceByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.service_name ?? ""),
+      );
+      if (!service) return { content: `No bookable service found named "${input.service_name}".`, isError: true };
+      const date = String(input.date ?? "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { content: "Give the date as YYYY-MM-DD.", isError: true };
+      const slots = await getAvailableSlots(ctx.supabase, ctx.tenantId, service, date);
+      if (slots.length === 0) return { content: `No open slots for ${service.name} on ${date}.` };
+      const times = slots.map((s) => new Date(s.startsAt).toISOString());
+      return { content: `Open slots for ${service.name} on ${date}: ${times.join(", ")}.` };
+    }
+
+    case "create_booking": {
+      const service = await findActiveServiceByName(
+        ctx.supabase,
+        ctx.tenantId,
+        ctx.locale,
+        String(input.service_name ?? ""),
+      );
+      if (!service) return { content: `No bookable service found named "${input.service_name}".`, isError: true };
+      const result = await createBooking(
+        ctx.supabase,
+        ctx.tenantId,
+        service,
+        ctx.conversationId,
+        String(input.slot_start ?? ""),
+        {
+          name: input.name ? String(input.name) : undefined,
+          phone: input.phone ? String(input.phone) : undefined,
+          email: input.email ? String(input.email) : undefined,
+        },
+      );
+      if (!result.ok) return { content: result.error, isError: true };
+      return {
+        content: `Booked ${service.name} at ${result.startsAt} — booking id ${result.bookingId}. Keep this id to cancel later.`,
+      };
+    }
+
+    case "cancel_booking": {
+      const bookingId = String(input.booking_id ?? "").trim();
+      if (!bookingId) return { content: "What's the booking id?", isError: true };
+      const canceled = await cancelBookingById(ctx.supabase, ctx.tenantId, bookingId);
+      if (!canceled) return { content: "Couldn't find an active booking with that id.", isError: true };
+      return { content: "Booking canceled." };
     }
 
     case "capture_lead": {

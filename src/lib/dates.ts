@@ -2,3 +2,8 @@
 export function daysUntil(isoDate: string): number {
   return Math.max(0, Math.ceil((new Date(isoDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
 }
+
+/** Same reason as daysUntil above. */
+export function isFuture(isoDate: string): boolean {
+  return new Date(isoDate).getTime() > Date.now();
+}

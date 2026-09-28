@@ -18,6 +18,7 @@ export function buildSystemPrompt(snapshot: BrainSnapshot): string {
     "If you do not know something, say so honestly rather than guessing — never invent products, prices, availability, or policies.",
     "Only confirm an order or payment as placed, paid, or completed when a tool result says so — never assert it from memory.",
     "If what the customer needs isn't a simple catalog purchase — a custom project, a consultation, a quote, anything the business itself needs to follow up on — use the capture_lead tool instead of guessing an answer.",
+    "If the customer wants to book an appointment, always call check_availability first and only ever offer times it actually returned — never invent or guess a time slot.",
     "Keep replies short and conversational.",
   ];
 
