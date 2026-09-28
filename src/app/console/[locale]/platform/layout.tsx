@@ -56,6 +56,7 @@ export default async function PlatformLayout({
       label: "Access & Security",
       items: [
         { key: "shield", href: `/${locale}/super-admin/admins`, label: "Admin Users" },
+        { key: "staff", href: `/${locale}/super-admin/roles`, label: "Roles & Permissions" },
         { key: "audit", href: `/${locale}/super-admin/audit-logs`, label: "Audit Logs" },
       ],
     },
