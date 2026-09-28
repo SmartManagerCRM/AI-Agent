@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isEntitled } from "@/server/billing/entitlement";
+import { getCostGuardStatus } from "./cost-guard";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { matchDeterministic } from "./deterministic/match";
 import { calculateCostUsd } from "./pricing";
@@ -68,7 +69,11 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   if (
     !isEntitled(
       subscriptionRow
-        ? { status: subscriptionRow.status, trialEndsAt: subscriptionRow.trial_ends_at, currentPeriodEnd: subscriptionRow.current_period_end }
+        ? {
+            status: subscriptionRow.status,
+            trialEndsAt: subscriptionRow.trial_ends_at,
+            currentPeriodEnd: subscriptionRow.current_period_end,
+          }
         : null,
     )
   ) {
@@ -96,6 +101,25 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       deterministicRule: deterministic.rule,
     });
     return { handledBy: "deterministic", reply: deterministic.reply, rule: deterministic.rule };
+  }
+
+  // AI Cost Guard (spec §98): a real, operator-set monthly budget, never a
+  // fabricated one — checked only here, after a free deterministic reply
+  // has already been ruled out, so a business over budget still gets its
+  // deterministic FAQ answers; only the paid AI fallback is what's gated.
+  const guard = await getCostGuardStatus(input.tenant.id);
+  if (guard.exceeded) {
+    await recordInteraction(supabase, {
+      tenantId: input.tenant.id,
+      requestType: input.requestType,
+      handledBy: "deterministic",
+      deterministicRule: "cost_guard_exceeded",
+    });
+    return {
+      handledBy: "deterministic",
+      reply: snapshot.greeting || "I'm sorry, I can't help with that right now — please contact the business directly.",
+      rule: "cost_guard_exceeded",
+    };
   }
 
   const kind = input.kind ?? "fast";
@@ -163,10 +187,14 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       totalInputTokens += result.value.usage.inputTokens;
       totalOutputTokens += result.value.usage.outputTokens;
 
-      const textBlock = result.value.content.find((b): b is Extract<ContentBlock, { type: "text" }> => b.type === "text");
+      const textBlock = result.value.content.find(
+        (b): b is Extract<ContentBlock, { type: "text" }> => b.type === "text",
+      );
       if (textBlock?.text) finalText = textBlock.text;
 
-      const toolUseBlocks = result.value.content.filter((b): b is Extract<ContentBlock, { type: "tool_use" }> => b.type === "tool_use");
+      const toolUseBlocks = result.value.content.filter(
+        (b): b is Extract<ContentBlock, { type: "tool_use" }> => b.type === "tool_use",
+      );
       if (result.value.stopReason !== "tool_use" || toolUseBlocks.length === 0 || !toolContext) {
         break;
       }
@@ -175,7 +203,12 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       const toolResults: ContentBlock[] = [];
       for (const toolUse of toolUseBlocks) {
         const toolResult = await executeTool(toolUse.name, toolUse.input, toolContext);
-        toolResults.push({ type: "tool_result", toolUseId: toolUse.id, content: toolResult.content, isError: toolResult.isError });
+        toolResults.push({
+          type: "tool_result",
+          toolUseId: toolUse.id,
+          content: toolResult.content,
+          isError: toolResult.isError,
+        });
       }
       messages.push({ role: "user", content: toolResults });
     }
@@ -184,7 +217,10 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
 
     if (!stepError) {
       const costUsd = calculateCostUsd(
-        { inputPricePerMillionUsd: row.input_price_per_million_usd, outputPricePerMillionUsd: row.output_price_per_million_usd },
+        {
+          inputPricePerMillionUsd: row.input_price_per_million_usd,
+          outputPricePerMillionUsd: row.output_price_per_million_usd,
+        },
         totalInputTokens,
         totalOutputTokens,
       );

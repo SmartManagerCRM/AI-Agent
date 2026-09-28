@@ -36,6 +36,7 @@ export type Database = {
           supported_languages: string[];
           supported_currencies: string[];
           maintenance_mode: boolean;
+          default_ai_monthly_budget_usd: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -94,6 +95,7 @@ export type Database = {
             tax_rate_bps: number;
             tax_included: boolean;
           };
+          ai_monthly_budget_usd: number | null;
           created_at: string;
           updated_at: string;
         };

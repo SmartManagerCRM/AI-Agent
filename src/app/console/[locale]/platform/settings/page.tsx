@@ -9,7 +9,7 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
 
   const { data: settings } = await supabase
     .from("platform_settings")
-    .select("platform_name, maintenance_mode")
+    .select("platform_name, maintenance_mode, default_ai_monthly_budget_usd")
     .eq("id", true)
     .maybeSingle();
 
@@ -19,7 +19,13 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <PlatformSettingsForm
           locale={locale}
-          current={settings ?? { platform_name: "SmartManager AI Agent", maintenance_mode: false }}
+          current={
+            settings ?? {
+              platform_name: "SmartManager AI Agent",
+              maintenance_mode: false,
+              default_ai_monthly_budget_usd: null,
+            }
+          }
         />
       </section>
     </div>

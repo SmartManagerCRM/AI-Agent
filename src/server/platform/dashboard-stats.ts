@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCostGuardAlerts } from "@/server/ai/cost-guard";
 import type { Trend } from "@/server/tenant/dashboard-stats";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -381,20 +382,23 @@ export type PlatformAlert = { id: string; message: string; severity: "warning" |
 
 /**
  * Real, derivable alert conditions only — failed payments in the last 24h
- * (spec §32's "payment failures") and suspended businesses needing a
- * decision. No notifications table exists yet (spec §57's full center is a
+ * (spec §32's "payment failures"), suspended businesses needing a
+ * decision, and any tenant at or approaching a real AI Cost Guard budget
+ * (spec §98's Cost Guard — nothing here if no operator has ever set a
+ * budget). No notifications table exists yet (spec §57's full center is a
  * later phase), so this is the honest subset that's actually computable
  * today, not a fabricated count.
  */
 export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<PlatformAlert[]> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [{ data: failedPayments }, { data: suspended }] = await Promise.all([
+  const [{ data: failedPayments }, { data: suspended }, costGuardAlerts] = await Promise.all([
     supabase
       .from("subscription_payments")
       .select("id, tenant_id, created_at")
       .eq("status", "failed")
       .gte("created_at", since),
     supabase.from("tenants").select("id, slug, business_name").eq("status", "suspended"),
+    getCostGuardAlerts(supabase),
   ]);
 
   const alerts: PlatformAlert[] = (failedPayments ?? []).map((p) => ({
@@ -411,6 +415,18 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
       severity: "critical",
       at: new Date().toISOString(),
       href: "/super-admin/businesses",
+    });
+  }
+  for (const guard of costGuardAlerts) {
+    alerts.push({
+      id: `cost-guard-${guard.tenantId}`,
+      message:
+        guard.severity === "critical"
+          ? `${guard.businessName} has hit its AI budget ($${guard.spentUsd.toFixed(2)} of $${guard.budgetUsd.toFixed(2)}) — AI replies are paused for the rest of the month.`
+          : `${guard.businessName} is approaching its AI budget ($${guard.spentUsd.toFixed(2)} of $${guard.budgetUsd.toFixed(2)}).`,
+      severity: guard.severity,
+      at: new Date().toISOString(),
+      href: `/super-admin/businesses/${guard.slug}?tab=agent`,
     });
   }
   return alerts.sort((a, b) => (a.at < b.at ? 1 : -1));

@@ -20,6 +20,7 @@ import { requireSuperAdmin } from "@/server/tenant/context";
 const settingsSchema = z.object({
   platformName: z.string().trim().min(1).max(120),
   maintenanceMode: z.enum(["on"]).optional(),
+  defaultAiMonthlyBudgetUsd: z.coerce.number().min(0).optional(),
   locale: z.string(),
 });
 
@@ -27,9 +28,11 @@ export async function updatePlatformSettingsAction(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
+  const rawBudget = formData.get("defaultAiMonthlyBudgetUsd");
   const parsed = settingsSchema.safeParse({
     platformName: formData.get("platformName"),
     maintenanceMode: formData.get("maintenanceMode") ?? undefined,
+    defaultAiMonthlyBudgetUsd: rawBudget ? rawBudget : undefined,
     locale: formData.get("locale"),
   });
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
@@ -38,7 +41,11 @@ export async function updatePlatformSettingsAction(
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("platform_settings")
-    .update({ platform_name: parsed.data.platformName, maintenance_mode: parsed.data.maintenanceMode === "on" })
+    .update({
+      platform_name: parsed.data.platformName,
+      maintenance_mode: parsed.data.maintenanceMode === "on",
+      default_ai_monthly_budget_usd: parsed.data.defaultAiMonthlyBudgetUsd ?? null,
+    })
     .eq("id", true);
   if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
 
@@ -63,6 +70,40 @@ export async function setTenantStatusAction(formData: FormData): Promise<void> {
   const supabase = await createUserClient();
   await supabase.from("tenants").update({ status: parsed.data.status }).eq("id", parsed.data.tenantId);
   revalidatePath(`/${parsed.data.locale}/super-admin`);
+}
+
+const setTenantAiBudgetSchema = z.object({
+  tenantId: z.uuid(),
+  slug: z.string(),
+  budgetUsd: z.coerce.number().min(0).optional(),
+  locale: z.string(),
+});
+
+/**
+ * AI Cost Guard per-tenant override (spec §98). Deliberately no tenant-
+ * facing form ever writes `tenant_settings.ai_monthly_budget_usd` — this
+ * is the only place that does, same posture as `tenants.status` above
+ * (RLS permits any settings.write holder, but only Super Admin's own UI
+ * ever exposes it, since the platform — not the tenant — pays for AI
+ * usage).
+ */
+export async function setTenantAiBudgetAction(formData: FormData): Promise<void> {
+  const rawBudget = formData.get("budgetUsd");
+  const parsed = setTenantAiBudgetSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    slug: formData.get("slug"),
+    budgetUsd: rawBudget ? rawBudget : undefined,
+    locale: formData.get("locale"),
+  });
+  if (!parsed.success) return;
+
+  await requireSuperAdmin(parsed.data.locale);
+  const supabase = await createUserClient();
+  await supabase
+    .from("tenant_settings")
+    .update({ ai_monthly_budget_usd: parsed.data.budgetUsd ?? null })
+    .eq("tenant_id", parsed.data.tenantId);
+  revalidatePath(`/${parsed.data.locale}/super-admin/businesses/${parsed.data.slug}`);
 }
 
 const createModelSchema = z.object({

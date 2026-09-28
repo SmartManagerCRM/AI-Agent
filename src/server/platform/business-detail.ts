@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getCostGuardStatus, type CostGuardStatus } from "@/server/ai/cost-guard";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type BusinessDetail = {
@@ -34,6 +35,7 @@ export type BusinessDetail = {
     deterministicPct: number;
     costUsd30d: number;
   };
+  costGuard: CostGuardStatus & { tenantOverrideUsd: number | null };
   recentOrders: {
     id: string;
     orderNumber: number;
@@ -73,6 +75,7 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
     { count: conversationsCount },
     { data: succeededPayments },
     { data: activity },
+    costGuard,
   ] = await Promise.all([
     supabase.from("business_types").select("name").eq("key", tenant.business_type_key).maybeSingle(),
     supabase.from("roles").select("id").is("tenant_id", null).eq("key", "business_owner").maybeSingle(),
@@ -88,7 +91,7 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
       .eq("tenant_id", tenant.id)
       .in("status", ["pending_review", "approved"]),
     supabase.from("business_brain_conflicts").select("id").eq("tenant_id", tenant.id).eq("status", "open"),
-    supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase.from("tenant_settings").select("agent, ai_monthly_budget_usd").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.rpc("agent_interaction_stats", { p_tenant_id: tenant.id }),
     supabase
       .from("orders")
@@ -105,6 +108,7 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
       .eq("tenant_id", tenant.id)
       .order("at", { ascending: false })
       .limit(8),
+    getCostGuardStatus(tenant.id),
   ]);
 
   let planLabel: string | null = null;
@@ -185,6 +189,7 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
       deterministicPct: stats?.deterministic_pct ?? 0,
       costUsd30d: stats?.total_cost_usd ?? 0,
     },
+    costGuard: { ...costGuard, tenantOverrideUsd: tenantSettings?.ai_monthly_budget_usd ?? null },
     recentOrders: (recentOrders ?? []).map((o) => ({
       id: o.id,
       orderNumber: o.order_number,

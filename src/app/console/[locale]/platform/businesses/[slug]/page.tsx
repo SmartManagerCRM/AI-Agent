@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
+import { setTenantAiBudgetAction } from "@/server/platform/actions";
 import { endImpersonationAction, startImpersonationAction } from "@/server/platform/impersonation-actions";
 import { getBusinessDetail } from "@/server/platform/business-detail";
 import { createUserClient } from "@/server/supabase/clients";
@@ -242,6 +243,44 @@ export default async function BusinessDetailPage({
             trend={null}
           />
         </div>
+      )}
+
+      {tab === "agent" && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">AI Cost Guard</h2>
+          <p className="mb-3 text-xs text-slate-500">
+            {detail.costGuard.budgetUsd !== null
+              ? `Spent $${detail.costGuard.spentUsd.toFixed(2)} of $${detail.costGuard.budgetUsd.toFixed(2)} this calendar month${
+                  detail.costGuard.exceeded
+                    ? " — budget reached, the Agent is falling back to deterministic replies only."
+                    : "."
+                }`
+              : `Spent $${detail.costGuard.spentUsd.toFixed(2)} this calendar month — no budget set, no cap.`}
+          </p>
+          <form action={setTenantAiBudgetAction} className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="tenantId" value={detail.tenant.id} />
+            <input type="hidden" name="slug" value={slug} />
+            <input type="hidden" name="locale" value={locale} />
+            <label className="flex flex-col gap-1 text-sm">
+              Override budget (USD / month)
+              <input
+                name="budgetUsd"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Use platform default"
+                defaultValue={detail.costGuard.tenantOverrideUsd ?? undefined}
+                className="w-40 rounded-md border border-neutral-300 px-3 py-2"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+            >
+              Save
+            </button>
+          </form>
+        </section>
       )}
 
       {tab === "orders" && (
