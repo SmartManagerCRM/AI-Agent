@@ -261,6 +261,21 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       };
     }
 
+    case "capture_lead": {
+      const message = String(input.message ?? "").trim();
+      if (!message) return { content: "What do you need help with?", isError: true };
+      const { error } = await ctx.supabase.from("leads").insert({
+        tenant_id: ctx.tenantId,
+        conversation_id: ctx.conversationId,
+        customer_name: input.name ? String(input.name) : null,
+        customer_phone: input.phone ? String(input.phone) : null,
+        customer_email: input.email ? String(input.email) : null,
+        message,
+      });
+      if (error) return { content: "I couldn't record that just now — please try again.", isError: true };
+      return { content: "Got it — I've passed this along to the team, and they'll follow up with you directly." };
+    }
+
     case "request_human_handoff":
       return {
         content: "I've noted that you'd like to speak with a person — the business will follow up with you directly.",

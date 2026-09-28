@@ -32,6 +32,7 @@
       "agent": "Agent",
       "conversations": "Conversations",
       "customers": "Customers",
+      "leads": "Leads",
       "analytics": "Analytics",
       "marketing": "Marketing",
       "billing": "Billing",

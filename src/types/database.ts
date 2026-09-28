@@ -403,6 +403,23 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["conversations"]["Row"]>;
         Relationships: [];
       };
+      leads: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          conversation_id: string | null;
+          customer_name: string | null;
+          customer_phone: string | null;
+          customer_email: string | null;
+          message: string;
+          status: "new" | "contacted" | "qualified" | "closed";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["leads"]["Row"]> & { tenant_id: string; message: string };
+        Update: Partial<Database["public"]["Tables"]["leads"]["Row"]>;
+        Relationships: [];
+      };
       conversation_messages: {
         Row: {
           id: string;

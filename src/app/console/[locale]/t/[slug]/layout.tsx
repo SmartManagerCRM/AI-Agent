@@ -61,6 +61,7 @@ export default async function TenantLayout({
     { key: "agent", href: `/${locale}/${slug}/agent`, label: t("nav.agent") },
     { key: "conversations", href: `/${locale}/${slug}/conversations`, label: t("nav.conversations") },
     { key: "customers", href: `/${locale}/${slug}/customers`, label: t("nav.customers") },
+    { key: "bell", href: `/${locale}/${slug}/leads`, label: t("nav.leads") },
     { key: "analytics", href: `/${locale}/${slug}/analytics`, label: t("nav.analytics") },
     { key: "marketing", href: `/${locale}/${slug}/marketing`, label: t("nav.marketing") },
     { key: "billing", href: `/${locale}/${slug}/billing`, label: t("nav.billing") },

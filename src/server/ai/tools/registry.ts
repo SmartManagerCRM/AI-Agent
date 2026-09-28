@@ -134,6 +134,21 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
     },
   },
   {
+    name: "capture_lead",
+    description:
+      "Record a lead when the customer's request needs a human follow-up rather than a simple catalog purchase — a custom project, a consultation, a quote request, or anything the business needs to call them back about. Ask only for what you don't already have.",
+    parameters: {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "A concise summary of what the customer needs." },
+        name: { type: "string" },
+        phone: { type: "string" },
+        email: { type: "string" },
+      },
+      required: ["message"],
+    },
+  },
+  {
     name: "request_human_handoff",
     description:
       "Use when the customer needs a human — a complaint, something outside what you can help with, or they explicitly ask for a person.",
