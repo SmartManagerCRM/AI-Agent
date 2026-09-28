@@ -40,6 +40,7 @@ export default async function PlatformLayout({
         { key: "dashboard", href: `/${locale}/super-admin`, label: "Dashboard" },
         { key: "customers", href: `/${locale}/super-admin/subscribers`, label: "Subscribers" },
         { key: "building", href: `/${locale}/super-admin/businesses`, label: "Businesses" },
+        { key: "sparkle", href: `/${locale}/super-admin/analytics`, label: "Analytics" },
         { key: "pulse", href: `/${locale}/super-admin/system-health`, label: "System Health" },
       ],
     },
@@ -48,7 +49,10 @@ export default async function PlatformLayout({
       items: [
         { key: "billing", href: `/${locale}/super-admin/plans`, label: "Subscriptions & Plans" },
         { key: "analytics", href: `/${locale}/super-admin/payments`, label: "Payments & Revenue" },
+        { key: "agent", href: `/${locale}/super-admin/ai-agents`, label: "AI Agents" },
+        { key: "branches", href: `/${locale}/super-admin/business-brain`, label: "Business Brain" },
         { key: "models", href: `/${locale}/super-admin/models`, label: "AI Models" },
+        { key: "copy", href: `/${locale}/super-admin/integrations`, label: "Integrations" },
         { key: "settings", href: `/${locale}/super-admin/settings`, label: "Platform Settings" },
       ],
     },
@@ -58,6 +62,7 @@ export default async function PlatformLayout({
         { key: "shield", href: `/${locale}/super-admin/admins`, label: "Admin Users" },
         { key: "staff", href: `/${locale}/super-admin/roles`, label: "Roles & Permissions" },
         { key: "audit", href: `/${locale}/super-admin/audit-logs`, label: "Audit Logs" },
+        { key: "bell", href: `/${locale}/super-admin/announcements`, label: "Announcements" },
       ],
     },
   ];

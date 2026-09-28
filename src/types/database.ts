@@ -123,6 +123,19 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["platform_admins"]["Row"]>;
         Relationships: [];
       };
+      platform_announcements: {
+        Row: {
+          id: string;
+          message: string;
+          severity: "info" | "warning";
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["platform_announcements"]["Row"]> & { message: string };
+        Update: Partial<Database["public"]["Tables"]["platform_announcements"]["Row"]>;
+        Relationships: [];
+      };
       super_admin_impersonations: {
         Row: {
           id: string;
@@ -835,6 +848,10 @@ export type Database = {
       end_tenant_impersonation: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      tenant_payment_integration_status: {
+        Args: Record<string, never>;
+        Returns: { tenant_id: string; moyasar_connected: boolean; tap_connected: boolean; enabled_methods: string[] }[];
       };
     };
     Enums: Record<string, never>;

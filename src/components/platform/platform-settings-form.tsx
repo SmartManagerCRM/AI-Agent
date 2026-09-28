@@ -6,7 +6,13 @@ import { updatePlatformSettingsAction } from "@/server/platform/actions";
 
 type Props = {
   locale: string;
-  current: { platform_name: string; maintenance_mode: boolean; default_ai_monthly_budget_usd: number | null };
+  current: {
+    platform_name: string;
+    maintenance_mode: boolean;
+    default_ai_monthly_budget_usd: number | null;
+    supported_languages: string[];
+    supported_currencies: string[];
+  };
 };
 
 export function PlatformSettingsForm({ locale, current }: Props) {
@@ -47,6 +53,28 @@ export function PlatformSettingsForm({ locale, current }: Props) {
           to deterministic replies only until the next month — a specific business can also get its own override on its
           Business 360 page.
         </span>
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        Supported languages
+        <input
+          name="supportedLanguages"
+          required
+          defaultValue={current.supported_languages.join(", ")}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        />
+        <span className="text-xs text-slate-400">Comma-separated language codes, e.g. en, ar, fr.</span>
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        Supported currencies
+        <input
+          name="supportedCurrencies"
+          required
+          defaultValue={current.supported_currencies.join(", ")}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        />
+        <span className="text-xs text-slate-400">Comma-separated ISO currency codes, e.g. SAR, USD, EUR.</span>
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

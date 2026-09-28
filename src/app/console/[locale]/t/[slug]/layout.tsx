@@ -31,6 +31,7 @@ export default async function TenantLayout({
     { data: subscription },
     { count: conversationCount },
     { count: openConversationCount },
+    { data: announcements },
   ] = await Promise.all([
     user ? isSuperAdmin(user.id) : Promise.resolve(false),
     myTenantMemberships(),
@@ -44,6 +45,11 @@ export default async function TenantLayout({
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenant.id)
       .eq("status", "open"),
+    supabase
+      .from("platform_announcements")
+      .select("id, message, severity")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false }),
   ]);
 
   const nav: NavItem[] = [
@@ -96,6 +102,16 @@ export default async function TenantLayout({
             </form>
           </div>
         )}
+        {(announcements ?? []).map((a) => (
+          <div
+            key={a.id}
+            className={`px-4 py-2 text-center text-sm font-medium ${
+              a.severity === "warning" ? "bg-amber-100 text-amber-900" : "bg-blue-50 text-blue-800"
+            }`}
+          >
+            {a.message}
+          </div>
+        ))}
         <div className="flex min-h-0 flex-1 bg-slate-50">
           <MobileSidebarFrame>
             <div>

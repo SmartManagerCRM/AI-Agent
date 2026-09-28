@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCostGuardAlerts } from "@/server/ai/cost-guard";
+import { getAnomalyAlerts } from "@/server/platform/anomaly-detection";
 import type { Trend } from "@/server/tenant/dashboard-stats";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -391,7 +392,7 @@ export type PlatformAlert = { id: string; message: string; severity: "warning" |
  */
 export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<PlatformAlert[]> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const [{ data: failedPayments }, { data: suspended }, costGuardAlerts] = await Promise.all([
+  const [{ data: failedPayments }, { data: suspended }, costGuardAlerts, anomalyAlerts] = await Promise.all([
     supabase
       .from("subscription_payments")
       .select("id, tenant_id, created_at")
@@ -399,6 +400,7 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
       .gte("created_at", since),
     supabase.from("tenants").select("id, slug, business_name").eq("status", "suspended"),
     getCostGuardAlerts(supabase),
+    getAnomalyAlerts(supabase),
   ]);
 
   const alerts: PlatformAlert[] = (failedPayments ?? []).map((p) => ({
@@ -427,6 +429,15 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
       severity: guard.severity,
       at: new Date().toISOString(),
       href: `/super-admin/businesses/${guard.slug}?tab=agent`,
+    });
+  }
+  for (const anomaly of anomalyAlerts) {
+    alerts.push({
+      id: `anomaly-${anomaly.tenantId}`,
+      message: `${anomaly.businessName} has ${anomaly.todayCount} conversations in the last 24h, well above its usual ~${anomaly.baselineDailyAvg}/day — worth a look.`,
+      severity: "warning",
+      at: new Date().toISOString(),
+      href: `/super-admin/businesses/${anomaly.slug}?tab=activity`,
     });
   }
   return alerts.sort((a, b) => (a.at < b.at ? 1 : -1));

@@ -21,8 +21,21 @@ const settingsSchema = z.object({
   platformName: z.string().trim().min(1).max(120),
   maintenanceMode: z.enum(["on"]).optional(),
   defaultAiMonthlyBudgetUsd: z.coerce.number().min(0).optional(),
+  supportedLanguages: z.string().trim().min(1),
+  supportedCurrencies: z.string().trim().min(1),
   locale: z.string(),
 });
+
+function parseCsvList(raw: string, transform: (s: string) => string): string[] {
+  return [
+    ...new Set(
+      raw
+        .split(",")
+        .map((s) => transform(s.trim()))
+        .filter(Boolean),
+    ),
+  ];
+}
 
 export async function updatePlatformSettingsAction(
   _prevState: string | undefined,
@@ -33,6 +46,8 @@ export async function updatePlatformSettingsAction(
     platformName: formData.get("platformName"),
     maintenanceMode: formData.get("maintenanceMode") ?? undefined,
     defaultAiMonthlyBudgetUsd: rawBudget ? rawBudget : undefined,
+    supportedLanguages: formData.get("supportedLanguages"),
+    supportedCurrencies: formData.get("supportedCurrencies"),
     locale: formData.get("locale"),
   });
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
@@ -45,6 +60,8 @@ export async function updatePlatformSettingsAction(
       platform_name: parsed.data.platformName,
       maintenance_mode: parsed.data.maintenanceMode === "on",
       default_ai_monthly_budget_usd: parsed.data.defaultAiMonthlyBudgetUsd ?? null,
+      supported_languages: parseCsvList(parsed.data.supportedLanguages, (s) => s.toLowerCase()),
+      supported_currencies: parseCsvList(parsed.data.supportedCurrencies, (s) => s.toUpperCase()),
     })
     .eq("id", true);
   if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
@@ -104,6 +121,49 @@ export async function setTenantAiBudgetAction(formData: FormData): Promise<void>
     .update({ ai_monthly_budget_usd: parsed.data.budgetUsd ?? null })
     .eq("tenant_id", parsed.data.tenantId);
   revalidatePath(`/${parsed.data.locale}/super-admin/businesses/${parsed.data.slug}`);
+}
+
+const setTenantAgentActiveSchema = z.object({
+  tenantId: z.uuid(),
+  active: z.enum(["true", "false"]),
+  locale: z.string(),
+});
+
+/**
+ * Support/safety switch (spec §98 "AI Agents management") — lets Super
+ * Admin disable a specific business's Agent platform-wide (e.g. abuse,
+ * a runaway cost, an active incident) without needing that business's
+ * own credentials. Merges into the existing `agent` jsonb rather than
+ * overwriting it, so a business's own assistant_name/greeting/tone
+ * survive the toggle.
+ */
+export async function setTenantAgentActiveAction(formData: FormData): Promise<void> {
+  const parsed = setTenantAgentActiveSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    active: formData.get("active"),
+    locale: formData.get("locale"),
+  });
+  if (!parsed.success) return;
+
+  await requireSuperAdmin(parsed.data.locale);
+  const supabase = await createUserClient();
+  const { data: current } = await supabase
+    .from("tenant_settings")
+    .select("agent")
+    .eq("tenant_id", parsed.data.tenantId)
+    .maybeSingle();
+  await supabase
+    .from("tenant_settings")
+    .update({
+      agent: {
+        active: parsed.data.active === "true",
+        assistant_name: current?.agent.assistant_name ?? null,
+        greeting: current?.agent.greeting ?? null,
+        tone: current?.agent.tone ?? null,
+      },
+    })
+    .eq("tenant_id", parsed.data.tenantId);
+  revalidatePath(`/${parsed.data.locale}/super-admin/ai-agents`);
 }
 
 const createModelSchema = z.object({
