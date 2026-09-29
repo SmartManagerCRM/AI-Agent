@@ -21,6 +21,8 @@ export type BrainSnapshot = {
   notes: Partial<Record<"about" | "delivery_info" | "pickup_info" | "payment_methods" | "policy", string>>;
   /** FAQ entries: entry_key (hyphenated keywords) -> best-available-locale answer text. */
   faqs: { entryKey: string; answer: string }[];
+  /** This exact conversation's own real past orders (never another customer's) — null for a first-time visitor. */
+  returningCustomer: { orderCount: number; topProducts: string[] } | null;
 };
 
 export type DeterministicMatch = { rule: string; reply: string };

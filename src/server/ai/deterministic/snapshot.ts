@@ -8,8 +8,9 @@ export async function buildBrainSnapshot(
   supabase: TypedSupabaseClient,
   tenant: { id: string; currency: string; slug: string },
   locale: string,
+  conversationId?: string,
 ): Promise<BrainSnapshot> {
-  const [{ data: settings }, { data: currency }, { data: products }, { data: branch }, { data: entries }] =
+  const [{ data: settings }, { data: currency }, { data: products }, { data: branch }, { data: entries }, returningCustomer] =
     await Promise.all([
       supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
       supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
@@ -27,6 +28,7 @@ export async function buildBrainSnapshot(
         .eq("status", "approved")
         .eq("is_active", true)
         .in("entry_type", ["about", "delivery_info", "pickup_info", "payment_methods", "policy", "faq"]),
+      loadReturningCustomer(supabase, tenant.id, locale, conversationId),
     ]);
 
   const bestText = (content: unknown): string | null => {
@@ -69,5 +71,49 @@ export async function buildBrainSnapshot(
       : null,
     notes,
     faqs,
+    returningCustomer,
   };
+}
+
+/**
+ * This exact conversation's own real past orders — never another
+ * customer's, never inferred. A conversation persists across visits via
+ * its own session cookie (`getOrCreateConversation`), so this is genuine
+ * memory of the same browser/customer, not a guess.
+ */
+async function loadReturningCustomer(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  locale: string,
+  conversationId?: string,
+): Promise<BrainSnapshot["returningCustomer"]> {
+  if (!conversationId) return null;
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("tenant_id", tenantId)
+    .eq("conversation_id", conversationId)
+    .neq("status", "cancelled");
+  if (!orders || orders.length === 0) return null;
+
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("product_name, quantity")
+    .in(
+      "order_id",
+      orders.map((o) => o.id),
+    );
+  const countByName = new Map<string, number>();
+  for (const item of items ?? []) {
+    const name = item.product_name[locale] ?? Object.values(item.product_name)[0] ?? "";
+    if (!name) continue;
+    countByName.set(name, (countByName.get(name) ?? 0) + item.quantity);
+  }
+  const topProducts = [...countByName.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([name]) => name);
+
+  return { orderCount: orders.length, topProducts };
 }

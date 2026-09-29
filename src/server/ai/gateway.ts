@@ -106,7 +106,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     };
   }
 
-  const snapshot = await buildBrainSnapshot(supabase, input.tenant, input.locale);
+  const snapshot = await buildBrainSnapshot(supabase, input.tenant, input.locale, input.conversationId);
   const deterministic = matchDeterministic(input.message, snapshot);
 
   if (deterministic) {

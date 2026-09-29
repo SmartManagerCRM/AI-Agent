@@ -16,6 +16,7 @@ const baseSnapshot: BrainSnapshot = {
   },
   notes: { delivery_info: "We deliver within 5km.", pickup_info: "Pickup at the counter." },
   faqs: [{ entryKey: "do-you-have-wifi", answer: "Yes, free wifi is available." }],
+  returningCustomer: null,
 };
 
 describe("matchDeterministic", () => {
