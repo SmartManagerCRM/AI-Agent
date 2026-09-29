@@ -114,11 +114,6 @@ export default async function SuperAdminDashboard({
     active: rangeDays === r,
   }));
 
-  const formatSeriesValue = (value: number) =>
-    metric === "revenue"
-      ? formatMoney(value, kpis.monthlyRevenueCurrency ?? "USD", revenueExponent, locale)
-      : String(value);
-
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-gradient-to-br from-emerald-50 via-white to-violet-50 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -203,8 +198,11 @@ export default async function SuperAdminDashboard({
               <LineChart
                 data={growthSeries}
                 label={METRICS.find((m) => m.key === metric)?.label ?? ""}
-                formatValue={formatSeriesValue}
-                formatAxis={formatSeriesValue}
+                format={
+                  metric === "revenue"
+                    ? { kind: "currency", currency: kpis.monthlyRevenueCurrency ?? "USD", exponent: revenueExponent, locale }
+                    : { kind: "number" }
+                }
               />
             ) : (
               <p className="py-10 text-center text-sm text-slate-400">No {metric} activity in this period yet.</p>

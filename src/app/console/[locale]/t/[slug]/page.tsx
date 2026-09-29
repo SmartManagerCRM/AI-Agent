@@ -83,10 +83,9 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           <p className="mb-3 text-xs text-slate-500">{t("dashboard.salesOverviewSubtitle")}</p>
           {stats.ordersCount > 0 ? (
             <LineChart
-              data={stats.salesSeries.map((point) => ({ date: point.date, count: point.totalMinor / 10 ** exponent }))}
+              data={stats.salesSeries.map((point) => ({ date: point.date, count: point.totalMinor }))}
               label={t("dashboard.kpiSales")}
-              formatValue={(value) => money(Math.round(value * 10 ** exponent))}
-              formatAxis={(value) => money(Math.round(value * 10 ** exponent))}
+              format={{ kind: "currency", currency: tenant.currency, exponent, locale }}
             />
           ) : (
             <EmptyState

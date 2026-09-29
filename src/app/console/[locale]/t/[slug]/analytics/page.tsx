@@ -131,7 +131,11 @@ export default async function AnalyticsPage({
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Sales over time</h2>
             {analytics.totalSalesMinor > 0 ? (
-              <LineChart data={analytics.salesSeries} label="Sales" formatValue={money} formatAxis={money} />
+              <LineChart
+                data={analytics.salesSeries}
+                label="Sales"
+                format={{ kind: "currency", currency: tenant.currency, exponent, locale }}
+              />
             ) : (
               <p className="text-sm text-slate-500">No sales recorded in this period yet.</p>
             )}

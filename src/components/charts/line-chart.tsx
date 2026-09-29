@@ -2,7 +2,22 @@
 
 import { useState } from "react";
 
+import { formatMoney } from "@/lib/money";
+
 type Point = { date: string; count: number };
+
+/**
+ * A serializable description of how to format a chart value — never a
+ * function. Passing a closure from a Server Component page into this
+ * Client Component isn't valid (functions can't cross the RSC boundary
+ * unless they're a real Server Action), so formatting math lives here
+ * instead, driven by these plain values the server can safely hand down.
+ */
+export type ChartValueFormat = { kind: "number" } | { kind: "currency"; currency: string; exponent: number; locale: string };
+
+function formatPoint(value: number, format: ChartValueFormat): string {
+  return format.kind === "currency" ? formatMoney(value, format.currency, format.exponent, format.locale) : String(value);
+}
 
 const WIDTH = 640;
 const HEIGHT = 220;
@@ -17,15 +32,12 @@ const PADDING = { top: 16, right: 16, bottom: 24, left: 32 };
 export function LineChart({
   data,
   label,
-  formatValue = (value) => String(value),
-  formatAxis = formatValue,
+  format = { kind: "number" },
 }: {
   data: Point[];
   label: string;
-  /** Formats the tooltip value — e.g. currency for a sales chart. */
-  formatValue?: (value: number) => string;
-  /** Formats the axis min/max labels — defaults to formatValue. */
-  formatAxis?: (value: number) => string;
+  /** How to render both the tooltip value and the axis min/max labels. */
+  format?: ChartValueFormat;
 }) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
@@ -69,10 +81,10 @@ export function LineChart({
           stroke="var(--grid)"
         />
         <text x={PADDING.left} y={PADDING.top - 2} fontSize="11" fill="var(--text-secondary)">
-          {formatAxis(maxValue)}
+          {formatPoint(maxValue, format)}
         </text>
         <text x={PADDING.left} y={HEIGHT - 6} fontSize="11" fill="var(--text-secondary)">
-          {formatAxis(0)}
+          {formatPoint(0, format)}
         </text>
         <path d={areaPath} fill="var(--series-1)" opacity={0.08} stroke="none" />
         <path d={linePath} fill="none" stroke="var(--series-1)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -100,7 +112,7 @@ export function LineChart({
         >
           <p className="font-medium text-neutral-900">{hovered.date}</p>
           <p className="text-neutral-500">
-            {label}: {formatValue(hovered.count)}
+            {label}: {formatPoint(hovered.count, format)}
           </p>
         </div>
       )}
