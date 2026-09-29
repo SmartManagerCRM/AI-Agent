@@ -20,12 +20,13 @@ const NEXT_STATUS: Record<string, "new" | "contacted" | "qualified" | "closed" |
 /** Leads captured by the Agent (Customer Agent Master Prompt §27, §44) — real rows written only by the capture_lead tool, never fabricated. */
 export default async function LeadsPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
-  await requireTenantMember(locale, slug);
+  const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
   const { data: leads } = await supabase
     .from("leads")
     .select("id, customer_name, customer_phone, customer_email, message, status, created_at")
+    .eq("tenant_id", tenant.id)
     .order("created_at", { ascending: false })
     .limit(200);
 

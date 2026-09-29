@@ -6,6 +6,7 @@ import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
 import { orderStatusGroup } from "@/lib/order-status";
 import { markCashPaymentCollectedAction, updateOrderStatusAction } from "@/server/commerce/order-actions";
+import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -40,17 +41,15 @@ export default async function OrdersPage({
   let query = supabase
     .from("orders")
     .select("id, order_number, status, fulfillment_type, customer_name, total_minor, currency, placed_at")
+    .eq("tenant_id", tenant.id)
     .order("placed_at", { ascending: false })
     .limit(100);
   if (q) query = query.ilike("customer_name", `%${q}%`);
-  const { data: ordersRaw } = await query;
+  const [{ data: ordersRaw }, { data: currency }] = await timed(
+    "orders.queries",
+    Promise.all([query, supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle()]),
+  );
   const allOrders = ordersRaw ?? [];
-
-  const { data: currency } = await supabase
-    .from("currencies")
-    .select("exponent")
-    .eq("code", tenant.currency)
-    .maybeSingle();
   const exponent = currency?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 

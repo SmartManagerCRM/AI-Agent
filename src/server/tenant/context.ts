@@ -1,7 +1,9 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
+import { rows, timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 
 export type TenantMembership = {
@@ -12,11 +14,23 @@ export type TenantMembership = {
   role_key: string;
 };
 
-export async function currentUser() {
+/*
+ * Every export here is wrapped in React's `cache()`: the tenant layout and
+ * the page it wraps both resolve the same user/tenant/memberships during a
+ * single render, and without this each call was a separate Supabase round
+ * trip (`auth.getUser()` alone ran two to three times per page load).
+ * `cache()` is request-scoped — its memo is discarded when the request ends
+ * and is never shared across requests — so a result can only ever be
+ * reused within the one request (one user's cookies) that produced it.
+ * Outside a render (e.g. inside a Server Action) it simply calls through.
+ * Every check below still runs exactly as before; only duplicates collapse.
+ */
+
+export const currentUser = cache(async () => {
   const supabase = await createUserClient();
-  const { data } = await supabase.auth.getUser();
+  const { data } = await timed("auth.getUser", supabase.auth.getUser());
   return data.user;
-}
+});
 
 /** Redirects to sign-in when there is no session; otherwise returns the user. */
 export async function requireUser(locale: string) {
@@ -25,12 +39,12 @@ export async function requireUser(locale: string) {
   return user;
 }
 
-export async function myTenantMemberships(): Promise<TenantMembership[]> {
+export const myTenantMemberships = cache(async (): Promise<TenantMembership[]> => {
   const supabase = await createUserClient();
-  const { data, error } = await supabase.rpc("my_tenant_memberships");
+  const { data, error } = await timed("tenant.memberships", supabase.rpc("my_tenant_memberships"), rows);
   if (error) throw new Error(`Failed to load tenant memberships: ${error.message}`);
   return data ?? [];
-}
+});
 
 /**
  * Loads the tenant for `slug` and confirms the signed-in user is one of its
@@ -48,10 +62,13 @@ export async function myTenantMemberships(): Promise<TenantMembership[]> {
  * against the real table, never trusted from the grant row alone, so a
  * stale or tampered-with grant for a non-admin user still redirects.
  */
-export async function requireTenantMember(locale: string, slug: string) {
+export const requireTenantMember = cache(async (locale: string, slug: string) => {
   const user = await requireUser(locale);
   const supabase = await createUserClient();
-  const { data: tenant, error } = await supabase.from("tenants").select("*").eq("slug", slug).maybeSingle();
+  const { data: tenant, error } = await timed(
+    "tenant.bySlug",
+    supabase.from("tenants").select("*").eq("slug", slug).maybeSingle(),
+  );
   if (error) throw new Error(`Failed to load tenant: ${error.message}`);
   // RLS already scopes this to tenants the user belongs to (or Super Admin);
   // a null result here means "not found or not a member" — never distinguish
@@ -74,13 +91,13 @@ export async function requireTenantMember(locale: string, slug: string) {
   }
 
   redirect(grant ? `/${locale}/super-admin/businesses/${slug}` : `/${locale}`);
-}
+});
 
-export async function requireSuperAdmin(locale: string) {
+export const requireSuperAdmin = cache(async (locale: string) => {
   const user = await requireUser(locale);
   if (!(await isSuperAdmin(user.id))) redirect(`/${locale}`);
   return user;
-}
+});
 
 /**
  * Non-redirecting check — a Super Admin who also owns a business (the
@@ -89,9 +106,12 @@ export async function requireSuperAdmin(locale: string) {
  * this is what lets the tenant nav offer a way into `/super-admin` instead
  * of forcing a choice.
  */
-export async function isSuperAdmin(userId: string): Promise<boolean> {
+export const isSuperAdmin = cache(async (userId: string): Promise<boolean> => {
   const supabase = await createUserClient();
-  const { data, error } = await supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
+  const { data, error } = await timed(
+    "auth.isSuperAdmin",
+    supabase.from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle(),
+  );
   if (error) throw new Error(`Failed to check Super Admin status: ${error.message}`);
   return data !== null;
-}
+});

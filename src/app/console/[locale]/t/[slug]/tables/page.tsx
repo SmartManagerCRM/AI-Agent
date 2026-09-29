@@ -24,10 +24,11 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
   const supabase = await createUserClient();
 
   const [{ data: branches }, { data: tables }] = await Promise.all([
-    supabase.from("branches").select("id, name").eq("is_active", true).order("created_at"),
+    supabase.from("branches").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("created_at"),
     supabase
       .from("branch_tables")
       .select("id, branch_id, label, is_active, created_at")
+      .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false }),
   ]);
   const branchNameById = new Map((branches ?? []).map((b) => [b.id, b.name[locale] ?? Object.values(b.name)[0] ?? ""]));
@@ -54,8 +55,8 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Tables</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Print a table&apos;s QR code and put it on the table — scanning it opens your Agent already set to dine-in
-          for that exact table.
+          Print a table&apos;s QR code and put it on the table — scanning it opens your Agent already set to dine-in for
+          that exact table.
         </p>
       </div>
 
@@ -74,11 +75,15 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
         {tablesWithQr.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {tablesWithQr.map((t) => (
-              <div key={t.id} className="flex flex-col items-center gap-2 rounded-lg border border-slate-100 p-3 text-center">
+              <div
+                key={t.id}
+                className="flex flex-col items-center gap-2 rounded-lg border border-slate-100 p-3 text-center"
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
                 <img src={t.qrDataUrl} alt={`QR code for table ${t.label}`} width={120} height={120} />
                 <p className="text-sm font-medium text-slate-900">
-                  Table {t.label} <span className="font-normal text-slate-400">— {branchNameById.get(t.branch_id)}</span>
+                  Table {t.label}{" "}
+                  <span className="font-normal text-slate-400">— {branchNameById.get(t.branch_id)}</span>
                 </p>
                 <form action={setTableActiveAction}>
                   <input type="hidden" name="tableId" value={t.id} />

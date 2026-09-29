@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AccountMenu } from "@/components/console/account-menu";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { LocaleSwitcher } from "@/components/console/locale-switcher";
@@ -38,8 +40,9 @@ export function TopHeader({
       </div>
       <div className="flex shrink-0 items-center gap-3">
         <LocaleSwitcher locale={locale} />
-        <a
+        <Link
           href={`/${locale}/${workspace.slug}/conversations`}
+          prefetch={false}
           className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
           aria-label="Open conversations"
         >
@@ -49,7 +52,7 @@ export function TopHeader({
               {openConversationCount > 9 ? "9+" : openConversationCount}
             </span>
           )}
-        </a>
+        </Link>
         <AccountMenu
           locale={locale}
           name={userName}

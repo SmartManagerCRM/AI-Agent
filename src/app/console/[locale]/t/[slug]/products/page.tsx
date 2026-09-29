@@ -3,38 +3,101 @@ import { CreateProductForm } from "@/components/catalog/create-product-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
 import { formatMoney } from "@/lib/money";
-import { createUserClient } from "@/server/supabase/clients";
+import { timed } from "@/server/perf";
+import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+
+/** 16 rows of the 3-column grid. */
+const PAGE_SIZE = 48;
+const PRODUCT_COLUMNS = "id, name, price_minor, status";
+
+/**
+ * One page of this tenant's products, newest first. A search keeps its
+ * exact previous semantics — case-insensitive match on the localized name,
+ * falling back to the first available translation — so it matches over
+ * names only, then fetches full rows for just the requested page.
+ */
+async function loadProductsPage(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  locale: string,
+  q: string | undefined,
+  page: number,
+) {
+  const from = (page - 1) * PAGE_SIZE;
+  if (!q) {
+    const { data, count } = await supabase
+      .from("products")
+      .select(PRODUCT_COLUMNS, { count: "exact" })
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    return { products: data ?? [], matching: count ?? 0 };
+  }
+  const { data: names } = await supabase
+    .from("products")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: false })
+    .order("id");
+  const needle = q.toLowerCase();
+  const matchIds = (names ?? [])
+    .filter((p) => (p.name[locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(needle))
+    .map((p) => p.id);
+  const pageIds = matchIds.slice(from, from + PAGE_SIZE);
+  if (pageIds.length === 0) return { products: [], matching: matchIds.length };
+  const { data } = await supabase.from("products").select(PRODUCT_COLUMNS).in("id", pageIds);
+  const byId = new Map((data ?? []).map((p) => [p.id, p]));
+  return {
+    products: pageIds.flatMap((id) => {
+      const product = byId.get(id);
+      return product ? [product] : [];
+    }),
+    matching: matchIds.length,
+  };
+}
 
 export default async function ProductsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const { locale, slug } = await params;
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
+  const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: categories }, { data: allProducts }, { data: currency }] = await Promise.all([
-    supabase.from("categories").select("id, name").order("position"),
-    supabase.from("products").select("*").order("created_at", { ascending: false }),
-    supabase.from("currencies").select("exponent").eq("code", tenant.currency).single(),
-  ]);
+  const countProducts = () =>
+    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+  const [
+    { data: categories },
+    { count: totalCount },
+    { count: activeCount },
+    { count: draftCount },
+    { data: currency },
+    pageResult,
+  ] = await timed(
+    "products.queries",
+    Promise.all([
+      supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).order("position"),
+      countProducts(),
+      countProducts().eq("status", "active"),
+      countProducts().eq("status", "draft"),
+      supabase.from("currencies").select("exponent").eq("code", tenant.currency).single(),
+      loadProductsPage(supabase, tenant.id, locale, q, page),
+    ]),
+  );
   const exponent = currency?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
-
-  const products = q
-    ? (allProducts ?? []).filter((p) =>
-        (p.name[locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(q.toLowerCase()),
-      )
-    : (allProducts ?? []);
-  const activeCount = (allProducts ?? []).filter((p) => p.status === "active").length;
-  const draftCount = (allProducts ?? []).filter((p) => p.status === "draft").length;
+  const products = pageResult.products;
+  const productCount = totalCount ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,15 +107,9 @@ export default async function ProductsPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile
-          icon="products"
-          accent="emerald"
-          label="Total products"
-          value={String((allProducts ?? []).length)}
-          trend={null}
-        />
-        <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount)} trend={null} />
+        <KpiTile icon="products" accent="emerald" label="Total products" value={String(productCount)} trend={null} />
+        <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount ?? 0)} trend={null} />
+        <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount ?? 0)} trend={null} />
         <KpiTile
           icon="branches"
           accent="purple"
@@ -107,12 +164,23 @@ export default async function ProductsPage({
         ) : (
           <div className="mt-4">
             <EmptyState
-              title={(allProducts ?? []).length === 0 ? "No products yet" : "No products match your search"}
+              title={productCount === 0 ? "No products yet" : "No products match your search"}
               description={
-                (allProducts ?? []).length === 0
+                productCount === 0
                   ? "Add your first product or service above so customers can order it through your AI Agent."
                   : "Try a different search term."
               }
+            />
+          </div>
+        )}
+        {(pageResult.matching > PAGE_SIZE || page > 1) && (
+          <div className="-mx-4 -mb-4 mt-4">
+            <Pagination
+              basePath={`/${locale}/${slug}/products`}
+              params={{ q }}
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={pageResult.matching}
             />
           </div>
         )}

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 
@@ -7,6 +8,7 @@ import { PlatformAccountMenu } from "@/components/platform/account-menu";
 import { PlatformSearchForm } from "@/components/platform/search-form";
 import { signOutAction } from "@/server/auth/actions";
 import { getPlatformAlerts } from "@/server/platform/dashboard-stats";
+import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireSuperAdmin } from "@/server/tenant/context";
 
@@ -25,12 +27,15 @@ export default async function PlatformLayout({
   const user = await currentUser();
   const supabase = await createUserClient();
 
-  const [{ data: profile }, alerts] = await Promise.all([
-    user
-      ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    getPlatformAlerts(supabase),
-  ]);
+  const [{ data: profile }, alerts] = await timed(
+    "layout.superAdmin",
+    Promise.all([
+      user
+        ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      getPlatformAlerts(supabase),
+    ]),
+  );
   const name = profile?.full_name ?? profile?.email ?? user?.email ?? "Super Admin";
 
   const groups: NavGroup[] = [
@@ -92,14 +97,15 @@ export default async function PlatformLayout({
                   </p>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => (
-                      <a
+                      <Link
                         key={item.key}
                         href={item.href}
+                        prefetch={false}
                         className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white"
                       >
                         <Icon path={NAV_ICON_PATHS[item.key]} size={18} />
                         {item.label}
-                      </a>
+                      </Link>
                     ))}
                   </div>
                 </div>
@@ -107,12 +113,13 @@ export default async function PlatformLayout({
             </nav>
           </div>
           <div className="flex flex-col gap-1 border-t border-slate-800 pt-4 text-sm">
-            <a
+            <Link
               href={`/${locale}/subscriber`}
+              prefetch={false}
               className="rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white"
             >
               Back to console
-            </a>
+            </Link>
             <form action={signOutAction}>
               <input type="hidden" name="locale" value={locale} />
               <button

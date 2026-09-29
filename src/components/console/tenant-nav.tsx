@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icons";
@@ -14,9 +15,10 @@ export function TenantNav({ items }: { items: NavItem[] }) {
       {items.map((item) => {
         const active = pathname === item.href || pathname?.startsWith(`${item.href}/`);
         return (
-          <a
+          <Link
             key={item.key}
             href={item.href}
+            prefetch={false}
             className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 transition-colors ${
               active ? "bg-emerald-600/15 text-emerald-400" : "text-slate-300 hover:bg-slate-800 hover:text-white"
             }`}
@@ -34,7 +36,7 @@ export function TenantNav({ items }: { items: NavItem[] }) {
                 {item.badge}
               </span>
             )}
-          </a>
+          </Link>
         );
       })}
     </nav>

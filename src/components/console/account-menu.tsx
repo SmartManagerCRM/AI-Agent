@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -48,13 +49,15 @@ export function AccountMenu({ locale, name, roleLabel, initial, isSuperAdmin, su
               <p className="text-xs text-slate-500">{roleLabel}</p>
             </div>
             {isSuperAdmin && (
-              <a
+              <Link
                 href={`/${locale}/super-admin`}
+                prefetch={false}
+                onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 <Icon path={NAV_ICON_PATHS.shield} size={16} />
                 {superAdminLabel}
-              </a>
+              </Link>
             )}
             <form action={signOutAction}>
               <input type="hidden" name="locale" value={locale} />

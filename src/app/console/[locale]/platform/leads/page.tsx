@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { getPlatformLeads } from "@/server/platform/leads-overview";
@@ -48,12 +49,13 @@ export default async function PlatformLeadsPage({ params }: { params: Promise<{ 
                 {leads.map((lead) => (
                   <tr key={lead.id} className="border-b border-slate-100 last:border-0 align-top">
                     <td className="py-2">
-                      <a
+                      <Link
                         href={`/${locale}/super-admin/businesses/${lead.slug}`}
+                        prefetch={false}
                         className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                       >
                         {lead.businessName}
-                      </a>
+                      </Link>
                     </td>
                     <td className="py-2 text-slate-600">{lead.customerName ?? "—"}</td>
                     <td className="max-w-xs py-2 text-slate-600">{lead.message}</td>

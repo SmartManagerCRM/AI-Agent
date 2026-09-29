@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -7,12 +8,16 @@ import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 const MobileSidebarContext = createContext<{ open: boolean; setOpen: (open: boolean) => void } | null>(null);
 
 /**
- * Sidebar nav is a full page reload on every link (plain `<a>`, no
- * client-side router) — so there's no need to close the drawer on
- * navigate, a fresh page load already resets this state.
+ * Sidebar links are client-side `<Link>` navigations, so the layout (and
+ * this provider) survives them. The drawer's open state is remembered
+ * against the pathname it was opened on — navigating anywhere else closes
+ * it, exactly as the old full-page reloads did.
  */
 export function MobileSidebarProvider({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const [openOn, setOpenOn] = useState<string | null>(null);
+  const open = openOn !== null && openOn === pathname;
+  const setOpen = (value: boolean) => setOpenOn(value ? pathname : null);
   return <MobileSidebarContext.Provider value={{ open, setOpen }}>{children}</MobileSidebarContext.Provider>;
 }
 

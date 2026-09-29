@@ -6,7 +6,7 @@ export default async function BranchesPage({ params }: { params: Promise<{ local
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
-  const { data: branches } = await supabase.from("branches").select("*").order("created_at");
+  const { data: branches } = await supabase.from("branches").select("*").eq("tenant_id", tenant.id).order("created_at");
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">

@@ -66,7 +66,7 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
     { data: tenants },
     { data: tenantSettings },
     { data: payments },
-    { data: conversations },
+    conversationCounts,
     { data: subscriptions },
     { data: owners },
   ] = await Promise.all([
@@ -76,7 +76,24 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
       .from("subscription_payments")
       .select("amount_minor, currency, status, created_at")
       .eq("status", "succeeded"),
-    supabase.from("conversations").select("id, started_at"),
+    // Counted in Postgres (head requests) rather than downloading every
+    // conversation on the platform to count them in JS.
+    Promise.all([
+      supabase.from("conversations").select("id", { count: "exact", head: true }),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .gte("started_at", new Date(now - windowMs).toISOString()),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .gte("started_at", new Date(now - 2 * windowMs).toISOString())
+        .lt("started_at", new Date(now - windowMs).toISOString()),
+    ]).then(([total, current, prior]) => ({
+      total: total.count ?? 0,
+      current: current.count ?? 0,
+      prior: prior.count ?? 0,
+    })),
     supabase.from("subscriptions").select("tenant_id, status, created_at"),
     ownerRole
       ? supabase.from("tenant_members").select("user_id, created_at").eq("role_id", ownerRole.id)
@@ -85,13 +102,11 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
 
   const allTenants = (tenants ?? []).map((t) => ({ id: t.id, createdAt: t.created_at, currency: t.currency }));
   const allOwners = (owners ?? []).map((o) => ({ createdAt: o.created_at }));
-  const allConversations = (conversations ?? []).map((c) => ({ createdAt: c.started_at }));
   const allSubscriptions = subscriptions ?? [];
   const activeSubs = allSubscriptions.filter((s) => s.status === "active");
 
   const { current: currentTenants, prior: priorTenants } = windowSplit(allTenants, windowMs, now);
   const { current: currentOwners, prior: priorOwners } = windowSplit(allOwners, windowMs, now);
-  const { current: currentConvos, prior: priorConvos } = windowSplit(allConversations, windowMs, now);
   const { current: currentSubs, prior: priorSubs } = windowSplit(
     allSubscriptions.filter((s) => s.status === "active").map((s) => ({ createdAt: s.created_at })),
     windowMs,
@@ -135,8 +150,8 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
     monthlyRevenueMinor,
     monthlyRevenueCurrency: reportingCurrency,
     monthlyRevenueTrend: trend(monthlyRevenueMinor, priorRevenueMinor),
-    totalConversations: allConversations.length,
-    totalConversationsTrend: trend(currentConvos.length, priorConvos.length),
+    totalConversations: conversationCounts.total,
+    totalConversationsTrend: trend(conversationCounts.current, conversationCounts.prior),
     activeSubscriptions: activeSubs.length,
     activeSubscriptionsTrend: trend(currentSubs.length, priorSubs.length),
   };
@@ -181,10 +196,10 @@ export async function getPlatformGrowthSeries(
       if (byDay.has(day)) byDay.set(day, (byDay.get(day) ?? 0) + 1);
     }
   } else if (metric === "conversations") {
-    const { data } = await supabase.from("conversations").select("started_at").gte("started_at", since);
+    // Grouped per UTC day in Postgres instead of downloading every row.
+    const { data } = await supabase.rpc("conversations_started_per_day", { p_since: since });
     for (const row of data ?? []) {
-      const day = row.started_at.slice(0, 10);
-      if (byDay.has(day)) byDay.set(day, (byDay.get(day) ?? 0) + 1);
+      if (byDay.has(row.day)) byDay.set(row.day, (byDay.get(row.day) ?? 0) + Number(row.conversations));
     }
   } else {
     const { data } = await supabase

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EmptyState } from "@/components/console/empty-state";
@@ -86,12 +87,13 @@ export default async function BusinessDetailPage({
           </span>
           {activeGrant ? (
             <div className="flex items-center gap-2">
-              <a
+              <Link
                 href={`/${locale}/${slug}`}
+                prefetch={false}
                 className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
               >
                 Continue in console
-              </a>
+              </Link>
               <form action={endImpersonationAction}>
                 <input type="hidden" name="locale" value={locale} />
                 <input type="hidden" name="slug" value={slug} />

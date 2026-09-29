@@ -13,13 +13,17 @@ export type PlatformAgentStats = { total: number; deterministicPct: number; tota
  * a component body (React's purity rule flags that even though nothing
  * here is actually re-rendered on it).
  */
-export async function getPlatformAgentStats(supabase: TypedSupabaseClient, windowDays: number): Promise<PlatformAgentStats> {
+export async function getPlatformAgentStats(
+  supabase: TypedSupabaseClient,
+  windowDays: number,
+): Promise<PlatformAgentStats> {
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-  const { data: interactions } = await supabase.from("agent_interactions").select("handled_by, estimated_cost_usd").gte("created_at", since);
+  // Per-tenant totals from Postgres, summed here — not every interaction row.
+  const { data: perTenant } = await supabase.rpc("agent_interaction_totals_by_tenant", { p_since: since });
 
-  const total = interactions?.length ?? 0;
-  const deterministicCount = interactions?.filter((i) => i.handled_by === "deterministic").length ?? 0;
-  const totalCostUsd = (interactions ?? []).reduce((sum, i) => sum + i.estimated_cost_usd, 0);
+  const total = (perTenant ?? []).reduce((sum, t) => sum + Number(t.interactions), 0);
+  const deterministicCount = (perTenant ?? []).reduce((sum, t) => sum + Number(t.deterministic), 0);
+  const totalCostUsd = (perTenant ?? []).reduce((sum, t) => sum + Number(t.cost_usd), 0);
   const deterministicPct = total > 0 ? Math.round((deterministicCount / total) * 1000) / 10 : 0;
 
   return { total, deterministicPct, totalCostUsd };

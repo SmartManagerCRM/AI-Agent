@@ -57,6 +57,13 @@ const serverEnvSchema = z.object({
    */
   GEMINI_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
+  /**
+   * `on` prints `[PERF] <operation>: <ms>` timing lines for the proxy,
+   * auth/tenant resolution and the heaviest console queries (see
+   * `src/server/perf.ts`). Off unless explicitly set — never logs values,
+   * only operation names, durations and row counts.
+   */
+  PERF_LOGGING: z.enum(["on", "off"]).default("off"),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

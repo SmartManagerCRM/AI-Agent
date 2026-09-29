@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { getPlatformAgentRows } from "@/server/platform/ai-agents";
 import { setTenantAgentActiveAction } from "@/server/platform/actions";
@@ -46,12 +47,13 @@ export default async function AiAgentsPage({ params }: { params: Promise<{ local
                 return (
                   <tr key={row.tenantId} className="border-b border-slate-100 last:border-0">
                     <td className="py-2">
-                      <a
+                      <Link
                         href={`/${locale}/super-admin/businesses/${row.slug}?tab=agent`}
+                        prefetch={false}
                         className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                       >
                         {row.businessName}
-                      </a>
+                      </Link>
                     </td>
                     <td className="py-2">
                       <span

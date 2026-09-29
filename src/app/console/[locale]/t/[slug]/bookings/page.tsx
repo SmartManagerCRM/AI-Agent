@@ -20,10 +20,15 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
   const supabase = await createUserClient();
 
   const [{ data: services }, { data: bookings }, { data: currency }] = await Promise.all([
-    supabase.from("bookable_services").select("id, name, duration_minutes, price_minor, is_active").order("created_at"),
+    supabase
+      .from("bookable_services")
+      .select("id, name, duration_minutes, price_minor, is_active")
+      .eq("tenant_id", tenant.id)
+      .order("created_at"),
     supabase
       .from("bookings")
       .select("id, service_id, customer_name, customer_phone, starts_at, status")
+      .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
       .limit(200),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),

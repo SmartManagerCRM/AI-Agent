@@ -27,17 +27,18 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: coupons }, { data: currencyRow }, { data: discountedOrders }] = await Promise.all([
-    supabase.from("coupons").select("*").order("created_at", { ascending: false }),
+  const [{ data: coupons }, { data: currencyRow }, { data: discountTotal }] = await Promise.all([
+    supabase.from("coupons").select("*").eq("tenant_id", tenant.id).order("created_at", { ascending: false }),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-    supabase.from("orders").select("discount_minor").eq("tenant_id", tenant.id).not("coupon_id", "is", null),
+    // Summed in Postgres rather than downloading every coupon-discounted order.
+    supabase.rpc("tenant_coupon_discount_total", { p_tenant_id: tenant.id }),
   ]);
   const exponent = currencyRow?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 
   const activeCount = (coupons ?? []).filter((c) => c.status === "active").length;
   const totalRedemptions = (coupons ?? []).reduce((sum, c) => sum + c.times_used, 0);
-  const totalDiscountMinor = (discountedOrders ?? []).reduce((sum, o) => sum + o.discount_minor, 0);
+  const totalDiscountMinor = Number(discountTotal ?? 0);
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">

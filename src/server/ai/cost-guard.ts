@@ -69,14 +69,15 @@ export async function getCostGuardAlerts(supabase: TypedSupabaseClient): Promise
       supabase.from("tenants").select("id, slug, business_name"),
       supabase.from("tenant_settings").select("tenant_id, ai_monthly_budget_usd"),
       supabase.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
-      supabase.from("agent_interactions").select("tenant_id, estimated_cost_usd").gte("created_at", startOfMonthUtc()),
+      // Summed per tenant in Postgres — not every AI interaction this month.
+      supabase.rpc("agent_interaction_totals_by_tenant", { p_since: startOfMonthUtc() }),
     ]);
 
   const overrideByTenant = new Map((tenantSettings ?? []).map((s) => [s.tenant_id, s.ai_monthly_budget_usd]));
   const defaultBudget = platformSettings?.default_ai_monthly_budget_usd ?? null;
   const spentByTenant = new Map<string, number>();
   for (const row of interactions ?? []) {
-    spentByTenant.set(row.tenant_id, (spentByTenant.get(row.tenant_id) ?? 0) + row.estimated_cost_usd);
+    spentByTenant.set(row.tenant_id, (spentByTenant.get(row.tenant_id) ?? 0) + Number(row.cost_usd));
   }
 
   const alerts: CostGuardAlert[] = [];

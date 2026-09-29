@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function EmptyState({
   title,
   description,
@@ -14,9 +16,13 @@ export function EmptyState({
       <p className="text-sm font-medium text-slate-900">{title}</p>
       <p className="text-sm text-slate-500">{description}</p>
       {actionLabel && actionHref && (
-        <a href={actionHref} className="mt-1 text-sm font-medium text-emerald-600 hover:text-emerald-700">
+        <Link
+          href={actionHref}
+          prefetch={false}
+          className="mt-1 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+        >
           {actionLabel} →
-        </a>
+        </Link>
       )}
     </div>
   );

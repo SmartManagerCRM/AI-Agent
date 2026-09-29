@@ -6,6 +6,7 @@ import { LOCALE_COOKIE, LOCALES, negotiateLocale, splitLocaleFromPath, type Loca
 import { publicEnv } from "@/lib/env.public";
 import { classifyHost } from "@/lib/hosts";
 import { serverEnv } from "@/server/env-core";
+import { timed } from "@/server/perf";
 
 /**
  * Request entry point (Next.js "proxy", Node.js runtime).
@@ -189,7 +190,7 @@ async function refreshSession(
     },
   );
 
-  await supabase.auth.getClaims();
+  await timed("proxy.refreshSession", supabase.auth.getClaims());
 
   if (pending.length > 0) {
     requestHeaders.set("cookie", request.cookies.toString());

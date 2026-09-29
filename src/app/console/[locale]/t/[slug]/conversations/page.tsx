@@ -19,23 +19,22 @@ export default async function ConversationsPage({
 }) {
   const { locale, slug } = await params;
   const { status: statusFilter } = await searchParams;
-  await requireTenantMember(locale, slug);
+  const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
   const { data: allConversations } = await supabase
     .from("conversations")
     .select("id, channel, status, started_at, last_message_at")
+    .eq("tenant_id", tenant.id)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .limit(100);
 
   const conversationIds = (allConversations ?? []).map((c) => c.id);
   const [{ data: lastMessages }, { data: relatedOrders }] = await Promise.all([
+    // Only each conversation's newest message, picked in Postgres — not
+    // every message of all 100 conversations.
     conversationIds.length
-      ? supabase
-          .from("conversation_messages")
-          .select("conversation_id, role, content, handled_by, created_at")
-          .in("conversation_id", conversationIds)
-          .order("created_at", { ascending: false })
+      ? supabase.rpc("conversation_last_messages", { p_conversation_ids: conversationIds })
       : Promise.resolve({ data: [] }),
     conversationIds.length
       ? supabase.from("orders").select("conversation_id, customer_name").in("conversation_id", conversationIds)

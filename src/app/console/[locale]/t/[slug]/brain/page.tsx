@@ -3,6 +3,7 @@ import { CreateEntryForm } from "@/components/brain/create-entry-form";
 import { Button } from "@/components/console/button";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import {
   approveBrainEntryAction,
   archiveBrainEntryAction,
@@ -11,6 +12,7 @@ import {
   resolveBrainConflictAction,
   toggleSourceActiveAction,
 } from "@/server/brain/actions";
+import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -26,39 +28,79 @@ const STATUS_STYLE: Record<string, string> = {
   rejected: "bg-red-50 text-red-700",
 };
 
-export default async function BusinessBrainPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+/** Knowledge entries are large cards (content preview + actions) — 25 per page. */
+const PAGE_SIZE = 25;
+const LISTED_STATUSES = ["pending_review", "approved", "rejected"] as const;
+
+export default async function BusinessBrainPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { locale, slug } = await params;
+  const page = parsePage((await searchParams).page);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: sources }, { data: entries }, { data: conflicts }] = await Promise.all([
-    supabase.from("business_sources").select("*").order("created_at", { ascending: false }),
-    supabase
-      .from("business_brain_entries")
-      .select("*")
-      .in("status", ["pending_review", "approved", "rejected"])
-      .order("created_at", { ascending: false }),
-    supabase.from("business_brain_conflicts").select("*").eq("status", "open").order("created_at", { ascending: false }),
-  ]);
-
-  const pendingCount = (entries ?? []).filter((e) => e.status === "pending_review").length;
-  const approvedCount = (entries ?? []).filter((e) => e.status === "approved").length;
+  const countEntries = () =>
+    supabase.from("business_brain_entries").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+  const from = (page - 1) * PAGE_SIZE;
+  const [
+    { data: sources },
+    { data: entries, count: listedCount },
+    { data: conflicts },
+    { count: pendingCount },
+    { count: approvedCount },
+  ] = await timed(
+    "brain.queries",
+    Promise.all([
+      supabase
+        .from("business_sources")
+        .select("*")
+        .eq("tenant_id", tenant.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("business_brain_entries")
+        .select("*", { count: "exact" })
+        .eq("tenant_id", tenant.id)
+        .in("status", LISTED_STATUSES)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, from + PAGE_SIZE - 1),
+      supabase
+        .from("business_brain_conflicts")
+        .select("*")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "open")
+        .order("created_at", { ascending: false }),
+      countEntries().eq("status", "pending_review"),
+      countEntries().eq("status", "approved"),
+    ]),
+  );
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Business Brain</h1>
         <p className="mt-1 text-sm text-slate-500">
-          What your AI Agent knows about {tenant.business_name[locale] ?? tenant.slug} — from your website, documents, or entered by hand.
-          Nothing from an outside source becomes active knowledge until you review and approve it.
+          What your AI Agent knows about {tenant.business_name[locale] ?? tenant.slug} — from your website, documents,
+          or entered by hand. Nothing from an outside source becomes active knowledge until you review and approve it.
         </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile icon="branches" accent="emerald" label="Sources" value={String((sources ?? []).length)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(pendingCount)} trend={null} />
-        <KpiTile icon="orders" accent="blue" label="Approved entries" value={String(approvedCount)} trend={null} />
-        <KpiTile icon="conversations" accent="purple" label="Open conflicts" value={String((conflicts ?? []).length)} trend={null} />
+        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(pendingCount ?? 0)} trend={null} />
+        <KpiTile icon="orders" accent="blue" label="Approved entries" value={String(approvedCount ?? 0)} trend={null} />
+        <KpiTile
+          icon="conversations"
+          accent="purple"
+          label="Open conflicts"
+          value={String((conflicts ?? []).length)}
+          trend={null}
+        />
       </div>
 
       {(conflicts ?? []).length > 0 && (
@@ -82,7 +124,9 @@ export default async function BusinessBrainPage({ params }: { params: Promise<{ 
                         type="submit"
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-start text-xs hover:bg-slate-50"
                       >
-                        <span className="block font-medium capitalize text-slate-900">{value.source_type.replace("_", " ")}</span>
+                        <span className="block font-medium capitalize text-slate-900">
+                          {value.source_type.replace("_", " ")}
+                        </span>
                         <span className="block text-slate-600">{previewContent(value.value)}</span>
                       </button>
                     </form>
@@ -100,7 +144,10 @@ export default async function BusinessBrainPage({ params }: { params: Promise<{ 
         {(sources ?? []).length > 0 ? (
           <ul className="mt-3 flex flex-col gap-2">
             {(sources ?? []).map((source) => (
-              <li key={source.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm">
+              <li
+                key={source.id}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3 text-sm"
+              >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-slate-900">{source.url ?? "Manual entries"}</p>
                   <p className="text-slate-500">
@@ -137,12 +184,15 @@ export default async function BusinessBrainPage({ params }: { params: Promise<{ 
           </ul>
         ) : (
           <div className="mt-3">
-            <EmptyState title="No sources yet" description="Add your website above and SmartManager will start learning your business." />
+            <EmptyState
+              title="No sources yet"
+              description="Add your website above and SmartManager will start learning your business."
+            />
           </div>
         )}
         <p className="mt-3 text-xs text-slate-400">
-          A website is one of several ways to teach your Agent — Instagram, Facebook, PDF menus, and manual entry are coming as additional
-          source types; every one lands here the same way for you to review.
+          A website is one of several ways to teach your Agent — Instagram, Facebook, PDF menus, and manual entry are
+          coming as additional source types; every one lands here the same way for you to review.
         </p>
       </section>
 
@@ -175,7 +225,8 @@ export default async function BusinessBrainPage({ params }: { params: Promise<{ 
                     <p className="mt-1.5 whitespace-pre-wrap text-slate-600">{previewContent(entry.content)}</p>
                     <p className="mt-1.5 text-xs text-slate-400">
                       v{entry.version} · from {entry.source_type.replace("_", " ")}
-                      {entry.last_verified_at && ` · verified ${new Date(entry.last_verified_at).toLocaleDateString(locale)}`}
+                      {entry.last_verified_at &&
+                        ` · verified ${new Date(entry.last_verified_at).toLocaleDateString(locale)}`}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
@@ -215,7 +266,21 @@ export default async function BusinessBrainPage({ params }: { params: Promise<{ 
             ))}
           </ul>
         ) : (
-          <EmptyState title="No knowledge yet" description="Add a website or an entry above and SmartManager AI Agent will build your Business Brain." />
+          <EmptyState
+            title="No knowledge yet"
+            description="Add a website or an entry above and SmartManager AI Agent will build your Business Brain."
+          />
+        )}
+        {((listedCount ?? 0) > PAGE_SIZE || page > 1) && (
+          <div className="-mx-4 -mb-4 mt-4">
+            <Pagination
+              basePath={`/${locale}/${slug}/brain`}
+              params={{}}
+              page={page}
+              pageSize={PAGE_SIZE}
+              total={listedCount ?? 0}
+            />
+          </div>
         )}
       </section>
     </div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { formatMoney } from "@/lib/money";
@@ -87,15 +88,16 @@ export default async function PaymentsPage({
           <h2 className="text-sm font-semibold text-slate-900">Transactions</h2>
           <div className="flex gap-1">
             {STATUS_FILTERS.map((f) => (
-              <a
+              <Link
                 key={f}
                 href={f === "all" ? `/${locale}/super-admin/payments` : `/${locale}/super-admin/payments?status=${f}`}
+                prefetch={false}
                 className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
                   status === f ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 {f}
-              </a>
+              </Link>
             ))}
           </div>
         </div>
@@ -117,12 +119,13 @@ export default async function PaymentsPage({
                   <tr key={p.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-2">
                       {p.slug ? (
-                        <a
+                        <Link
                           href={`/${locale}/super-admin/businesses/${p.slug}?tab=billing`}
+                          prefetch={false}
                           className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                         >
                           {p.businessName}
-                        </a>
+                        </Link>
                       ) : (
                         <span className="text-slate-500">{p.businessName}</span>
                       )}

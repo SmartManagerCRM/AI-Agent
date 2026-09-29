@@ -1,14 +1,19 @@
+import Link from "next/link";
+
 export type Tab = { key: string; label: string; count?: number; href: string; active: boolean };
 
 export function Tabs({ tabs }: { tabs: Tab[] }) {
   return (
     <div className="flex gap-1 border-b border-slate-200">
       {tabs.map((tab) => (
-        <a
+        <Link
           key={tab.key}
           href={tab.href}
+          prefetch={false}
           className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-            tab.active ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"
+            tab.active
+              ? "border-emerald-600 text-emerald-700"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
           {tab.label}
@@ -19,7 +24,7 @@ export function Tabs({ tabs }: { tabs: Tab[] }) {
               {tab.count}
             </span>
           )}
-        </a>
+        </Link>
       ))}
     </div>
   );

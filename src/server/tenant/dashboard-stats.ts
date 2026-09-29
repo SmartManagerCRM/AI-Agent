@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ORDER_STATUS_GROUP_COLOR, orderStatusGroup } from "@/lib/order-status";
+import { timed } from "@/server/perf";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 const WINDOW_DAYS = 30;
@@ -35,15 +36,34 @@ export type DashboardStats = {
  * numbers. `conversion rate` and `customers by source` from the reference
  * design are deliberately not computed here: this schema has no visit/
  * session funnel and no acquisition-channel attribution to back them.
+ *
+ * The aggregates come from `tenant_dashboard_stats` (Postgres, SECURITY
+ * INVOKER — the same RLS as a direct select) instead of downloading every
+ * order and order item the tenant ever had; only the five newest orders
+ * and conversations are fetched as rows. Trend, AOV and status-group math
+ * below is unchanged from the previous in-JS implementation.
  */
-export async function getTenantDashboardStats(supabase: TypedSupabaseClient, tenantId: string, locale: string): Promise<DashboardStats> {
-  const [{ data: orders }, { count: conversationsCount }, { count: productsCount }, { data: recentConversationsRaw }, { data: orderItems }] =
-    await Promise.all([
+export async function getTenantDashboardStats(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  locale: string,
+): Promise<DashboardStats> {
+  const [
+    { data: aggregates, error },
+    { data: recentOrdersRaw },
+    { count: conversationsCount },
+    { count: productsCount },
+    { data: recentConversationsRaw },
+  ] = await timed(
+    "dashboard.queries",
+    Promise.all([
+      supabase.rpc("tenant_dashboard_stats", { p_tenant_id: tenantId, p_locale: locale, p_window_days: WINDOW_DAYS }),
       supabase
         .from("orders")
-        .select("id, order_number, customer_name, customer_email, customer_phone, total_minor, status, created_at")
+        .select("id, order_number, customer_name, total_minor, status, created_at")
         .eq("tenant_id", tenantId)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(5),
       supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
       supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
       supabase
@@ -52,40 +72,30 @@ export async function getTenantDashboardStats(supabase: TypedSupabaseClient, ten
         .eq("tenant_id", tenantId)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(5),
-      supabase
-        .from("order_items")
-        .select("product_name, quantity, total_minor, order_id")
-        .eq("tenant_id", tenantId),
-    ]);
+    ]),
+  );
+  if (error) throw new Error(`Failed to load dashboard stats: ${error.message}`);
 
-  const allOrders = orders ?? [];
-  const totalSalesMinor = allOrders.reduce((sum, o) => sum + o.total_minor, 0);
-  const ordersCount = allOrders.length;
+  const totalSalesMinor = Number(aggregates?.total_sales_minor ?? 0);
+  const ordersCount = Number(aggregates?.orders_count ?? 0);
   const avgOrderValueMinor = ordersCount > 0 ? Math.round(totalSalesMinor / ordersCount) : 0;
-  const customersCount = new Set(allOrders.map((o) => o.customer_email ?? o.customer_phone ?? o.customer_name).filter(Boolean)).size;
+  const customersCount = Number(aggregates?.customers_count ?? 0);
 
-  const now = Date.now();
-  const windowMs = WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  const currentWindowOrders = allOrders.filter((o) => new Date(o.created_at).getTime() >= now - windowMs);
-  const priorWindowOrders = allOrders.filter((o) => {
-    const t = new Date(o.created_at).getTime();
-    return t >= now - 2 * windowMs && t < now - windowMs;
-  });
   const trend = (current: number, prior: number): Trend => {
     if (prior === 0) return null; // no baseline to compare against — an honest "new" rather than a fabricated percentage
     const pct = Math.round(((current - prior) / prior) * 1000) / 10;
     return { pct: Math.abs(pct), direction: pct >= 0 ? "up" : "down" };
   };
-  const currentSales = currentWindowOrders.reduce((sum, o) => sum + o.total_minor, 0);
-  const priorSales = priorWindowOrders.reduce((sum, o) => sum + o.total_minor, 0);
-  const currentCustomers = new Set(currentWindowOrders.map((o) => o.customer_email ?? o.customer_phone ?? o.customer_name).filter(Boolean)).size;
-  const priorCustomers = new Set(priorWindowOrders.map((o) => o.customer_email ?? o.customer_phone ?? o.customer_name).filter(Boolean)).size;
-  const currentAov = currentWindowOrders.length > 0 ? currentSales / currentWindowOrders.length : 0;
-  const priorAov = priorWindowOrders.length > 0 ? priorSales / priorWindowOrders.length : 0;
+  const currentSales = Number(aggregates?.current_sales_minor ?? 0);
+  const priorSales = Number(aggregates?.prior_sales_minor ?? 0);
+  const currentOrders = Number(aggregates?.current_orders ?? 0);
+  const priorOrders = Number(aggregates?.prior_orders ?? 0);
+  const currentAov = currentOrders > 0 ? currentSales / currentOrders : 0;
+  const priorAov = priorOrders > 0 ? priorSales / priorOrders : 0;
   const trends = {
     sales: trend(currentSales, priorSales),
-    orders: trend(currentWindowOrders.length, priorWindowOrders.length),
-    customers: trend(currentCustomers, priorCustomers),
+    orders: trend(currentOrders, priorOrders),
+    customers: trend(Number(aggregates?.current_customers ?? 0), Number(aggregates?.prior_customers ?? 0)),
     avgOrderValue: trend(currentAov, priorAov),
   };
 
@@ -93,17 +103,13 @@ export async function getTenantDashboardStats(supabase: TypedSupabaseClient, ten
   for (let i = WINDOW_DAYS - 1; i >= 0; i--) {
     days.push(new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   }
-  const salesByDay = new Map(days.map((day) => [day, 0]));
-  for (const order of allOrders) {
-    const day = order.created_at.slice(0, 10);
-    if (salesByDay.has(day)) salesByDay.set(day, (salesByDay.get(day) ?? 0) + order.total_minor);
-  }
-  const salesSeries = Array.from(salesByDay, ([date, totalMinor]) => ({ date, totalMinor }));
+  const salesByDay = aggregates?.sales_by_day ?? {};
+  const salesSeries = days.map((date) => ({ date, totalMinor: Number(salesByDay[date] ?? 0) }));
 
   const groupCounts: Record<string, number> = { pending: 0, active: 0, completed: 0, cancelled: 0 };
-  for (const order of allOrders) {
-    const group = orderStatusGroup(order.status);
-    groupCounts[group] = (groupCounts[group] ?? 0) + 1;
+  for (const [status, count] of Object.entries(aggregates?.status_counts ?? {})) {
+    const group = orderStatusGroup(status);
+    groupCounts[group] = (groupCounts[group] ?? 0) + Number(count);
   }
   const ordersByStatusGroup = (["pending", "active", "completed", "cancelled"] as const).map((group) => ({
     label: group.charAt(0).toUpperCase() + group.slice(1),
@@ -111,7 +117,7 @@ export async function getTenantDashboardStats(supabase: TypedSupabaseClient, ten
     color: ORDER_STATUS_GROUP_COLOR[group],
   }));
 
-  const recentOrders = allOrders.slice(0, 5).map((order) => ({
+  const recentOrders = (recentOrdersRaw ?? []).map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
     customerName: order.customer_name,
@@ -127,17 +133,11 @@ export async function getTenantDashboardStats(supabase: TypedSupabaseClient, ten
     lastMessageAt: c.last_message_at,
   }));
 
-  const productTotals = new Map<string, { name: string; quantity: number; revenueMinor: number }>();
-  for (const item of orderItems ?? []) {
-    const name = (item.product_name as Record<string, string> | null)?.[locale] ?? (item.product_name as Record<string, string> | null)?.en ?? "—";
-    const existing = productTotals.get(name) ?? { name, quantity: 0, revenueMinor: 0 };
-    existing.quantity += item.quantity;
-    existing.revenueMinor += item.total_minor;
-    productTotals.set(name, existing);
-  }
-  const topProducts = Array.from(productTotals.values())
-    .sort((a, b) => b.revenueMinor - a.revenueMinor)
-    .slice(0, 5);
+  const topProducts = (aggregates?.top_products ?? []).map((p) => ({
+    name: p.name,
+    quantity: Number(p.quantity),
+    revenueMinor: Number(p.revenue_minor),
+  }));
 
   return {
     totalSalesMinor,

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { searchPlatform } from "@/server/platform/search";
 import { createUserClient } from "@/server/supabase/clients";
@@ -37,10 +38,14 @@ export default async function PlatformSearchPage({
               <ul className="flex flex-col gap-2">
                 {results.businesses.map((r) => (
                   <li key={r.id}>
-                    <a href={`/${locale}${r.href}`} className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50">
+                    <Link
+                      href={`/${locale}${r.href}`}
+                      prefetch={false}
+                      className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50"
+                    >
                       <span className="text-sm font-medium text-slate-900">{r.title}</span>
                       <span className="text-xs text-slate-500">{r.subtitle}</span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -53,10 +58,14 @@ export default async function PlatformSearchPage({
               <ul className="flex flex-col gap-2">
                 {results.subscribers.map((r) => (
                   <li key={r.id}>
-                    <a href={`/${locale}${r.href}`} className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50">
+                    <Link
+                      href={`/${locale}${r.href}`}
+                      prefetch={false}
+                      className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50"
+                    >
                       <span className="text-sm font-medium text-slate-900">{r.title}</span>
                       <span className="text-xs text-slate-500">{r.subtitle}</span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -69,10 +78,14 @@ export default async function PlatformSearchPage({
               <ul className="flex flex-col gap-2">
                 {results.orders.map((r) => (
                   <li key={r.id}>
-                    <a href={`/${locale}${r.href}`} className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50">
+                    <Link
+                      href={`/${locale}${r.href}`}
+                      prefetch={false}
+                      className="flex flex-col rounded-lg px-3 py-2 hover:bg-slate-50"
+                    >
                       <span className="text-sm font-medium text-slate-900">{r.title}</span>
                       <span className="text-xs text-slate-500">{r.subtitle}</span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

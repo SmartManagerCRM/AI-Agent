@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/locales";
 import { daysUntil } from "@/lib/dates";
 import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
 import { endImpersonationAction } from "@/server/platform/impersonation-actions";
+import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
@@ -32,25 +33,28 @@ export default async function TenantLayout({
     { count: conversationCount },
     { count: openConversationCount },
     { data: announcements },
-  ] = await Promise.all([
-    user ? isSuperAdmin(user.id) : Promise.resolve(false),
-    myTenantMemberships(),
-    user
-      ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.from("subscriptions").select("status, trial_ends_at, plan_key").eq("tenant_id", tenant.id).maybeSingle(),
-    supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
-    supabase
-      .from("conversations")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenant.id)
-      .eq("status", "open"),
-    supabase
-      .from("platform_announcements")
-      .select("id, message, severity")
-      .eq("is_active", true)
-      .order("created_at", { ascending: false }),
-  ]);
+  ] = await timed(
+    "layout.tenant",
+    Promise.all([
+      user ? isSuperAdmin(user.id) : Promise.resolve(false),
+      myTenantMemberships(),
+      user
+        ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from("subscriptions").select("status, trial_ends_at, plan_key").eq("tenant_id", tenant.id).maybeSingle(),
+      supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenant.id)
+        .eq("status", "open"),
+      supabase
+        .from("platform_announcements")
+        .select("id, message, severity")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false }),
+    ]),
+  );
 
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },

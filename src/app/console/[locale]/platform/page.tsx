@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 
 import { DonutChart } from "@/components/console/donut-chart";
@@ -200,7 +201,12 @@ export default async function SuperAdminDashboard({
                 label={METRICS.find((m) => m.key === metric)?.label ?? ""}
                 format={
                   metric === "revenue"
-                    ? { kind: "currency", currency: kpis.monthlyRevenueCurrency ?? "USD", exponent: revenueExponent, locale }
+                    ? {
+                        kind: "currency",
+                        currency: kpis.monthlyRevenueCurrency ?? "USD",
+                        exponent: revenueExponent,
+                        locale,
+                      }
                     : { kind: "number" }
                 }
               />
@@ -295,12 +301,13 @@ export default async function SuperAdminDashboard({
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">Recent Subscribers</h2>
-            <a
+            <Link
               href={`/${locale}/super-admin/subscribers`}
+              prefetch={false}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               View all
-            </a>
+            </Link>
           </div>
           {recentSubscribers.length > 0 ? (
             <div className="overflow-x-auto">
@@ -388,32 +395,36 @@ export default async function SuperAdminDashboard({
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Quick Actions</h2>
-          <a
+          <Link
             href={`/${locale}/super-admin/system-health`}
+            prefetch={false}
             className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
           >
             View System Health →
-          </a>
+          </Link>
         </div>
         <div className="flex flex-wrap gap-3">
-          <a
+          <Link
             href={`/${locale}/super-admin/models`}
+            prefetch={false}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
           >
             Configure AI Model
-          </a>
-          <a
+          </Link>
+          <Link
             href={`/${locale}/super-admin/admins`}
+            prefetch={false}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Add Admin
-          </a>
-          <a
+          </Link>
+          <Link
             href={`/${locale}/super-admin/audit-logs`}
+            prefetch={false}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Open Audit Logs
-          </a>
+          </Link>
         </div>
       </section>
     </div>

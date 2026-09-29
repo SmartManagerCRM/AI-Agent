@@ -1,6 +1,7 @@
 import "server-only";
 
 import { ORDER_STATUS_GROUP_COLOR, orderStatusGroup } from "@/lib/order-status";
+import { timed } from "@/server/perf";
 import type { Trend } from "@/server/tenant/dashboard-stats";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -48,79 +49,46 @@ export async function getTenantAnalytics(
   locale: string,
   rangeDays: AnalyticsRangeDays,
 ): Promise<TenantAnalytics> {
-  const now = Date.now();
-  const windowMs = rangeDays * 24 * 60 * 60 * 1000;
-  const sinceComparisonIso = new Date(now - 2 * windowMs).toISOString();
-
-  const sinceCurrentIso = new Date(now - windowMs).toISOString();
-
-  const [{ data: orders }, { data: comparisonInteractions }, { count: conversationsStarted }, { data: cartItemsStarted }] =
-    await Promise.all([
-      supabase
-        .from("orders")
-        .select("id, total_minor, status, created_at")
-        .eq("tenant_id", tenantId)
-        .gte("created_at", sinceComparisonIso),
-      supabase
-        .from("agent_interactions")
-        .select("estimated_cost_usd, created_at")
-        .eq("tenant_id", tenantId)
-        .gte("created_at", sinceComparisonIso),
-      supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .gte("created_at", sinceCurrentIso),
-      supabase.from("cart_items").select("cart_id").eq("tenant_id", tenantId).gte("created_at", sinceCurrentIso),
-    ]);
-  const cartsStarted = new Set((cartItemsStarted ?? []).map((i) => i.cart_id)).size;
-
-  const allOrders = orders ?? [];
-  const currentOrders = allOrders.filter((o) => new Date(o.created_at).getTime() >= now - windowMs);
-  const priorOrders = allOrders.filter((o) => {
-    const t = new Date(o.created_at).getTime();
-    return t >= now - 2 * windowMs && t < now - windowMs;
-  });
-
-  const currentInteractions = (comparisonInteractions ?? []).filter(
-    (i) => new Date(i.created_at).getTime() >= now - windowMs,
+  // Every aggregate below is computed in Postgres (`tenant_analytics_stats`,
+  // SECURITY INVOKER — the same RLS as a direct select) instead of
+  // downloading every order and AI interaction in the comparison window
+  // and then re-querying their items/payments by id list. The trend,
+  // rounding, status-group and label logic is unchanged.
+  const { data: a, error } = await timed(
+    "analytics.queries",
+    supabase.rpc("tenant_analytics_stats", { p_tenant_id: tenantId, p_locale: locale, p_range_days: rangeDays }),
   );
-  const priorInteractions = (comparisonInteractions ?? []).filter((i) => {
-    const t = new Date(i.created_at).getTime();
-    return t >= now - 2 * windowMs && t < now - windowMs;
-  });
+  if (error) throw new Error(`Failed to load analytics: ${error.message}`);
 
-  const totalSalesMinor = currentOrders.reduce((sum, o) => sum + o.total_minor, 0);
-  const ordersCount = currentOrders.length;
+  const totalSalesMinor = Number(a?.current_sales_minor ?? 0);
+  const ordersCount = Number(a?.current_orders ?? 0);
   const avgOrderValueMinor = ordersCount > 0 ? Math.round(totalSalesMinor / ordersCount) : 0;
-  const aiCostUsd = currentInteractions.reduce((sum, i) => sum + i.estimated_cost_usd, 0);
+  const aiCostUsd = Number(a?.current_ai_cost_usd ?? 0);
 
-  const priorSales = priorOrders.reduce((sum, o) => sum + o.total_minor, 0);
-  const priorAov = priorOrders.length > 0 ? priorSales / priorOrders.length : 0;
-  const priorAiCost = priorInteractions.reduce((sum, i) => sum + i.estimated_cost_usd, 0);
+  const priorSales = Number(a?.prior_sales_minor ?? 0);
+  const priorOrdersCount = Number(a?.prior_orders ?? 0);
+  const priorAov = priorOrdersCount > 0 ? priorSales / priorOrdersCount : 0;
+  const priorAiCost = Number(a?.prior_ai_cost_usd ?? 0);
 
   const trends = {
     sales: trend(totalSalesMinor, priorSales),
-    orders: trend(ordersCount, priorOrders.length),
+    orders: trend(ordersCount, priorOrdersCount),
     avgOrderValue: trend(avgOrderValueMinor, priorAov),
     aiCost: trend(aiCostUsd, priorAiCost),
   };
 
+  const now = Date.now();
   const days: string[] = [];
   for (let i = rangeDays - 1; i >= 0; i--) {
     days.push(new Date(now - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   }
-  const salesByDay = new Map(days.map((day) => [day, 0]));
-  for (const order of currentOrders) {
-    const day = order.created_at.slice(0, 10);
-    if (salesByDay.has(day)) salesByDay.set(day, (salesByDay.get(day) ?? 0) + order.total_minor);
-  }
-  const salesSeries = Array.from(salesByDay, ([date, count]) => ({ date, count }));
+  const salesByDay = a?.sales_by_day ?? {};
+  const salesSeries = days.map((date) => ({ date, count: Number(salesByDay[date] ?? 0) }));
 
   const groupCounts: Record<string, number> = { pending: 0, active: 0, completed: 0, cancelled: 0 };
-  for (const order of currentOrders) {
-    const group = orderStatusGroup(order.status);
-    groupCounts[group] = (groupCounts[group] ?? 0) + 1;
+  for (const [status, count] of Object.entries(a?.status_counts ?? {})) {
+    const group = orderStatusGroup(status);
+    groupCounts[group] = (groupCounts[group] ?? 0) + Number(count);
   }
   const ordersByStatusGroup = (["pending", "active", "completed", "cancelled"] as const).map((group) => ({
     label: group.charAt(0).toUpperCase() + group.slice(1),
@@ -128,50 +96,19 @@ export async function getTenantAnalytics(
     color: ORDER_STATUS_GROUP_COLOR[group],
   }));
 
-  const settledOrders = currentOrders.filter((o) => {
-    const group = orderStatusGroup(o.status);
-    return group === "active" || group === "completed";
-  });
-  const settledOrderIds = settledOrders.map((o) => o.id);
+  const topProducts = (a?.top_products ?? []).map((p) => ({
+    name: p.name,
+    quantity: Number(p.quantity),
+    revenueMinor: Number(p.revenue_minor),
+  }));
 
-  const [{ data: orderItems }, { data: succeededPayments }] = await Promise.all([
-    settledOrderIds.length
-      ? supabase
-          .from("order_items")
-          .select("product_name, quantity, total_minor, order_id")
-          .in("order_id", settledOrderIds)
-      : Promise.resolve({ data: [] }),
-    settledOrderIds.length
-      ? supabase.from("payments").select("order_id, provider").eq("status", "succeeded").in("order_id", settledOrderIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-
-  const productTotals = new Map<string, { name: string; quantity: number; revenueMinor: number }>();
-  for (const item of orderItems ?? []) {
-    const name =
-      (item.product_name as Record<string, string> | null)?.[locale] ??
-      (item.product_name as Record<string, string> | null)?.en ??
-      "—";
-    const existing = productTotals.get(name) ?? { name, quantity: 0, revenueMinor: 0 };
-    existing.quantity += item.quantity;
-    existing.revenueMinor += item.total_minor;
-    productTotals.set(name, existing);
-  }
-  const topProducts = Array.from(productTotals.values())
-    .sort((a, b) => b.revenueMinor - a.revenueMinor)
-    .slice(0, 10);
-
-  const providerByOrder = new Map((succeededPayments ?? []).map((p) => [p.order_id, p.provider]));
-  const methodCounts = new Map<string, number>();
-  for (const order of settledOrders) {
-    const provider = providerByOrder.get(order.id) ?? "cash";
-    methodCounts.set(provider, (methodCounts.get(provider) ?? 0) + 1);
-  }
-  const paymentMethodBreakdown = Array.from(methodCounts, ([provider, count]) => ({
-    label: provider === "cash" ? "Cash / in-person" : provider.charAt(0).toUpperCase() + provider.slice(1),
-    count,
-    color: PAYMENT_METHOD_COLOR[provider] ?? "#f59e0b",
-  })).sort((a, b) => b.count - a.count);
+  const paymentMethodBreakdown = Object.entries(a?.payment_methods ?? {})
+    .map(([provider, count]) => ({
+      label: provider === "cash" ? "Cash / in-person" : provider.charAt(0).toUpperCase() + provider.slice(1),
+      count: Number(count),
+      color: PAYMENT_METHOD_COLOR[provider] ?? "#f59e0b",
+    }))
+    .sort((x, y) => y.count - x.count);
 
   return {
     rangeDays,
@@ -185,10 +122,10 @@ export async function getTenantAnalytics(
     topProducts,
     paymentMethodBreakdown,
     funnel: {
-      conversationsStarted: conversationsStarted ?? 0,
-      cartsStarted,
+      conversationsStarted: Number(a?.conversations_started ?? 0),
+      cartsStarted: Number(a?.carts_started ?? 0),
       ordersPlaced: ordersCount,
-      ordersSettled: settledOrders.length,
+      ordersSettled: Number(a?.settled_orders ?? 0),
     },
   };
 }

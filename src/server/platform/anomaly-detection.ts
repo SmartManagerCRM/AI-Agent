@@ -28,18 +28,18 @@ export async function getAnomalyAlerts(supabase: TypedSupabaseClient): Promise<A
   const baselineSince = new Date(now - 8 * dayMs).toISOString();
   const baselineUntil = todaySince;
 
+  // Per-tenant counts from Postgres rather than a row per conversation.
   const [{ data: tenants }, { data: todayRows }, { data: baselineRows }] = await Promise.all([
     supabase.from("tenants").select("id, slug, business_name"),
-    supabase.from("conversations").select("tenant_id").gte("started_at", todaySince),
-    supabase.from("conversations").select("tenant_id").gte("started_at", baselineSince).lt("started_at", baselineUntil),
+    supabase.rpc("conversation_counts_by_tenant", { p_since: todaySince, p_until: null }),
+    supabase.rpc("conversation_counts_by_tenant", { p_since: baselineSince, p_until: baselineUntil }),
   ]);
 
   const todayByTenant = new Map<string, number>();
-  for (const row of todayRows ?? []) todayByTenant.set(row.tenant_id, (todayByTenant.get(row.tenant_id) ?? 0) + 1);
+  for (const row of todayRows ?? []) todayByTenant.set(row.tenant_id, Number(row.conversations));
 
   const baselineByTenant = new Map<string, number>();
-  for (const row of baselineRows ?? [])
-    baselineByTenant.set(row.tenant_id, (baselineByTenant.get(row.tenant_id) ?? 0) + 1);
+  for (const row of baselineRows ?? []) baselineByTenant.set(row.tenant_id, Number(row.conversations));
 
   const alerts: AnomalyAlert[] = [];
   for (const tenant of tenants ?? []) {

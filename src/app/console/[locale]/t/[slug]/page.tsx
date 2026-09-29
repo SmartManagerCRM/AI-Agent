@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { LineChart } from "@/components/charts/line-chart";
@@ -110,12 +111,13 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
         <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentOrders")}</h2>
-            <a
+            <Link
               href={`/${locale}/${slug}/orders`}
+              prefetch={false}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               {t("dashboard.viewAll")}
-            </a>
+            </Link>
           </div>
           {stats.recentOrders.length > 0 ? (
             <div className="overflow-x-auto">
@@ -157,12 +159,13 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.recentConversations")}</h2>
-            <a
+            <Link
               href={`/${locale}/${slug}/conversations`}
+              prefetch={false}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
               {t("dashboard.viewAll")}
-            </a>
+            </Link>
           </div>
           {stats.recentConversations.length > 0 ? (
             <ul className="flex flex-col gap-3">
@@ -194,12 +197,13 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.topProducts")}</h2>
-          <a
+          <Link
             href={`/${locale}/${slug}/products`}
+            prefetch={false}
             className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
           >
             {t("dashboard.viewAll")}
-          </a>
+          </Link>
         </div>
         {stats.topProducts.length > 0 ? (
           <ol className="flex flex-col gap-3">

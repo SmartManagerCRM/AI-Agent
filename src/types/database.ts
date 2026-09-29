@@ -747,6 +747,79 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      tenant_dashboard_stats: {
+        Args: { p_tenant_id: string; p_locale: string; p_window_days: number };
+        Returns: {
+          total_sales_minor: number;
+          orders_count: number;
+          customers_count: number;
+          current_sales_minor: number;
+          current_orders: number;
+          current_customers: number;
+          prior_sales_minor: number;
+          prior_orders: number;
+          prior_customers: number;
+          sales_by_day: Record<string, number>;
+          status_counts: Record<string, number>;
+          top_products: { name: string; quantity: number; revenue_minor: number }[];
+        };
+      };
+      tenant_analytics_stats: {
+        Args: { p_tenant_id: string; p_locale: string; p_range_days: number };
+        Returns: {
+          current_sales_minor: number;
+          current_orders: number;
+          prior_sales_minor: number;
+          prior_orders: number;
+          current_ai_cost_usd: number;
+          prior_ai_cost_usd: number;
+          sales_by_day: Record<string, number>;
+          status_counts: Record<string, number>;
+          settled_orders: number;
+          top_products: { name: string; quantity: number; revenue_minor: number }[];
+          payment_methods: Record<string, number>;
+          conversations_started: number;
+          carts_started: number;
+        };
+      };
+      tenant_customer_summary: {
+        Args: { p_tenant_id: string; p_search: string | null; p_limit: number; p_offset: number };
+        Returns: {
+          customers: number;
+          repeat_customers: number;
+          total_spent_minor: number;
+          filtered_count: number;
+          rows: {
+            key: string;
+            name: string;
+            email: string | null;
+            phone: string | null;
+            order_count: number;
+            total_spent_minor: number;
+            last_order_at: string;
+          }[];
+        };
+      };
+      tenant_coupon_discount_total: {
+        Args: { p_tenant_id: string };
+        Returns: number;
+      };
+      conversation_last_messages: {
+        Args: { p_conversation_ids: string[] };
+        Returns: { conversation_id: string; role: string; content: string; handled_by: string | null }[];
+      };
+      agent_interaction_totals_by_tenant: {
+        Args: { p_since: string };
+        Returns: { tenant_id: string; interactions: number; deterministic: number; cost_usd: number }[];
+      };
+      conversation_counts_by_tenant: {
+        Args: { p_since: string; p_until: string | null };
+        Returns: { tenant_id: string; conversations: number }[];
+      };
+      conversations_started_per_day: {
+        Args: { p_since: string };
+        Returns: { day: string; conversations: number }[];
+      };
       create_business: {
         Args: {
           p_business_name: LocalizedText;

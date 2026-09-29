@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -45,9 +46,11 @@ export function WorkspaceSwitcher({
           />
           <div className="absolute start-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             {[current, ...others].map((workspace) => (
-              <a
+              <Link
                 key={workspace.slug}
                 href={`/${locale}/${workspace.slug}`}
+                prefetch={false}
+                onClick={() => setOpen(false)}
                 className={`block px-3 py-2 text-sm ${
                   workspace.slug === current.slug
                     ? "bg-emerald-50 font-medium text-emerald-700"
@@ -55,7 +58,7 @@ export function WorkspaceSwitcher({
                 }`}
               >
                 {workspace.name}
-              </a>
+              </Link>
             ))}
           </div>
         </>

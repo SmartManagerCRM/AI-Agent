@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { PlanForm } from "@/components/platform/plan-form";
 import { formatMoney } from "@/lib/money";
@@ -102,12 +103,13 @@ export default async function PlansPage({
                       sortOrder: p.sort_order,
                     }}
                   />
-                  <a
+                  <Link
                     href={`/${locale}/super-admin/plans`}
+                    prefetch={false}
                     className="mt-2 inline-block text-xs text-slate-500 hover:underline"
                   >
                     Cancel
-                  </a>
+                  </Link>
                 </div>
               );
             }
@@ -129,12 +131,13 @@ export default async function PlansPage({
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <a
+                  <Link
                     href={`/${locale}/super-admin/plans?edit=${p.key}`}
+                    prefetch={false}
                     className="text-xs font-medium text-emerald-600 hover:underline"
                   >
                     Edit
-                  </a>
+                  </Link>
                   <form action={setPlanActiveAction}>
                     <input type="hidden" name="key" value={p.key} />
                     <input type="hidden" name="value" value={(!p.is_active).toString()} />

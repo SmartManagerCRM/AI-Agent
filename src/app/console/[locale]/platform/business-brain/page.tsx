@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { getBusinessBrainOverview } from "@/server/platform/business-brain-overview";
@@ -51,12 +52,13 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
                 {withConflicts.map((row) => (
                   <tr key={row.tenantId} className="border-b border-slate-100 last:border-0">
                     <td className="py-2">
-                      <a
+                      <Link
                         href={`/${locale}/super-admin/businesses/${row.slug}?tab=brain`}
+                        prefetch={false}
                         className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                       >
                         {row.businessName}
-                      </a>
+                      </Link>
                     </td>
                     <td className="py-2 text-slate-600">{row.sourceCount}</td>
                     <td className="py-2 text-slate-600">{row.pendingReview}</td>
@@ -92,12 +94,13 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
               {rows.map((row) => (
                 <tr key={row.tenantId} className="border-b border-slate-100 last:border-0">
                   <td className="py-2">
-                    <a
+                    <Link
                       href={`/${locale}/super-admin/businesses/${row.slug}?tab=brain`}
+                      prefetch={false}
                       className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                     >
                       {row.businessName}
-                    </a>
+                    </Link>
                   </td>
                   <td className="py-2 text-slate-600">{row.sourceCount}</td>
                   <td className="py-2 text-slate-600">{row.pendingReview}</td>
