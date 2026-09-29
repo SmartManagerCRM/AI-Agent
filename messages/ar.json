@@ -100,5 +100,212 @@
       "models": "نماذج الذكاء الاصطناعي",
       "admins": "المشرفون العامون"
     }
+  },
+  "agent": {
+    "aiName": "مساعد {business} الذكي",
+    "inactive": "هذا المساعد الذكي غير مفعّل بعد — يرجى العودة قريباً.",
+    "poweredBy": "مدعوم بواسطة SmartManager AI Agent",
+    "popular": "الأكثر طلباً",
+    "common": {
+      "close": "إغلاق",
+      "skipToContent": "تخطَّ إلى المحتوى"
+    },
+    "language": {
+      "label": "تغيير اللغة"
+    },
+    "nav": {
+      "label": "التنقل الرئيسي",
+      "home": "الرئيسية",
+      "browse": "تصفّح",
+      "ask": "اسأل المساعد",
+      "askNamed": "اسأل {name}",
+      "cart": "السلة",
+      "contact": "تواصل",
+      "back": "رجوع"
+    },
+    "role": {
+      "cafe": "مساعدك الشخصي في المقهى.",
+      "restaurant": "مساعدك الشخصي في المطعم.",
+      "salon": "مساعدتك الشخصية للجمال.",
+      "spa": "مساعدك الشخصي للاسترخاء والعناية.",
+      "gym": "مساعدك الشخصي للياقة.",
+      "clinic": "مساعدك الشخصي للرعاية.",
+      "engineering": "مساعدك الشخصي لمشروعك.",
+      "service_business": "مساعدك الشخصي للخدمات.",
+      "shop": "مساعدك الشخصي للتسوّق.",
+      "default": "مساعدك الشخصي."
+    },
+    "home": {
+      "hi": "أهلاً!",
+      "iam": "أنا {name}",
+      "welcomeTo": "مرحباً بك في",
+      "capabilities": {
+        "orderBook": "أستطيع مساعدتك في الاختيار، والإجابة عن أسئلتك، واستلام طلبك، أو حجز موعد لك.",
+        "orderOnly": "أستطيع مساعدتك في الاختيار، والإجابة عن أسئلتك، أو استلام طلبك.",
+        "bookOnly": "أستطيع مساعدتك في اختيار الخدمة، والإجابة عن أسئلتك، أو حجز موعد لك.",
+        "questionsOnly": "أستطيع الإجابة عن أسئلتك، وفهم احتياجك، وإيصالك إلى الشخص المناسب."
+      },
+      "itemCount": "{count, plural, =0 {لا توجد منتجات} one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجاً} other {# منتج}}",
+      "tiles": {
+        "book": "احجز",
+        "quote": "اطلب عرض سعر",
+        "call": "اتصل بنا",
+        "all": "الكل"
+      },
+      "popular": "الأكثر طلباً الآن",
+      "seeAll": "عرض الكل",
+      "services": "احجز خدمة",
+      "duration": "{minutes} دقيقة",
+      "book": "احجز",
+      "bookNamed": "احجز {name}",
+      "table": "طاولة {label}"
+    },
+    "ask": {
+      "title": "اسأل {name} أي شيء",
+      "short": "اسأل {name}",
+      "subtitle": {
+        "orderBook": "توصيات، طلبات، حجوزات…",
+        "orderOnly": "توصيات، أسئلة، طلبات…",
+        "bookOnly": "الخدمات، المواعيد المتاحة، الحجوزات…",
+        "questionsOnly": "أسئلة، عروض أسعار، تواصل…"
+      }
+    },
+    "info": {
+      "title": "عن {name}",
+      "today": "اليوم",
+      "closedToday": "مغلق اليوم",
+      "call": "اتصال"
+    },
+    "browse": {
+      "title": "تصفّح",
+      "all": "الكل",
+      "categories": "الأقسام",
+      "empty": "لا يوجد شيء هنا بعد."
+    },
+    "product": {
+      "add": "أضف",
+      "addNamed": "أضف {name} إلى السلة",
+      "addToCart": "أضف إلى السلة",
+      "viewDetails": "عرض تفاصيل {name}",
+      "pairsWell": "يتناسب جيداً مع",
+      "moreFrom": "المزيد من {category}",
+      "inCart": "في سلتك",
+      "inCartCount": "{count, plural, one {واحد في السلة} two {اثنان في السلة} few {# في السلة} many {# في السلة} other {# في السلة}}"
+    },
+    "toast": {
+      "added": "تمت الإضافة إلى السلة",
+      "viewCart": "عرض السلة",
+      "pairsWell": "يتناسب جيداً مع طلبك"
+    },
+    "cart": {
+      "title": "سلتك",
+      "itemsCount": "{count, plural, one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجاً} other {# منتج}}",
+      "openWithCount": "{count, plural, =0 {السلة، فارغة} one {السلة، منتج واحد} two {السلة، منتجان} few {السلة، # منتجات} many {السلة، # منتجاً} other {السلة، # منتج}}",
+      "emptyTitle": "سلتك فارغة",
+      "emptyBody": "تصفّح، أو أخبر {name} بما ترغب فيه.",
+      "startBrowsing": "ابدأ التصفّح",
+      "each": "{price} للقطعة",
+      "increase": "زيادة كمية {name}",
+      "decrease": "إنقاص كمية {name}",
+      "remove": "إزالة {name}",
+      "couponLabel": "هل لديك رمز خصم؟",
+      "couponPlaceholder": "أدخل الرمز",
+      "apply": "تطبيق",
+      "couponApplied": "تم تطبيق الرمز",
+      "subtotal": "المجموع الفرعي",
+      "discount": "الخصم {code}",
+      "finalNote": "تُضاف رسوم التوصيل والضرائب، إن وُجدت، وتُؤكَّد عند إتمام الطلب.",
+      "checkout": "متابعة الدفع"
+    },
+    "checkout": {
+      "title": "إتمام الطلب",
+      "howTitle": "كيف تريد استلام طلبك؟",
+      "fulfillment": {
+        "pickup": "استلام",
+        "delivery": "توصيل",
+        "dine_in": "داخل المحل"
+      },
+      "pickupSub": "استلمه بنفسك",
+      "pickupFrom": "الاستلام من {branch}",
+      "deliverySub": "يُوصَّل إلى عنوانك",
+      "dineInSub": "يُقدَّم إلى طاولتك",
+      "detailsTitle": "بياناتك",
+      "name": "الاسم",
+      "phone": "رقم الجوال",
+      "address": "عنوان التوصيل",
+      "paymentTitle": "طريقة الدفع",
+      "payment": {
+        "moyasar": "بطاقة / Apple Pay",
+        "tap": "بطاقة / Apple Pay",
+        "cash_on_delivery": "الدفع عند الاستلام",
+        "pay_on_table": "الدفع على الطاولة"
+      },
+      "paymentSub": {
+        "moyasar": "دفع إلكتروني آمن (ميسّر)",
+        "tap": "دفع إلكتروني آمن (Tap)",
+        "cash_on_delivery": "ادفع نقداً عند الاستلام",
+        "pay_on_table": "ادفع للنادل على الطاولة"
+      },
+      "summaryTitle": "ملخص الطلب",
+      "placeOrder": "تأكيد الطلب",
+      "placing": "جارٍ تأكيد طلبك…",
+      "chooseHow": "اختر طريقة الاستلام للمتابعة.",
+      "choosePayment": "اختر طريقة الدفع للمتابعة."
+    },
+    "done": {
+      "title": "تم تأكيد طلبك بنجاح!",
+      "thanks": "شكراً لطلبك من {name}.",
+      "orderNumber": "رقم الطلب",
+      "total": "الإجمالي",
+      "saved": "وفّرت",
+      "payNow": "ادفع الآن",
+      "payInPerson": "تم تأكيد الطلب — ستدفع حضورياً كما اخترت.",
+      "track": "تتبّع الطلب",
+      "continue": "متابعة التسوّق",
+      "followUp": "هل تحتاج شيئاً آخر؟",
+      "followUpSub": "{name} هنا دائماً لمساعدتك.",
+      "chat": "محادثة"
+    },
+    "chat": {
+      "intro": "أنا {name}.",
+      "defaultGreeting": "كيف يمكنني مساعدتك اليوم؟",
+      "online": "متصل الآن",
+      "panelLabel": "المحادثة مع {name}",
+      "logLabel": "الرسائل مع {name}",
+      "suggestions": "اقتراحات",
+      "typing": "{name} يكتب",
+      "inputLabel": "الرسالة",
+      "placeholder": "اسأل {name} أي شيء…",
+      "send": "إرسال",
+      "sent": "أُرسلت",
+      "cartUpdated": "تم تحديث السلة",
+      "viewCart": "{count, plural, =0 {عرض السلة} other {عرض السلة (#)}}"
+    },
+    "prompts": {
+      "recommendLabel": "اقترح عليّ",
+      "recommend": "ماذا تقترح عليّ؟",
+      "category": "ماذا لديكم في قسم {category}؟",
+      "hoursLabel": "ساعات العمل",
+      "hours": "ما هي ساعات العمل؟",
+      "deliveryLabel": "التوصيل",
+      "delivery": "هل لديكم توصيل؟",
+      "bookLabel": "احجز موعداً",
+      "book": "أرغب في حجز موعد.",
+      "bookService": "أرغب في حجز {service}.",
+      "quoteLabel": "اطلب عرض سعر",
+      "quote": "أرغب في طلب عرض سعر.",
+      "trackOrder": "ما حالة طلبي رقم #{number}؟"
+    },
+    "pay": {
+      "title": "دفع آمن",
+      "order": "طلب رقم #{number}",
+      "testNotice": "هذه صفحة دفع تجريبية — لم تُربط أي بوابة دفع حقيقية بعد.",
+      "simulateSuccess": "محاكاة دفع ناجح",
+      "simulateFailure": "محاكاة دفع فاشل",
+      "pending": "جارٍ تأكيد الدفع — قد يستغرق ذلك لحظات. حدّث الصفحة للتحقق مجدداً.",
+      "succeeded": "تم استلام الدفع — شكراً لك!",
+      "failed": "فشلت محاولة الدفع هذه — عد إلى المحادثة للمحاولة مجدداً.",
+      "secure": "تتم معالجة المدفوعات بشكل آمن."
+    }
   }
 }

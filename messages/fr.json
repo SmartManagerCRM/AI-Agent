@@ -100,5 +100,212 @@
       "models": "Modèles IA",
       "admins": "Super Admins"
     }
+  },
+  "agent": {
+    "aiName": "{business} IA",
+    "inactive": "Cet agent IA n'est pas encore actif — revenez bientôt.",
+    "poweredBy": "Propulsé par SmartManager AI Agent",
+    "popular": "Populaire",
+    "common": {
+      "close": "Fermer",
+      "skipToContent": "Aller au contenu"
+    },
+    "language": {
+      "label": "Changer de langue"
+    },
+    "nav": {
+      "label": "Principal",
+      "home": "Accueil",
+      "browse": "Parcourir",
+      "ask": "Demander",
+      "askNamed": "Demander à {name}",
+      "cart": "Panier",
+      "contact": "Contact",
+      "back": "Retour"
+    },
+    "role": {
+      "cafe": "Votre assistant café personnel.",
+      "restaurant": "Votre assistant restaurant personnel.",
+      "salon": "Votre assistante beauté personnelle.",
+      "spa": "Votre assistant bien-être personnel.",
+      "gym": "Votre assistant sportif personnel.",
+      "clinic": "Votre assistant santé personnel.",
+      "engineering": "Votre assistant projet personnel.",
+      "service_business": "Votre assistant de services personnel.",
+      "shop": "Votre assistant shopping personnel.",
+      "default": "Votre assistant personnel."
+    },
+    "home": {
+      "hi": "Bonjour !",
+      "iam": "Je suis {name}",
+      "welcomeTo": "Bienvenue chez",
+      "capabilities": {
+        "orderBook": "Je peux vous aider à choisir, répondre à vos questions, prendre votre commande ou réserver un rendez-vous.",
+        "orderOnly": "Je peux vous aider à choisir, répondre à vos questions ou prendre votre commande.",
+        "bookOnly": "Je peux vous aider à choisir une prestation, répondre à vos questions ou réserver un rendez-vous.",
+        "questionsOnly": "Je peux répondre à vos questions, comprendre votre besoin et vous mettre en relation avec la bonne personne."
+      },
+      "itemCount": "{count, plural, =0 {Aucun article} one {# article} other {# articles}}",
+      "tiles": {
+        "book": "Réserver",
+        "quote": "Demander un devis",
+        "call": "Nous appeler",
+        "all": "Tout"
+      },
+      "popular": "Populaire en ce moment",
+      "seeAll": "Tout voir",
+      "services": "Réserver une prestation",
+      "duration": "{minutes} min",
+      "book": "Réserver",
+      "bookNamed": "Réserver {name}",
+      "table": "Table {label}"
+    },
+    "ask": {
+      "title": "Demandez à {name}",
+      "short": "Demander à {name}",
+      "subtitle": {
+        "orderBook": "Conseils, commandes, réservations…",
+        "orderOnly": "Conseils, questions, commandes…",
+        "bookOnly": "Prestations, disponibilités, réservations…",
+        "questionsOnly": "Questions, devis, contact…"
+      }
+    },
+    "info": {
+      "title": "À propos de {name}",
+      "today": "Aujourd'hui",
+      "closedToday": "Fermé aujourd'hui",
+      "call": "Appeler"
+    },
+    "browse": {
+      "title": "Parcourir",
+      "all": "Tout",
+      "categories": "Catégories",
+      "empty": "Rien ici pour le moment."
+    },
+    "product": {
+      "add": "Ajouter",
+      "addNamed": "Ajouter {name} au panier",
+      "addToCart": "Ajouter au panier",
+      "viewDetails": "Voir le détail de {name}",
+      "pairsWell": "Se marie bien avec",
+      "moreFrom": "Plus dans {category}",
+      "inCart": "Dans votre panier",
+      "inCartCount": "{count, plural, one {# dans le panier} other {# dans le panier}}"
+    },
+    "toast": {
+      "added": "Ajouté au panier",
+      "viewCart": "Voir le panier",
+      "pairsWell": "Se marie bien avec votre commande"
+    },
+    "cart": {
+      "title": "Votre panier",
+      "itemsCount": "{count, plural, one {# article} other {# articles}}",
+      "openWithCount": "{count, plural, =0 {Panier, vide} one {Panier, # article} other {Panier, # articles}}",
+      "emptyTitle": "Votre panier est vide",
+      "emptyBody": "Parcourez la carte, ou dites à {name} ce qui vous ferait envie.",
+      "startBrowsing": "Commencer",
+      "each": "{price} l'unité",
+      "increase": "Augmenter la quantité de {name}",
+      "decrease": "Diminuer la quantité de {name}",
+      "remove": "Retirer {name}",
+      "couponLabel": "Un code promo ?",
+      "couponPlaceholder": "Saisir le code",
+      "apply": "Appliquer",
+      "couponApplied": "Code appliqué",
+      "subtotal": "Sous-total",
+      "discount": "Remise {code}",
+      "finalNote": "Les frais de livraison et taxes éventuels sont ajoutés et confirmés au moment de la commande.",
+      "checkout": "Passer au paiement"
+    },
+    "checkout": {
+      "title": "Paiement",
+      "howTitle": "Comment souhaitez-vous le recevoir ?",
+      "fulfillment": {
+        "pickup": "À emporter",
+        "delivery": "Livraison",
+        "dine_in": "Sur place"
+      },
+      "pickupSub": "Retrait par vos soins",
+      "pickupFrom": "Retrait à {branch}",
+      "deliverySub": "Livré à votre adresse",
+      "dineInSub": "Servi à votre table",
+      "detailsTitle": "Vos coordonnées",
+      "name": "Nom",
+      "phone": "Téléphone",
+      "address": "Adresse de livraison",
+      "paymentTitle": "Moyen de paiement",
+      "payment": {
+        "moyasar": "Carte / Apple Pay",
+        "tap": "Carte / Apple Pay",
+        "cash_on_delivery": "Paiement à la réception",
+        "pay_on_table": "Payer à table"
+      },
+      "paymentSub": {
+        "moyasar": "Paiement en ligne sécurisé (Moyasar)",
+        "tap": "Paiement en ligne sécurisé (Tap)",
+        "cash_on_delivery": "Payez en espèces à la réception",
+        "pay_on_table": "Réglez auprès du serveur"
+      },
+      "summaryTitle": "Récapitulatif",
+      "placeOrder": "Commander",
+      "placing": "Envoi de votre commande…",
+      "chooseHow": "Choisissez un mode de retrait pour continuer.",
+      "choosePayment": "Choisissez un moyen de paiement pour continuer."
+    },
+    "done": {
+      "title": "Commande passée avec succès !",
+      "thanks": "Merci d'avoir commandé chez {name}.",
+      "orderNumber": "N° de commande",
+      "total": "Total",
+      "saved": "Vous économisez",
+      "payNow": "Payer maintenant",
+      "payInPerson": "Commande confirmée — vous paierez sur place, comme choisi.",
+      "track": "Suivre la commande",
+      "continue": "Continuer mes achats",
+      "followUp": "Besoin d'autre chose ?",
+      "followUpSub": "{name} est toujours là pour vous aider.",
+      "chat": "Discuter"
+    },
+    "chat": {
+      "intro": "Je suis {name}.",
+      "defaultGreeting": "Comment puis-je vous aider aujourd'hui ?",
+      "online": "En ligne",
+      "panelLabel": "Conversation avec {name}",
+      "logLabel": "Messages avec {name}",
+      "suggestions": "Suggestions",
+      "typing": "{name} écrit",
+      "inputLabel": "Message",
+      "placeholder": "Demandez à {name}…",
+      "send": "Envoyer",
+      "sent": "Envoyé",
+      "cartUpdated": "Panier mis à jour",
+      "viewCart": "{count, plural, =0 {Voir le panier} other {Voir le panier (#)}}"
+    },
+    "prompts": {
+      "recommendLabel": "Une suggestion ?",
+      "recommend": "Que me recommandez-vous ?",
+      "category": "Qu'avez-vous en {category} ?",
+      "hoursLabel": "Horaires",
+      "hours": "Quelles sont vos heures d'ouverture ?",
+      "deliveryLabel": "Livraison",
+      "delivery": "Proposez-vous la livraison ?",
+      "bookLabel": "Prendre rendez-vous",
+      "book": "Je voudrais prendre rendez-vous.",
+      "bookService": "Je voudrais réserver : {service}.",
+      "quoteLabel": "Demander un devis",
+      "quote": "Je voudrais demander un devis.",
+      "trackOrder": "Où en est ma commande n°{number} ?"
+    },
+    "pay": {
+      "title": "Paiement sécurisé",
+      "order": "Commande n°{number}",
+      "testNotice": "Ceci est une page de paiement de test — aucune passerelle de paiement réelle n'est encore connectée.",
+      "simulateSuccess": "Simuler un paiement réussi",
+      "simulateFailure": "Simuler un paiement échoué",
+      "pending": "Confirmation de votre paiement en cours — cela peut prendre un instant. Actualisez pour vérifier.",
+      "succeeded": "Paiement reçu — merci !",
+      "failed": "Cette tentative de paiement a échoué — revenez à la conversation pour réessayer.",
+      "secure": "Les paiements sont traités de manière sécurisée."
+    }
   }
 }

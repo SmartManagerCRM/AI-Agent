@@ -1,5 +1,83 @@
 @import "tailwindcss";
 
+/*
+ * Customer Agent design tokens — the SmartManager AI Agent default visual
+ * system (the brand greens of public/brand/logo-full.png), used by
+ * src/components/agent-public/* only. Additive: nothing else references
+ * these utilities.
+ */
+@theme {
+  --color-agent-50: #eefaf5;
+  --color-agent-100: #d6f3e7;
+  --color-agent-200: #aee6d0;
+  --color-agent-300: #6fd6b2;
+  --color-agent-400: #2fc99a;
+  --color-agent-500: #15a57f;
+  --color-agent-600: #0f8567;
+  --color-agent-700: #0c6a53;
+  --color-agent-800: #0b4f3f;
+  --color-agent-900: #083d31;
+  --color-agent-950: #052a22;
+  --color-agent-cream: #f6f3ec;
+
+  --animate-agent-rise: agent-rise 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-agent-pop: agent-pop 360ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+  --animate-agent-sheet: agent-sheet 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-agent-fade: agent-fade 200ms ease-out both;
+  --animate-agent-dot: agent-dot 1.2s ease-in-out infinite;
+
+  @keyframes agent-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes agent-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes agent-sheet {
+    from {
+      opacity: 0;
+      transform: translateY(32px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes agent-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes agent-dot {
+    0%,
+    80%,
+    100% {
+      opacity: 0.3;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-3px);
+    }
+  }
+}
+
 :root {
   color-scheme: light;
 }

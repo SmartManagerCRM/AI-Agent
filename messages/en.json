@@ -100,5 +100,212 @@
       "models": "AI models",
       "admins": "Super Admins"
     }
+  },
+  "agent": {
+    "aiName": "{business} AI",
+    "inactive": "This AI Agent isn't active yet — please check back soon.",
+    "poweredBy": "Powered by SmartManager AI Agent",
+    "popular": "Popular",
+    "common": {
+      "close": "Close",
+      "skipToContent": "Skip to content"
+    },
+    "language": {
+      "label": "Change language"
+    },
+    "nav": {
+      "label": "Main",
+      "home": "Home",
+      "browse": "Browse",
+      "ask": "Ask AI",
+      "askNamed": "Ask {name}",
+      "cart": "Cart",
+      "contact": "Contact",
+      "back": "Back"
+    },
+    "role": {
+      "cafe": "Your personal café assistant.",
+      "restaurant": "Your personal dining assistant.",
+      "salon": "Your personal beauty assistant.",
+      "spa": "Your personal wellness assistant.",
+      "gym": "Your personal fitness assistant.",
+      "clinic": "Your personal care assistant.",
+      "engineering": "Your personal project assistant.",
+      "service_business": "Your personal service assistant.",
+      "shop": "Your personal shopping assistant.",
+      "default": "Your personal assistant."
+    },
+    "home": {
+      "hi": "Hi!",
+      "iam": "I'm {name}",
+      "welcomeTo": "Welcome to",
+      "capabilities": {
+        "orderBook": "I can help you choose something, answer your questions, take your order, or book an appointment.",
+        "orderOnly": "I can help you choose something, answer your questions, or take your order.",
+        "bookOnly": "I can help you choose a service, answer your questions, or book an appointment.",
+        "questionsOnly": "I can answer your questions, understand what you need, and get the right person back to you."
+      },
+      "itemCount": "{count, plural, =0 {No items} one {# item} other {# items}}",
+      "tiles": {
+        "book": "Book",
+        "quote": "Request a quote",
+        "call": "Call us",
+        "all": "Everything"
+      },
+      "popular": "Popular right now",
+      "seeAll": "See all",
+      "services": "Book a service",
+      "duration": "{minutes} min",
+      "book": "Book",
+      "bookNamed": "Book {name}",
+      "table": "Table {label}"
+    },
+    "ask": {
+      "title": "Ask {name} anything",
+      "short": "Ask {name}",
+      "subtitle": {
+        "orderBook": "Recommendations, orders, bookings…",
+        "orderOnly": "Recommendations, questions, orders…",
+        "bookOnly": "Services, availability, bookings…",
+        "questionsOnly": "Questions, quotes, contact…"
+      }
+    },
+    "info": {
+      "title": "About {name}",
+      "today": "Today",
+      "closedToday": "Closed today",
+      "call": "Call"
+    },
+    "browse": {
+      "title": "Browse",
+      "all": "All",
+      "categories": "Categories",
+      "empty": "Nothing here yet."
+    },
+    "product": {
+      "add": "Add",
+      "addNamed": "Add {name} to cart",
+      "addToCart": "Add to cart",
+      "viewDetails": "View details for {name}",
+      "pairsWell": "Pairs well with",
+      "moreFrom": "More from {category}",
+      "inCart": "In your cart",
+      "inCartCount": "{count, plural, one {# in cart} other {# in cart}}"
+    },
+    "toast": {
+      "added": "Added to cart",
+      "viewCart": "View cart",
+      "pairsWell": "Pairs well with your order"
+    },
+    "cart": {
+      "title": "Your cart",
+      "itemsCount": "{count, plural, one {# item} other {# items}}",
+      "openWithCount": "{count, plural, =0 {Cart, empty} one {Cart, # item} other {Cart, # items}}",
+      "emptyTitle": "Your cart is empty",
+      "emptyBody": "Browse, or tell {name} what you're in the mood for.",
+      "startBrowsing": "Start browsing",
+      "each": "{price} each",
+      "increase": "Increase quantity of {name}",
+      "decrease": "Decrease quantity of {name}",
+      "remove": "Remove {name}",
+      "couponLabel": "Have a promo code?",
+      "couponPlaceholder": "Enter code",
+      "apply": "Apply",
+      "couponApplied": "Code applied",
+      "subtotal": "Subtotal",
+      "discount": "Discount {code}",
+      "finalNote": "Delivery fees and taxes, if any, are added and confirmed when you place your order.",
+      "checkout": "Proceed to checkout"
+    },
+    "checkout": {
+      "title": "Checkout",
+      "howTitle": "How would you like it?",
+      "fulfillment": {
+        "pickup": "Pickup",
+        "delivery": "Delivery",
+        "dine_in": "Dine-in"
+      },
+      "pickupSub": "Collect it yourself",
+      "pickupFrom": "Collect from {branch}",
+      "deliverySub": "Delivered to your address",
+      "dineInSub": "Served at your table",
+      "detailsTitle": "Your details",
+      "name": "Name",
+      "phone": "Phone",
+      "address": "Delivery address",
+      "paymentTitle": "Payment method",
+      "payment": {
+        "moyasar": "Card / Apple Pay",
+        "tap": "Card / Apple Pay",
+        "cash_on_delivery": "Cash on delivery",
+        "pay_on_table": "Pay at the table"
+      },
+      "paymentSub": {
+        "moyasar": "Secure online payment (Moyasar)",
+        "tap": "Secure online payment (Tap)",
+        "cash_on_delivery": "Pay in cash when you receive it",
+        "pay_on_table": "Pay your server at the table"
+      },
+      "summaryTitle": "Order summary",
+      "placeOrder": "Place order",
+      "placing": "Placing your order…",
+      "chooseHow": "Choose how you'd like your order to continue.",
+      "choosePayment": "Choose a payment method to continue."
+    },
+    "done": {
+      "title": "Order placed successfully!",
+      "thanks": "Thank you for ordering from {name}.",
+      "orderNumber": "Order number",
+      "total": "Total",
+      "saved": "You saved",
+      "payNow": "Pay now",
+      "payInPerson": "Order confirmed — you'll pay in person, as chosen.",
+      "track": "Track order",
+      "continue": "Continue shopping",
+      "followUp": "Need anything else?",
+      "followUpSub": "{name} is always here to help.",
+      "chat": "Chat"
+    },
+    "chat": {
+      "intro": "I'm {name}.",
+      "defaultGreeting": "How can I help you today?",
+      "online": "Online",
+      "panelLabel": "Conversation with {name}",
+      "logLabel": "Messages with {name}",
+      "suggestions": "Suggestions",
+      "typing": "{name} is typing",
+      "inputLabel": "Message",
+      "placeholder": "Ask {name} anything…",
+      "send": "Send",
+      "sent": "Sent",
+      "cartUpdated": "Cart updated",
+      "viewCart": "{count, plural, =0 {View cart} other {View cart (#)}}"
+    },
+    "prompts": {
+      "recommendLabel": "Recommend something",
+      "recommend": "What do you recommend?",
+      "category": "What do you have in {category}?",
+      "hoursLabel": "Opening hours",
+      "hours": "What are your opening hours?",
+      "deliveryLabel": "Delivery",
+      "delivery": "Do you deliver?",
+      "bookLabel": "Book an appointment",
+      "book": "I'd like to book an appointment.",
+      "bookService": "I'd like to book {service}.",
+      "quoteLabel": "Request a quote",
+      "quote": "I'd like to request a quote.",
+      "trackOrder": "What's the status of my order #{number}?"
+    },
+    "pay": {
+      "title": "Secure payment",
+      "order": "Order #{number}",
+      "testNotice": "This is a test payment page — no real payment gateway is connected yet.",
+      "simulateSuccess": "Simulate successful payment",
+      "simulateFailure": "Simulate failed payment",
+      "pending": "Confirming your payment — this can take a moment. Refresh to check again.",
+      "succeeded": "Payment received — thank you!",
+      "failed": "This payment attempt failed — return to the chat to try again.",
+      "secure": "Payments are processed securely."
+    }
   }
 }
