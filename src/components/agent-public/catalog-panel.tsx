@@ -229,6 +229,7 @@ export function CatalogPanel({
               key={c.id}
               type="button"
               onClick={() => setSelectedCategoryId(c.id)}
+              aria-pressed={selectedCategoryId === c.id}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                 selectedCategoryId === c.id
                   ? "border-slate-900 bg-slate-900 text-white"
@@ -269,15 +270,19 @@ export function CatalogPanel({
                     type="button"
                     disabled={pending}
                     onClick={() => changeQuantity(product.id, item.quantity - 1)}
+                    aria-label={`Decrease quantity of ${name}`}
                     className="h-7 w-7 rounded-full border border-slate-300 text-sm"
                   >
                     −
                   </button>
-                  <span className="font-medium">{item.quantity}</span>
+                  <span className="font-medium" aria-live="polite">
+                    {item.quantity}
+                  </span>
                   <button
                     type="button"
                     disabled={pending}
                     onClick={() => changeQuantity(product.id, item.quantity + 1)}
+                    aria-label={`Increase quantity of ${name}`}
                     className="h-7 w-7 rounded-full border border-slate-300 text-sm"
                   >
                     +
@@ -350,6 +355,7 @@ export function CatalogPanel({
                       key={type}
                       type="button"
                       onClick={() => chooseFulfillment(type)}
+                      aria-pressed={fulfillmentType === type}
                       className={`rounded-full border px-3 py-1 text-xs capitalize ${
                         fulfillmentType === type
                           ? "border-slate-900 bg-slate-900 text-white"
@@ -369,6 +375,7 @@ export function CatalogPanel({
                       key={method}
                       type="button"
                       onClick={() => choosePaymentMethod(method)}
+                      aria-pressed={paymentMethod === method}
                       className={`rounded-full border px-3 py-1 text-xs ${
                         paymentMethod === method
                           ? "border-slate-900 bg-slate-900 text-white"
@@ -384,6 +391,7 @@ export function CatalogPanel({
               <div className="flex gap-2">
                 <input
                   placeholder="Coupon code"
+                  aria-label="Coupon code"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
                   className="rounded-full border border-slate-300 px-3 py-2 text-sm"
@@ -399,12 +407,14 @@ export function CatalogPanel({
               </div>
               <input
                 placeholder="Name"
+                aria-label="Name"
                 value={details.name}
                 onChange={(e) => setDetails((d) => ({ ...d, name: e.target.value }))}
                 className="rounded-full border border-slate-300 px-3 py-2 text-sm"
               />
               <input
                 placeholder="Phone"
+                aria-label="Phone"
                 value={details.phone}
                 onChange={(e) => setDetails((d) => ({ ...d, phone: e.target.value }))}
                 className="rounded-full border border-slate-300 px-3 py-2 text-sm"
@@ -412,6 +422,7 @@ export function CatalogPanel({
               {fulfillmentType === "delivery" && (
                 <input
                   placeholder="Delivery address"
+                  aria-label="Delivery address"
                   value={details.deliveryAddress}
                   onChange={(e) => setDetails((d) => ({ ...d, deliveryAddress: e.target.value }))}
                   className="rounded-full border border-slate-300 px-3 py-2 text-sm"

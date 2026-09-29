@@ -132,7 +132,7 @@ export function ChatPanel({
         <p className="text-sm font-semibold text-slate-800">{aiName}</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4" role="log" aria-live="polite" aria-relevant="additions">
         <div className="flex flex-col gap-3">
           {messages.length === 0 && (
             <p className="text-sm text-slate-400">Ask anything — products, prices, hours, delivery, and more.</p>
@@ -194,6 +194,7 @@ export function ChatPanel({
       >
         <input
           name="message"
+          aria-label="Message"
           placeholder={`Ask ${aiName} anything...`}
           disabled={pending}
           className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
