@@ -50,7 +50,7 @@ export default async function AnalyticsPage({
         <Tabs tabs={tabs} />
       </div>
 
-      {analytics.ordersCount === 0 && analytics.aiCostUsd === 0 ? (
+      {analytics.ordersCount === 0 && analytics.aiCostUsd === 0 && analytics.funnel.conversationsStarted === 0 ? (
         <EmptyState
           title="No activity in this period"
           description="Sales, orders, and AI usage will appear here once your Agent starts taking orders."
@@ -93,6 +93,40 @@ export default async function AnalyticsPage({
               trendLabel={`vs prior ${rangeDays} days`}
             />
           </div>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Customer funnel</h2>
+            <div className="flex flex-col gap-2">
+              {(
+                [
+                  { label: "Conversations started", value: analytics.funnel.conversationsStarted },
+                  { label: "Added something to cart", value: analytics.funnel.cartsStarted },
+                  { label: "Orders placed", value: analytics.funnel.ordersPlaced },
+                  { label: "Orders paid / settled", value: analytics.funnel.ordersSettled },
+                ] as const
+              ).map((stage, i, all) => {
+                const base = all[0].value || 1;
+                const widthPct = Math.max(4, Math.round((stage.value / base) * 100));
+                return (
+                  <div key={stage.label} className="flex items-center gap-3 text-sm">
+                    <span className="w-44 shrink-0 text-slate-600">{stage.label}</span>
+                    <div className="h-6 flex-1 rounded-full bg-slate-100">
+                      <div
+                        className="h-6 rounded-full bg-emerald-500"
+                        style={{ width: `${Math.min(100, widthPct)}%` }}
+                      />
+                    </div>
+                    <span className="w-12 shrink-0 text-end font-medium text-slate-900">{stage.value}</span>
+                    {i > 0 && all[0].value > 0 && (
+                      <span className="w-14 shrink-0 text-end text-xs text-slate-400">
+                        {Math.round((stage.value / all[0].value) * 100)}%
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">Sales over time</h2>

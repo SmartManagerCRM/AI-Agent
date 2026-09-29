@@ -24,6 +24,8 @@ export type TenantAnalytics = {
   ordersByStatusGroup: { label: string; count: number; color: string }[];
   topProducts: { name: string; quantity: number; revenueMinor: number }[];
   paymentMethodBreakdown: { label: string; count: number; color: string }[];
+  /** Real conversion funnel for this window — each stage counted from its own table, never derived from the next. */
+  funnel: { conversationsStarted: number; cartsStarted: number; ordersPlaced: number; ordersSettled: number };
 };
 
 function trend(current: number, prior: number): Trend {
@@ -50,18 +52,28 @@ export async function getTenantAnalytics(
   const windowMs = rangeDays * 24 * 60 * 60 * 1000;
   const sinceComparisonIso = new Date(now - 2 * windowMs).toISOString();
 
-  const [{ data: orders }, { data: comparisonInteractions }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("id, total_minor, status, created_at")
-      .eq("tenant_id", tenantId)
-      .gte("created_at", sinceComparisonIso),
-    supabase
-      .from("agent_interactions")
-      .select("estimated_cost_usd, created_at")
-      .eq("tenant_id", tenantId)
-      .gte("created_at", sinceComparisonIso),
-  ]);
+  const sinceCurrentIso = new Date(now - windowMs).toISOString();
+
+  const [{ data: orders }, { data: comparisonInteractions }, { count: conversationsStarted }, { data: cartItemsStarted }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select("id, total_minor, status, created_at")
+        .eq("tenant_id", tenantId)
+        .gte("created_at", sinceComparisonIso),
+      supabase
+        .from("agent_interactions")
+        .select("estimated_cost_usd, created_at")
+        .eq("tenant_id", tenantId)
+        .gte("created_at", sinceComparisonIso),
+      supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .gte("created_at", sinceCurrentIso),
+      supabase.from("cart_items").select("cart_id").eq("tenant_id", tenantId).gte("created_at", sinceCurrentIso),
+    ]);
+  const cartsStarted = new Set((cartItemsStarted ?? []).map((i) => i.cart_id)).size;
 
   const allOrders = orders ?? [];
   const currentOrders = allOrders.filter((o) => new Date(o.created_at).getTime() >= now - windowMs);
@@ -172,5 +184,11 @@ export async function getTenantAnalytics(
     ordersByStatusGroup,
     topProducts,
     paymentMethodBreakdown,
+    funnel: {
+      conversationsStarted: conversationsStarted ?? 0,
+      cartsStarted,
+      ordersPlaced: ordersCount,
+      ordersSettled: settledOrders.length,
+    },
   };
 }
