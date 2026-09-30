@@ -3,7 +3,13 @@ import "server-only";
 import type { BrainSnapshot } from "./match";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
-/** Builds the deterministic matchers' input from real Phase 1/2 data — never invented, never AI-inferred. */
+/**
+ * Builds the deterministic matchers' input from real Phase 1/2 data — never invented, never AI-inferred.
+ *
+ * Every tenant-owned query here filters by `tenant_id` explicitly: the public Agent calls this with the
+ * service-role client (no RLS), so the filter is the only thing keeping one business's products and
+ * knowledge out of another business's Agent.
+ */
 export async function buildBrainSnapshot(
   supabase: TypedSupabaseClient,
   tenant: { id: string; currency: string; slug: string },
@@ -14,7 +20,7 @@ export async function buildBrainSnapshot(
     await Promise.all([
       supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
       supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-      supabase.from("products").select("name, price_minor").eq("status", "active"),
+      supabase.from("products").select("name, price_minor").eq("tenant_id", tenant.id).eq("status", "active"),
       supabase
         .from("branches")
         .select("name, phone, opening_hours")
@@ -25,6 +31,7 @@ export async function buildBrainSnapshot(
       supabase
         .from("business_brain_entries")
         .select("entry_type, entry_key, content")
+        .eq("tenant_id", tenant.id)
         .eq("status", "approved")
         .eq("is_active", true)
         .in("entry_type", ["about", "delivery_info", "pickup_info", "payment_methods", "policy", "faq"]),
@@ -100,6 +107,7 @@ async function loadReturningCustomer(
   const { data: items } = await supabase
     .from("order_items")
     .select("product_name, quantity")
+    .eq("tenant_id", tenantId)
     .in(
       "order_id",
       orders.map((o) => o.id),

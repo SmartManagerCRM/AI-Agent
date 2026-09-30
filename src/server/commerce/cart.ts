@@ -164,7 +164,7 @@ export async function viewCart(
     .eq("tenant_id", tenantId);
   const productIds = (items ?? []).map((i) => i.product_id);
   const { data: products } = productIds.length
-    ? await supabase.from("products").select("id, name, price_minor").in("id", productIds)
+    ? await supabase.from("products").select("id, name, price_minor").eq("tenant_id", tenantId).in("id", productIds)
     : { data: [] };
   const productsById = new Map((products ?? []).map((p) => [p.id, p]));
 
