@@ -13,6 +13,8 @@ export type ChatMessage = {
   at: number;
   handledBy?: "deterministic" | "ai";
   cart?: CartView | null;
+  /** Catalog products the server says this reply is about (rendered as product cards). */
+  productIds?: string[];
 };
 
 /**
@@ -65,6 +67,7 @@ export function useAgentChat({
             at: Date.now(),
             handledBy: result.handledBy,
             cart: result.cart,
+            productIds: result.productIds,
           },
         ]);
       }

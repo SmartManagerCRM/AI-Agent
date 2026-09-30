@@ -25,6 +25,7 @@ import {
 import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
 import { initiatePayment } from "@/server/payments/service";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
+import { relevantProducts, type Catalog } from "@/server/ai/deterministic/catalog";
 
 export type ToolContext = {
   supabase: TypedSupabaseClient;
@@ -44,7 +45,7 @@ export type ToolContext = {
   activeTable: { id: string; branchId: string; label: string } | null;
 };
 
-export type ToolResult = { content: string; isError?: boolean };
+export type ToolResult = { content: string; isError?: boolean; /** Items returned (diagnostics only). */ resultCount?: number };
 
 function formatMinor(minor: number, exponent: number): string {
   return (minor / 10 ** exponent).toFixed(exponent);
@@ -75,25 +76,36 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
 
   switch (name) {
     case "search_products": {
+      // Same multilingual, normalized search as the deterministic catalog answers — any language the product is named in.
       const query = String(input.query ?? "").trim();
-      const { data } = await ctx.supabase
-        .from("products")
-        .select("name, price_minor")
-        .eq("tenant_id", ctx.tenantId)
-        .eq("status", "active");
-      const matches = (data ?? [])
-        .filter((p) =>
-          (p.name[ctx.locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(query.toLowerCase()),
-        )
-        .slice(0, 5);
-      if (matches.length === 0) return { content: `No products found matching "${query}".` };
+      const [{ data }, { data: categories }] = await Promise.all([
+        ctx.supabase
+          .from("products")
+          .select("id, category_id, name, description, price_minor")
+          .eq("tenant_id", ctx.tenantId)
+          .eq("status", "active"),
+        ctx.supabase.from("categories").select("id, name").eq("tenant_id", ctx.tenantId).eq("is_active", true),
+      ]);
+      const catalog: Catalog = {
+        currency: ctx.currency,
+        currencyExponent: ctx.currencyExponent,
+        locale: ctx.locale,
+        categories: (categories ?? []).map((c) => ({ id: c.id, names: c.name })),
+        products: (data ?? []).map((p) => ({
+          id: p.id,
+          names: p.name,
+          description: Object.values(p.description ?? {})[0] ?? null,
+          categoryId: p.category_id,
+          priceMinor: p.price_minor,
+        })),
+      };
+      const matches = relevantProducts(query, catalog, 8);
+      if (matches.length === 0) return { content: `No products found matching "${query}".`, resultCount: 0 };
       return {
         content: matches
-          .map(
-            (p) =>
-              `${p.name[ctx.locale] ?? Object.values(p.name)[0]} — ${formatMinor(p.price_minor, ctx.currencyExponent)} ${ctx.currency}`,
-          )
+          .map((p) => `${p.names[ctx.locale] ?? Object.values(p.names)[0]} — ${formatMinor(p.priceMinor, ctx.currencyExponent)} ${ctx.currency}`)
           .join("; "),
+        resultCount: matches.length,
       };
     }
 

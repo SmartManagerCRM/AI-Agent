@@ -36,9 +36,12 @@ export function HomeView() {
   const ui = useAgentUi();
   const { businessName, businessTypeKey, aiName, categories, products, services, orderingEnabled, info, text, popularIds } = ui;
 
-  const hasCatalog = orderingEnabled && products.length > 0;
+  // What the page shows follows what the business actually has: its real catalog (browsable even when
+  // online ordering is off — then there's simply no Add/cart), its services, and its contact details.
+  const hasCatalog = products.length > 0;
+  const canOrder = orderingEnabled && hasCatalog;
   const hasBooking = services.length > 0;
-  const capability = capabilityKey(hasCatalog, hasBooking);
+  const capability = capabilityKey(canOrder, hasBooking);
   const roleKey = ROLE_KEYS.has(businessTypeKey) ? businessTypeKey : hasCatalog ? "shop" : "default";
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
@@ -61,15 +64,18 @@ export function HomeView() {
   if (hasBooking) {
     extras.push({ key: "book", label: t("home.tiles.book"), icon: "📅", tone: "from-agent-50 to-agent-100", onClick: () => scrollTo("agent-services") });
   }
-  if (!hasCatalog && !hasBooking) {
+  if (!canOrder && !hasBooking) {
     extras.push({ key: "quote", label: t("home.tiles.quote"), icon: "📝", tone: "from-sky-50 to-indigo-100", onClick: () => ui.openChat(t("prompts.quote")) });
   }
-  if (info.phone && !hasCatalog) {
+  if (info.phone && !canOrder) {
     extras.push({ key: "call", label: t("home.tiles.call"), icon: "📞", tone: "from-amber-50 to-orange-100", onClick: () => {}, href: `tel:${info.phone.replace(/\s+/g, "")}` });
   }
   const maxCategoryTiles = Math.max(0, 6 - extras.length);
-  const shownTiles = [...tiles.slice(0, tiles.length > maxCategoryTiles ? maxCategoryTiles - 1 : maxCategoryTiles)];
-  if (tiles.length > maxCategoryTiles) {
+  // Products outside any category (or no categories at all) are still reachable through "Everything".
+  const uncategorized = hasCatalog ? products.filter((p) => !p.categoryId || !categories.some((c) => c.id === p.categoryId)) : [];
+  const needsAll = tiles.length > maxCategoryTiles || uncategorized.length > 0;
+  const shownTiles = [...tiles.slice(0, needsAll ? Math.max(0, maxCategoryTiles - 1) : maxCategoryTiles)];
+  if (needsAll) {
     shownTiles.push({ key: "all", label: t("home.tiles.all"), sub: t("home.itemCount", { count: products.length }), icon: "🧭", tone: "from-slate-50 to-slate-100", onClick: () => ui.go("browse") });
   }
   shownTiles.push(...extras);
@@ -82,6 +88,8 @@ export function HomeView() {
         // Two rails keep the first screen light; Browse ("See all") shows every category.
         .slice(0, 2)
     : [];
+  // With no category rail to show, the uncategorized products get one of their own.
+  const looseRail = rails.length < 2 && uncategorized.length > 0 ? uncategorized : [];
 
   return (
     <div className="flex flex-col gap-8 pb-8">
@@ -215,6 +223,17 @@ export function HomeView() {
           </Rail>
         </section>
       ))}
+
+      {looseRail.length > 0 && (
+        <section className="flex flex-col gap-3 px-4 sm:px-6 lg:px-10" aria-label={t("home.tiles.all")}>
+          <SectionHeader title={t("home.tiles.all")} action={{ label: t("home.seeAll"), onClick: () => ui.go("browse") }} />
+          <Rail>
+            {looseRail.slice(0, 8).map((p) => (
+              <ProductCard key={p.id} product={p} variant="rail" />
+            ))}
+          </Rail>
+        </section>
+      )}
 
       {/* ── Bookable services ───────────────────────────────────────── */}
       {hasBooking && (

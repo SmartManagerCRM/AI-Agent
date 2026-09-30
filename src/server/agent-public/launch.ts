@@ -86,7 +86,15 @@ export function launchChecklist(i: LaunchInput): { items: LaunchItem[]; canPubli
 
 export type OfferingEntry = { id: string; fact_key: string | null; entry_type: string; content: unknown };
 
-export type ImportableOffering = { entryId: string; name: string; priceMajor: number; category: string | null; description: string | null };
+export type ImportableOffering = {
+  entryId: string;
+  name: string;
+  /** The same item's name in a second language, when the menu shows one (e.g. Arabic + English). */
+  secondaryName: string | null;
+  priceMajor: number;
+  category: string | null;
+  description: string | null;
+};
 
 export type OfferingTriage = {
   importable: ImportableOffering[];
@@ -125,7 +133,12 @@ export function triageOfferings(
   const seen = new Set<string>();
   for (const e of entries) {
     if (e.entry_type !== "product_candidate") continue;
-    const c = (e.content ?? {}) as { normalized?: { name?: unknown; amount?: unknown; currency?: unknown }; category?: unknown; description?: unknown };
+    const c = (e.content ?? {}) as {
+      normalized?: { name?: unknown; amount?: unknown; currency?: unknown };
+      category?: unknown;
+      description?: unknown;
+      secondary_name?: unknown;
+    };
     const name = typeof c.normalized?.name === "string" ? c.normalized.name.trim() : "";
     const key = e.fact_key ?? normalize(name);
     if (seen.has(key)) continue;
@@ -148,9 +161,11 @@ export function triageOfferings(
       out.otherCurrency += 1;
       continue;
     }
+    const secondary = typeof c.secondary_name === "string" ? c.secondary_name.trim() : "";
     out.importable.push({
       entryId: e.id,
       name,
+      secondaryName: secondary && secondary !== name && isReadable(secondary) ? secondary.slice(0, 160) : null,
       priceMajor: price,
       category: typeof c.category === "string" && c.category.trim() ? c.category.trim().slice(0, 120) : null,
       description: typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 2000) : null,

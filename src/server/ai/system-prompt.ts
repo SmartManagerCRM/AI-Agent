@@ -1,3 +1,4 @@
+import type { CatalogProduct } from "./deterministic/catalog";
 import type { BrainSnapshot } from "./deterministic/match";
 
 /**
@@ -10,8 +11,10 @@ import type { BrainSnapshot } from "./deterministic/match";
  * state a price or policy it wasn't actually given.
  */
 const MAX_PRODUCTS_IN_PROMPT = 40;
+/** With nothing specific in the message, a short sample plus the category names is enough; tools fetch the rest. */
+const GENERAL_SAMPLE = 10;
 
-export function buildSystemPrompt(snapshot: BrainSnapshot): string {
+export function buildSystemPrompt(snapshot: BrainSnapshot, options: { relevantProducts?: CatalogProduct[] } = {}): string {
   const lines: string[] = [
     `You are ${snapshot.assistantName || "a helpful assistant"} for this business.`,
     "Answer only from the information given below and in this conversation.",
@@ -40,7 +43,25 @@ export function buildSystemPrompt(snapshot: BrainSnapshot): string {
     lines.push(`Main branch: ${branch.name}${branch.phone ? ` (phone: ${branch.phone})` : ""}.`);
   }
 
-  if (snapshot.products.length > 0) {
+  const catalog = snapshot.catalog;
+  if (catalog && options.relevantProducts && catalog.products.length > 0) {
+    // Targeted context: only the products this message is about (spec: never the whole catalog per message).
+    const price = (minor: number) => `${(minor / 10 ** catalog.currencyExponent).toFixed(catalog.currencyExponent)} ${catalog.currency}`;
+    const nameOf = (p: CatalogProduct) => Object.values(p.names).join(" / ");
+    const categories = catalog.categories.filter((c) => catalog.products.some((p) => p.categoryId === c.id));
+    if (categories.length > 0) {
+      lines.push(`Menu categories: ${categories.map((c) => Object.values(c.names).join(" / ")).join("; ")}.`);
+    }
+    const focus = options.relevantProducts.length > 0 ? options.relevantProducts : catalog.products.slice(0, GENERAL_SAMPLE);
+    lines.push(
+      `${options.relevantProducts.length > 0 ? "Products relevant to this message" : "Some of the products"}: ${focus
+        .map((p) => `${nameOf(p)} — ${price(p.priceMinor)}${p.description ? ` (${p.description.slice(0, 120)})` : ""}`)
+        .join("; ")}.`,
+    );
+    lines.push(
+      `The catalog has ${catalog.products.length} products in total; use the search_products tool for anything not listed here. Never name a product or price that isn't listed here or returned by a tool.`,
+    );
+  } else if (snapshot.products.length > 0) {
     const list = snapshot.products
       .slice(0, MAX_PRODUCTS_IN_PROMPT)
       .map(
@@ -85,7 +106,7 @@ export function buildSystemPrompt(snapshot: BrainSnapshot): string {
     if (facts.capabilities.length > 0) lines.push(`Service options: ${facts.capabilities.join("; ")}.`);
     if (facts.offerings.length > 0) {
       lines.push(
-        `Items/services the business lists (information only — they can be ordered here only if they also appear in the products above; a price marked "not stated" is unknown, never guess it): ${facts.offerings.slice(0, MAX_PRODUCTS_IN_PROMPT).join("; ")}.`,
+        `Items/services the business lists (information only — they can be ordered here only if they also appear in the products above; a price marked "not stated" is unknown, never guess it): ${facts.offerings.slice(0, catalog?.products.length ? GENERAL_SAMPLE : MAX_PRODUCTS_IN_PROMPT).join("; ")}.`,
       );
     }
   }

@@ -7,6 +7,8 @@
  * common, low-ambiguity cases (spec §7's own example — "Add two Cokes" needs
  * no model), not to approximate general understanding.
  */
+import { matchCatalog, type Catalog } from "./catalog";
+
 export type OpeningHoursDay = { open: string; close: string }[];
 
 export type BrainSnapshot = {
@@ -41,9 +43,14 @@ export type BrainSnapshot = {
   };
   /** This exact conversation's own real past orders (never another customer's) — null for a first-time visitor. */
   returningCustomer: { orderCount: number; topProducts: string[] } | null;
+  /** The structured live catalog (ids, categories, descriptions) for deterministic menu/product answers. */
+  catalog?: Catalog;
+  /** Approved Business Brain entries loaded for this Agent (diagnostics). */
+  knowledgeCount?: number;
 };
 
-export type DeterministicMatch = { rule: string; reply: string };
+/** `productIds`: real catalog products the reply is about — rendered as product cards. */
+export type DeterministicMatch = { rule: string; reply: string; productIds?: string[]; resultCount?: number };
 
 const GREETING_WORDS = ["hi", "hello", "hey", "hola", "مرحبا", "أهلا", "salut", "bonjour"];
 const THANKS_WORDS = ["thanks", "thank you", "thx", "شكرا", "merci"];
@@ -63,7 +70,11 @@ function containsAny(message: string, words: string[]): boolean {
   return words.some((word) => normalized.includes(word));
 }
 
-export function matchDeterministic(message: string, snapshot: BrainSnapshot): DeterministicMatch | null {
+export function matchDeterministic(
+  message: string,
+  snapshot: BrainSnapshot,
+  context: { recent?: string[] } = {},
+): DeterministicMatch | null {
   const trimmed = message.trim();
   if (!trimmed) return null;
 
@@ -100,13 +111,13 @@ export function matchDeterministic(message: string, snapshot: BrainSnapshot): De
     return { rule: "payment_methods", reply: snapshot.notes.payment_methods };
   }
 
-  const productMatch = matchProductPrice(trimmed, snapshot);
-  if (productMatch) return productMatch;
-
   const faqMatch = matchFaq(trimmed, snapshot);
   if (faqMatch) return faqMatch;
 
-  return null;
+  if (snapshot.catalog) {
+    return matchCatalog(trimmed, snapshot.catalog, { recent: context.recent, infoOfferings: snapshot.facts?.offerings });
+  }
+  return matchProductPrice(trimmed, snapshot);
 }
 
 export function describeOpeningHours(branch: BrainSnapshot["defaultBranch"]): string | null {

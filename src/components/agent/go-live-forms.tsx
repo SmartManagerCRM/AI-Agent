@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/console/button";
-import { pauseAgentAction, publishAgentAction } from "@/server/agent-public/go-live-actions";
+import { pauseAgentAction, publishAgentAction, syncCatalogAction } from "@/server/agent-public/go-live-actions";
 
 function Message({ state }: { state: { ok: boolean; message: string } | undefined }) {
   if (!state) return null;
@@ -61,6 +61,21 @@ export function PauseAgentForm({ slug, locale }: { slug: string; locale: string 
       <input type="hidden" name="locale" value={locale} />
       <Button type="submit" variant="danger" disabled={pending} className="px-3 py-1.5 text-xs" data-testid="pause-agent">
         {pending ? "Pausing…" : "Pause Agent"}
+      </Button>
+      <Message state={state} />
+    </form>
+  );
+}
+
+export function SyncCatalogForm({ slug, locale, count }: { slug: string; locale: string; count: number }) {
+  const [state, formAction, pending] = useActionState(syncCatalogAction, undefined);
+  return (
+    <form action={formAction} className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-amber-200">
+      <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="locale" value={locale} />
+      <span className="text-slate-700">{count} approved product(s) with prices aren&apos;t on your Agent yet.</span>
+      <Button type="submit" variant="secondary" disabled={pending} className="px-3 py-1.5 text-xs" data-testid="sync-catalog">
+        {pending ? "Adding…" : "Add to my Agent"}
       </Button>
       <Message state={state} />
     </form>

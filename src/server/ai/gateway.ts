@@ -3,7 +3,9 @@ import "server-only";
 import { isEntitled } from "@/server/billing/entitlement";
 import { getOrCreateCart, viewCart, type CartView } from "@/server/commerce/cart";
 import { getCostGuardStatus } from "./cost-guard";
+import { relevantProducts } from "./deterministic/catalog";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
+import { agentLog, errorCategory } from "./diagnostics";
 import { matchDeterministic } from "./deterministic/match";
 import { calculateCostUsd } from "./pricing";
 import { fallbackChain, loadModelConfigs, type ModelKind } from "./router";
@@ -56,7 +58,7 @@ export type GatewayInput = {
 };
 
 export type GatewayResult =
-  | { handledBy: "deterministic"; reply: string; rule: string }
+  | { handledBy: "deterministic"; reply: string; rule: string; productIds?: string[] }
   | {
       handledBy: "ai";
       reply: string;
@@ -67,7 +69,7 @@ export type GatewayResult =
       /** Set only when a cart-mutating tool actually ran this turn (spec §32) — never a stale or guessed cart. */
       cart?: CartView | null;
     }
-  | { handledBy: "ai"; reply: string; error: string };
+  | { handledBy: "ai"; reply: string; error: string; productIds?: string[] };
 
 export async function runAgentGateway(supabase: TypedSupabaseClient, input: GatewayInput): Promise<GatewayResult> {
   // Entitlement (spec §98 Phase 7) is checked here — the one place every
@@ -107,17 +109,31 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   }
 
   const snapshot = await buildBrainSnapshot(supabase, input.tenant, input.locale, input.conversationId);
-  const deterministic = matchDeterministic(input.message, snapshot);
+  const log = { business_slug: input.tenant.slug, tenant_id: input.tenant.id, request_type: input.requestType };
+  agentLog("context", {
+    ...log,
+    approved_product_count: snapshot.catalog?.products.length ?? 0,
+    approved_category_count: snapshot.catalog?.categories.length ?? 0,
+    knowledge_context_count: snapshot.knowledgeCount ?? 0,
+  });
+  // Newest first, for follow-ups like "how much is it?".
+  const recent = (input.history ?? [])
+    .slice(-6)
+    .reverse()
+    .flatMap((m) => m.content.flatMap((b) => (b.type === "text" ? [b.text] : [])));
+  const deterministic = matchDeterministic(input.message, snapshot, { recent });
 
   if (deterministic) {
+    agentLog("intent", { ...log, intent: deterministic.rule, handled_by: "deterministic", tool_result_count: deterministic.resultCount ?? null });
     await recordInteraction(supabase, {
       tenantId: input.tenant.id,
       requestType: input.requestType,
       handledBy: "deterministic",
       deterministicRule: deterministic.rule,
     });
-    return { handledBy: "deterministic", reply: deterministic.reply, rule: deterministic.rule };
+    return { handledBy: "deterministic", reply: deterministic.reply, rule: deterministic.rule, productIds: deterministic.productIds };
   }
+  agentLog("intent", { ...log, intent: "ai", handled_by: "ai" });
 
   // AI Cost Guard (spec §98): a real, operator-set monthly budget, never a
   // fabricated one — checked only here, after a free deterministic reply
@@ -142,16 +158,28 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   const rows = await loadModelConfigs(supabase);
   const chain = fallbackChain(rows, kind);
 
+  // Only the products this message is about reach the model — never the whole catalog.
+  const relevant = snapshot.catalog ? relevantProducts(input.message, snapshot.catalog) : [];
+
   if (chain.length === 0) {
     const reply =
       snapshot.greeting || "I'm sorry, I can't help with that right now — please contact the business directly.";
+    agentLog("ai_unavailable", { ...log, error_code: "NOT_CONFIGURED" });
+    // The ledger requires a provider on "ai" rows; with none configured this is recorded as a deterministic refusal.
     await recordInteraction(supabase, {
       tenantId: input.tenant.id,
       requestType: input.requestType,
-      handledBy: "ai",
-      success: false,
-      errorMessage: "NOT_CONFIGURED: no AI provider is configured.",
+      handledBy: "deterministic",
+      deterministicRule: "ai_not_configured",
     });
+    if (relevant.length > 0) {
+      return {
+        handledBy: "ai",
+        reply: "I can't give you a personal recommendation right now, but here's what we have that matches:",
+        error: "NOT_CONFIGURED: no AI provider is configured.",
+        productIds: relevant.slice(0, 8).map((p) => p.id),
+      };
+    }
     return { handledBy: "ai", reply, error: "NOT_CONFIGURED: no AI provider is configured." };
   }
 
@@ -179,7 +207,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     };
   }
 
-  const system = buildSystemPrompt(snapshot);
+  const system = buildSystemPrompt(snapshot, { relevantProducts: relevant });
   const messages: AITurnMessage[] = [
     ...(input.history ?? []),
     { role: "user", content: [{ type: "text", text: input.message }] },
@@ -187,6 +215,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   const tools = toolContext ? AGENT_TOOLS : undefined;
 
   let lastError = "";
+  let lastModel: { provider: string; model: string } | null = null;
   let cartMutated = false;
   for (let i = 0; i < chain.length; i++) {
     const { row, provider } = chain[i];
@@ -222,6 +251,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       for (const toolUse of toolUseBlocks) {
         if (CART_MUTATING_TOOLS.has(toolUse.name)) cartMutated = true;
         const toolResult = await executeTool(toolUse.name, toolUse.input, toolContext);
+        agentLog("tool", { ...log, tool_called: toolUse.name, tool_error: Boolean(toolResult.isError), tool_result_count: toolResult.resultCount ?? null });
         toolResults.push({
           type: "tool_result",
           toolUseId: toolUse.id,
@@ -233,6 +263,14 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     }
 
     const latencyMs = Date.now() - startedAt;
+    agentLog("ai_call", {
+      ...log,
+      provider: row.provider,
+      model: row.model,
+      duration_ms: latencyMs,
+      ok: !stepError,
+      error_code: stepError ? errorCategory(stepError) : null,
+    });
 
     if (!stepError) {
       const costUsd = calculateCostUsd(
@@ -273,16 +311,30 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     }
 
     lastError = stepError;
+    lastModel = { provider: row.provider, model: row.model };
   }
 
+  // Recorded with the last model tried: the ledger rejects an "ai" row without a
+  // provider/model, which is how these failures used to disappear silently.
   await recordInteraction(supabase, {
     tenantId: input.tenant.id,
     requestType: input.requestType,
     handledBy: "ai",
+    provider: lastModel?.provider,
+    model: lastModel?.model,
     success: false,
     fallbackUsed: chain.length > 1,
     errorMessage: lastError,
   });
+  // Still useful without the model: the real products this message is about, as cards.
+  if (relevant.length > 0) {
+    return {
+      handledBy: "ai",
+      reply: "I can't give you a personal recommendation right now, but here's what we have that matches:",
+      error: lastError,
+      productIds: relevant.slice(0, 8).map((p) => p.id),
+    };
+  }
   return {
     handledBy: "ai",
     reply: "I'm having trouble reaching my AI assistant right now — please try again shortly.",
@@ -308,7 +360,7 @@ async function recordInteraction(
     errorMessage?: string;
   },
 ): Promise<void> {
-  await supabase.rpc("record_agent_interaction", {
+  const { error } = await supabase.rpc("record_agent_interaction", {
     p_tenant_id: params.tenantId,
     p_request_type: params.requestType,
     p_handled_by: params.handledBy,
@@ -321,6 +373,7 @@ async function recordInteraction(
     p_latency_ms: params.latencyMs ?? null,
     p_success: params.success ?? true,
     p_fallback_used: params.fallbackUsed ?? false,
-    p_error_message: params.errorMessage ?? null,
+    p_error_message: params.errorMessage ? params.errorMessage.slice(0, 1000) : null,
   });
+  if (error) agentLog("ledger_error", { tenant_id: params.tenantId, error_code: error.code ?? "UNKNOWN" });
 }

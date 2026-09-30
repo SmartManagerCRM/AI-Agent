@@ -102,7 +102,7 @@ describe("triageOfferings", () => {
       normalizeProductName,
       isReadableName,
     );
-    expect(r.importable).toEqual([{ entryId: "1", name: "Fattoush", priceMajor: 20, category: "Salads", description: null }]);
+    expect(r.importable).toEqual([{ entryId: "1", name: "Fattoush", secondaryName: null, priceMajor: 20, category: "Salads", description: null }]);
     expect(r).toMatchObject({ unreadable: 1, otherCurrency: 1, unpriced: 1, alreadyInCatalog: 1 });
   });
 

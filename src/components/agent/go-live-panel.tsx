@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { CopyButton } from "@/components/console/copy-button";
 import type { GoLiveState } from "@/server/agent-public/go-live";
 
-import { PauseAgentForm, PublishAgentForm } from "./go-live-forms";
+import { PauseAgentForm, PublishAgentForm, SyncCatalogForm } from "./go-live-forms";
 
 const MODE_LABEL: Record<GoLiveState["deploymentMode"], string> = {
   external_agent: "Public Agent link",
@@ -85,6 +85,9 @@ export async function GoLivePanel({ state, slug, locale }: { state: GoLiveState;
           </details>
           <PauseAgentForm slug={slug} locale={locale} />
         </div>
+        {state.offerings.importable.length > 0 && (
+          <SyncCatalogForm slug={slug} locale={locale} count={state.offerings.importable.length} />
+        )}
       </section>
     );
   }

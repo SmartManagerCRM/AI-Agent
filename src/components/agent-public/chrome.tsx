@@ -177,11 +177,12 @@ type NavItem = { key: string; label: string; icon: React.ReactNode; active: bool
  */
 export function BottomNav({ screen, chatOpen, onContact }: { screen: Screen; chatOpen: boolean; onContact: (() => void) | null }) {
   const t = useAgentT();
-  const { go, openChat, orderingEnabled, categories, products, cartCount, aiName } = useAgentUi();
+  const { go, openChat, orderingEnabled, products, cartCount, aiName } = useAgentUi();
   const items: NavItem[] = [
     { key: "home", label: t("nav.home"), icon: <HomeIcon size={22} />, active: !chatOpen && screen === "home", onClick: () => go("home") },
   ];
-  if (orderingEnabled && (categories.length > 0 || products.length > 0)) {
+  // Browsing the catalog doesn't need online ordering — only the cart does.
+  if (products.length > 0) {
     items.push({ key: "browse", label: t("nav.browse"), icon: <GridIcon size={22} />, active: !chatOpen && screen === "browse", onClick: () => go("browse") });
   }
   items.push({

@@ -27,6 +27,7 @@ function fakeServiceClient(tables: Record<string, Row[]>) {
         current = current.filter((r) => values.includes(r[column]));
         return builder;
       },
+      order: () => builder,
       maybeSingle: async () => ({ data: current[0] ?? null, error: null }),
       then: (resolve: (value: { data: Row[]; error: null }) => unknown) => resolve({ data: current, error: null }),
     };
@@ -45,8 +46,12 @@ const tables: Record<string, Row[]> = {
   ],
   currencies: [{ code: "SAR", exponent: 2 }],
   products: [
-    { tenant_id: A, status: "active", name: { en: "Laptop" }, price_minor: 399900 },
-    { tenant_id: B, status: "active", name: { en: "Spanish Latte" }, price_minor: 1800 },
+    { id: "p-a", tenant_id: A, category_id: "c-a", status: "active", name: { en: "Laptop" }, description: {}, price_minor: 399900 },
+    { id: "p-b", tenant_id: B, category_id: "c-b", status: "active", name: { en: "Spanish Latte" }, description: {}, price_minor: 1800 },
+  ],
+  categories: [
+    { id: "c-a", tenant_id: A, is_active: true, name: { en: "Computers" } },
+    { id: "c-b", tenant_id: B, is_active: true, name: { en: "Coffee" } },
   ],
   branches: [],
   business_brain_entries: [
@@ -75,6 +80,9 @@ describe("buildBrainSnapshot tenant isolation", () => {
     );
 
     expect(snapshot.products.map((p) => p.name)).toEqual(["Laptop"]);
+    // The structured catalog the Agent answers menu/product questions from: this business only.
+    expect(snapshot.catalog?.products.map((p) => p.id)).toEqual(["p-a"]);
+    expect(snapshot.catalog?.categories.map((c) => c.id)).toEqual(["c-a"]);
     expect(snapshot.notes).toEqual({ about: "We sell laptops." });
     expect(snapshot.faqs).toEqual([]);
     expect(snapshot.returningCustomer?.topProducts).toEqual(["Laptop"]);

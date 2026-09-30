@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Catalog } from "./catalog";
 import type { BrainSnapshot } from "./match";
 import { isReadableName } from "@/server/brain/discovery/name-quality";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -17,11 +18,18 @@ export async function buildBrainSnapshot(
   locale: string,
   conversationId?: string,
 ): Promise<BrainSnapshot> {
-  const [{ data: settings }, { data: currency }, { data: products }, { data: branch }, { data: entries }, returningCustomer] =
+  const [{ data: settings }, { data: currency }, { data: products }, { data: categories }, { data: branch }, { data: entries }, returningCustomer] =
     await Promise.all([
       supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
       supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-      supabase.from("products").select("name, price_minor").eq("tenant_id", tenant.id).eq("status", "active"),
+      // The live catalog: approved Business Brain products land here (Go live / approval), with real ids and prices.
+      supabase
+        .from("products")
+        .select("id, category_id, name, description, price_minor")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "active")
+        .order("created_at"),
+      supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
       supabase
         .from("branches")
         .select("name, phone, opening_hours")
@@ -110,13 +118,30 @@ export async function buildBrainSnapshot(
   }
   if (policies.length > 0) notes.policy = [notes.policy, ...policies].filter(Boolean).join("\n");
 
+  const currencyExponent = currency?.exponent ?? 2;
+  const catalog: Catalog = {
+    currency: tenant.currency,
+    currencyExponent,
+    locale,
+    categories: (categories ?? []).map((c) => ({ id: c.id, names: c.name })),
+    products: (products ?? []).map((p) => ({
+      id: p.id,
+      names: p.name,
+      description: p.description?.[locale] ?? Object.values(p.description ?? {})[0] ?? null,
+      categoryId: p.category_id,
+      priceMinor: p.price_minor,
+    })),
+  };
+
   return {
     locale,
     assistantName: settings?.agent?.assistant_name ?? null,
     greeting: settings?.agent?.greeting ?? null,
     currency: tenant.currency,
-    currencyExponent: currency?.exponent ?? 2,
+    currencyExponent,
     products: (products ?? []).map((p) => ({ name: p.name[locale] ?? Object.values(p.name)[0] ?? "", priceMinor: p.price_minor })),
+    catalog,
+    knowledgeCount: (entries ?? []).length,
     defaultBranch: branch
       ? {
           name: branch.name[locale] ?? Object.values(branch.name)[0] ?? tenant.slug,

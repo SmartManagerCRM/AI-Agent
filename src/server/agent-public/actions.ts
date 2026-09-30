@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { runAgentGateway } from "@/server/ai";
 import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
+import { agentLog } from "@/server/ai/diagnostics";
 import type { AITurnMessage } from "@/server/ai/provider";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
@@ -26,7 +27,7 @@ const sendMessageSchema = z.object({
 });
 
 export type SendAgentMessageState =
-  | { reply: string; handledBy: "deterministic" | "ai"; message: string; cart?: CartView | null }
+  | { reply: string; handledBy: "deterministic" | "ai"; message: string; cart?: CartView | null; productIds?: string[] }
   | { error: string }
   | undefined;
 
@@ -51,7 +52,12 @@ export async function sendAgentMessageAction(
 
   const isWidget = parsed.data.surface === "website_widget";
   const tenant = await (isWidget ? resolveWidgetTenant(parsed.data.slug) : resolvePublicTenant(parsed.data.slug));
-  if (!tenant) return { error: "This Agent is not available right now." };
+  if (!tenant) {
+    agentLog("resolve", { business_slug: parsed.data.slug, surface: parsed.data.surface, resolved: false });
+    return { error: "This Agent is not available right now." };
+  }
+  // Tenant identity comes only from the published deployment behind this slug — never a session, a default or the client.
+  agentLog("resolve", { business_slug: tenant.slug, tenant_id: tenant.id, deployment: "published", surface: parsed.data.surface, resolved: true });
 
   const supabase = serviceClient();
   const activeTable = parsed.data.tableId ? await findActiveTable(supabase, tenant.id, parsed.data.tableId) : null;
@@ -99,6 +105,7 @@ export async function sendAgentMessageAction(
     handledBy: result.handledBy,
     message: parsed.data.message,
     cart: "cart" in result ? (result.cart ?? null) : null,
+    productIds: "productIds" in result ? result.productIds : undefined,
   };
 }
 

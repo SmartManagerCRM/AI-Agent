@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { syncApprovedProducts } from "@/server/agent-public/catalog-sync";
 import { CURRENCY_EXPONENT } from "@/server/brain/discovery/extract";
 import { parsePlaceInput } from "@/server/brain/discovery/google-places";
 import { startDiscoveryJob } from "@/server/brain/discovery/jobs";
@@ -228,6 +229,7 @@ export async function confirmFactWithEditAction(formData: FormData): Promise<voi
       .limit(1)
       .maybeSingle();
     if (ownerEntry) await supabase.rpc("approve_brain_entry", { p_entry_id: ownerEntry.id });
+    if (isOffering) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
   }
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
@@ -305,9 +307,11 @@ export async function approveBrainEntryAction(formData: FormData): Promise<void>
     locale: formData.get("locale"),
   });
   if (!parsed.success) return;
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
-  await supabase.rpc("approve_brain_entry", { p_entry_id: parsed.data.entryId });
+  const { error } = await supabase.rpc("approve_brain_entry", { p_entry_id: parsed.data.entryId });
+  // A live Agent picks up a newly approved product right away.
+  if (!error) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
@@ -405,8 +409,9 @@ export async function resolveBrainConflictAction(formData: FormData): Promise<vo
     return;
   }
 
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
-  await supabase.rpc("resolve_brain_conflict", { p_conflict_id: parsed.data.conflictId, p_resolved_value: resolvedValue });
+  const { error } = await supabase.rpc("resolve_brain_conflict", { p_conflict_id: parsed.data.conflictId, p_resolved_value: resolvedValue });
+  if (!error) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }

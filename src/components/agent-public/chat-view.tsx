@@ -49,7 +49,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const formatTime = useTimeFormat();
-  const hasCatalog = orderingEnabled && products.length > 0;
+  const hasCatalog = products.length > 0;
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -68,7 +68,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     }
   }
   if (services.length > 0) suggestions.push({ key: "book", label: `📅 ${t("prompts.bookLabel")}`, message: t("prompts.book") });
-  if (!hasCatalog && services.length === 0) suggestions.push({ key: "quote", label: `📝 ${t("prompts.quoteLabel")}`, message: t("prompts.quote") });
+  if (!orderingEnabled && services.length === 0) suggestions.push({ key: "quote", label: `📝 ${t("prompts.quoteLabel")}`, message: t("prompts.quote") });
   // Only when hours are configured — otherwise the deterministic reply can't answer and it would cost an AI call.
   if (ui.info.todayHours !== null) suggestions.push({ key: "hours", label: `🕒 ${t("prompts.hoursLabel")}`, message: t("prompts.hours") });
   if (orderingEnabled && fulfillmentTypes.includes("delivery")) {
@@ -246,7 +246,10 @@ function Message({ message, time }: { message: ChatMessage; time: string }) {
     );
   }
 
-  const mentioned = findMentionedProducts(message.text, products);
+  // The server's own product ids when it sent them (catalog answers); otherwise products the reply names.
+  const mentioned = message.productIds
+    ? message.productIds.map((id) => products.find((p) => p.id === id)).filter((p) => p !== undefined)
+    : findMentionedProducts(message.text, products);
   return (
     <AssistantRow>
       <Bubble time={time}>{renderWithLinks(message.text)}</Bubble>
