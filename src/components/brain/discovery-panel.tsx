@@ -18,6 +18,8 @@ type Props = {
   defaults: { mapsInput: string; websiteUrl: string; menuUrls: string };
   activeJobId: string | null;
   hasRunBefore: boolean;
+  /** The Agent is published — the last step ("Go live") is done. */
+  isLive?: boolean;
 };
 
 const STEPS = ["Your listing", "Website & menu", "Analyze", "Review", "Go live"];
@@ -33,7 +35,7 @@ const STAGES: { status: string; label: string }[] = [
 const ORDER = ["created", "discovering", "fetching", "extracting", "ai_processing", "normalizing", "validating", "conflict_check"];
 const RUNNING = new Set(ORDER);
 
-export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, activeJobId, hasRunBefore }: Props) {
+export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, activeJobId, hasRunBefore, isLive = false }: Props) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(startDiscoveryAction, undefined);
   const jobId = state?.jobId ?? activeJobId;
@@ -60,7 +62,8 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
   }, [jobId, locale, slug, router]);
 
   const running = Boolean(jobId) && (progress === null || RUNNING.has(progress.status));
-  const currentStep = running ? 2 : hasRunBefore ? 3 : 0;
+  // Past "Review" once the Agent is published (every step done).
+  const currentStep = running ? 2 : isLive ? STEPS.length : hasRunBefore ? 3 : 0;
 
   return (
     <section className="rounded-xl border border-emerald-200 bg-gradient-to-b from-emerald-50/60 to-white p-4 sm:p-5">
@@ -84,7 +87,14 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
                   : "border-slate-200 bg-white text-slate-500"
             }`}
           >
-            <span className="font-semibold">{i + 1}</span> {label}
+            <span className="font-semibold">{i < currentStep ? "✓" : i + 1}</span>{" "}
+            {i === STEPS.length - 1 ? (
+              <a href="#go-live" className="hover:underline">
+                {label}
+              </a>
+            ) : (
+              label
+            )}
           </li>
         ))}
       </ol>

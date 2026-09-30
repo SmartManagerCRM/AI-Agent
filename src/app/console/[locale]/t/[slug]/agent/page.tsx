@@ -1,10 +1,10 @@
-import QRCode from "qrcode";
-
 import { AgentSettingsForm } from "@/components/agent/agent-settings-form";
 import { AgentTestPanel } from "@/components/agent/agent-test-panel";
+import { GoLivePanel, LiveBadge } from "@/components/agent/go-live-panel";
 import { Button } from "@/components/console/button";
 import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { loadGoLive } from "@/server/agent-public/go-live";
 import { publicAgentUrls } from "@/server/agent-public/urls";
 import { setDeploymentModeAction } from "@/server/business/actions";
 import { createUserClient } from "@/server/supabase/clients";
@@ -22,32 +22,21 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: settings }, { data: stats }] = await Promise.all([
+  const [{ data: settings }, { data: stats }, goLive] = await Promise.all([
     supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.rpc("agent_interaction_stats", { p_tenant_id: tenant.id }),
+    loadGoLive(supabase, tenant, locale),
   ]);
   const summary = stats?.[0];
   const agentSettings = settings?.agent ?? { active: false, assistant_name: null, greeting: null, tone: "friendly" };
 
-  // Canonical public Agent URL (path-based on the platform host unless a verified AGENT_URL is configured).
-  const agentUrls = publicAgentUrls();
-  const agentUrl = agentUrls.agent(tenant.slug);
-  const embedSnippet = `<script src="${agentUrls.embedScript(tenant.slug)}" async></script>`;
-  // Generated locally (same `qrcode` package as table QR codes) — encodes exactly the canonical URL.
-  const qrDataUrl = await QRCode.toDataURL(agentUrl, { width: 480, margin: 1 });
+  const embedSnippet = `<script src="${publicAgentUrls().embedScript(tenant.slug)}" async></script>`;
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Agent</h1>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-            agentSettings.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-          }`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${agentSettings.active ? "bg-emerald-500" : "bg-slate-400"}`} />
-          {agentSettings.active ? "Active" : "Inactive"}
-        </span>
+        <LiveBadge status={goLive.status} />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -79,37 +68,8 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
         </form>
       </section>
 
-      {(tenant.deployment_mode === "external_agent" || tenant.deployment_mode === "both") && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Your public Agent link</h2>
-          <p className="mt-1 text-xs text-slate-500">No website needed — share this anywhere: Instagram bio, WhatsApp, a QR code, receipts.</p>
-          <div className="mt-3 flex flex-wrap items-start gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
-            <img src={qrDataUrl} alt="QR code linking to your Agent" width={112} height={112} className="rounded-lg border border-slate-200" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <p className="break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-sm text-slate-800">{agentUrl}</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={agentUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
-                >
-                  Open Agent
-                </a>
-                <CopyButton value={agentUrl} label="Copy URL" />
-                <a
-                  href={qrDataUrl}
-                  download={`${tenant.slug}-agent-qr.png`}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Download QR code
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Go live review before publishing; the public link, QR code and pause control once live. */}
+      <GoLivePanel state={goLive} slug={slug} locale={locale} />
 
       {(tenant.deployment_mode === "website_widget" || tenant.deployment_mode === "both") && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">

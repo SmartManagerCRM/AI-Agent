@@ -5,6 +5,7 @@ import type { BusinessCategory } from "./business-type";
 import { EXTRACTABLE, refineWithPixels, triageImage, type ImageClass } from "./image-triage";
 import { prepareImage } from "./image-prep";
 import { ocrVerdict, parseMenuText } from "./menu-text";
+import { isReadableName } from "./name-quality";
 import { OCR_VERSION, type OcrResult } from "./ocr";
 import type { ExtractedImage } from "./page-media";
 import type { SafeFetchOptions, SafeFetchResult } from "../safe-fetch";
@@ -159,7 +160,7 @@ async function processOne(
   const verdict = ocrVerdict(ocr, parsed);
   if (verdict.sufficient && parsed && ocr) {
     const confidence = Math.round(Math.min(78, 50 + ocr.confidence * 0.3));
-    const items: MenuImageItem[] = parsed.items.map((i) => ({
+    const items: MenuImageItem[] = parsed.items.filter((i) => isReadableName(i.name)).map((i) => ({
       ...emptyItem(),
       name: i.name,
       amount: i.amount,
@@ -186,7 +187,7 @@ async function processOne(
   });
   if (vision.status === "ok") {
     if (!vision.value.isMenu) return save(deps, { ...base, hash, status: "not_menu", method: "vision", note: "The vision model found no menu items on this image." }, fetched);
-    const items: MenuImageItem[] = vision.value.items.map((i) => ({
+    const items: MenuImageItem[] = vision.value.items.filter((i) => isReadableName(i.name)).map((i) => ({
       ...i,
       method: "vision",
       model: vision.value.model,
@@ -197,7 +198,8 @@ async function processOne(
     return save(deps, { ...base, hash, status: "processed", method: "vision", note: `OCR: ${verdict.reason} → vision`, items, categories: vision.value.categories }, fetched);
   }
   // Vision unavailable: keep whatever OCR did read, clearly marked lower-confidence — not cached, so it's retried next time.
-  const partial: MenuImageItem[] = (parsed?.items ?? []).map((i) => ({
+  // Without vision, only OCR lines that read as real names are kept (garbled OCR never becomes a "product").
+  const partial: MenuImageItem[] = (parsed?.items ?? []).filter((i) => isReadableName(i.name)).map((i) => ({
     ...emptyItem(),
     name: i.name,
     amount: i.amount,

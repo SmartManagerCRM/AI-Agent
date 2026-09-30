@@ -8,6 +8,8 @@ import { TrialCard } from "@/components/console/trial-card";
 import type { Locale } from "@/i18n/locales";
 import { daysUntil } from "@/lib/dates";
 import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
+import { loadDeploymentStatus } from "@/server/agent-public/go-live";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { endImpersonationAction } from "@/server/platform/impersonation-actions";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
@@ -33,6 +35,7 @@ export default async function TenantLayout({
     { count: conversationCount },
     { count: openConversationCount },
     { data: announcements },
+    deploymentStatus,
   ] = await timed(
     "layout.tenant",
     Promise.all([
@@ -53,8 +56,10 @@ export default async function TenantLayout({
         .select("id, message, severity")
         .eq("is_active", true)
         .order("created_at", { ascending: false }),
+      loadDeploymentStatus(supabase, tenant.id),
     ]),
   );
+  const isLive = deploymentStatus === "published";
 
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
@@ -130,6 +135,21 @@ export default async function TenantLayout({
                   <p className="truncate text-sm font-semibold text-white">{businessName}</p>
                   <p className="text-xs text-slate-400">SmartManager AI Agent</p>
                 </div>
+              </div>
+              {/* Deployment status (Go live), not Brain readiness. */}
+              <div className="mb-4 flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs" data-testid="sidebar-live-status">
+                <span className={`font-semibold ${isLive ? "text-emerald-400" : deploymentStatus === "paused" ? "text-amber-300" : "text-slate-300"}`}>
+                  {isLive ? "● LIVE" : deploymentStatus === "paused" ? "○ PAUSED" : "○ NOT LIVE"}
+                </span>
+                {isLive ? (
+                  <a href={publicAgentUrls().agent(tenant.slug)} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-300 hover:underline">
+                    Open Agent
+                  </a>
+                ) : (
+                  <a href={`/${locale}/${slug}/brain#go-live`} className="rounded-md bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500">
+                    Go Live
+                  </a>
+                )}
               </div>
               <TenantNav items={nav} />
             </div>

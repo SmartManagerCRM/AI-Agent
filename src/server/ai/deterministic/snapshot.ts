@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { BrainSnapshot } from "./match";
+import { isReadableName } from "@/server/brain/discovery/name-quality";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
@@ -83,7 +84,11 @@ export async function buildBrainSnapshot(
         facts.openingHours = normalized as Record<string, { open: string; close: string }[]>;
       } else if (entry.fact_key === "hours.note") facts.hoursNote = text;
       else if (entry.entry_type === "capability") facts.capabilities.push(text);
-      else if (entry.entry_type === "product_candidate" || entry.entry_type === "service_candidate") facts.offerings.push(text);
+      else if (entry.entry_type === "product_candidate" || entry.entry_type === "service_candidate") {
+        // Never show a customer a garbled (OCR-noise) name, even if it was approved.
+        const name = (normalized as { name?: unknown } | undefined)?.name;
+        if (typeof name === "string" && isReadableName(name)) facts.offerings.push(text);
+      }
       else if (entry.entry_type === "policy") policies.push(text);
       else if (entry.entry_type === "about") notes.about ??= text;
       else if (entry.entry_type === "faq") {

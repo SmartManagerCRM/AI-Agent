@@ -20,10 +20,6 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="locale" value={locale} />
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="active" defaultChecked={current.active} />
-        Agent active
-      </label>
       <label className="flex flex-col gap-1 text-sm">
         Assistant name
         <input

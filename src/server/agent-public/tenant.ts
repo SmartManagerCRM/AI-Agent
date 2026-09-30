@@ -14,7 +14,8 @@ import { serviceClient } from "@/server/supabase/clients";
  * has an entitled subscription (spec §98 Phase 7 — a lapsed trial 404s
  * here for a clean "not available" page rather than a working chat UI
  * that `runAgentGateway` would then refuse on every message) is reachable
- * this way; anything else 404s. Which `deployment_mode` values count is
+ * this way — and only once its Agent deployment is PUBLISHED (Go live);
+ * anything else is refused, with the reason (`PublicAgentResolution`). Which `deployment_mode` values count is
  * the one thing that differs between the two surfaces — everything else
  * (status, entitlement, the shape returned) is identical, so both
  * exported functions share one implementation.
@@ -29,7 +30,20 @@ export type PublicTenant = {
   enabledLanguages: string[];
 };
 
-async function resolvePublicTenantForModes(slug: string, allowedModes: ("external_agent" | "website_widget" | "both")[]): Promise<PublicTenant | null> {
+/**
+ * Why a public Agent URL does or doesn't open — the page shows each case
+ * differently ("Business not found" ≠ "Agent not live yet" ≠ "temporarily
+ * unavailable"). Every state is decided on the server from the stored
+ * records; the slug is only a lookup key, never an authorization.
+ */
+export type PublicAgentResolution =
+  | { state: "live"; tenant: PublicTenant }
+  | { state: "not_found" }
+  | { state: "not_live"; businessName: Record<string, string>; defaultLanguage: string }
+  | { state: "paused"; businessName: Record<string, string>; defaultLanguage: string }
+  | { state: "unavailable"; businessName: Record<string, string>; defaultLanguage: string };
+
+async function resolveForModes(slug: string, allowedModes: ("external_agent" | "website_widget" | "both")[]): Promise<PublicAgentResolution> {
   const supabase = serviceClient();
   const { data, error } = await supabase
     .from("tenants")
@@ -37,9 +51,19 @@ async function resolvePublicTenantForModes(slug: string, allowedModes: ("externa
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error || !data) return null;
-  if (data.status !== "active") return null;
-  if (!allowedModes.includes(data.deployment_mode) && data.deployment_mode !== "both") return null;
+  if (error || !data) return { state: "not_found" };
+  const named = { businessName: data.business_name, defaultLanguage: data.default_language };
+  // A suspended/closed business is not advertised as existing.
+  if (data.status === "suspended" || data.status === "closed") return { state: "not_found" };
+  // Still onboarding: it exists but has never gone live (publishing activates it).
+  if (data.status !== "active") return { state: "not_live", ...named };
+
+  // Only a PUBLISHED deployment is reachable — readiness alone never makes an Agent public.
+  const { data: deployment } = await supabase.from("agent_deployments").select("status").eq("tenant_id", data.id).maybeSingle();
+  if (deployment?.status === "paused") return { state: "paused", ...named };
+  if (deployment?.status !== "published") return { state: "not_live", ...named };
+
+  if (!allowedModes.includes(data.deployment_mode) && data.deployment_mode !== "both") return { state: "not_live", ...named };
 
   const { data: subscriptionRow } = await supabase
     .from("subscriptions")
@@ -53,26 +77,40 @@ async function resolvePublicTenantForModes(slug: string, allowedModes: ("externa
         : null,
     )
   ) {
-    return null;
+    return { state: "unavailable", ...named };
   }
 
   return {
-    id: data.id,
-    slug: data.slug,
-    businessName: data.business_name,
-    businessTypeKey: data.business_type_key,
-    currency: data.currency,
-    defaultLanguage: data.default_language,
-    enabledLanguages: data.enabled_languages,
+    state: "live",
+    tenant: {
+      id: data.id,
+      slug: data.slug,
+      businessName: data.business_name,
+      businessTypeKey: data.business_type_key,
+      currency: data.currency,
+      defaultLanguage: data.default_language,
+      enabledLanguages: data.enabled_languages,
+    },
   };
 }
 
-/** The standalone External Agent (addendum §14): `agent.<root>/<slug>`. */
-export function resolvePublicTenant(slug: string): Promise<PublicTenant | null> {
-  return resolvePublicTenantForModes(slug, ["external_agent"]);
+/** The standalone External Agent page (`/agent/<slug>`), with the reason when it can't open. */
+export function resolvePublicAgent(slug: string): Promise<PublicAgentResolution> {
+  return resolveForModes(slug, ["external_agent"]);
 }
 
-/** The embeddable widget (spec §45, Phase 10): `agent.<root>/widget/<slug>`, meant to be loaded in an iframe on the tenant's own website. */
-export function resolveWidgetTenant(slug: string): Promise<PublicTenant | null> {
-  return resolvePublicTenantForModes(slug, ["website_widget"]);
+/** The embeddable widget page (`/agent/widget/<slug>`), with the reason when it can't open. */
+export function resolveWidgetAgent(slug: string): Promise<PublicAgentResolution> {
+  return resolveForModes(slug, ["website_widget"]);
+}
+
+/** For public Server Actions: the tenant only when its Agent is live, else null. */
+export async function resolvePublicTenant(slug: string): Promise<PublicTenant | null> {
+  const r = await resolvePublicAgent(slug);
+  return r.state === "live" ? r.tenant : null;
+}
+
+export async function resolveWidgetTenant(slug: string): Promise<PublicTenant | null> {
+  const r = await resolveWidgetAgent(slug);
+  return r.state === "live" ? r.tenant : null;
 }

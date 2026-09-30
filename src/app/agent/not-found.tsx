@@ -5,15 +5,15 @@ import { isLocale, localeDirection, type Locale } from "@/i18n/locales";
 
 const TEXT: Record<Locale, { title: string; body: string }> = {
   en: {
-    title: "We couldn't find this business",
+    title: "Business not found",
     body: "The link may be mistyped, or the business may have moved. Please check the link you were given, or contact the business directly.",
   },
   ar: {
-    title: "لم نتمكن من العثور على هذا النشاط التجاري",
+    title: "النشاط التجاري غير موجود",
     body: "قد يكون الرابط غير صحيح أو تم تغييره. يرجى التحقق من الرابط الذي وصلك، أو التواصل مع النشاط التجاري مباشرة.",
   },
   fr: {
-    title: "Nous n'avons pas trouvé cet établissement",
+    title: "Établissement introuvable",
     body: "Le lien est peut-être mal saisi ou l'établissement a changé d'adresse. Vérifiez le lien reçu ou contactez directement l'établissement.",
   },
 };

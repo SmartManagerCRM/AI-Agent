@@ -12,7 +12,6 @@ const updateSettingsSchema = z.object({
   assistantName: z.string().trim().max(80).optional().or(z.literal("")),
   greeting: z.string().trim().max(300).optional().or(z.literal("")),
   tone: z.enum(["friendly", "formal", "playful"]),
-  active: z.enum(["on"]).optional(),
   locale: z.string(),
   slug: z.string().min(1),
 });
@@ -26,7 +25,6 @@ export async function updateAgentSettingsAction(
     assistantName: formData.get("assistantName"),
     greeting: formData.get("greeting"),
     tone: formData.get("tone"),
-    active: formData.get("active") ?? undefined,
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
@@ -34,11 +32,17 @@ export async function updateAgentSettingsAction(
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
+  // Whether the Agent is on is decided by Go live (publish / pause), not by this form — keep it as stored.
+  const { data: current } = await supabase
+    .from("tenant_settings")
+    .select("agent")
+    .eq("tenant_id", parsed.data.tenantId)
+    .maybeSingle();
   const { error } = await supabase
     .from("tenant_settings")
     .update({
       agent: {
-        active: parsed.data.active === "on",
+        active: current?.agent?.active ?? false,
         assistant_name: parsed.data.assistantName || null,
         greeting: parsed.data.greeting || null,
         tone: parsed.data.tone,

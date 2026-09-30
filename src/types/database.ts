@@ -36,6 +36,9 @@ export type SourceProcessingStatus =
   | "blocked"
   | "requires_review";
 
+/** Public Agent deployment lifecycle — only `published` is publicly reachable. */
+export type AgentDeploymentStatus = "draft" | "review" | "ready" | "published" | "paused" | "unpublished";
+
 export type ExtractionMethod = "owner" | "structured_api" | "structured_data" | "deterministic" | "ocr" | "vision" | "ai" | "inferred";
 
 export type IngestionJobStatus =
@@ -449,6 +452,22 @@ export type Database = {
           source_document_id: string | null;
           purpose: string | null;
           created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      agent_deployments: {
+        Row: {
+          tenant_id: string;
+          status: AgentDeploymentStatus;
+          published_at: string | null;
+          first_published_at: string | null;
+          paused_at: string | null;
+          published_by: string | null;
+          launch_check: Json | null;
+          created_at: string;
+          updated_at: string;
         };
         Insert: never;
         Update: never;
@@ -919,6 +938,14 @@ export type Database = {
       purge_expired_brain_facts: {
         Args: { p_tenant_id: string };
         Returns: number;
+      };
+      publish_agent: {
+        Args: { p_tenant_id: string };
+        Returns: { status: "published"; trial_started: boolean; trial_ends_at: string | null };
+      };
+      pause_agent: {
+        Args: { p_tenant_id: string };
+        Returns: undefined;
       };
       tenant_dashboard_stats: {
         Args: { p_tenant_id: string; p_locale: string; p_window_days: number };

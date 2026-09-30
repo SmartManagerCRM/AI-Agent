@@ -1,3 +1,4 @@
+import { GoLivePanel } from "@/components/agent/go-live-panel";
 import { CreateEntryForm } from "@/components/brain/create-entry-form";
 import { DiscoveryPanel } from "@/components/brain/discovery-panel";
 import { FactReview } from "@/components/brain/fact-review";
@@ -14,6 +15,7 @@ import {
   resolveBrainConflictAction,
   toggleSourceActiveAction,
 } from "@/server/brain/actions";
+import { loadGoLive } from "@/server/agent-public/go-live";
 import { placesConfigured } from "@/server/brain/discovery/google-places";
 import { loadReadiness } from "@/server/brain/discovery/pipeline";
 import { timed } from "@/server/perf";
@@ -85,6 +87,7 @@ export default async function BusinessBrainPage({
     { data: suggestions },
     { data: jobs },
     readiness,
+    goLive,
   ] = await timed(
     "brain.queries",
     Promise.all([
@@ -129,6 +132,7 @@ export default async function BusinessBrainPage({
         .order("created_at", { ascending: false })
         .limit(5),
       loadReadiness(supabase, tenant.id),
+      loadGoLive(supabase, tenant, locale),
     ]),
   );
   const activeJob = (jobs ?? []).find((j) => (RUNNING_JOB as readonly string[]).includes(j.status)) ?? null;
@@ -160,9 +164,12 @@ export default async function BusinessBrainPage({
         }}
         activeJobId={activeJob?.id ?? null}
         hasRunBefore={(jobs ?? []).length > 0}
+        isLive={goLive.isLive}
       />
 
       <ReadinessCard readiness={readiness} />
+
+      <GoLivePanel state={goLive} slug={slug} locale={locale} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile icon="branches" accent="emerald" label="Sources" value={String((sources ?? []).length)} trend={null} />

@@ -1,3 +1,5 @@
+import { isReadableName } from "./name-quality";
+
 /**
  * Business Brain readiness — computed from what is actually in the Brain,
  * never a static value. Each area earns full credit when the owner has
@@ -13,6 +15,11 @@ export type ReadinessFact = {
   /** Discovery candidates carry `{ normalized: { amount } }` for offerings. */
   content?: unknown;
 };
+
+function offeringName(f: ReadinessFact): string {
+  const n = (f.content as { normalized?: { name?: unknown } } | undefined)?.normalized?.name;
+  return typeof n === "string" ? n : "";
+}
 
 export type ReadinessArea = {
   key: "identity" | "business_type" | "contact" | "location" | "hours" | "offerings" | "prices" | "policies" | "faq" | "about";
@@ -93,7 +100,9 @@ export function computeReadiness(input: {
     return hits.every((f) => f.fact_key && conflicts.has(f.fact_key)) ? "conflict" : "found";
   };
   const key = (prefix: string) => (f: ReadinessFact) => Boolean(f.fact_key?.startsWith(prefix));
-  const isOffering = (f: ReadinessFact) => f.entry_type === "product_candidate" || f.entry_type === "service_candidate";
+  // An offering whose "name" is OCR noise is not a product, even if it was approved.
+  const isOffering = (f: ReadinessFact) =>
+    (f.entry_type === "product_candidate" || f.entry_type === "service_candidate") && isReadableName(offeringName(f));
   const hasPrice = (f: ReadinessFact) => {
     const n = (f.content as { normalized?: { amount?: unknown } } | undefined)?.normalized;
     return isOffering(f) && typeof n?.amount === "string";

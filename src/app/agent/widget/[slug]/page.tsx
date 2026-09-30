@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { AgentExperience } from "@/components/agent-public/agent-experience";
 import { AgentI18nProvider } from "@/components/agent-public/agent-i18n";
 import { AgentInactive } from "@/components/agent-public/agent-inactive";
+import { AgentUnavailable } from "@/components/agent-public/agent-unavailable";
 import { loadAgentExperience } from "@/server/agent-public/experience";
-import { resolveWidgetTenant } from "@/server/agent-public/tenant";
+import { resolveWidgetAgent } from "@/server/agent-public/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,12 @@ export const dynamic = "force-dynamic";
  */
 export default async function WidgetPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const tenant = await resolveWidgetTenant(slug);
-  if (!tenant) notFound();
+  const resolution = await resolveWidgetAgent(slug);
+  if (resolution.state === "not_found") notFound();
+  if (resolution.state !== "live") {
+    return <AgentUnavailable reason={resolution.state} businessName={resolution.businessName} defaultLanguage={resolution.defaultLanguage} />;
+  }
+  const { tenant } = resolution;
 
   const data = await loadAgentExperience(tenant, { surface: "website_widget" });
   if (!data.active) return <AgentInactive locale={data.locale} businessName={data.businessName} text={data.inactiveText} />;

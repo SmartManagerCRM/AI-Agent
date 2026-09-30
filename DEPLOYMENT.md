@@ -69,6 +69,8 @@ Point all three at your Hostinger server's IP:
 | `yourdomain.com/agent/<business-slug>` | Customer-facing External Agent (canonical; path-based, **no extra DNS record needed**) + embeddable widget at `/agent/widget/<slug>` |
 | `agent.yourdomain.com` *(optional, later)* | Only if you create and verify this DNS record — then set `AGENT_URL=https://agent.yourdomain.com` and every Agent link/QR/widget uses it |
 
+**Go live.** A public Agent URL only opens once the business has published its Agent (console → Business Brain → *Go live* → **Publish Agent**, or the Agent page). Until then `/agent/<slug>` shows "Agent not live yet"; a paused Agent shows "Agent temporarily unavailable"; an unknown slug is a 404 "Business not found". Publishing is `publish_agent` (checks `agent.write`, the minimum launch requirements, and starts the default free trial if the business has no subscription); pausing is `pause_agent`. The state lives in `agent_deployments`.
+
 `PLATFORM_ROOT_DOMAIN`, `CONSOLE_SUBDOMAIN`, `AGENT_SUBDOMAIN` (below) must
 match whatever you actually configure here.
 
