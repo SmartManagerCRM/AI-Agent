@@ -3,77 +3,251 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { runWebsiteCrawl } from "@/server/brain/crawler";
+import { CURRENCY_EXPONENT } from "@/server/brain/discovery/extract";
+import { parsePlaceInput } from "@/server/brain/discovery/google-places";
+import { startDiscoveryJob } from "@/server/brain/discovery/jobs";
+import { parseCrawlUrl } from "@/server/brain/url-safety";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
-import type { Json } from "@/types/database";
-
-const addSourceSchema = z.object({
-  tenantId: z.uuid(),
-  slug: z.string().min(1),
-  locale: z.string(),
-  url: z.url(),
-});
-
-/** Adds a website source and crawls it once, synchronously (spec §9, §72). */
-export async function addWebsiteSourceAction(
-  _prevState: string | undefined,
-  formData: FormData,
-): Promise<string | undefined> {
-  const parsed = addSourceSchema.safeParse({
-    tenantId: formData.get("tenantId"),
-    slug: formData.get("slug"),
-    locale: formData.get("locale"),
-    url: formData.get("url"),
-  });
-  if (!parsed.success) return "VALIDATION_ERROR: enter a valid website URL.";
-
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
-  const supabase = await createUserClient();
-
-  const { data: source, error: insertError } = await supabase
-    .from("business_sources")
-    .insert({ tenant_id: parsed.data.tenantId, source_type: "website", url: parsed.data.url })
-    .select("id")
-    .single();
-  if (insertError || !source) return "VALIDATION_ERROR: could not add that source.";
-
-  try {
-    await runWebsiteCrawl(supabase, { tenantId: parsed.data.tenantId, sourceId: source.id, url: parsed.data.url });
-  } catch (error) {
-    // The crawler already recorded the failure on the source row itself;
-    // surface a short message but don't block the page from rendering it.
-    revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
-    return `CRAWL_ERROR: ${error instanceof Error ? error.message : "the crawl failed."}`;
-  }
-
-  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
-}
+import { requireTenantMember, requireUser } from "@/server/tenant/context";
+import type { IngestionJobStatus, Json } from "@/types/database";
 
 const recrawlSchema = z.object({
-  tenantId: z.uuid(),
-  sourceId: z.uuid(),
   url: z.url(),
   slug: z.string().min(1),
   locale: z.string(),
 });
 
+/** Re-scans one website source (incremental: unchanged pages are skipped by fingerprint). */
 export async function recrawlSourceAction(formData: FormData): Promise<void> {
   const parsed = recrawlSchema.safeParse({
-    tenantId: formData.get("tenantId"),
-    sourceId: formData.get("sourceId"),
     url: formData.get("url"),
     slug: formData.get("slug"),
     locale: formData.get("locale"),
   });
   if (!parsed.success) return;
 
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const user = await requireUser(parsed.data.locale);
   const supabase = await createUserClient();
-  try {
-    await runWebsiteCrawl(supabase, parsed.data);
-  } catch {
-    // Failure is recorded on the source row; the page reflects it on reload.
+  await startDiscoveryJob(supabase, { tenantId: tenant.id, userId: user.id, input: { websiteUrl: parsed.data.url }, trigger: "refresh" });
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
+}
+
+// ── Business Discovery ────────────────────────────────────────────────────
+
+const discoverySchema = z.object({
+  slug: z.string().min(1),
+  locale: z.string(),
+  mapsInput: z.string().trim().max(2000).optional(),
+  websiteUrl: z.string().trim().max(2000).optional(),
+});
+
+export type DiscoveryStartState = { error?: string; jobId?: string } | undefined;
+
+/** "Analyze my business": Google Maps listing and/or website (either may be missing) → background ingestion job. */
+export async function startDiscoveryAction(_prev: DiscoveryStartState, formData: FormData): Promise<DiscoveryStartState> {
+  const parsed = discoverySchema.safeParse({
+    slug: formData.get("slug"),
+    locale: formData.get("locale"),
+    mapsInput: formData.get("mapsInput") || undefined,
+    websiteUrl: formData.get("websiteUrl") || undefined,
+  });
+  if (!parsed.success) return { error: "Check the links you entered." };
+  const { mapsInput, websiteUrl } = parsed.data;
+  if (!mapsInput && !websiteUrl) return { error: "Add your Google Maps link, your website, or both." };
+  if (websiteUrl) {
+    try {
+      parseCrawlUrl(/^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Enter a valid website address." };
+    }
+  }
+  if (mapsInput && parsePlaceInput(mapsInput).kind === "unsupported") {
+    const parsedPlace = parsePlaceInput(mapsInput);
+    return { error: parsedPlace.kind === "unsupported" ? parsedPlace.reason : "Check the Google Maps link." };
+  }
+
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const user = await requireUser(parsed.data.locale);
+  const supabase = await createUserClient();
+  const { count } = await supabase.from("brain_ingestion_jobs").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+  const result = await startDiscoveryJob(supabase, {
+    tenantId: tenant.id,
+    userId: user.id,
+    input: { mapsInput: mapsInput ?? null, websiteUrl: websiteUrl ?? null },
+    trigger: (count ?? 0) === 0 ? "onboarding" : "manual",
+  });
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
+  return result.ok ? { jobId: result.jobId } : { error: result.error, jobId: result.jobId };
+}
+
+const jobRefSchema = z.object({ jobId: z.uuid(), slug: z.string().min(1), locale: z.string() });
+
+export async function cancelDiscoveryAction(formData: FormData): Promise<void> {
+  const parsed = jobRefSchema.safeParse({ jobId: formData.get("jobId"), slug: formData.get("slug"), locale: formData.get("locale") });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  await supabase
+    .from("brain_ingestion_jobs")
+    .update({ status: "cancelled", status_reason: "Cancelled by the owner.", completed_at: new Date().toISOString() })
+    .eq("id", parsed.data.jobId)
+    .eq("tenant_id", tenant.id)
+    .in("status", ["created", "discovering", "fetching", "extracting", "ai_processing", "normalizing", "validating", "conflict_check"]);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
+}
+
+export type DiscoveryProgress = {
+  status: IngestionJobStatus;
+  statusReason: string | null;
+  pagesProcessed: number;
+  factsProposed: number;
+  conflictsDetected: number;
+  events: { at: string; level: string; message: string }[];
+};
+
+/** Polled by the progress panel while a job runs. RLS-scoped: only the caller's own business's job is readable. */
+export async function getDiscoveryProgressAction(locale: string, slug: string, jobId: string): Promise<DiscoveryProgress | null> {
+  if (!z.uuid().safeParse(jobId).success) return null;
+  const { tenant } = await requireTenantMember(locale, slug);
+  const supabase = await createUserClient();
+  const [{ data: job }, { data: events }] = await Promise.all([
+    supabase
+      .from("brain_ingestion_jobs")
+      .select("status, status_reason, pages_processed, facts_proposed, conflicts_detected")
+      .eq("id", jobId)
+      .eq("tenant_id", tenant.id)
+      .maybeSingle(),
+    supabase
+      .from("brain_ingestion_events")
+      .select("at, level, message")
+      .eq("job_id", jobId)
+      .eq("tenant_id", tenant.id)
+      .order("id", { ascending: false })
+      .limit(8),
+  ]);
+  if (!job) return null;
+  return {
+    status: job.status,
+    statusReason: job.status_reason,
+    pagesProcessed: job.pages_processed,
+    factsProposed: job.facts_proposed,
+    conflictsDetected: job.conflicts_detected,
+    events: (events ?? []).reverse(),
+  };
+}
+
+const confirmFactSchema = z.object({
+  entryId: z.uuid(),
+  slug: z.string().min(1),
+  locale: z.string(),
+  value: z.string().trim().min(1).max(4000),
+  name: z.string().trim().max(160).optional(),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d{1,9}([.,]\d{1,3})?$/, "Enter a price like 18 or 18.50.")
+    .optional(),
+});
+
+/**
+ * "Edit & confirm": the owner's corrected value becomes a new owner-sourced
+ * version of the fact (full provenance kept) and is approved — which
+ * supersedes every source's candidate and resolves an open conflict.
+ */
+export async function confirmFactWithEditAction(formData: FormData): Promise<void> {
+  const parsed = confirmFactSchema.safeParse({
+    entryId: formData.get("entryId"),
+    slug: formData.get("slug"),
+    locale: formData.get("locale"),
+    value: formData.get("value") || formData.get("name"),
+    name: formData.get("name") || undefined,
+    amount: formData.get("amount") || undefined,
+  });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const { data: entry } = await supabase
+    .from("business_brain_entries")
+    .select("id, fact_key, entry_type, content")
+    .eq("id", parsed.data.entryId)
+    .eq("tenant_id", tenant.id)
+    .maybeSingle();
+  if (!entry?.fact_key) return;
+
+  const isOffering = entry.entry_type === "product_candidate" || entry.entry_type === "service_candidate";
+  let content: Record<string, unknown>;
+  if (isOffering) {
+    const name = parsed.data.name ?? parsed.data.value;
+    const amount = parsed.data.amount ? Number(parsed.data.amount.replace(",", ".")).toFixed(CURRENCY_EXPONENT[tenant.currency] ?? 2) : null;
+    content = {
+      normalized: { name, amount, currency: amount ? tenant.currency : null },
+      display: amount ? `${name} — ${amount} ${tenant.currency}` : `${name} (price not stated)`,
+    };
+  } else {
+    content = { normalized: parsed.data.value, display: parsed.data.value };
+  }
+
+  const { error } = await supabase.rpc("ingest_brain_fact", {
+    p_tenant_id: tenant.id,
+    p_fact_key: entry.fact_key,
+    p_entry_type: entry.entry_type,
+    p_content: content as Json,
+    p_source: "manual",
+    p_source_id: null,
+    p_confidence_score: 100,
+    p_method: "owner",
+    p_model: null,
+    p_job_id: null,
+    p_expires_at: null,
+    p_critical: false,
+  });
+  if (!error) {
+    const { data: ownerEntry } = await supabase
+      .from("business_brain_entries")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("entry_key", `${entry.fact_key}@manual`)
+      .eq("status", "pending_review")
+      .order("version", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (ownerEntry) await supabase.rpc("approve_brain_entry", { p_entry_id: ownerEntry.id });
+  }
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
+}
+
+/** Entry types whose values are critical (prices, hours/open status, policies, delivery) — never bulk-approved. */
+const CRITICAL_ENTRY_TYPES = ["hours", "capability", "product_candidate", "service_candidate", "policy"];
+
+/**
+ * Approves, in one click, only the discovered suggestions that are safe to
+ * accept in bulk: high confidence (≥ 85), not AI-derived, not a critical
+ * fact, and not part of an open conflict. Everything else stays for
+ * individual review.
+ */
+export async function approveSafeSuggestionsAction(formData: FormData): Promise<void> {
+  const parsed = z.object({ slug: z.string().min(1), locale: z.string() }).safeParse({ slug: formData.get("slug"), locale: formData.get("locale") });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const [{ data: candidates }, { data: conflicts }] = await Promise.all([
+    supabase
+      .from("business_brain_entries")
+      .select("id, fact_key, entry_type, confidence_score, extraction_method")
+      .eq("tenant_id", tenant.id)
+      .eq("status", "pending_review")
+      .gte("confidence_score", 85)
+      .in("extraction_method", ["structured_api", "structured_data"])
+      .order("confidence_score", { ascending: false }), // the most authoritative source wins per fact
+    supabase.from("business_brain_conflicts").select("entry_key").eq("tenant_id", tenant.id).eq("status", "open"),
+  ]);
+  const conflicted = new Set((conflicts ?? []).map((c) => c.entry_key));
+  const approvedKeys = new Set<string>();
+  for (const c of candidates ?? []) {
+    if (!c.fact_key || CRITICAL_ENTRY_TYPES.includes(c.entry_type) || conflicted.has(c.fact_key) || approvedKeys.has(c.fact_key)) continue;
+    approvedKeys.add(c.fact_key); // one value per fact — a second source's candidate for the same fact waits for the owner
+    await supabase.rpc("approve_brain_entry", { p_entry_id: c.id });
   }
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }

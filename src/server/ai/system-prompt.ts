@@ -61,5 +61,34 @@ export function buildSystemPrompt(snapshot: BrainSnapshot): string {
   if (snapshot.notes.payment_methods) lines.push(`Payment methods: ${snapshot.notes.payment_methods}`);
   if (snapshot.notes.policy) lines.push(`Policy: ${snapshot.notes.policy}`);
 
+  // Owner-approved discovered facts (never pending or conflicting ones).
+  const facts = snapshot.facts;
+  if (facts) {
+    const contact = [
+      facts.phone && `phone ${facts.phone}`,
+      facts.whatsapp && `WhatsApp ${facts.whatsapp}`,
+      facts.email && `email ${facts.email}`,
+      facts.website && `website ${facts.website}`,
+    ].filter(Boolean);
+    if (contact.length > 0) lines.push(`Contact: ${contact.join(", ")}.`);
+    if (facts.address) lines.push(`Address: ${facts.address}`);
+    if (facts.operationalStatus && facts.operationalStatus !== "OPERATIONAL") {
+      lines.push(`Business status: ${facts.operationalStatus.replace(/_/g, " ").toLowerCase()}.`);
+    }
+    if (facts.openingHours && !snapshot.defaultBranch) {
+      const days = Object.entries(facts.openingHours)
+        .map(([day, slots]) => `${day} ${slots.map((s) => `${s.open}-${s.close}`).join(", ")}`)
+        .join("; ");
+      lines.push(`Opening hours: ${days} (days not listed: closed).`);
+    }
+    if (facts.hoursNote) lines.push(`Hours note: ${facts.hoursNote}`);
+    if (facts.capabilities.length > 0) lines.push(`Service options: ${facts.capabilities.join("; ")}.`);
+    if (facts.offerings.length > 0) {
+      lines.push(
+        `Items/services the business lists (information only — they can be ordered here only if they also appear in the products above; a price marked "not stated" is unknown, never guess it): ${facts.offerings.slice(0, MAX_PRODUCTS_IN_PROMPT).join("; ")}.`,
+      );
+    }
+  }
+
   return lines.join("\n");
 }

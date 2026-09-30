@@ -30,26 +30,68 @@ export async function buildBrainSnapshot(
         .maybeSingle(),
       supabase
         .from("business_brain_entries")
-        .select("entry_type, entry_key, content")
+        .select("entry_type, entry_key, fact_key, content")
         .eq("tenant_id", tenant.id)
         .eq("status", "approved")
         .eq("is_active", true)
-        .in("entry_type", ["about", "delivery_info", "pickup_info", "payment_methods", "policy", "faq"]),
+        .in("entry_type", [
+          "about",
+          "delivery_info",
+          "pickup_info",
+          "payment_methods",
+          "policy",
+          "faq",
+          // Owner-approved discovery facts (Business Discovery engine).
+          "identity",
+          "contact",
+          "location",
+          "hours",
+          "capability",
+          "product_candidate",
+          "service_candidate",
+        ]),
       loadReturningCustomer(supabase, tenant.id, locale, conversationId),
     ]);
 
   const bestText = (content: unknown): string | null => {
     if (!content || typeof content !== "object") return null;
     const record = content as Record<string, unknown>;
+    // Discovery facts carry their human-readable value in `display` (in the source's own language).
+    if (typeof record.display === "string") return record.display;
     const value = record[locale] ?? record.en ?? Object.values(record)[0];
     return typeof value === "string" ? value : null;
   };
 
   const notes: BrainSnapshot["notes"] = {};
   const faqs: BrainSnapshot["faqs"] = [];
+  const policies: string[] = [];
+  const facts: NonNullable<BrainSnapshot["facts"]> = { offerings: [], capabilities: [] };
   for (const entry of entries ?? []) {
     const text = bestText(entry.content);
     if (!text) continue;
+    if (entry.fact_key) {
+      // Only reached for status = approved: pending, conflicting or expired suggestions never reach the Agent.
+      const normalized = (entry.content as { normalized?: unknown }).normalized;
+      if (entry.fact_key === "identity.name") facts.name = text;
+      else if (entry.fact_key === "identity.operational_status") facts.operationalStatus = typeof normalized === "string" ? normalized : text;
+      else if (entry.fact_key === "contact.phone") facts.phone = text;
+      else if (entry.fact_key === "contact.whatsapp") facts.whatsapp = text;
+      else if (entry.fact_key === "contact.email") facts.email = text;
+      else if (entry.fact_key === "contact.website") facts.website = text;
+      else if (entry.fact_key === "location.address") facts.address = text;
+      else if (entry.fact_key === "hours.regular" && normalized && typeof normalized === "object") {
+        facts.openingHours = normalized as Record<string, { open: string; close: string }[]>;
+      } else if (entry.fact_key === "hours.note") facts.hoursNote = text;
+      else if (entry.entry_type === "capability") facts.capabilities.push(text);
+      else if (entry.entry_type === "product_candidate" || entry.entry_type === "service_candidate") facts.offerings.push(text);
+      else if (entry.entry_type === "policy") policies.push(text);
+      else if (entry.entry_type === "about") notes.about ??= text;
+      else if (entry.entry_type === "faq") {
+        const question = (entry.content as { question?: unknown }).question;
+        faqs.push({ entryKey: faqKeywords(typeof question === "string" ? question : ""), answer: text });
+      }
+      continue;
+    }
     if (entry.entry_type === "faq") faqs.push({ entryKey: entry.entry_key, answer: text });
     else if (
       entry.entry_type === "about" ||
@@ -61,6 +103,7 @@ export async function buildBrainSnapshot(
       notes[entry.entry_type] = text;
     }
   }
+  if (policies.length > 0) notes.policy = [notes.policy, ...policies].filter(Boolean).join("\n");
 
   return {
     locale,
@@ -78,8 +121,21 @@ export async function buildBrainSnapshot(
       : null,
     notes,
     faqs,
+    facts,
     returningCustomer,
   };
+}
+
+/** A discovered FAQ's question → the hyphenated keyword key the FAQ matcher uses. */
+function faqKeywords(question: string): string {
+  const stop = new Set(["the", "and", "you", "your", "are", "for", "what", "does", "can", "how", "have", "with", "هل", "ما", "كيف"]);
+  return question
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stop.has(w))
+    .slice(0, 4)
+    .join("-");
 }
 
 /**

@@ -10,12 +10,15 @@ export type RobotsRules = {
   disallow: string[];
   allow: string[];
   crawlDelaySeconds: number | null;
+  /** `Sitemap:` lines (group-independent per RFC 9309). */
+  sitemaps?: string[];
 };
 
 export function parseRobotsTxt(text: string): RobotsRules {
   const disallow: string[] = [];
   const allow: string[] = [];
   let crawlDelaySeconds: number | null = null;
+  const sitemaps: string[] = [];
   let inWildcardGroup = false;
   let sawAnyGroup = false;
 
@@ -27,6 +30,10 @@ export function parseRobotsTxt(text: string): RobotsRules {
     const field = line.slice(0, sepIndex).trim().toLowerCase();
     const value = line.slice(sepIndex + 1).trim();
 
+    if (field === "sitemap") {
+      if (value && sitemaps.length < 10) sitemaps.push(value);
+      continue;
+    }
     if (field === "user-agent") {
       inWildcardGroup = value === "*";
       sawAnyGroup = true;
@@ -45,7 +52,7 @@ export function parseRobotsTxt(text: string): RobotsRules {
     }
   }
 
-  return { disallow, allow, crawlDelaySeconds };
+  return { disallow, allow, crawlDelaySeconds, sitemaps };
 }
 
 /** Longest matching Allow beats longest matching Disallow (standard tie-break). */

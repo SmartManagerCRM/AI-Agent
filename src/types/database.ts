@@ -25,6 +25,33 @@ export type SourceType =
   | "manual"
   | "api";
 
+export type SourceProcessingStatus =
+  | "new"
+  | "processing"
+  | "processed"
+  | "unchanged"
+  | "changed"
+  | "failed"
+  | "blocked"
+  | "requires_review";
+
+export type ExtractionMethod = "owner" | "structured_api" | "structured_data" | "deterministic" | "ai" | "inferred";
+
+export type IngestionJobStatus =
+  | "created"
+  | "discovering"
+  | "fetching"
+  | "extracting"
+  | "ai_processing"
+  | "normalizing"
+  | "validating"
+  | "conflict_check"
+  | "ready_for_review"
+  | "completed"
+  | "failed"
+  | "paused"
+  | "cancelled";
+
 export type Database = {
   public: {
     Tables: {
@@ -300,6 +327,14 @@ export type Database = {
           scan_frequency: "manual" | "daily" | "weekly";
           content_hash: string | null;
           extraction_status: "raw_only" | "partial" | "structured";
+          external_id: string | null;
+          processing_status: SourceProcessingStatus;
+          priority: number;
+          last_fetched_at: string | null;
+          last_changed_at: string | null;
+          last_processed_at: string | null;
+          extraction_version: string | null;
+          attribution: Json | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -327,6 +362,15 @@ export type Database = {
           source_url: string | null;
           last_verified_at: string | null;
           rejection_reason: string | null;
+          fact_key: string | null;
+          confidence_score: number | null;
+          extraction_method: ExtractionMethod | null;
+          extraction_model: string | null;
+          processing_version: string | null;
+          first_seen_at: string | null;
+          last_seen_at: string | null;
+          expires_at: string | null;
+          ingestion_job_id: string | null;
           created_by: string | null;
           approved_by: string | null;
           approved_at: string | null;
@@ -349,6 +393,10 @@ export type Database = {
             value: Json;
             confidence: string;
             detected_at: string;
+            /** Discovery conflicts (`ingest_brain_fact`) reference each candidate entry. */
+            entry_id?: string;
+            confidence_score?: number | null;
+            status?: string;
           }[];
           status: "open" | "resolved";
           resolved_value: Json | null;
@@ -394,10 +442,94 @@ export type Database = {
           success: boolean;
           fallback_used: boolean;
           error_message: string | null;
+          ingestion_job_id: string | null;
+          source_document_id: string | null;
+          purpose: string | null;
           created_at: string;
         };
         Insert: never;
         Update: never;
+        Relationships: [];
+      };
+      brain_ingestion_jobs: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          trigger: "onboarding" | "manual" | "refresh";
+          input: Json;
+          status: IngestionJobStatus;
+          status_reason: string | null;
+          place_id: string | null;
+          detected_business_type: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          sources_processed: number;
+          pages_processed: number;
+          documents_processed: number;
+          facts_proposed: number;
+          conflicts_detected: number;
+          ai_calls: number;
+          ai_input_tokens: number;
+          ai_output_tokens: number;
+          ai_cost_usd: number;
+          google_calls: number;
+          google_cost_usd: number;
+          budget_usd: number;
+          warnings: Json;
+          errors: Json;
+          readiness: Json | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["brain_ingestion_jobs"]["Row"]> & { tenant_id: string };
+        Update: Partial<Database["public"]["Tables"]["brain_ingestion_jobs"]["Row"]>;
+        Relationships: [];
+      };
+      brain_ingestion_events: {
+        Row: {
+          id: number;
+          tenant_id: string;
+          job_id: string;
+          at: string;
+          step: string;
+          level: "info" | "success" | "warning" | "error";
+          message: string;
+          data: Json | null;
+        };
+        Insert: { tenant_id: string; job_id: string; step: string; message: string; level?: "info" | "success" | "warning" | "error"; data?: Json | null };
+        Update: never;
+        Relationships: [];
+      };
+      brain_source_documents: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          source_id: string;
+          url: string;
+          canonical_url: string;
+          kind: "page" | "document" | "image";
+          topic: string | null;
+          priority_score: number;
+          title: string | null;
+          content_hash: string | null;
+          status: SourceProcessingStatus;
+          extraction_version: string | null;
+          extraction: Json | null;
+          error_message: string | null;
+          last_fetched_at: string | null;
+          last_changed_at: string | null;
+          last_processed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["brain_source_documents"]["Row"]> & {
+          tenant_id: string;
+          source_id: string;
+          url: string;
+          canonical_url: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["brain_source_documents"]["Row"]>;
         Relationships: [];
       };
       conversations: {
@@ -747,6 +879,44 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      ingest_brain_fact: {
+        Args: {
+          p_tenant_id: string;
+          p_fact_key: string;
+          p_entry_type: string;
+          p_content: Json;
+          p_source: string;
+          p_source_id: string | null;
+          p_confidence_score: number;
+          p_method: ExtractionMethod;
+          p_model: string | null;
+          p_job_id: string | null;
+          p_expires_at: string | null;
+          p_critical: boolean;
+        };
+        Returns: "created" | "unchanged" | "conflict";
+      };
+      record_ingestion_ai_call: {
+        Args: {
+          p_tenant_id: string;
+          p_job_id: string;
+          p_source_document_id: string | null;
+          p_purpose: string;
+          p_provider: string;
+          p_model: string;
+          p_input_tokens: number;
+          p_output_tokens: number;
+          p_estimated_cost_usd: number;
+          p_latency_ms: number;
+          p_success: boolean;
+          p_error_message: string | null;
+        };
+        Returns: undefined;
+      };
+      purge_expired_brain_facts: {
+        Args: { p_tenant_id: string };
+        Returns: number;
+      };
       tenant_dashboard_stats: {
         Args: { p_tenant_id: string; p_locale: string; p_window_days: number };
         Returns: {

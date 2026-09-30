@@ -21,6 +21,24 @@ export type BrainSnapshot = {
   notes: Partial<Record<"about" | "delivery_info" | "pickup_info" | "payment_methods" | "policy", string>>;
   /** FAQ entries: entry_key (hyphenated keywords) -> best-available-locale answer text. */
   faqs: { entryKey: string; answer: string }[];
+  /**
+   * Owner-APPROVED Business Discovery facts only (never pending suggestions,
+   * never unresolved conflicts). Optional: absent when nothing is approved.
+   */
+  facts?: {
+    name?: string;
+    operationalStatus?: string;
+    phone?: string;
+    whatsapp?: string;
+    email?: string;
+    website?: string;
+    address?: string;
+    openingHours?: Record<string, OpeningHoursDay>;
+    hoursNote?: string;
+    capabilities: string[];
+    /** "Name — 18.00 SAR" lines: information only, not orderable unless also a catalog product. */
+    offerings: string[];
+  };
   /** This exact conversation's own real past orders (never another customer's) — null for a first-time visitor. */
   returningCustomer: { orderCount: number; topProducts: string[] } | null;
 };
@@ -59,7 +77,14 @@ export function matchDeterministic(message: string, snapshot: BrainSnapshot): De
   }
 
   if (containsAny(trimmed, HOURS_WORDS)) {
-    const reply = describeOpeningHours(snapshot.defaultBranch);
+    // The branch's own hours win; otherwise the owner-approved discovered hours.
+    const hoursSource =
+      snapshot.defaultBranch && Object.keys(snapshot.defaultBranch.openingHours ?? {}).length > 0
+        ? snapshot.defaultBranch
+        : snapshot.facts?.openingHours
+          ? { name: snapshot.facts.name ?? "We", phone: snapshot.facts.phone ?? null, openingHours: snapshot.facts.openingHours }
+          : snapshot.defaultBranch;
+    const reply = describeOpeningHours(hoursSource);
     if (reply) return { rule: "opening_hours", reply };
   }
 

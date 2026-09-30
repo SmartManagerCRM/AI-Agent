@@ -28,7 +28,7 @@ export async function getPlatformAgentRows(supabase: TypedSupabaseClient): Promi
     await Promise.all([
       supabase.from("tenants").select("id, slug, business_name, deployment_mode").order("business_name"),
       supabase.from("tenant_settings").select("tenant_id, agent, ai_monthly_budget_usd"),
-      supabase.from("agent_interactions").select("tenant_id, handled_by, estimated_cost_usd").gte("created_at", since),
+      supabase.from("agent_interactions").select("tenant_id, handled_by, estimated_cost_usd, request_type").gte("created_at", since),
       supabase.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
     ]);
 
@@ -38,9 +38,14 @@ export async function getPlatformAgentRows(supabase: TypedSupabaseClient): Promi
   const statsByTenant = new Map<string, { total: number; deterministic: number; cost: number }>();
   for (const row of interactions ?? []) {
     const stat = statsByTenant.get(row.tenant_id) ?? { total: 0, deterministic: 0, cost: 0 };
+    stat.cost += row.estimated_cost_usd;
+    // Business Discovery AI calls are spend, not customer interactions.
+    if (row.request_type === "brain_ingestion") {
+      statsByTenant.set(row.tenant_id, stat);
+      continue;
+    }
     stat.total += 1;
     if (row.handled_by === "deterministic") stat.deterministic += 1;
-    stat.cost += row.estimated_cost_usd;
     statsByTenant.set(row.tenant_id, stat);
   }
 

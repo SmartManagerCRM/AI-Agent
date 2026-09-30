@@ -58,6 +58,14 @@ const serverEnvSchema = z.object({
   GEMINI_API_KEY: z.string().min(10).optional(),
   ANTHROPIC_API_KEY: z.string().min(10).optional(),
   /**
+   * Google Places API (New) key for Business Discovery (Google Maps
+   * onboarding). Server-side only — never shipped to the browser. Optional:
+   * without it, "Analyze from Google Maps" reports "not configured" and the
+   * rest of the Business Brain (website, manual entries) works as before.
+   * Restrict the key to the Places API (New) in Google Cloud Console.
+   */
+  GOOGLE_PLACES_API_KEY: z.string().min(10).optional(),
+  /**
    * `on` prints `[PERF] <operation>: <ms>` timing lines for the proxy,
    * auth/tenant resolution and the heaviest console queries (see
    * `src/server/perf.ts`). Off unless explicitly set — never logs values,
