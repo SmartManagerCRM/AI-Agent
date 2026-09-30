@@ -21,7 +21,18 @@ export type ReadinessArea = {
   detail: string;
 };
 
-export type Readiness = { score: number; areas: ReadinessArea[]; nextSteps: string[] };
+/** Products/services as they actually stand in the Brain (one per product, across sources). */
+export type CatalogCounts = {
+  found: number;
+  pending: number;
+  confirmed: number;
+  conflicts: number;
+  priced: number;
+  missingPrice: number;
+  catalogProducts: number;
+};
+
+export type Readiness = { score: number; areas: ReadinessArea[]; nextSteps: string[]; catalog: CatalogCounts };
 
 const WEIGHTS: Record<ReadinessArea["key"], number> = {
   identity: 5,
@@ -77,9 +88,9 @@ export function computeReadiness(input: {
   const stateFor = (match: (f: ReadinessFact) => boolean, extraConfirmed = false): ReadinessArea["state"] => {
     const hits = live.filter(match);
     if (extraConfirmed || hits.some((f) => f.status === "approved")) return "confirmed";
-    if (hits.some((f) => f.fact_key && conflicts.has(f.fact_key))) return "conflict";
-    if (hits.length > 0) return "found";
-    return "missing";
+    if (hits.length === 0) return "missing";
+    // Only when every candidate is disputed does the whole area count as a conflict.
+    return hits.every((f) => f.fact_key && conflicts.has(f.fact_key)) ? "conflict" : "found";
   };
   const key = (prefix: string) => (f: ReadinessFact) => Boolean(f.fact_key?.startsWith(prefix));
   const isOffering = (f: ReadinessFact) => f.entry_type === "product_candidate" || f.entry_type === "service_candidate";
@@ -109,10 +120,28 @@ export function computeReadiness(input: {
     detail: states[k] === "confirmed" ? "Confirmed" : states[k] === "found" ? "Found — awaiting your review" : states[k] === "conflict" ? "Sources disagree — choose the right value" : "Missing",
   }));
   const score = Math.round(areas.reduce((sum, a) => sum + a.weight * credit[a.state], 0));
+
+  const products = new Map<string, { approved: boolean; priced: boolean }>();
+  for (const f of live.filter(isOffering)) {
+    const key = f.fact_key ?? `${f.entry_type}:${products.size}`;
+    const p = products.get(key) ?? { approved: false, priced: false };
+    p.approved ||= f.status === "approved";
+    p.priced ||= hasPrice(f);
+    products.set(key, p);
+  }
+  const catalog: CatalogCounts = {
+    found: products.size,
+    confirmed: [...products.values()].filter((p) => p.approved).length,
+    pending: [...products.values()].filter((p) => !p.approved).length,
+    conflicts: [...products.keys()].filter((k) => conflicts.has(k)).length,
+    priced: [...products.values()].filter((p) => p.priced).length,
+    missingPrice: [...products.values()].filter((p) => !p.priced).length,
+    catalogProducts: input.activeProducts,
+  };
   const nextSteps = areas
     .filter((a) => a.state !== "confirmed")
     .sort((a, b) => (a.state === "conflict" ? -1 : 0) - (b.state === "conflict" ? -1 : 0) || b.weight - a.weight)
     .slice(0, 4)
     .map((a) => (a.state === "conflict" ? `Choose the correct ${AREA_NAME[a.key]} — your sources disagree.` : a.state === "found" ? `Review the ${AREA_NAME[a.key]} we found.` : NEXT_STEP[a.key]));
-  return { score, areas, nextSteps };
+  return { score, areas, nextSteps, catalog };
 }

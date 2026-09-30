@@ -83,6 +83,8 @@ export async function crawlWebsite(
     /** Called when a page is fetched — lets the pipeline update counters/timeline live. */
     onPage?: (page: CrawledPage) => Promise<void> | void;
     shouldStop?: () => Promise<boolean> | boolean;
+    /** Canonical URLs already read elsewhere in the job (e.g. a direct menu link) — not fetched again. */
+    exclude?: Set<string>;
   },
 ): Promise<CrawlOutcome> {
   const limits = { ...WEBSITE_LIMITS, ...options.limits };
@@ -123,7 +125,7 @@ export async function crawlWebsite(
     }
     if (!onSite(url)) return;
     const canonical = canonicalizeUrl(url);
-    if (!canonical || canonical === homeCanonical) return;
+    if (!canonical || canonical === homeCanonical || options.exclude?.has(canonical)) return;
     const existing = candidates.get(canonical);
     if (existing) {
       existing.depth = Math.min(existing.depth, depth);

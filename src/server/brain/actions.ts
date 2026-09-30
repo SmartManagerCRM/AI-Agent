@@ -6,6 +6,7 @@ import { z } from "zod";
 import { CURRENCY_EXPONENT } from "@/server/brain/discovery/extract";
 import { parsePlaceInput } from "@/server/brain/discovery/google-places";
 import { startDiscoveryJob } from "@/server/brain/discovery/jobs";
+import { MAX_DIRECT_MENU_URLS } from "@/server/brain/discovery/pipeline";
 import { parseCrawlUrl } from "@/server/brain/url-safety";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember, requireUser } from "@/server/tenant/context";
@@ -40,6 +41,7 @@ const discoverySchema = z.object({
   locale: z.string(),
   mapsInput: z.string().trim().max(2000).optional(),
   websiteUrl: z.string().trim().max(2000).optional(),
+  menuUrls: z.string().trim().max(5000).optional(),
 });
 
 export type DiscoveryStartState = { error?: string; jobId?: string } | undefined;
@@ -51,10 +53,23 @@ export async function startDiscoveryAction(_prev: DiscoveryStartState, formData:
     locale: formData.get("locale"),
     mapsInput: formData.get("mapsInput") || undefined,
     websiteUrl: formData.get("websiteUrl") || undefined,
+    menuUrls: formData.get("menuUrls") || undefined,
   });
   if (!parsed.success) return { error: "Check the links you entered." };
   const { mapsInput, websiteUrl } = parsed.data;
-  if (!mapsInput && !websiteUrl) return { error: "Add your Google Maps link, your website, or both." };
+  const menuUrls = (parsed.data.menuUrls ?? "")
+    .split(/[\s,]+/)
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (menuUrls.length > MAX_DIRECT_MENU_URLS) return { error: `Add up to ${MAX_DIRECT_MENU_URLS} menu links.` };
+  for (const link of menuUrls) {
+    try {
+      parseCrawlUrl(/^https?:\/\//i.test(link) ? link : `https://${link}`);
+    } catch (error) {
+      return { error: `${link}: ${error instanceof Error ? error.message : "not a valid link"}` };
+    }
+  }
+  if (!mapsInput && !websiteUrl && menuUrls.length === 0) return { error: "Add your Google Maps link, your website, or a menu link." };
   if (websiteUrl) {
     try {
       parseCrawlUrl(/^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`);
@@ -74,7 +89,7 @@ export async function startDiscoveryAction(_prev: DiscoveryStartState, formData:
   const result = await startDiscoveryJob(supabase, {
     tenantId: tenant.id,
     userId: user.id,
-    input: { mapsInput: mapsInput ?? null, websiteUrl: websiteUrl ?? null },
+    input: { mapsInput: mapsInput ?? null, websiteUrl: websiteUrl ?? null, menuUrls },
     trigger: (count ?? 0) === 0 ? "onboarding" : "manual",
   });
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);

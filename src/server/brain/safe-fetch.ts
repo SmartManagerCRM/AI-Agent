@@ -23,12 +23,30 @@ export type SafeFetchOptions = {
   /** Optional extra rule per hop (e.g. "stay on the business's own site"). */
   allowUrl?: (url: URL) => boolean;
   fetcher?: typeof fetch;
+  /** Return the raw bytes (images) instead of decoded text. */
+  binary?: boolean;
+  /** Extra request headers — only conditional-GET validators are passed through. */
+  conditional?: { etag?: string | null; lastModified?: string | null };
   /** SSRF check per hop; injectable only so tests can run against fakes. */
   assertTarget?: (url: URL) => Promise<void>;
 };
 
 export type SafeFetchResult =
-  | { ok: true; url: URL; status: number; contentType: string; body: string; bytes: number; truncated: boolean }
+  | {
+      ok: true;
+      url: URL;
+      status: number;
+      contentType: string;
+      body: string;
+      bytes: number;
+      truncated: boolean;
+      /** Present with `binary: true`. */
+      data?: Uint8Array;
+      /** 304 to a conditional request: the resource is unchanged and no body was sent. */
+      notModified?: boolean;
+      etag?: string | null;
+      lastModified?: string | null;
+    }
   | {
       ok: false;
       url: URL;
@@ -68,13 +86,22 @@ export async function safeFetch(input: URL, options: SafeFetchOptions = {}): Pro
       response = await fetcher(url, {
         redirect: "manual",
         signal,
-        headers: { "user-agent": CRAWLER_USER_AGENT, accept: accept.join(",") + ",*/*;q=0.1" },
+        headers: {
+          "user-agent": CRAWLER_USER_AGENT,
+          accept: accept.join(",") + ",*/*;q=0.1",
+          ...(options.conditional?.etag ? { "if-none-match": options.conditional.etag } : {}),
+          ...(options.conditional?.lastModified ? { "if-modified-since": options.conditional.lastModified } : {}),
+        },
       });
     } catch (error) {
       const timedOut = signal.aborted || (error instanceof Error && error.name === "TimeoutError");
       return { ok: false, url, reason: timedOut ? "timeout" : "network", message: timedOut ? "Timed out." : "Network error." };
     }
 
+    if (response.status === 304) {
+      await response.body?.cancel().catch(() => undefined);
+      return { ok: true, url, status: 304, contentType: "", body: "", bytes: 0, truncated: false, notModified: true, etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified") };
+    }
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       await response.body?.cancel().catch(() => undefined);
@@ -98,25 +125,21 @@ export async function safeFetch(input: URL, options: SafeFetchOptions = {}): Pro
       return { ok: false, url, reason: "unsupported_type", status: response.status, message: contentType || "no content type" };
     }
 
-    const { text, bytes, truncated } = await readCapped(response, maxBytes, contentType).catch(() => ({
-      text: null,
-      bytes: 0,
-      truncated: false,
-    }));
-    if (text === null) return { ok: false, url, reason: signal.aborted ? "timeout" : "network", message: "Body could not be read." };
-    return { ok: true, url, status: response.status, contentType, body: text, bytes, truncated };
+    const read = await readCapped(response, maxBytes).catch(() => null);
+    if (read === null) return { ok: false, url, reason: signal.aborted ? "timeout" : "network", message: "Body could not be read." };
+    const validators = { etag: response.headers.get("etag"), lastModified: response.headers.get("last-modified") };
+    if (options.binary) {
+      return { ok: true, url, status: response.status, contentType, body: "", bytes: read.bytes, truncated: read.truncated, data: read.data, ...validators };
+    }
+    return { ok: true, url, status: response.status, contentType, body: decode(read.data, contentType), bytes: read.bytes, truncated: read.truncated, ...validators };
   }
   return { ok: false, url, reason: "too_many_redirects", message: "Too many redirects." };
 }
 
-async function readCapped(
-  response: Response,
-  maxBytes: number,
-  contentType: string,
-): Promise<{ text: string; bytes: number; truncated: boolean }> {
+async function readCapped(response: Response, maxBytes: number): Promise<{ data: Uint8Array; bytes: number; truncated: boolean }> {
   const declared = Number(response.headers.get("content-length"));
   const reader = response.body?.getReader();
-  if (!reader) return { text: "", bytes: 0, truncated: false };
+  if (!reader) return { data: new Uint8Array(0), bytes: 0, truncated: false };
 
   const chunks: Uint8Array[] = [];
   let bytes = 0;
@@ -141,7 +164,7 @@ async function readCapped(
     merged.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return { text: decode(merged, contentType), bytes, truncated };
+  return { data: merged, bytes, truncated };
 }
 
 function decode(bytes: Uint8Array, contentType: string): string {

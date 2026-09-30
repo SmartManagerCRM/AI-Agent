@@ -1,7 +1,19 @@
 import { aiClassifyBusiness, aiExtractPage, AI_EXTRACTOR_VERSION, type AiContext, type AiPageFacts } from "./ai-extract";
 import { categoryForKey, classifyFromGoogle, classifyFromSchemaTypes, type BusinessCategory, type BusinessTypeGuess } from "./business-type";
 import { EXTRACTOR_VERSION, contentFingerprint, type PageExtraction } from "./extract";
-import { factsFromGoogle, factsFromWebsite, typeFact, FACTS_VERSION, type FactCandidate, type WebsitePageInput } from "./facts";
+import { crawlCatalog, CatalogBlockedError, type CatalogPage, type OrderingLink } from "./catalog";
+import {
+  factsFromCatalogPages,
+  factsFromGoogle,
+  factsFromMenuImages,
+  factsFromWebsite,
+  offeringKey,
+  typeFact,
+  FACTS_VERSION,
+  type CatalogPageInput,
+  type FactCandidate,
+  type WebsitePageInput,
+} from "./facts";
 import {
   fetchPlaceDetails,
   GOOGLE_ATTRIBUTION,
@@ -12,10 +24,15 @@ import {
   type PlaceDetails,
   type PlacesDeps,
 } from "./google-places";
+import { MENU_IMAGE_VERSION, processMenuImages, type CachedImage, type ImageOutcome, type MenuImageStats } from "./menu-images";
+import { withOcrEngine } from "./ocr";
+import { CATALOG_KINDS, classifyPage, kindFromUrl, type PageKind } from "./page-kind";
+import type { ExtractedImage } from "./page-media";
 import { computeReadiness, type Readiness } from "./readiness";
 import type { PageTopic } from "./source-router";
 import { canonicalizeUrl, crawlWebsite, type CrawledPage, type FetchPage } from "./website";
 import { loadModelConfigs, type SelectedModel } from "@/server/ai/router";
+import { safeFetch } from "@/server/brain/safe-fetch";
 import { parseCrawlUrl, UnsafeCrawlTargetError } from "@/server/brain/url-safety";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import type { Database, IngestionJobStatus, Json } from "@/types/database";
@@ -32,13 +49,24 @@ import type { Database, IngestionJobStatus, Json } from "@/types/database";
  * Failure isolation: Google and the website run independently; one
  * failing (or a single page failing) never loses the other's results.
  */
-export type IngestionInput = { mapsInput?: string | null; websiteUrl?: string | null };
+export type IngestionInput = {
+  mapsInput?: string | null;
+  websiteUrl?: string | null;
+  /** Direct menu / products / services / ordering links the owner gave — each is a primary source, read deeply. */
+  menuUrls?: string[] | null;
+};
+
+export const MAX_DIRECT_MENU_URLS = 5;
 
 export type PipelineDeps = {
   places?: PlacesDeps;
   fetchPage?: FetchPage;
   /** Model chain override (tests). */
   aiChain?: (kind: "fast" | "agent") => SelectedModel[];
+  /** Image downloader (tests). */
+  fetchImage?: FetchPage;
+  /** OCR override (tests); null disables OCR. */
+  ocr?: ((image: Buffer) => Promise<import("./ocr").OcrResult | null>) | null;
   now?: () => Date;
 };
 
@@ -79,6 +107,8 @@ class JobRun {
   private googleCalls = 0;
   private googleCostUsd = 0;
   private aiSkippedForBudget = 0;
+  private pagesFetched = 0;
+  private readonly startedAt = new Date().toISOString();
 
   constructor(
     private supabase: TypedSupabaseClient,
@@ -135,25 +165,40 @@ class JobRun {
     const explicitWebsite = input.websiteUrl?.trim() || null;
     let category = categoryForKey(tenant.business_type_key);
 
-    // Google and an explicitly given website run in parallel; a website found only through Google runs after it.
+    // Direct menu/catalog links are primary sources. A "website" that is
+    // really a deep menu link (/breakfast, /menu, /order, ...) is one too,
+    // and the site itself is then read from its homepage.
+    const menuUrls = directMenuUrls(input);
+    const websiteRoot = explicitWebsite ? websiteRootOf(explicitWebsite) : null;
+
+    // Google runs in parallel with everything else.
     const googleTask = mapsInput ? this.isolate("google", () => this.runGoogle(mapsInput, tenant as Tenant, ai)) : Promise.resolve(null);
-    const websiteTask = explicitWebsite ? this.isolate("website", () => this.runWebsite(explicitWebsite, category, ai)) : null;
+    const menus = menuUrls.length > 0 ? await this.isolate("menu", () => this.runMenus(menuUrls, category, ai)) : null;
+    const exclude = new Set(menus?.canonicals ?? []);
+    const websiteTask = websiteRoot ? this.isolate("website", () => this.runWebsite(websiteRoot, category, ai, exclude)) : null;
     const google = await googleTask;
     if (google?.guess) category = google.guess.category;
     let website = websiteTask ? await websiteTask : null;
-    const discoveredWebsite = !explicitWebsite ? (google?.place.website ?? tenant.website_url ?? null) : null;
+    const discoveredWebsite = !websiteRoot ? (google?.place.website ?? tenant.website_url ?? null) : null;
     if (!websiteTask && discoveredWebsite) {
       await this.event("discovering", "info", `Found the website ${discoveredWebsite}.`);
-      website = await this.isolate("website", () => this.runWebsite(discoveredWebsite, category, ai));
+      website = await this.isolate("website", () => this.runWebsite(discoveredWebsite, category, ai, exclude));
     }
-    if (!mapsInput && !explicitWebsite && !discoveredWebsite) {
-      await this.event("discovering", "warning", "No Google Maps link or website given — add your details manually, or connect a source.");
+    if (!mapsInput && !explicitWebsite && !discoveredWebsite && menuUrls.length === 0) {
+      await this.event("discovering", "warning", "No Google Maps link, website or menu link given — add your details manually, or connect a source.");
     }
     await this.checkCancelled();
+
+    // Menu images — from the direct menu pages, and from menu/catalog pages found on the website.
+    const imagePages = [...(menus?.imagePages ?? []), ...(website?.imagePages ?? [])];
+    const images = imagePages.length > 0 ? await this.isolate("menu_images", () => this.runMenuImages(imagePages, category, ai)) : null;
+    if (menus) await this.saveMenuMetrics(menus, images);
 
     // Normalize → validate → conflict check.
     await this.setStatus("normalizing");
     const facts: FactCandidate[] = [...(google?.facts ?? [])];
+    if (menus) facts.push(...factsFromCatalogPages(menus.catalogPages));
+    if (images) facts.push(...factsFromMenuImages(images.outcomes.flatMap((o) => o.items)));
     if (website) {
       facts.push(...factsFromWebsite(website.pages));
       if (!google?.guess) {
@@ -169,7 +214,13 @@ class JobRun {
     if (valid.length < facts.length) this.warnings.push(`${facts.length - valid.length} candidate(s) failed validation and were skipped.`);
 
     await this.setStatus("conflict_check");
-    const sourceIds = { google_business: google?.sourceId ?? null, website: website?.sourceId ?? null };
+    const sourceIds: Record<FactCandidate["source"], string | null> = {
+      google_business: google?.sourceId ?? null,
+      website: website?.sourceId ?? null,
+      online_menu: menus?.primarySourceId ?? null,
+      online_ordering: menus?.orderingSourceId ?? null,
+      image: menus?.primarySourceId ?? website?.sourceId ?? null,
+    };
     let created = 0;
     let unchanged = 0;
     let conflicts = 0;
@@ -204,8 +255,8 @@ class JobRun {
     );
 
     const readiness = await loadReadiness(this.supabase, this.tenantId);
-    const anySource = Boolean(google) || Boolean(website);
-    const final: IngestionJobStatus = !anySource && this.errors.length > 0 && (mapsInput || explicitWebsite)
+    const anySource = Boolean(google) || Boolean(website) || Boolean(menus);
+    const final: IngestionJobStatus = !anySource && this.errors.length > 0 && (mapsInput || explicitWebsite || menuUrls.length > 0)
       ? "failed"
       : this.aiSkippedForBudget > 0
         ? "paused"
@@ -224,7 +275,7 @@ class JobRun {
       completed_at: this.now().toISOString(),
       facts_proposed: created,
       conflicts_detected: conflicts,
-      sources_processed: Number(Boolean(google)) + Number(Boolean(website)),
+      sources_processed: Number(Boolean(google)) + Number(Boolean(website)) + (menus?.sourceCount ?? 0),
       readiness: readiness as unknown as Json,
       warnings: this.warnings as unknown as Json,
       errors: this.errors as unknown as Json,
@@ -291,7 +342,7 @@ class JobRun {
 
   // ── Website ───────────────────────────────────────────────────────────
 
-  private async runWebsite(rawUrl: string, category: BusinessCategory, ai: AiContext) {
+  private async runWebsite(rawUrl: string, category: BusinessCategory, ai: AiContext, exclude: Set<string> = new Set()) {
     const url = parseCrawlUrl(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
     const origin = canonicalizeUrl(url.origin)!;
     const sourceId = await this.upsertSource("website", origin, url.toString(), null);
@@ -307,10 +358,12 @@ class JobRun {
         fetchPage: this.deps.fetchPage,
         onPage: async () => {
           pagesFetched += 1;
-          await this.update({ pages_processed: pagesFetched });
+          await this.update({ pages_processed: this.pagesFetched + pagesFetched });
         },
         shouldStop: () => this.isCancelled(),
+        exclude,
       });
+      this.pagesFetched += pagesFetched;
     } catch (error) {
       const message = error instanceof Error ? error.message : "The website could not be read.";
       await this.supabase
@@ -380,7 +433,249 @@ class JobRun {
       .eq("id", sourceId);
 
     const pages: WebsitePageInput[] = docs.map((d) => ({ url: d.page.finalUrl, topic: d.page.topic, score: d.page.score, extraction: d.page.extraction, ai: d.aiCached }));
-    return { sourceId, pages };
+    // Menu/catalog pages on the website whose text holds few prices: their images are read too.
+    const imagePages = crawl.pages
+      .filter((p) => {
+        const kind = classifyPage(new URL(p.finalUrl), p.extraction, { linkText: p.linkText }).kind;
+        return CATALOG_KINDS.has(kind) && kind !== "ONLINE_ORDERING" && p.extraction.offerings.filter((o) => o.amount).length < 3 && p.extraction.images.length > 0;
+      })
+      .map((p) => ({ url: p.finalUrl, images: p.extraction.images, sourceId }));
+    return { sourceId, pages, imagePages };
+  }
+
+  // ── Direct menu / catalog links ──────────────────────────────────────
+
+  private async runMenus(urls: URL[], category: BusinessCategory, ai: AiContext) {
+    const catalogPages: CatalogPageInput[] = [];
+    const imagePages: { url: string; images: ExtractedImage[]; sourceId: string }[] = [];
+    const canonicals: string[] = [];
+    const perSource: MenuSourceSummary[] = [];
+    let primarySourceId: string | null = null;
+    let orderingSourceId: string | null = null;
+    let sourceCount = 0;
+
+    await this.setStatus("fetching");
+    for (const url of urls) {
+      await this.checkCancelled();
+      const canonical = canonicalizeUrl(url)!;
+      const sourceId = await this.upsertSource("online_menu", canonical, url.toString(), null);
+      primarySourceId ??= sourceId;
+      sourceCount += 1;
+      await this.supabase.from("business_sources").update({ status: "crawling", processing_status: "processing", error_message: null }).eq("id", sourceId);
+      await this.event("menu", "info", `Reading the menu link ${url.toString()} (primary source).`);
+
+      let crawl;
+      try {
+        crawl = await crawlCatalog(url, {
+          fetchPage: this.deps.fetchPage,
+          declared: "MENU",
+          exclude: new Set(canonicals),
+          shouldStop: () => this.isCancelled(),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "The menu page could not be read.";
+        await this.supabase
+          .from("business_sources")
+          .update({ status: "failed", processing_status: error instanceof CatalogBlockedError ? "blocked" : "failed", error_message: message.slice(0, 500), last_scanned_at: this.now().toISOString() })
+          .eq("id", sourceId);
+        this.errors.push({ step: "menu", message: message.slice(0, 300) });
+        await this.event("menu", "error", message.slice(0, 300));
+        continue;
+      }
+      this.pagesFetched += crawl.pages.length;
+      await this.update({ pages_processed: this.pagesFetched });
+      const related = crawl.pages.filter((p) => p.role === "related");
+      await this.event(
+        "menu",
+        "success",
+        `Menu page read (${crawl.direct.kind.toLowerCase().replace("_", " ")}): ${crawl.direct.extraction.images.length} image(s), ${crawl.direct.extraction.offerings.length} item(s) in text; ${related.length} related menu/catalog page(s).`,
+      );
+      for (const o of crawl.ordering) {
+        await this.event("menu", o.status === "read" ? "info" : "warning", o.status === "read" ? `Online ordering found and read: ${o.url}` : `Online ordering link found but not read: ${o.url} — ${o.reason}`);
+      }
+      if (crawl.skippedByRobots.length > 0) this.warnings.push(`${crawl.skippedByRobots.length} menu page(s) skipped as robots.txt asks.`);
+      for (const f of crawl.failed.slice(0, 5)) this.warnings.push(`Couldn't read ${f.url} (${f.reason}).`);
+
+      // Ordering pages are their own source (their prices can disagree with the menu's).
+      for (const page of crawl.pages.filter((p) => p.role === "ordering")) {
+        const id = await this.upsertSource("online_ordering", page.canonicalUrl, page.finalUrl, null);
+        orderingSourceId ??= id;
+        sourceCount += 1;
+        const at = this.now().toISOString();
+        await this.supabase
+          .from("business_sources")
+          .update({
+            status: "completed",
+            processing_status: "processed",
+            items_processed: 1,
+            last_fetched_at: at,
+            last_scanned_at: at,
+            last_processed_at: at,
+            extraction_status: "structured",
+            metrics: { kind: page.kind, products: page.extraction.offerings.length, found_via: url.toString() } as unknown as Json,
+          })
+          .eq("id", id);
+      }
+
+      const docs = await this.saveDocuments(sourceId, crawl.pages.map(asCrawledPage));
+      await this.update({ documents_processed: (await this.countDocs()) });
+      for (const page of crawl.pages) {
+        canonicals.push(page.canonicalUrl);
+        const doc = docs.find((d) => d.page.canonicalUrl === page.canonicalUrl);
+        let aiFacts = doc?.aiCached ?? null;
+        // Text-only menu pages that rules couldn't price are read by AI (images are handled separately).
+        const pricedInText = page.extraction.offerings.filter((o) => o.amount).length;
+        const hasImages = page.extraction.images.some((i) => !i.inChrome);
+        if (!aiFacts && doc && pricedInText < 2 && !hasImages && page.extraction.text.length > 300) {
+          const result = await aiExtractPage(ai, { documentId: doc.id, url: page.finalUrl, topic: "offerings", text: page.extraction.text, category });
+          if (result.status === "ok") {
+            aiFacts = result.value;
+            await this.supabase.from("brain_source_documents").update({ extraction: serializeExtraction(page.extraction, result.value, doc.hash) }).eq("id", doc.id);
+          }
+        }
+        catalogPages.push({ url: page.finalUrl, role: page.role, kind: page.kind, extraction: page.extraction, ai: aiFacts });
+        // The direct page's images are always inspected; related pages' when they are menu/catalog pages.
+        if (page.role !== "ordering" && (page.role === "direct" || CATALOG_KINDS.has(page.kind))) {
+          imagePages.push({ url: page.finalUrl, images: page.extraction.images, sourceId });
+        }
+      }
+      perSource.push({ sourceId, directUrl: url.toString(), directKind: crawl.direct.kind, related: related.map((p) => ({ url: p.finalUrl, kind: p.kind })), ordering: crawl.ordering, pages: crawl.pages });
+    }
+    if (primarySourceId === null) throw new Error("No menu link could be read.");
+    return { catalogPages, imagePages, canonicals, primarySourceId, orderingSourceId, sourceCount, perSource };
+  }
+
+  private async runMenuImages(pages: { url: string; images: ExtractedImage[]; sourceId: string }[], category: BusinessCategory, ai: AiContext) {
+    await this.setStatus("extracting");
+    const sourceByPage = new Map(pages.map((p) => [p.url, p.sourceId]));
+    const run = async (ocr: (image: Buffer) => Promise<import("./ocr").OcrResult | null>) =>
+      processMenuImages(pages, {
+        fetchImage: this.deps.fetchImage ?? this.deps.fetchPage ?? safeFetch,
+        ocr,
+        ai,
+        category,
+        shouldStop: () => this.isCancelled(),
+        cacheGet: (key) => this.imageCacheGet(key),
+        cachePut: (entry) => this.imageCachePut(entry, sourceByPage.get(entry.pageUrl) ?? pages[0].sourceId),
+      });
+    const result =
+      this.deps.ocr !== undefined
+        ? await run(this.deps.ocr ?? (async () => null))
+        : await withOcrEngine((engine) => run((image) => engine.recognize(image)));
+    const s = result.stats;
+    const items = result.outcomes.reduce((n, o) => n + o.items.length, 0);
+    await this.event(
+      "menu_images",
+      s.failed > 0 ? "warning" : "success",
+      `Menu images: ${s.imagesDetected} found, ${s.menuImages} look like menus — ${s.ocrOnly} read by OCR, ${s.vision} by the vision model, ${s.unchanged} unchanged; ${items} item(s).`,
+      { ...s, items },
+    );
+    if (result.outcomes.some((o) => o.status === "skipped_budget")) this.aiSkippedForBudget += result.outcomes.filter((o) => o.status === "skipped_budget").length;
+    for (const o of result.outcomes.filter((x) => x.status === "failed").slice(0, 5)) this.warnings.push(`Menu image not read: ${o.imageUrl} (${o.note ?? "error"}).`);
+    return result;
+  }
+
+  private async imageCacheGet(key: string): Promise<CachedImage | null> {
+    const { data } = await this.supabase
+      .from("brain_source_documents")
+      .select("content_hash, extraction_version, extraction")
+      .eq("tenant_id", this.tenantId)
+      .eq("canonical_url", `image:${key}`)
+      .maybeSingle();
+    const x = data?.extraction as { etag?: string | null; lastModified?: string | null; outcome?: ImageOutcome } | null;
+    if (!data || !x?.outcome) return null;
+    return { hash: data.content_hash ?? "", version: data.extraction_version ?? "", etag: x.etag ?? null, lastModified: x.lastModified ?? null, outcome: x.outcome };
+  }
+
+  private async imageCachePut(
+    entry: { key: string; imageUrl: string; pageUrl: string; hash: string | null; etag: string | null; lastModified: string | null; outcome: ImageOutcome },
+    sourceId: string,
+  ) {
+    const now = this.now().toISOString();
+    await this.supabase.from("brain_source_documents").upsert(
+      {
+        tenant_id: this.tenantId,
+        source_id: sourceId,
+        url: entry.imageUrl,
+        canonical_url: `image:${entry.key}`,
+        kind: "image",
+        topic: entry.outcome.class,
+        title: entry.pageUrl.slice(0, 300),
+        content_hash: entry.hash,
+        status: entry.outcome.status === "failed" ? "failed" : entry.outcome.status === "not_menu" ? "processed" : entry.outcome.status === "unchanged" ? "unchanged" : "processed",
+        extraction_version: MENU_IMAGE_VERSION,
+        extraction: { etag: entry.etag, lastModified: entry.lastModified, outcome: { ...entry.outcome, status: "processed" } } as unknown as Json,
+        error_message: entry.outcome.status === "failed" ? entry.outcome.note : null,
+        last_fetched_at: now,
+        last_processed_at: now,
+      },
+      { onConflict: "tenant_id,canonical_url" },
+    );
+  }
+
+  private async countDocs(): Promise<number> {
+    const { count } = await this.supabase
+      .from("brain_source_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", this.tenantId)
+      .gte("last_fetched_at", this.startedAt);
+    return count ?? 0;
+  }
+
+  /** What the owner sees on each menu source: images, products, categories, prices, descriptions, extraction methods. */
+  private async saveMenuMetrics(menus: NonNullable<Awaited<ReturnType<JobRun["runMenus"]>>>, images: { outcomes: ImageOutcome[]; stats: MenuImageStats } | null) {
+    const now = this.now().toISOString();
+    for (const src of menus.perSource) {
+      const pageUrls = new Set(src.pages.filter((p) => p.role !== "ordering").map((p) => p.finalUrl));
+      const outcomes = (images?.outcomes ?? []).filter((o) => pageUrls.has(o.pageUrl));
+      const htmlItems = src.pages.flatMap((p) => p.extraction.offerings.map((o) => ({ ...o, via: "html" as const })));
+      const imageItems = outcomes.flatMap((o) => o.items);
+      const cardItems = src.pages.flatMap((p) => p.extraction.cards.map((c) => ({ name: c.name, amount: null as string | null, category: c.category, description: c.description })));
+      const all = [...htmlItems.map((o) => ({ name: o.name, amount: o.amount, category: o.category, description: o.description })), ...cardItems, ...imageItems];
+      const byName = new Map<string, (typeof all)[number]>();
+      for (const item of all) {
+        const k = offeringKey(item.name);
+        const prev = byName.get(k);
+        if (!prev) byName.set(k, item);
+        else byName.set(k, { ...prev, amount: prev.amount ?? item.amount, description: prev.description ?? item.description, category: prev.category ?? item.category });
+      }
+      const products = [...byName.values()];
+      const metrics = {
+        kind: src.directKind,
+        direct_url: src.directUrl,
+        analyzed_at: now,
+        images_detected: src.pages.reduce((n, p) => n + (p.role === "ordering" ? 0 : p.extraction.images.length), 0),
+        menu_images: outcomes.length,
+        images_processed: outcomes.filter((o) => o.status === "processed" || o.status === "unchanged").length,
+        images_unchanged: outcomes.filter((o) => o.status === "unchanged").length,
+        images_failed: outcomes.filter((o) => o.status === "failed").length,
+        products: products.length,
+        categories: new Set(products.map((p) => p.category).filter(Boolean)).size,
+        prices: products.filter((p) => p.amount).length,
+        descriptions: products.filter((p) => p.description).length,
+        extraction: {
+          html: htmlItems.length > 0 || src.pages.length > 0,
+          ocr: outcomes.some((o) => o.method === "ocr"),
+          vision: outcomes.some((o) => o.method === "vision"),
+        },
+        related_pages: src.related,
+        ordering: src.ordering,
+      };
+      await this.supabase
+        .from("business_sources")
+        .update({
+          status: "completed",
+          processing_status: "processed",
+          items_processed: src.pages.length,
+          last_fetched_at: now,
+          last_scanned_at: now,
+          last_processed_at: now,
+          extraction_status: "structured",
+          extraction_version: MENU_IMAGE_VERSION,
+          metrics: metrics as unknown as Json,
+        })
+        .eq("id", src.sourceId);
+    }
   }
 
   private async saveDocuments(sourceId: string, pages: CrawledPage[]) {
@@ -432,7 +727,7 @@ class JobRun {
     return out;
   }
 
-  private async upsertSource(sourceType: "website" | "google_business", externalId: string, url: string | null, attribution: Record<string, unknown> | null): Promise<string> {
+  private async upsertSource(sourceType: "website" | "google_business" | "online_menu" | "online_ordering", externalId: string, url: string | null, attribution: Record<string, unknown> | null): Promise<string> {
     const { data: existing } = await this.supabase
       .from("business_sources")
       .select("id")
@@ -504,6 +799,69 @@ class JobRun {
 }
 
 // ── Helpers (pure) ──────────────────────────────────────────────────────
+
+type MenuSourceSummary = {
+  sourceId: string;
+  directUrl: string;
+  directKind: PageKind;
+  related: { url: string; kind: PageKind }[];
+  ordering: OrderingLink[];
+  pages: CatalogPage[];
+};
+
+function asCrawledPage(p: CatalogPage): CrawledPage {
+  return {
+    url: p.url,
+    finalUrl: p.finalUrl,
+    canonicalUrl: p.canonicalUrl,
+    depth: p.role === "direct" ? 0 : 1,
+    topic: p.role === "ordering" ? "ordering" : "offerings",
+    score: p.role === "direct" ? 100 : 80,
+    tier: "high",
+    linkText: p.linkText ?? undefined,
+    extraction: p.extraction,
+    truncated: p.truncated,
+  };
+}
+
+/** Menu links from the input, plus the website link itself when it is a deep menu/catalog link. */
+export function directMenuUrls(input: IngestionInput): URL[] {
+  const raw = [...(input.menuUrls ?? [])];
+  const site = input.websiteUrl?.trim();
+  if (site) {
+    try {
+      const u = new URL(/^https?:\/\//i.test(site) ? site : `https://${site}`);
+      if (u.pathname.length > 1 && CATALOG_KINDS.has(kindFromUrl(u).kind)) raw.unshift(u.toString());
+    } catch {
+      // validated elsewhere
+    }
+  }
+  const out: URL[] = [];
+  const seen = new Set<string>();
+  for (const r of raw) {
+    try {
+      const u = parseCrawlUrl(/^https?:\/\//i.test(r.trim()) ? r.trim() : `https://${r.trim()}`);
+      const key = canonicalizeUrl(u)!;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(u);
+    } catch {
+      // invalid links were rejected when the job was started
+    }
+    if (out.length >= MAX_DIRECT_MENU_URLS) break;
+  }
+  return out;
+}
+
+/** The site to crawl for business information: a deep menu link's own homepage. */
+export function websiteRootOf(raw: string): string {
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return u.pathname.length > 1 && CATALOG_KINDS.has(kindFromUrl(u).kind) ? u.origin + "/" : raw;
+  } catch {
+    return raw;
+  }
+}
 
 /** Whether a page has a gap that deterministic extraction left and AI might fill. */
 export function aiGap(topic: PageTopic, x: PageExtraction, pageCount: number): boolean {

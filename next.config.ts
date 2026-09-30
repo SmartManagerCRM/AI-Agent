@@ -47,6 +47,24 @@ const nextConfig: NextConfig = {
   // `PORT`/`HOSTNAME` from the environment, which is exactly the shape a
   // shared-hosting "startup file" expects. Has no effect on `next dev`.
   output: "standalone",
+  // Menu-image OCR (Business Discovery): tesseract.js runs its engine in a
+  // worker thread loaded from its own package files, so it must stay an
+  // external Node package (not bundled), and the standalone output must
+  // carry its WASM core and the bundled Arabic/English/French language data.
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
+  outputFileTracingIncludes: {
+    "/console/**": [
+      "./node_modules/tesseract.js/src/**/*",
+      "./node_modules/tesseract.js/package.json",
+      // The OCR worker thread's own dependencies (loaded by path, so not traced automatically).
+      "./node_modules/{bmp-js,is-url,node-fetch,regenerator-runtime,wasm-feature-detect,zlibjs,whatwg-url,tr46,webidl-conversions}/**/*",
+      "./node_modules/tesseract.js-core/*.js",
+      "./node_modules/tesseract.js-core/*.wasm",
+      "./node_modules/@tesseract.js-data/ara/4.0.0_best_int/*",
+      "./node_modules/@tesseract.js-data/eng/4.0.0_best_int/*",
+      "./node_modules/@tesseract.js-data/fra/4.0.0_best_int/*",
+    ],
+  },
   async headers() {
     return [
       { source: "/((?!widget/).*)", headers: securityHeaders },

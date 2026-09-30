@@ -23,7 +23,7 @@ import type { ExtractionMethod } from "@/types/database";
  */
 export const FACTS_VERSION = "facts-v1";
 
-export type FactSource = "google_business" | "website";
+export type FactSource = "google_business" | "website" | "online_menu" | "online_ordering" | "image";
 
 export type FactCandidate = {
   factKey: string;
@@ -53,15 +53,38 @@ export function describeHours(hours: OpeningHours): string {
     .join(" · ");
 }
 
-export function offeringKey(name: string): string {
-  const ascii = name
+/**
+ * Name normalization for matching the same product across sources:
+ * case, Latin accents, Arabic letter variants (أ/إ/آ → ا, ة → ه, ى → ي),
+ * diacritics, tatweel, the definite article "ال", and punctuation. The
+ * original name is always kept for display; only the key is normalized.
+ */
+export function normalizeProductName(name: string): string {
+  return name
+    .normalize("NFKC")
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, "")
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => (w.length > 4 && w.startsWith("ال") ? w.slice(2) : w))
+    .join(" ");
+}
+
+export function offeringKey(name: string): string {
+  const normalized = normalizeProductName(name);
+  const ascii = normalized
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
-  const hash = createHash("sha1").update(name.trim().toLowerCase().replace(/\s+/g, " ")).digest("hex").slice(0, 8);
+  const hash = createHash("sha1").update(normalized).digest("hex").slice(0, 8);
   return `offering:${ascii ? `${ascii}-` : ""}${hash}`;
 }
 
@@ -70,7 +93,9 @@ function shortHash(value: string): string {
 }
 
 function offeringDisplay(o: { name: string; amount: string | null; currency: string | null }): string {
-  return o.amount && o.currency ? `${o.name} — ${o.amount} ${o.currency}` : `${o.name} (price not stated)`;
+  if (o.amount && o.currency) return `${o.name} — ${o.amount} ${o.currency}`;
+  if (o.amount) return `${o.name} — ${o.amount} (currency not stated)`;
+  return `${o.name} (price not stated)`;
 }
 
 export function expiryFromNow(days: number, now = new Date()): string {
@@ -253,22 +278,130 @@ function offeringFact(
   confidence: number,
   method: ExtractionMethod,
   model: string | null,
+  source: FactSource = "website",
+  extra: Record<string, unknown> = {},
 ): FactCandidate {
+  const currency = o.amount ? o.currency : null;
   return {
     factKey: offeringKey(o.name),
     entryType: o.kind === "service" ? "service_candidate" : "product_candidate",
     content: {
-      normalized: { name: o.name, amount: o.amount, currency: o.amount ? o.currency : null },
+      normalized: { name: o.name, amount: o.amount, currency },
+      // Only the price is compared across sources: a source that shows the
+      // item without a price does not "disagree" with one that shows a price.
+      conflict_value: o.amount ? { amount: o.amount, currency } : null,
       display: offeringDisplay(o),
       description: o.description,
       category: o.category,
       source_url: url,
+      ...extra,
     },
-    source: "website",
+    source,
     confidence,
     method,
     model,
     critical: true,
     expiresAt: null,
   };
+}
+
+// ── Menu / catalog sources ───────────────────────────────────────────────
+
+export type CatalogPageInput = {
+  url: string;
+  role: "direct" | "related" | "ordering";
+  kind: string;
+  extraction: Pick<PageExtraction, "offerings"> & Partial<Pick<PageExtraction, "cards">>;
+  ai?: AiPageFacts | null;
+};
+
+/**
+ * Products from menu/catalog pages. Source priority is carried by source
+ * type and confidence: a verified online-ordering source (88/82) ranks
+ * above the direct menu page (85/80), which ranks above menu images
+ * (≤ 78) and ordinary website pages (70); AI-read text stays at 60.
+ */
+export function factsFromCatalogPages(pages: CatalogPageInput[]): FactCandidate[] {
+  const best = new Map<string, FactCandidate>();
+  const put = (f: FactCandidate) => {
+    const key = `${f.source}|${f.factKey}`;
+    const existing = best.get(key);
+    if (!existing || f.confidence > existing.confidence || (f.confidence === existing.confidence && !!(f.content.normalized as { amount?: string }).amount && !(existing.content.normalized as { amount?: string }).amount)) {
+      best.set(key, f);
+    }
+  };
+  for (const page of pages) {
+    const source: FactSource = page.role === "ordering" ? "online_ordering" : "online_menu";
+    const trace = { source_kind: page.role === "ordering" ? "ONLINE_ORDERING" : "MENU_PAGE", page_kind: page.kind, source_role: page.role };
+    for (const o of page.extraction.offerings) {
+      const structured = o.method === "structured_data";
+      const confidence = page.role === "ordering" ? (structured ? 88 : 82) : structured ? 85 : 80;
+      put(offeringFact(o, page.url, confidence, o.method, null, source, { ...trace, extraction: structured ? "STRUCTURED_DATA" : "HTML" }));
+    }
+    // Item cards on a menu/catalog page: product names (and descriptions) without prices.
+    const priced = new Set(page.extraction.offerings.map((o) => offeringKey(o.name)));
+    for (const c of page.extraction.cards ?? []) {
+      if (priced.has(offeringKey(c.name))) continue;
+      put(
+        offeringFact({ name: c.name, amount: null, currency: null, description: c.description, category: c.category, kind: "product" }, page.url, 70, "deterministic", null, source, {
+          ...trace,
+          extraction: "HTML_CARD",
+        }),
+      );
+    }
+    for (const o of page.ai?.offerings ?? []) {
+      put(offeringFact(o, page.url, o.amount ? 60 : 50, "ai", page.ai?.model || null, source, { ...trace, extraction: "AI_TEXT" }));
+    }
+  }
+  return [...best.values()];
+}
+
+/** Products read from menu images (OCR or vision), with the image they came from. */
+export function factsFromMenuImages(
+  items: {
+    name: string;
+    secondaryName: string | null;
+    amount: string | null;
+    currency: string | null;
+    category: string | null;
+    description: string | null;
+    variants: { name: string; amount: string | null }[];
+    modifiers: string[];
+    size: string | null;
+    ingredients: string[];
+    dietary: string[];
+    availability: string | null;
+    method: "ocr" | "vision";
+    model: string | null;
+    confidence: number;
+    imageUrl: string;
+    pageUrl: string;
+  }[],
+): FactCandidate[] {
+  const best = new Map<string, FactCandidate>();
+  for (const i of items) {
+    const fact = offeringFact(
+      { name: i.name, amount: i.amount, currency: i.currency, description: i.description, category: i.category, kind: "product" },
+      i.pageUrl,
+      i.confidence,
+      i.method,
+      i.model,
+      "image",
+      {
+        source_kind: "MENU_IMAGE",
+        source_image_url: i.imageUrl,
+        extraction: i.method === "vision" ? "VISION_OCR" : "OCR",
+        secondary_name: i.secondaryName,
+        variants: i.variants.length ? i.variants : undefined,
+        modifiers: i.modifiers.length ? i.modifiers : undefined,
+        size: i.size,
+        ingredients: i.ingredients.length ? i.ingredients : undefined,
+        dietary: i.dietary.length ? i.dietary : undefined,
+        availability: i.availability,
+      },
+    );
+    const existing = best.get(fact.factKey);
+    if (!existing || fact.confidence > existing.confidence) best.set(fact.factKey, fact);
+  }
+  return [...best.values()];
 }

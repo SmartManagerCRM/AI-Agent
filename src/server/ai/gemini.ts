@@ -71,7 +71,11 @@ async function geminiChat(input: ChatInput): Promise<AIProviderResult<ChatResult
   return { ok: true, value: parseGeminiResponse(data as GeminiResponse) };
 }
 
-type GeminiPart = { text?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
+type GeminiPart = {
+  text?: string;
+  functionCall?: { name: string; args?: Record<string, unknown> };
+  inlineData?: { mimeType: string; data: string };
+};
 type GeminiResponse = {
   candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[];
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
@@ -81,6 +85,7 @@ function toGeminiContent(message: AITurnMessage): { role: "user" | "model"; part
   const parts: GeminiPart[] = [];
   for (const block of message.content) {
     if (block.type === "text") parts.push({ text: block.text });
+    else if (block.type === "image") parts.push({ inlineData: { mimeType: block.mediaType, data: block.data } });
     else if (block.type === "tool_use") parts.push({ functionCall: { name: block.name, args: block.input } });
     else if (block.type === "tool_result") {
       parts.push({ text: `[tool result for ${block.toolUseId}]: ${block.content}` });

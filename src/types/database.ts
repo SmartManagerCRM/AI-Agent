@@ -23,7 +23,8 @@ export type SourceType =
   | "image"
   | "google_business"
   | "manual"
-  | "api";
+  | "api"
+  | "online_ordering";
 
 export type SourceProcessingStatus =
   | "new"
@@ -35,7 +36,7 @@ export type SourceProcessingStatus =
   | "blocked"
   | "requires_review";
 
-export type ExtractionMethod = "owner" | "structured_api" | "structured_data" | "deterministic" | "ai" | "inferred";
+export type ExtractionMethod = "owner" | "structured_api" | "structured_data" | "deterministic" | "ocr" | "vision" | "ai" | "inferred";
 
 export type IngestionJobStatus =
   | "created"
@@ -335,6 +336,8 @@ export type Database = {
           last_processed_at: string | null;
           extraction_version: string | null;
           attribution: Json | null;
+          /** Per-source analysis figures (menu sources: images, products, prices, ...). */
+          metrics: Json | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;

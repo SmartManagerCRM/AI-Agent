@@ -70,6 +70,7 @@ function toAnthropicMessage(message: AITurnMessage): Anthropic.MessageParam {
 
 function toAnthropicBlock(block: ContentBlock): Anthropic.ContentBlockParam {
   if (block.type === "text") return { type: "text", text: block.text };
+  if (block.type === "image") return { type: "image", source: { type: "base64", media_type: block.mediaType, data: block.data } };
   if (block.type === "tool_use") return { type: "tool_use", id: block.id, name: block.name, input: block.input };
   return { type: "tool_result", tool_use_id: block.toolUseId, content: block.content, is_error: block.isError };
 }

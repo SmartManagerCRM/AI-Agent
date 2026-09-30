@@ -35,7 +35,16 @@ const STATUS_STYLE: Record<string, string> = {
 /** Knowledge entries are large cards (content preview + actions) — 25 per page. */
 const PAGE_SIZE = 25;
 const LISTED_STATUSES = ["pending_review", "approved", "rejected"] as const;
-const RUNNING_JOB = ["created", "discovering", "fetching", "extracting", "ai_processing", "normalizing", "validating", "conflict_check"] as const;
+const RUNNING_JOB = [
+  "created",
+  "discovering",
+  "fetching",
+  "extracting",
+  "ai_processing",
+  "normalizing",
+  "validating",
+  "conflict_check",
+] as const;
 const JOB_STATUS_STYLE: Record<string, string> = {
   ready_for_review: "bg-amber-50 text-amber-700",
   completed: "bg-emerald-50 text-emerald-700",
@@ -43,7 +52,14 @@ const JOB_STATUS_STYLE: Record<string, string> = {
   paused: "bg-amber-50 text-amber-700",
   cancelled: "bg-slate-100 text-slate-500",
 };
-const SOURCE_LABEL: Record<string, string> = { google_business: "Google Maps listing", website: "Website" };
+const SOURCE_LABEL: Record<string, string> = {
+  google_business: "Google Maps listing",
+  website: "Website",
+  online_menu: "Menu source",
+  online_ordering: "Online ordering",
+  image: "Menu image",
+  manual: "You",
+};
 
 export default async function BusinessBrainPage({
   params,
@@ -97,7 +113,9 @@ export default async function BusinessBrainPage({
       countEntries().eq("status", "approved"),
       supabase
         .from("business_brain_entries")
-        .select("id, fact_key, entry_type, content, source_type, source_url, confidence_score, extraction_method, last_seen_at, expires_at")
+        .select(
+          "id, fact_key, entry_type, content, source_type, source_url, confidence_score, extraction_method, last_seen_at, expires_at",
+        )
         .eq("tenant_id", tenant.id)
         .eq("status", "pending_review")
         .not("fact_key", "is", null)
@@ -114,7 +132,11 @@ export default async function BusinessBrainPage({
     ]),
   );
   const activeJob = (jobs ?? []).find((j) => (RUNNING_JOB as readonly string[]).includes(j.status)) ?? null;
-  const lastInput = ((jobs ?? [])[0]?.input ?? {}) as { mapsInput?: string | null; websiteUrl?: string | null };
+  const lastInput = ((jobs ?? [])[0]?.input ?? {}) as {
+    mapsInput?: string | null;
+    websiteUrl?: string | null;
+    menuUrls?: string[] | null;
+  };
   const conflictKeys = new Set((conflicts ?? []).map((c) => c.entry_key));
 
   return (
@@ -131,7 +153,11 @@ export default async function BusinessBrainPage({
         slug={slug}
         locale={locale}
         placesAvailable={placesConfigured()}
-        defaults={{ mapsInput: lastInput.mapsInput ?? "", websiteUrl: lastInput.websiteUrl ?? tenant.website_url ?? "" }}
+        defaults={{
+          mapsInput: lastInput.mapsInput ?? "",
+          websiteUrl: lastInput.websiteUrl ?? tenant.website_url ?? "",
+          menuUrls: (lastInput.menuUrls ?? []).join("\n"),
+        }}
         activeJobId={activeJob?.id ?? null}
         hasRunBefore={(jobs ?? []).length > 0}
       />
@@ -157,7 +183,9 @@ export default async function BusinessBrainPage({
           <ul className="flex flex-col gap-3">
             {(conflicts ?? []).map((conflict) => (
               <li key={conflict.id} className="rounded-lg border border-amber-200 bg-white px-4 py-3 text-sm">
-                <p className="font-medium text-slate-900">{conflictTitle(conflict.entry_type, conflict.entry_key)}</p>
+                <p className="font-medium text-slate-900">
+                  {conflictTitle(conflict.entry_type, conflict.entry_key, conflict.conflicting_values[0]?.value)}
+                </p>
                 <p className="mt-1 text-xs text-slate-500">Two sources disagree. Pick which one is correct:</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {conflict.conflicting_values.map((value, index) => (
@@ -217,12 +245,19 @@ export default async function BusinessBrainPage({
                   </p>
                   <p className="text-slate-500">
                     <span className="capitalize">{source.processing_status.replace("_", " ")}</span>
-                    {source.source_type === "website" && source.items_processed ? ` · ${source.items_processed} pages` : ""}
-                    {source.last_scanned_at ? ` · checked ${new Date(source.last_scanned_at).toLocaleDateString(locale)}` : ""}
+                    {source.source_type === "website" && source.items_processed
+                      ? ` · ${source.items_processed} pages`
+                      : ""}
+                    {source.last_scanned_at
+                      ? ` · checked ${new Date(source.last_scanned_at).toLocaleDateString(locale)}`
+                      : ""}
                     {source.error_message ? ` · ${source.error_message}` : ""}
                   </p>
+                  {source.source_type === "online_menu" && source.metrics && (
+                    <MenuSourceSummary metrics={source.metrics as MenuMetrics} />
+                  )}
                 </div>
-                {source.source_type === "website" && (
+                {(source.source_type === "website" || source.source_type === "online_menu") && (
                   <div className="flex shrink-0 gap-2">
                     <form action={recrawlSourceAction}>
                       <input type="hidden" name="url" value={source.url ?? ""} />
@@ -255,8 +290,8 @@ export default async function BusinessBrainPage({
           </div>
         )}
         <p className="mt-3 text-xs text-slate-400">
-          Google Maps and your website are read today; PDF menus, images and social pages are planned as additional source
-          types — every one lands here the same way for you to review.
+          Google Maps and your website are read today; PDF menus, images and social pages are planned as additional
+          source types — every one lands here the same way for you to review.
         </p>
         {(jobs ?? []).length > 0 && (
           <div className="mt-4 border-t border-slate-100 pt-3">
@@ -264,7 +299,9 @@ export default async function BusinessBrainPage({
             <ul className="flex flex-col gap-1 text-xs text-slate-600">
               {(jobs ?? []).map((job) => (
                 <li key={job.id} className="flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 font-medium capitalize ${JOB_STATUS_STYLE[job.status] ?? "bg-blue-50 text-blue-700"}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-medium capitalize ${JOB_STATUS_STYLE[job.status] ?? "bg-blue-50 text-blue-700"}`}
+                  >
                     {job.status.replace(/_/g, " ")}
                   </span>
                   <span>{new Date(job.created_at).toLocaleString(locale)}</span>
@@ -371,6 +408,74 @@ export default async function BusinessBrainPage({
   );
 }
 
+type MenuMetrics = {
+  kind?: string;
+  images_detected?: number;
+  menu_images?: number;
+  images_processed?: number;
+  images_unchanged?: number;
+  images_failed?: number;
+  products?: number;
+  categories?: number;
+  prices?: number;
+  descriptions?: number;
+  extraction?: { html?: boolean; ocr?: boolean; vision?: boolean };
+  related_pages?: { url: string; kind: string }[];
+  ordering?: { url: string; status: string; reason: string | null }[];
+};
+
+/** Menu source analysis at a glance (spec: images detected/processed, products, categories, prices, descriptions, methods). */
+function MenuSourceSummary({ metrics: m }: { metrics: MenuMetrics }) {
+  const figures: [string, number | undefined][] = [
+    ["Images detected", m.images_detected],
+    ["Menu images processed", m.images_processed],
+    ["Products detected", m.products],
+    ["Categories", m.categories],
+    ["Prices", m.prices],
+    ["Descriptions", m.descriptions],
+  ];
+  const check = (on: boolean | undefined, label: string) => (
+    <span className={on ? "text-emerald-700" : "text-slate-400"}>
+      {on ? "✓" : "–"} {label}
+    </span>
+  );
+  return (
+    <div className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+      <p className="font-medium text-slate-800">
+        ✓ Direct link analyzed{m.kind ? ` · ${m.kind.replace(/_/g, " ").toLowerCase()}` : ""}
+      </p>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+        {figures.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-2">
+            <dt>{label}</dt>
+            <dd className="font-semibold text-slate-900">{value ?? 0}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 flex flex-wrap gap-3">
+        Extraction: {check(m.extraction?.html, "HTML")} {check(m.extraction?.ocr, "OCR")}{" "}
+        {check(m.extraction?.vision, "Vision")}
+        {m.images_unchanged ? <span>· {m.images_unchanged} image(s) unchanged, skipped</span> : null}
+        {m.images_failed ? <span className="text-amber-700">· {m.images_failed} image(s) not readable</span> : null}
+      </p>
+      {(m.related_pages?.length ?? 0) > 0 && (
+        <p className="mt-1">Related pages read: {m.related_pages!.map((r) => new URL(r.url).pathname).join(", ")}</p>
+      )}
+      {(m.ordering ?? []).map((o) => (
+        <p key={o.url} className={`mt-1 ${o.status === "read" ? "" : "text-amber-700"}`}>
+          Online ordering: {o.url} — {o.status === "read" ? "read" : `not read (${o.reason})`}
+        </p>
+      ))}
+      <a
+        href="#review-products"
+        className="mt-2 inline-block rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:bg-emerald-500"
+      >
+        Review products
+      </a>
+    </div>
+  );
+}
+
 const FACT_TITLE: Record<string, string> = {
   "hours.regular": "Opening hours",
   "hours.note": "Opening hours note",
@@ -379,8 +484,10 @@ const FACT_TITLE: Record<string, string> = {
   "location.address": "Address",
 };
 
-function conflictTitle(entryType: string, entryKey: string): string {
+function conflictTitle(entryType: string, entryKey: string, sample?: unknown): string {
   if (FACT_TITLE[entryKey]) return FACT_TITLE[entryKey];
+  const productName = (sample as { normalized?: { name?: unknown } } | undefined)?.normalized?.name;
+  if (entryKey.startsWith("offering:") && typeof productName === "string") return `${productName} — price`;
   const type = entryType.replace(/_/g, " ");
   const label = type.charAt(0).toUpperCase() + type.slice(1);
   if (entryKey.startsWith("offering:")) return `${label} — price`;

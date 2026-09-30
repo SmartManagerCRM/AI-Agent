@@ -42,6 +42,30 @@ export function ReadinessCard({ readiness }: { readiness: Readiness }) {
           </li>
         ))}
       </ul>
+      {readiness.catalog && readiness.catalog.found > 0 && (
+        <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-xs sm:grid-cols-4">
+          <div>
+            <dt className="text-slate-500">Products found</dt>
+            <dd className="text-base font-semibold text-slate-900">{readiness.catalog.found}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Pending review · confirmed</dt>
+            <dd className="text-base font-semibold text-slate-900">
+              {readiness.catalog.pending} · {readiness.catalog.confirmed}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">With price · missing price</dt>
+            <dd className="text-base font-semibold text-slate-900">
+              {readiness.catalog.priced} · {readiness.catalog.missingPrice}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">Price conflicts</dt>
+            <dd className={`text-base font-semibold ${readiness.catalog.conflicts ? "text-red-600" : "text-slate-900"}`}>{readiness.catalog.conflicts}</dd>
+          </div>
+        </dl>
+      )}
       {readiness.nextSteps.length > 0 && (
         <div className="mt-3 border-t border-slate-100 pt-3">
           <p className="text-xs font-medium text-slate-700">Next steps</p>

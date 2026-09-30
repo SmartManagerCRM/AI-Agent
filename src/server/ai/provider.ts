@@ -9,7 +9,9 @@
 export type ContentBlock =
   | { type: "text"; text: string }
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
-  | { type: "tool_result"; toolUseId: string; content: string; isError?: boolean };
+  | { type: "tool_result"; toolUseId: string; content: string; isError?: boolean }
+  /** Image input (base64) — used by Business Discovery's menu-image reading; the Agent's own turns never send one. */
+  | { type: "image"; mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string };
 
 export type AITurnMessage = { role: "user" | "assistant"; content: ContentBlock[] };
 

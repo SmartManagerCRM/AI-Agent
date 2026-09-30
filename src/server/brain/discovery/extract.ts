@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 
 import type { OpeningHours, WeekdayKey } from "./google-places";
+import { extractPageMedia, type ExtractedImage, type PageMedia } from "./page-media";
 
 /**
  * Deterministic website extraction — the "CODE FOR EXTRACTION" half of the
@@ -15,7 +16,7 @@ import type { OpeningHours, WeekdayKey } from "./google-places";
  * cheerio parses markup without executing scripts, so page content is
  * only ever data here.
  */
-export const EXTRACTOR_VERSION = "extract-v1";
+export const EXTRACTOR_VERSION = "extract-v2";
 
 export type ExtractedOffering = {
   name: string;
@@ -56,17 +57,26 @@ export type PageExtraction = {
   business: ExtractedBusinessSchema | null;
   offerings: ExtractedOffering[];
   faqs: { question: string; answer: string }[];
+  /** Section headings (menu categories on catalog pages). */
+  headings: string[];
+  /** Item cards (names/descriptions without prices) — used as products only on menu/catalog pages. */
+  cards: PageMedia["cards"];
+  og: PageMedia["og"];
+  /** Every image on the page — the input to menu-image triage (a menu is often only images). */
+  images: ExtractedImage[];
+  /** schema.org @type values present on the page (Menu, Product, Restaurant, ...). */
+  schemaTypes: string[];
 };
 
 const MAX_TEXT = 40_000;
 const MAX_OFFERINGS = 300;
 
 /** SHA-256 of what the page *says* (text + structured data), not its markup — cosmetic HTML changes don't count as changes. */
-export function contentFingerprint(extraction: Pick<PageExtraction, "text" | "business" | "offerings" | "faqs">): string {
+export function contentFingerprint(extraction: Pick<PageExtraction, "text" | "business" | "offerings" | "faqs"> & { images?: { key: string }[] }): string {
   return createHash("sha256")
     .update(extraction.text)
     .update("\u0000")
-    .update(JSON.stringify([extraction.business, extraction.offerings, extraction.faqs]))
+    .update(JSON.stringify([extraction.business, extraction.offerings, extraction.faqs, (extraction.images ?? []).map((i) => i.key)]))
     .digest("hex");
 }
 
@@ -142,6 +152,10 @@ export function extractFromHtml(html: string, pageUrl: string): PageExtraction {
     if (b.email && EMAIL.test(b.email.toLowerCase())) emails.add(b.email.toLowerCase());
   }
 
+  // Images, headings, OpenGraph and embedded catalog JSON — read before scripts are removed.
+  const media = extractPageMedia($, base);
+  if (offerings.length === 0) offerings.push(...media.embeddedOfferings);
+
   // Visible text — without scripts and page chrome.
   $("script, style, noscript, template, svg, iframe").remove();
   const detailsFaqs = faqsFromDetails($);
@@ -177,6 +191,11 @@ export function extractFromHtml(html: string, pageUrl: string): PageExtraction {
     business,
     offerings: dedupeOfferings(offerings).slice(0, MAX_OFFERINGS),
     faqs: [...faqs, ...detailsFaqs].slice(0, 50),
+    headings: media.headings,
+    cards: media.cards,
+    og: media.og,
+    images: media.images,
+    schemaTypes: [...new Set(flattenJsonLd(jsonLd).flatMap(typeList))].slice(0, 30),
   };
 }
 
@@ -449,7 +468,7 @@ function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
     }));
 }
 
-function cleanName(raw: string): string | null {
+export function cleanName(raw: string): string | null {
   const name = raw
     .replace(/[.…·_\-–—:|•]{2,}/g, " ")
     .replace(/^[\s\-–—:|•*]+|[\s\-–—:|•*]+$/g, "")

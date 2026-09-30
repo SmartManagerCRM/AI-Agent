@@ -15,17 +15,17 @@ type Props = {
   slug: string;
   locale: string;
   placesAvailable: boolean;
-  defaults: { mapsInput: string; websiteUrl: string };
+  defaults: { mapsInput: string; websiteUrl: string; menuUrls: string };
   activeJobId: string | null;
   hasRunBefore: boolean;
 };
 
-const STEPS = ["Your listing", "Your website", "Analyze", "Review", "Go live"];
+const STEPS = ["Your listing", "Website & menu", "Analyze", "Review", "Go live"];
 
 const STAGES: { status: string; label: string }[] = [
   { status: "discovering", label: "Finding your business" },
   { status: "fetching", label: "Reading your website" },
-  { status: "extracting", label: "Extracting details" },
+  { status: "extracting", label: "Extracting details and reading menu images" },
   { status: "ai_processing", label: "Reading what rules couldn't" },
   { status: "normalizing", label: "Organizing facts" },
   { status: "conflict_check", label: "Checking for conflicts" },
@@ -159,6 +159,20 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
               className="rounded-lg border border-slate-300 px-3 py-2"
             />
             <span className="text-xs text-slate-500">We read public pages only and respect your site&apos;s robots.txt.</span>
+          </label>
+          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+            <span className="font-medium text-slate-800">Menu, products or services links (optional)</span>
+            <textarea
+              name="menuUrls"
+              defaultValue={defaults.menuUrls}
+              rows={2}
+              placeholder={"https://yourbusiness.com/menu\nhttps://yourbusiness.com/breakfast"}
+              className="rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
+            />
+            <span className="text-xs text-slate-500">
+              One per line (up to 5). Each is read in depth — including menus that are images — together with related menu
+              and online-ordering pages on the same site. No need to upload the menu again.
+            </span>
           </label>
           <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
             <Button type="submit" disabled={pending}>

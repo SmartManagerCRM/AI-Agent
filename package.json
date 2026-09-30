@@ -24,6 +24,9 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/postcss": "^4",
+    "@tesseract.js-data/ara": "^1.0.0",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/fra": "^1.0.0",
     "@types/node": "^22.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -37,6 +40,7 @@
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4",
+    "tesseract.js": "^7.0.0",
     "typescript": "^5",
     "zod": "^4.6.5"
   },
