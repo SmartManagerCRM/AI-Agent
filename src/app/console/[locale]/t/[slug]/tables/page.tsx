@@ -2,9 +2,8 @@ import QRCode from "qrcode";
 
 import { CreateTableForm } from "@/components/commerce/create-table-form";
 import { EmptyState } from "@/components/console/empty-state";
-import { platformOrigin } from "@/lib/hosts";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { setTableActiveAction } from "@/server/commerce/table-actions";
-import { serverEnv } from "@/server/env";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -33,18 +32,11 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
   ]);
   const branchNameById = new Map((branches ?? []).map((b) => [b.id, b.name[locale] ?? Object.values(b.name)[0] ?? ""]));
 
-  const env = serverEnv();
-  const agentOrigin = platformOrigin(env.AGENT_SUBDOMAIN, {
-    rootDomain: env.PLATFORM_ROOT_DOMAIN,
-    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
-    agentSubdomain: env.AGENT_SUBDOMAIN,
-    scheme: env.PUBLIC_URL_SCHEME,
-    port: env.PUBLIC_URL_PORT,
-  });
+  const agentUrls = publicAgentUrls();
 
   const tablesWithQr = await Promise.all(
     (tables ?? []).map(async (t) => {
-      const url = `${agentOrigin}/${tenant.slug}?table=${t.id}`;
+      const url = `${agentUrls.agent(tenant.slug)}?table=${t.id}`;
       const qrDataUrl = await QRCode.toDataURL(url, { width: 160, margin: 1 });
       return { ...t, url, qrDataUrl };
     }),

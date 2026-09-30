@@ -66,7 +66,8 @@ Point all three at your Hostinger server's IP:
 |---|---|
 | `yourdomain.com` (root) | Platform marketing site |
 | `app.yourdomain.com` | Subscriber console + Super Admin |
-| `agent.yourdomain.com` | Standalone External Agent + embeddable widget |
+| `yourdomain.com/agent/<business-slug>` | Customer-facing External Agent (canonical; path-based, **no extra DNS record needed**) + embeddable widget at `/agent/widget/<slug>` |
+| `agent.yourdomain.com` *(optional, later)* | Only if you create and verify this DNS record — then set `AGENT_URL=https://agent.yourdomain.com` and every Agent link/QR/widget uses it |
 
 `PLATFORM_ROOT_DOMAIN`, `CONSOLE_SUBDOMAIN`, `AGENT_SUBDOMAIN` (below) must
 match whatever you actually configure here.
@@ -111,6 +112,7 @@ identically across all three Node.js applications:
 | `PLATFORM_ROOT_DOMAIN` | `yourdomain.com` |
 | `CONSOLE_SUBDOMAIN` | `app` |
 | `AGENT_SUBDOMAIN` | `agent` |
+| `AGENT_URL` | leave **unset** (Agent links are `https://yourdomain.com/agent/<slug>`). Set only after a dedicated Agent domain's DNS record exists and is verified. |
 | `CONSOLE_URL` | only if your plan can't serve `CONSOLE_SUBDOMAIN` as a real subdomain — set to your root domain (e.g. `https://yourdomain.com`, no subdomain) and every console/staff link uses that instead. Leave unset otherwise. |
 | `PUBLIC_URL_SCHEME` | `https` |
 | `PUBLIC_URL_PORT` | leave unset (only needed for a non-default port, e.g. local dev) |

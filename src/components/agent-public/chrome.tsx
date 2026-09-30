@@ -11,7 +11,12 @@ import { BackIcon, CartIcon, ChatIcon, ChevronDownIcon, GlobeIcon, GridIcon, Hom
 
 function switchLocale(next: Locale) {
   document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-  window.location.reload();
+  // On a locale-prefixed Agent URL (/ar/agent/<slug>) the path would outrank the cookie:
+  // go to the canonical, prefix-free URL instead of reloading.
+  const { pathname, search, hash } = window.location;
+  const canonical = pathname.replace(/^\/(?:en|ar|fr)(?=\/agent\/)/, "");
+  if (canonical !== pathname) window.location.assign(new URL(`${canonical}${search}${hash}`, window.location.origin).href);
+  else window.location.reload();
 }
 
 /**

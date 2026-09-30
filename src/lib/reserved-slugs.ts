@@ -16,6 +16,8 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set<string>([
   "invite",
   "t",
   "api",
+  // Path-based customer Agent: /agent/<business-slug>.
+  "agent",
   "admin",
   "www",
 ]);

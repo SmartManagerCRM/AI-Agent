@@ -2,6 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { z } from "zod";
 
 import { mockPaymentProvider, signMockWebhookPayload } from "@/server/payments/mock";
@@ -44,5 +46,6 @@ export async function simulateMockPaymentAction(formData: FormData): Promise<voi
     await processProviderWebhook(mockPaymentProvider, body, signature);
   }
 
-  redirect(`/pay/${parsed.data.paymentId}`);
+  // Absolute canonical Agent URL: correct whether the Agent was opened path-based (/agent/…) or on an Agent host.
+  redirect(publicAgentUrls().path(`/pay/${parsed.data.paymentId}`));
 }

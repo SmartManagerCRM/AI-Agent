@@ -40,6 +40,16 @@ const serverEnvSchema = z.object({
    * `CONSOLE_SUBDOMAIN` + `PLATFORM_ROOT_DOMAIN` as before.
    */
   CONSOLE_URL: z.url().optional(),
+  /**
+   * Public base URL of the customer-facing Agent, *only* once a dedicated
+   * Agent domain has a real, verified DNS record (e.g.
+   * `https://agent.smartmanager.me`); Agent links then become
+   * `${AGENT_URL}/<business-slug>`. Unset (the default), Agent links are
+   * path-based on the platform's own host — `https://<root>/agent/<slug>` —
+   * which always resolves because it is the same host as the app. Never
+   * set this to a hostname that doesn't resolve yet.
+   */
+  AGENT_URL: z.url().optional(),
   /** Supabase secret (service-role) key. Only used by narrowly scoped server services. */
   SUPABASE_SECRET_KEY: z.string().min(20).optional(),
   PUBLIC_URL_SCHEME: z.enum(["http", "https"]).default("https"),

@@ -1,12 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { platformOrigin } from "@/lib/hosts";
-import { serverEnv } from "@/server/env";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 
 /**
  * The embeddable widget's snippet (spec §45, Phase 10): a business pastes
  *
- *   <script src="https://agent.<root>/api/widget/embed?tenant=<slug>" async></script>
+ *   <script src="https://<root>/api/widget/embed?tenant=<slug>" async></script>
  *
  * into their own site. It lives under `/api/` (never rewritten or
  * locale-redirected by `src/proxy.ts`, same reasoning as the payment
@@ -27,15 +26,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse("// missing or invalid ?tenant=", { status: 400, headers: { "content-type": "application/javascript" } });
   }
 
-  const env = serverEnv();
-  const agentOrigin = platformOrigin(env.AGENT_SUBDOMAIN, {
-    rootDomain: env.PLATFORM_ROOT_DOMAIN,
-    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
-    agentSubdomain: env.AGENT_SUBDOMAIN,
-    scheme: env.PUBLIC_URL_SCHEME,
-    port: env.PUBLIC_URL_PORT,
-  });
-  const widgetUrl = `${agentOrigin}/widget/${slug}`;
+  const widgetUrl = publicAgentUrls().widget(slug);
 
   const script = `(function () {
   if (window.__smartManagerWidgetLoaded) return;

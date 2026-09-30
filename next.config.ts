@@ -67,8 +67,12 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
-      { source: "/((?!widget/).*)", headers: securityHeaders },
+      // The widget page is framed by businesses' own sites — on the Agent host (`/widget/…`)
+      // and path-based on the platform host (`/agent/widget/…`, optionally locale-prefixed).
+      { source: "/((?!widget/|agent/widget/|en/agent/widget/|ar/agent/widget/|fr/agent/widget/).*)", headers: securityHeaders },
       { source: "/widget/:slug*", headers: widgetHeaders },
+      { source: "/agent/widget/:slug*", headers: widgetHeaders },
+      { source: "/:locale(en|ar|fr)/agent/widget/:slug*", headers: widgetHeaders },
     ];
   },
 };

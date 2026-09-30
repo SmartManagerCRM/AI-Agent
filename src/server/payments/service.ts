@@ -1,5 +1,4 @@
-import { platformOrigin } from "@/lib/hosts";
-import { serverEnv } from "@/server/env-core";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 import { mockPaymentProvider } from "./mock";
@@ -112,13 +111,5 @@ export async function loadCredentials(supabase: TypedSupabaseClient, tenantId: s
 
 function toAbsoluteAgentUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
-  const env = serverEnv();
-  const origin = platformOrigin(env.AGENT_SUBDOMAIN, {
-    rootDomain: env.PLATFORM_ROOT_DOMAIN,
-    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
-    agentSubdomain: env.AGENT_SUBDOMAIN,
-    scheme: env.PUBLIC_URL_SCHEME,
-    port: env.PUBLIC_URL_PORT,
-  });
-  return `${origin}${path}`;
+  return publicAgentUrls().path(path);
 }

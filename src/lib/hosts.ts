@@ -7,10 +7,16 @@
  *                                        the subscriber console at
  *                                        `/<locale>/<business-slug>` and
  *                                        Super Admin at `/<locale>/super-admin`
- *   agent.ai-agent.smartmanager.me     → the standalone External Agent (addendum §14):
- *                                        agent.<root>/<tenant-slug>, no locale in the URL
- *                                        (deliberately — this is the shareable link/QR
- *                                        target, addendum §17)
+ *   ai-agent.smartmanager.me/agent/<business-slug>
+ *                                      → the customer-facing External Agent (addendum §14),
+ *                                        path-based on the platform host so it always
+ *                                        resolves; no locale in the canonical URL (it is
+ *                                        the shareable link/QR target, addendum §17).
+ *                                        `agentBaseUrl()` builds every Agent link.
+ *   <AGENT_SUBDOMAIN>.<root>           → the same Agent on a dedicated host — still
+ *                                        routed when a request arrives there, but
+ *                                        links only point at it through `AGENT_URL`,
+ *                                        once that DNS record really exists.
  *
  * The routing architecture spec is explicit that the console must never
  * live on its own subdomain (`app.<root>`, `admin.<root>`, …) — it answers
@@ -65,6 +71,32 @@ export function consoleOrigin(
 ): string {
   if (config.consoleUrl) return config.consoleUrl.replace(/\/+$/, "");
   return platformOrigin(config.consoleSubdomain, config);
+}
+
+/** Path prefix of the path-based Agent on the platform host. */
+export const AGENT_PATH_PREFIX = "/agent";
+
+/**
+ * Base URL every customer-facing Agent link is built on: `AGENT_URL` when a
+ * dedicated Agent domain is configured (and verified), otherwise the
+ * platform host's own `/agent` path — never a subdomain nobody has created
+ * a DNS record for. Links: `${base}/<slug>`, `${base}/widget/<slug>`,
+ * `${base}/pay/<paymentId>`.
+ */
+export function agentBaseUrl(config: HostConfig & { scheme: "http" | "https"; port?: string; agentUrl?: string }): string {
+  if (config.agentUrl) return config.agentUrl.replace(/\/+$/, "");
+  return `${platformOrigin(null, config)}${AGENT_PATH_PREFIX}`;
+}
+
+/**
+ * Splits a platform-host path into its Agent sub-path, or null when the
+ * path isn't an Agent path. `/agent/roasters` → `/roasters`;
+ * `/agent` → ``; `/agents` → null.
+ */
+export function agentSubpath(rest: string): string | null {
+  if (rest === AGENT_PATH_PREFIX) return "";
+  if (rest.startsWith(`${AGENT_PATH_PREFIX}/`)) return rest.slice(AGENT_PATH_PREFIX.length);
+  return null;
 }
 
 export function classifyHost(rawHost: string | null | undefined, config: HostConfig): SiteTarget {

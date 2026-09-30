@@ -1,10 +1,11 @@
+import QRCode from "qrcode";
+
 import { AgentSettingsForm } from "@/components/agent/agent-settings-form";
 import { AgentTestPanel } from "@/components/agent/agent-test-panel";
 import { Button } from "@/components/console/button";
 import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
-import { platformOrigin } from "@/lib/hosts";
-import { serverEnv } from "@/server/env";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { setDeploymentModeAction } from "@/server/business/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -28,17 +29,12 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
   const summary = stats?.[0];
   const agentSettings = settings?.agent ?? { active: false, assistant_name: null, greeting: null, tone: "friendly" };
 
-  const env = serverEnv();
-  const agentOrigin = platformOrigin(env.AGENT_SUBDOMAIN, {
-    rootDomain: env.PLATFORM_ROOT_DOMAIN,
-    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
-    agentSubdomain: env.AGENT_SUBDOMAIN,
-    scheme: env.PUBLIC_URL_SCHEME,
-    port: env.PUBLIC_URL_PORT,
-  });
-  const agentUrl = `${agentOrigin}/${tenant.slug}`;
-  const embedSnippet = `<script src="${agentOrigin}/api/widget/embed?tenant=${tenant.slug}" async></script>`;
-  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(agentUrl)}`;
+  // Canonical public Agent URL (path-based on the platform host unless a verified AGENT_URL is configured).
+  const agentUrls = publicAgentUrls();
+  const agentUrl = agentUrls.agent(tenant.slug);
+  const embedSnippet = `<script src="${agentUrls.embedScript(tenant.slug)}" async></script>`;
+  // Generated locally (same `qrcode` package as table QR codes) — encodes exactly the canonical URL.
+  const qrDataUrl = await QRCode.toDataURL(agentUrl, { width: 480, margin: 1 });
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
@@ -88,13 +84,28 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
           <h2 className="text-sm font-semibold text-slate-900">Your public Agent link</h2>
           <p className="mt-1 text-xs text-slate-500">No website needed — share this anywhere: Instagram bio, WhatsApp, a QR code, receipts.</p>
           <div className="mt-3 flex flex-wrap items-start gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element -- external QR generation service, not a project asset */}
-            <img src={qrSrc} alt="QR code linking to your Agent" width={112} height={112} className="rounded-lg border border-slate-200" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
+            <img src={qrDataUrl} alt="QR code linking to your Agent" width={112} height={112} className="rounded-lg border border-slate-200" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <a href={agentUrl} className="break-all text-sm text-emerald-700 underline">
-                {agentUrl}
-              </a>
-              <CopyButton value={agentUrl} />
+              <p className="break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-sm text-slate-800">{agentUrl}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={agentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+                >
+                  Open Agent
+                </a>
+                <CopyButton value={agentUrl} label="Copy URL" />
+                <a
+                  href={qrDataUrl}
+                  download={`${tenant.slug}-agent-qr.png`}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Download QR code
+                </a>
+              </div>
             </div>
           </div>
         </section>

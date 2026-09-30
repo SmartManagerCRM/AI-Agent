@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { resolveConsolePath } from "@/lib/console-routing";
 import { LOCALE_COOKIE, LOCALES, negotiateLocale, splitLocaleFromPath, type Locale } from "@/i18n/locales";
 import { publicEnv } from "@/lib/env.public";
-import { classifyHost } from "@/lib/hosts";
+import { agentSubpath, classifyHost } from "@/lib/hosts";
 import { serverEnv } from "@/server/env-core";
 import { timed } from "@/server/perf";
 
@@ -23,10 +23,14 @@ import { timed } from "@/server/perf";
  *   console     /en/t/roasters-cafe → /en/roasters-cafe            (redirect)
  *   console     /en/platform       → /en/super-admin               (redirect)
  *
- * The agent host is different on purpose (addendum §17: a clean,
- * shareable link) — `agent.<root>/<tenant-slug>` carries no locale segment
- * at all; locale is negotiated silently (cookie/Accept-Language) and the
- * URL is never redirected to inject one.
+ * The customer-facing Agent is path-based on the platform host —
+ * `<root>/agent/<tenant-slug>` (canonical) or `<root>/<locale>/agent/<slug>`
+ * — both rewritten to the internal `/agent/…` tree. The canonical form
+ * carries no locale segment (addendum §17: a clean, shareable link);
+ * locale is negotiated silently (cookie/Accept-Language) and the URL is
+ * never redirected to inject one. A dedicated Agent host
+ * (`AGENT_SUBDOMAIN`) is still routed the same way when requests arrive
+ * there, for a future verified DNS record (`AGENT_URL`).
  *
  * On a host that can't serve `CONSOLE_SUBDOMAIN` as a real subdomain
  * (`CONSOLE_URL`, see `env-core.ts`), the platform host also answers
@@ -49,8 +53,13 @@ const INTERNAL_HEADERS = ["x-site-area", "x-next-intl-locale", "x-nonce", "conte
  * `next.config.ts` used to split on, now folded into this single dynamic
  * source of truth.
  */
+/** The embeddable widget page, on the Agent host (`/widget/…`) or path-based (`/agent/widget/…`, optionally locale-prefixed). */
+export function isWidgetPath(pathname: string): boolean {
+  return /^(?:\/(?:en|ar|fr))?(?:\/agent)?\/widget\//.test(pathname);
+}
+
 function buildCsp(nonce: string, pathname: string): string {
-  const frameAncestors = pathname.startsWith("/widget/") ? "*" : "'none'";
+  const frameAncestors = isWidgetPath(pathname) ? "*" : "'none'";
   return `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; frame-ancestors ${frameAncestors}; base-uri 'self'; object-src 'none'`;
 }
 
@@ -126,11 +135,23 @@ export async function proxy(request: NextRequest) {
     return sameHostRedirect(request, `/${locale}${to}${search}`, env.PUBLIC_URL_SCHEME);
   };
 
+  // The customer-facing Agent, path-based on the platform host:
+  //   /agent/<slug>            (canonical, no locale — negotiated silently)
+  //   /<locale>/agent/<slug>   (explicit locale)
+  // Public, no session refresh: the Agent never uses a subscriber session.
+  const renderAgent = (subpath: string) => {
+    const locale = pathLocale ?? negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
+    requestHeaders.set("x-site-area", "agent");
+    return withCsp(rewrite(`/agent${subpath}`, locale), csp);
+  };
+
   switch (site.kind) {
     case "invalid":
       return withCsp(new NextResponse("Unknown host", { status: 400 }), csp);
 
     case "platform": {
+      const agentPath = agentSubpath(rest);
+      if (agentPath !== null) return renderAgent(agentPath);
       const decision = resolveConsolePath(rest);
       if (decision.kind === "redirect") return withCsp(redirectToCanonical(decision.to), csp);
       if (decision.kind === "rewrite") return withCsp(await renderConsole(decision.internalPath), csp);
@@ -141,6 +162,8 @@ export async function proxy(request: NextRequest) {
     }
 
     case "console": {
+      const agentPath = agentSubpath(rest);
+      if (agentPath !== null) return renderAgent(agentPath);
       const decision = resolveConsolePath(rest);
       if (decision.kind === "redirect") return withCsp(redirectToCanonical(decision.to), csp);
       return withCsp(await renderConsole(decision.kind === "rewrite" ? decision.internalPath : ""), csp);
