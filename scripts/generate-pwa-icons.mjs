@@ -24,6 +24,9 @@ const source = process.argv[2] ?? path.join(root, "assets/brand/smartmanager-ai-
 // show the head and shoulders; the favicon zooms in on the head alone.
 const HEAD = { left: 0.185, top: 0.075, size: 0.56 };
 const FACE = { left: 0.235, top: 0.115, size: 0.46 };
+// Android (maskable): full-bleed like the others, zoomed out just enough that
+// round and squircle launcher masks keep the whole head.
+const MASKABLE = { left: 0.155, top: 0.01, size: 0.62 };
 // The speech bubble beside the head (cleared so it doesn't poke in at the edge).
 const BUBBLE = { left: 0.695, bottom: 0.4 };
 
@@ -156,7 +159,7 @@ for (const n of [192, 256, 384, 512]) {
 await writeFile(path.join(icons, "icon-180.png"), await icon(logo, 180, { shape: "square", scale: 1 }));
 await writeFile(
   path.join(icons, "icon-512-maskable.png"),
-  await icon(logo, 512, { shape: "square", scale: 0.74, bottom: true }),
+  await icon(logo, 512, { shape: "square", scale: 1, crop: MASKABLE }),
 );
 
 const favicons = [];
