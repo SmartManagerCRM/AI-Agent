@@ -24,14 +24,14 @@ export type PlatformAgentRow = {
  */
 export async function getPlatformAgentRows(supabase: TypedSupabaseClient): Promise<PlatformAgentRow[]> {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  // AI budget columns are hidden from signed-in users (column grants); this
-  // page is Super Admin only (`requireSuperAdmin` before the call).
+  // AI budget and cost columns are hidden from signed-in users (column grants);
+  // this page is Super Admin only (`requireSuperAdmin` before the call).
   const admin = serviceClient();
   const [{ data: tenants }, { data: tenantSettings }, { data: interactions }, { data: platformSettings }] =
     await Promise.all([
       supabase.from("tenants").select("id, slug, business_name, deployment_mode").order("business_name"),
       admin.from("tenant_settings").select("tenant_id, agent, ai_monthly_budget_usd"),
-      supabase.from("agent_interactions").select("tenant_id, handled_by, estimated_cost_usd, request_type").gte("created_at", since),
+      admin.from("agent_interactions").select("tenant_id, handled_by, estimated_cost_usd, request_type").gte("created_at", since),
       admin.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
     ]);
 

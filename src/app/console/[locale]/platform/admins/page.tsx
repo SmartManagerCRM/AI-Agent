@@ -24,14 +24,14 @@ export default async function PlatformAdminsPage({ params }: { params: Promise<{
     <div className="flex max-w-3xl flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900">Admin Users</h1>
 
-      <KpiTile icon="shield" accent="emerald" label="Super Admins" value={String((admins ?? []).length)} trend={null} />
+      <KpiTile icon="shield" accent="emerald" label="Super Admins" value={String((admins ?? []).length)} trend={null} href={`/${locale}/super-admin/admins#team`} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a Super Admin</h2>
         <AddAdminForm locale={locale} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="team" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Team</h2>
         {(admins ?? []).length > 0 ? (
           <table className="w-full text-start text-sm">

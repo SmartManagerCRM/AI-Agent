@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { TypedSupabaseClient } from "@/server/supabase/clients";
+import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
  * Super Admin view of what Business Discovery costs — every number summed
@@ -46,14 +46,17 @@ const DAY = 86_400_000;
 
 export async function getIngestionEconomics(supabase: TypedSupabaseClient, days = 30): Promise<IngestionEconomics> {
   const since = new Date(Date.now() - days * DAY).toISOString();
+  // Cost columns are hidden from signed-in users (column grants); only the
+  // Super Admin Business Brain page calls this, after `requireSuperAdmin`.
+  const admin = serviceClient();
   const [{ data: jobs }, { data: calls }, { data: tenants }] = await Promise.all([
-    supabase
+    admin
       .from("brain_ingestion_jobs")
       .select("id, tenant_id, status, created_at, pages_processed, facts_proposed, conflicts_detected, google_calls, google_cost_usd, ai_calls, ai_cost_usd, budget_usd")
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(2000),
-    supabase
+    admin
       .from("agent_interactions")
       .select("tenant_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, success, latency_ms, purpose")
       .eq("request_type", "brain_ingestion")

@@ -107,19 +107,20 @@ export default async function ProductsPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="products" accent="emerald" label="Total products" value={String(productCount)} trend={null} />
-        <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount ?? 0)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount ?? 0)} trend={null} />
+        <KpiTile icon="products" accent="emerald" label="Total products" value={String(productCount)} trend={null} href={`/${locale}/${slug}/products#products`} />
+        <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
+        <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
         <KpiTile
           icon="branches"
           accent="purple"
           label="Categories"
           value={String((categories ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/products#categories`}
         />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="categories" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Categories</h2>
         <CreateCategoryForm tenantId={tenant.id} slug={slug} locale={locale} />
         <ul className="mt-3 flex flex-wrap gap-2 text-sm">
@@ -131,7 +132,7 @@ export default async function ProductsPage({
         </ul>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="products" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Products</h2>
         <CreateProductForm
           tenantId={tenant.id}

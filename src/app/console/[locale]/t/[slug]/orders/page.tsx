@@ -90,10 +90,10 @@ export default async function OrdersPage({
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="orders" accent="emerald" label="Total orders" value={String(counts.all)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Pending" value={String(counts.pending)} trend={null} />
-        <KpiTile icon="conversations" accent="blue" label="Active" value={String(counts.active)} trend={null} />
-        <KpiTile icon="customers" accent="purple" label="Completed" value={String(counts.completed)} trend={null} />
+        <KpiTile icon="orders" accent="emerald" label="Total orders" value={String(counts.all)} trend={null} href={`/${locale}/${slug}/orders`} />
+        <KpiTile icon="billing" accent="orange" label="Pending" value={String(counts.pending)} trend={null} href={`/${locale}/${slug}/orders?status=pending`} />
+        <KpiTile icon="conversations" accent="blue" label="Active" value={String(counts.active)} trend={null} href={`/${locale}/${slug}/orders?status=active`} />
+        <KpiTile icon="customers" accent="purple" label="Completed" value={String(counts.completed)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">

@@ -6,6 +6,7 @@ import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { loadGoLive } from "@/server/agent-public/go-live";
 import { publicAgentUrls } from "@/server/agent-public/urls";
+import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { setDeploymentModeAction } from "@/server/business/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -22,10 +23,11 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: settings }, { data: stats }, goLive] = await Promise.all([
+  const [{ data: settings }, { data: stats }, goLive, usage] = await Promise.all([
     supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.rpc("agent_interaction_stats", { p_tenant_id: tenant.id }),
     loadGoLive(supabase, tenant, locale),
+    loadSubscriberUsage(supabase, tenant.id),
   ]);
   const summary = stats?.[0];
   const agentSettings = settings?.agent ?? { active: false, assistant_name: null, greeting: null, tone: "friendly" };
@@ -40,9 +42,36 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiTile icon="conversations" accent="emerald" label="Interactions (30d)" value={String(summary?.total_interactions ?? 0)} trend={null} />
-        <KpiTile icon="analytics" accent="blue" label="Handled without AI" value={`${summary?.deterministic_pct ?? 0}%`} trend={null} />
-        <KpiTile icon="billing" accent="purple" label="AI cost (30d)" value={`$${Number(summary?.total_cost_usd ?? 0).toFixed(4)}`} trend={null} />
+        <KpiTile
+          icon="conversations"
+          accent="emerald"
+          label="Interactions (30d)"
+          value={String(summary?.total_interactions ?? 0)}
+          trend={null}
+          href={`/${locale}/${slug}/conversations`}
+        />
+        <KpiTile
+          icon="analytics"
+          accent="blue"
+          label="Handled without AI"
+          value={`${summary?.deterministic_pct ?? 0}%`}
+          trend={null}
+          href={`/${locale}/${slug}/analytics`}
+        />
+        <KpiTile
+          icon="customers"
+          accent="purple"
+          label={usage?.isTrial ? "Customer conversations (trial)" : "Customer conversations (this period)"}
+          value={
+            usage
+              ? usage.conversationLimit !== null
+                ? `${usage.conversationsUsed.toLocaleString(locale)} / ${usage.conversationLimit.toLocaleString(locale)}`
+                : usage.conversationsUsed.toLocaleString(locale)
+              : "—"
+          }
+          trend={null}
+          href={`/${locale}/${slug}/billing`}
+        />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">

@@ -19,8 +19,7 @@ export type TenantAnalytics = {
   totalSalesMinor: number;
   ordersCount: number;
   avgOrderValueMinor: number;
-  aiCostUsd: number;
-  trends: { sales: Trend; orders: Trend; avgOrderValue: Trend; aiCost: Trend };
+  trends: { sales: Trend; orders: Trend; avgOrderValue: Trend };
   salesSeries: { date: string; count: number }[];
   ordersByStatusGroup: { label: string; count: number; color: string }[];
   topProducts: { name: string; quantity: number; revenueMinor: number }[];
@@ -63,18 +62,15 @@ export async function getTenantAnalytics(
   const totalSalesMinor = Number(a?.current_sales_minor ?? 0);
   const ordersCount = Number(a?.current_orders ?? 0);
   const avgOrderValueMinor = ordersCount > 0 ? Math.round(totalSalesMinor / ordersCount) : 0;
-  const aiCostUsd = Number(a?.current_ai_cost_usd ?? 0);
 
   const priorSales = Number(a?.prior_sales_minor ?? 0);
   const priorOrdersCount = Number(a?.prior_orders ?? 0);
   const priorAov = priorOrdersCount > 0 ? priorSales / priorOrdersCount : 0;
-  const priorAiCost = Number(a?.prior_ai_cost_usd ?? 0);
 
   const trends = {
     sales: trend(totalSalesMinor, priorSales),
     orders: trend(ordersCount, priorOrdersCount),
     avgOrderValue: trend(avgOrderValueMinor, priorAov),
-    aiCost: trend(aiCostUsd, priorAiCost),
   };
 
   const now = Date.now();
@@ -115,7 +111,6 @@ export async function getTenantAnalytics(
     totalSalesMinor,
     ordersCount,
     avgOrderValueMinor,
-    aiCostUsd,
     trends,
     salesSeries,
     ordersByStatusGroup,

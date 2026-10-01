@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { UsageSettingsForm } from "@/components/platform/usage-limits-forms";
 import { loadPlatformUsage, loadUsageSettings } from "@/server/platform/usage";
-import { summarizePlatformUsage, USAGE_STATE_STYLE } from "@/server/platform/usage-analytics";
+import { summarizePlatformUsage, USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -15,13 +15,36 @@ const pct = (v: number | null) => (v === null ? "—" : `${v.toFixed(1)}%`);
  * in its own current billing period. AI dollar figures exist only here and
  * on the business page's Usage Limits tab — never in the subscriber console.
  */
-export default async function PlatformUsagePage({ params }: { params: Promise<{ locale: string }> }) {
+/** The count boxes' filters — the same predicates their counts use (`summarizePlatformUsage`). */
+const FILTERS: Record<string, { label: string; match: (r: SubscriberUsageRow) => boolean }> = {
+  near_conversation_limit: { label: "Near conversation limit", match: (r) => r.isPaid && r.usageState === "CONVERSATION_WARNING" },
+  near_ai_cost_cap: { label: "Near AI cost cap", match: (r) => r.isPaid && r.aiState === "warning" },
+  grace: { label: "In grace period", match: (r) => r.isPaid && r.conversationState === "grace" },
+  conversation_limited: { label: "Conversation-limited", match: (r) => r.isPaid && r.conversationState === "blocked" },
+  ai_cost_limited: { label: "AI-cost-limited", match: (r) => r.isPaid && r.aiState === "blocked" },
+  both_limits: { label: "Both limits reached", match: (r) => r.isPaid && r.usageState === "BOTH_LIMITS_REACHED" },
+  trials_ended: {
+    label: "Trials ended by a limit",
+    match: (r) => r.isTrial && (r.trialEndReason === "conversation_limit" || r.trialEndReason === "ai_cost_limit"),
+  },
+};
+
+export default async function PlatformUsagePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ filter?: string }>;
+}) {
   const { locale } = await params;
+  const { filter: filterParam } = await searchParams;
+  const filter = filterParam && FILTERS[filterParam] ? filterParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
   const [rows, settings] = await Promise.all([loadPlatformUsage(supabase), loadUsageSettings(supabase)]);
   const summary = summarizePlatformUsage(rows);
-  const sorted = [...rows].sort(
+  const base = `/${locale}/super-admin/usage`;
+  const sorted = [...(filter ? rows.filter(FILTERS[filter].match) : rows)].sort(
     (a, b) =>
       Math.max(b.conversationPercent ?? 0, b.aiCostPercent ?? 0) -
         Math.max(a.conversationPercent ?? 0, a.aiCostPercent ?? 0) || b.agentAiCost - a.agentAiCost,
@@ -44,6 +67,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           label="Agent AI cost (current periods)"
           value={usd(summary.totalAgentAiCost, 4)}
           trend={null}
+          href={`/${locale}/super-admin/usage#subscribers`}
         />
         <KpiTile
           icon="branches"
@@ -51,6 +75,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           label="Business Brain AI cost"
           value={usd(summary.totalBrainAiCost, 4)}
           trend={null}
+          href={`/${locale}/super-admin/business-brain`}
         />
         <KpiTile
           icon="conversations"
@@ -58,6 +83,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           label="Avg AI cost / conversation"
           value={usd(summary.avgCostPerConversation, 5)}
           trend={null}
+          href={`/${locale}/super-admin/usage#by-plan`}
         />
         <KpiTile
           icon="sparkle"
@@ -65,27 +91,35 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           label="Avg AI cost / AI response"
           value={usd(summary.avgCostPerAiResponse, 5)}
           trend={null}
+          href={`/${locale}/super-admin/ai-agents`}
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
-        {[
-          ["Near conversation limit", summary.approachingConversationLimit],
-          ["Near AI cost cap", summary.approachingAiCostLimit],
-          ["In grace period", summary.inGracePeriod],
-          ["Conversation-limited", summary.conversationLimited],
-          ["AI-cost-limited", summary.aiCostLimited],
-          ["Both limits reached", summary.bothLimited],
-          ["Trials ended by a limit", summary.trialsEndedByLimit],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-slate-200 bg-white p-3">
-            <p className="text-xs text-slate-500">{label}</p>
+        {(
+          [
+            ["near_conversation_limit", summary.approachingConversationLimit],
+            ["near_ai_cost_cap", summary.approachingAiCostLimit],
+            ["grace", summary.inGracePeriod],
+            ["conversation_limited", summary.conversationLimited],
+            ["ai_cost_limited", summary.aiCostLimited],
+            ["both_limits", summary.bothLimited],
+            ["trials_ended", summary.trialsEndedByLimit],
+          ] as const
+        ).map(([key, value]) => (
+          <Link
+            key={key}
+            href={`${base}?filter=${key}#subscribers`}
+            prefetch={false}
+            className={`rounded-xl border bg-white p-3 transition hover:border-emerald-300 hover:shadow-sm ${filter === key ? "border-emerald-400" : "border-slate-200"}`}
+          >
+            <p className="text-xs text-slate-500">{FILTERS[key].label}</p>
             <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="by-plan" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">By plan</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -117,8 +151,17 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Subscribers</h2>
+      <section id="subscribers" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-900">
+            Subscribers{filter ? ` — ${FILTERS[filter].label}` : ""}
+          </h2>
+          {filter && (
+            <Link href={`${base}#subscribers`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              Show all
+            </Link>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -172,7 +215,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-slate-400">
-                    No subscriptions yet.
+                    {filter ? "No subscribers match this filter." : "No subscriptions yet."}
                   </td>
                 </tr>
               )}

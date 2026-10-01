@@ -24,15 +24,16 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
       <h1 className="text-2xl font-semibold text-slate-900">Business Brain</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="branches" accent="emerald" label="Total sources" value={String(totalSources)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(totalPending)} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="Open conflicts" value={String(totalConflicts)} trend={null} />
+        <KpiTile icon="branches" accent="emerald" label="Total sources" value={String(totalSources)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
+        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(totalPending)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
+        <KpiTile icon="alert" accent="purple" label="Open conflicts" value={String(totalConflicts)} trend={null} href={`/${locale}/super-admin/business-brain#needs-attention`} />
         <KpiTile
           icon="building"
           accent="blue"
           label="Businesses with conflicts"
           value={String(withConflicts.length)}
           trend={null}
+          href={`/${locale}/super-admin/business-brain#needs-attention`}
         />
       </div>
 
@@ -43,17 +44,22 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
           {[
-            ["Analyses", String(economics.jobs)],
-            ["Google calls", `${economics.googleCalls} · ${usd(economics.googleCostUsd)}`],
-            ["AI calls", `${economics.aiCalls}${economics.aiFailedCalls ? ` (${economics.aiFailedCalls} failed)` : ""}`],
-            ["AI tokens", `${economics.aiInputTokens.toLocaleString()} in · ${economics.aiOutputTokens.toLocaleString()} out`],
-            ["AI cost", usd(economics.aiCostUsd)],
-            ["Avg / analysis", usd(economics.avgCostPerJobUsd)],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-slate-200 px-3 py-2">
+            ["Analyses", String(economics.jobs), "recent-analyses"],
+            ["Google calls", `${economics.googleCalls} · ${usd(economics.googleCostUsd)}`, "by-business"],
+            ["AI calls", `${economics.aiCalls}${economics.aiFailedCalls ? ` (${economics.aiFailedCalls} failed)` : ""}`, "by-model"],
+            ["AI tokens", `${economics.aiInputTokens.toLocaleString()} in · ${economics.aiOutputTokens.toLocaleString()} out`, "by-model"],
+            ["AI cost", usd(economics.aiCostUsd), "by-business"],
+            ["Avg / analysis", usd(economics.avgCostPerJobUsd), "recent-analyses"],
+          ].map(([label, value, anchor]) => (
+            <Link
+              key={label}
+              href={`/${locale}/super-admin/business-brain#${anchor}`}
+              prefetch={false}
+              className="rounded-lg border border-slate-200 px-3 py-2 transition hover:border-emerald-300 hover:shadow-sm"
+            >
               <p className="text-xs text-slate-500">{label}</p>
               <p className="font-medium text-slate-900">{value}</p>
-            </div>
+            </Link>
           ))}
         </div>
         <p className="mt-2 text-xs text-slate-500">
@@ -82,7 +88,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         )}
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <div className="overflow-x-auto">
+          <div id="by-model" className="scroll-mt-20 overflow-x-auto">
             <p className="mb-1 text-xs font-medium text-slate-700">By model</p>
             <table className="w-full text-start text-xs">
               <thead>
@@ -124,7 +130,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
               </p>
             )}
           </div>
-          <div className="overflow-x-auto">
+          <div id="by-business" className="scroll-mt-20 overflow-x-auto">
             <p className="mb-1 text-xs font-medium text-slate-700">By business</p>
             <table className="w-full text-start text-xs">
               <thead>
@@ -155,7 +161,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         </div>
 
         {economics.recentJobs.length > 0 && (
-          <div className="mt-4 overflow-x-auto">
+          <div id="recent-analyses" className="mt-4 scroll-mt-20 overflow-x-auto">
             <p className="mb-1 text-xs font-medium text-slate-700">Recent analyses</p>
             <table className="w-full text-start text-xs">
               <thead>
@@ -197,7 +203,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="needs-attention" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Needs attention (open conflicts)</h2>
         {withConflicts.length > 0 ? (
           <div className="overflow-x-auto">
@@ -240,7 +246,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         )}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="every-business" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Every business</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">

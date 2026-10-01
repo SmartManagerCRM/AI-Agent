@@ -1,7 +1,7 @@
 import "server-only";
 
 import { fallbackChain, orderModelConfigs, type ModelConfigRow } from "@/server/ai/router";
-import type { TypedSupabaseClient } from "@/server/supabase/clients";
+import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
 import {
   CHECK_TIMEOUT_MS,
@@ -34,7 +34,7 @@ export async function getSystemHealth(supabase: TypedSupabaseClient): Promise<He
   const [application, database, aiProvider, paymentGateway] = await Promise.all([
     checkApplication(),
     checkDatabase(supabase),
-    checkAiProvider(supabase),
+    checkAiProvider(),
     checkPaymentGateway(supabase),
   ]);
 
@@ -90,13 +90,14 @@ async function checkDatabase(supabase: TypedSupabaseClient): Promise<HealthCheck
   };
 }
 
-async function checkAiProvider(supabase: TypedSupabaseClient): Promise<HealthCheck> {
+async function checkAiProvider(): Promise<HealthCheck> {
   const start = performance.now();
   let rows: ModelConfigRow[] = [];
   let error: string | null = null;
   try {
-    // Same table and filter the gateway's router reads; only the few active model rows.
-    const result = await supabase
+    // Same read the gateway's router makes (service role: model prices are
+    // hidden from signed-in users); only the few active model rows.
+    const result = await serviceClient()
       .from("ai_model_configs")
       .select("*")
       .eq("is_active", true)

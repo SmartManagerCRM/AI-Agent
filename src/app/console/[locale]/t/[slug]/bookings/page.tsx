@@ -50,18 +50,20 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
           label="Services"
           value={String((services ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/bookings#services`}
         />
-        <KpiTile icon="orders" accent="blue" label="Upcoming bookings" value={String(upcoming.length)} trend={null} />
+        <KpiTile icon="orders" accent="blue" label="Upcoming bookings" value={String(upcoming.length)} trend={null} href={`/${locale}/${slug}/bookings#bookings`} />
         <KpiTile
           icon="audit"
           accent="purple"
           label="Total bookings"
           value={String((bookings ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/bookings#bookings`}
         />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="services" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bookable services</h2>
         <div className="mb-4">
           <CreateServiceForm tenantId={tenant.id} slug={slug} locale={locale} currencyExponent={exponent} />
@@ -95,7 +97,7 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="bookings" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bookings</h2>
         {(bookings ?? []).length > 0 ? (
           <div className="overflow-x-auto">

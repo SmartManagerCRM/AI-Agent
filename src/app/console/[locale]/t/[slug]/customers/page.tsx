@@ -55,19 +55,21 @@ export default async function CustomersPage({
           label="Total customers"
           value={String(totalCustomers)}
           trend={null}
+          href={`/${locale}/${slug}/customers#customers`}
         />
-        <KpiTile icon="orders" accent="blue" label="Repeat customers" value={String(repeatCustomers)} trend={null} />
-        <KpiTile icon="billing" accent="purple" label="Total spent" value={money(totalSpentMinor)} trend={null} />
+        <KpiTile icon="orders" accent="blue" label="Repeat customers" value={String(repeatCustomers)} trend={null} href={`/${locale}/${slug}/customers#customers`} />
+        <KpiTile icon="billing" accent="purple" label="Total spent" value={money(totalSpentMinor)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
         <KpiTile
           icon="analytics"
           accent="orange"
           label="Avg. spend / customer"
           value={money(totalCustomers > 0 ? Math.round(totalSpentMinor / totalCustomers) : 0)}
           trend={null}
+          href={`/${locale}/${slug}/analytics`}
         />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white">
+      <div id="customers" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white">
         {customers.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">

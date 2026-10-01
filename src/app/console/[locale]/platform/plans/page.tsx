@@ -59,13 +59,14 @@ export default async function PlansPage({
       <h1 className="text-2xl font-semibold text-slate-900">Subscriptions &amp; Plans</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="billing" accent="emerald" label="Total plans" value={String(all.length)} trend={null} />
+        <KpiTile icon="billing" accent="emerald" label="Total plans" value={String(all.length)} trend={null} href={`/${locale}/super-admin/plans#plans`} />
         <KpiTile
           icon="check"
           accent="blue"
           label="Active plans"
           value={String(all.filter((p) => p.is_active).length)}
           trend={null}
+          href={`/${locale}/super-admin/plans#plans`}
         />
         <KpiTile
           icon="crown"
@@ -73,6 +74,7 @@ export default async function PlansPage({
           label="Default plan"
           value={defaultPlan ? (defaultPlan.name.en ?? defaultPlan.key) : "—"}
           trend={null}
+          href={`/${locale}/super-admin/plans#plans`}
         />
         <KpiTile
           icon="customers"
@@ -80,6 +82,7 @@ export default async function PlansPage({
           label="Subscribed businesses"
           value={String((subscriptions ?? []).length)}
           trend={null}
+          href={`/${locale}/super-admin/subscribers`}
         />
       </div>
 
@@ -88,7 +91,7 @@ export default async function PlansPage({
         <PlanForm locale={locale} currencies={currencies ?? []} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="plans" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Plans</h2>
         <div className="flex flex-col gap-3">
           {all.map((p) => {

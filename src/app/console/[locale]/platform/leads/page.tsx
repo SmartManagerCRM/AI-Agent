@@ -13,27 +13,46 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 /** Cross-tenant view of every business's captured leads (Customer Agent Phase 2's capture_lead tool) — closes the "Leads" gap this rollout's Phase 8 report flagged as blocked. */
-export default async function PlatformLeadsPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function PlatformLeadsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ status?: string }>;
+}) {
   const { locale } = await params;
+  const { status: statusParam } = await searchParams;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
   const leads = await getPlatformLeads(supabase);
 
   const newCount = leads.filter((l) => l.status === "new").length;
   const qualifiedCount = leads.filter((l) => l.status === "qualified").length;
+  const statusFilter = statusParam && leads.some((l) => l.status === statusParam) ? statusParam : null;
+  const shown = statusFilter ? leads.filter((l) => l.status === statusFilter) : leads;
+  const base = `/${locale}/super-admin/leads`;
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(leads.length)} trend={null} />
-        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} />
-        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} />
+        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(leads.length)} trend={null} href={base} />
+        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} href={`${base}?status=new`} />
+        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} href={`${base}?status=qualified`} />
       </div>
 
+      {statusFilter && (
+        <p className="text-sm text-slate-600">
+          Showing <span className="font-medium capitalize">{statusFilter}</span> leads ·{" "}
+          <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
+            Show all
+          </Link>
+        </p>
+      )}
+
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        {leads.length > 0 ? (
+        {shown.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
@@ -46,7 +65,7 @@ export default async function PlatformLeadsPage({ params }: { params: Promise<{ 
                 </tr>
               </thead>
               <tbody>
-                {leads.map((lead) => (
+                {shown.map((lead) => (
                   <tr key={lead.id} className="border-b border-slate-100 last:border-0 align-top">
                     <td className="py-2">
                       <Link
@@ -73,7 +92,10 @@ export default async function PlatformLeadsPage({ params }: { params: Promise<{ 
             </table>
           </div>
         ) : (
-          <EmptyState title="No leads yet" description="Leads captured by any business's Agent will show up here." />
+          <EmptyState
+            title={statusFilter ? "No leads with this status" : "No leads yet"}
+            description={statusFilter ? "Try another filter." : "Leads captured by any business's Agent will show up here."}
+          />
         )}
       </section>
     </div>

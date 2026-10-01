@@ -68,6 +68,12 @@ export type PipelineDeps = {
   /** OCR override (tests); null disables OCR. */
   ocr?: ((image: Buffer) => Promise<import("./ocr").OcrResult | null>) | null;
   now?: () => Date;
+  /**
+   * Service-role client for the few columns signed-in users can't read (the
+   * job's budget, model token prices — hidden by column grants). Falls back
+   * to the job's own client (tests, local fixtures).
+   */
+  privileged?: TypedSupabaseClient;
 };
 
 const AI_TOPICS: ReadonlySet<PageTopic> = new Set(["offerings", "pricing", "policies", "ordering", "booking", "faq", "about", "hours", "home"]);
@@ -81,7 +87,7 @@ type Tenant = { id: string; business_type_key: string; default_language: string;
 class Cancelled extends Error {}
 
 export async function runIngestionJob(supabase: TypedSupabaseClient, jobId: string, deps: PipelineDeps = {}): Promise<void> {
-  const { data: job } = await supabase
+  const { data: job } = await (deps.privileged ?? supabase)
     .from("brain_ingestion_jobs")
     .select("id, tenant_id, status, input, budget_usd")
     .eq("id", jobId)
@@ -137,7 +143,7 @@ class JobRun {
     if (!tenant) throw new Error("Business not found.");
 
     const input = (this.job.input ?? {}) as IngestionInput;
-    const rows = await loadModelConfigs(this.supabase).catch(() => []);
+    const rows = await loadModelConfigs(this.deps.privileged ?? this.supabase).catch(() => []);
     const ai: AiContext = {
       rows,
       budget: this.budget,

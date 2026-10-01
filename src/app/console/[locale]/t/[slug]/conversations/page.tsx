@@ -73,9 +73,9 @@ export default async function ConversationsPage({
       <h1 className="text-2xl font-semibold text-slate-900">Conversations</h1>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiTile icon="conversations" accent="emerald" label="Total" value={String(counts.all)} trend={null} />
-        <KpiTile icon="orders" accent="blue" label="Open" value={String(counts.open)} trend={null} />
-        <KpiTile icon="billing" accent="purple" label="Closed" value={String(counts.closed)} trend={null} />
+        <KpiTile icon="conversations" accent="emerald" label="Total" value={String(counts.all)} trend={null} href={`/${locale}/${slug}/conversations`} />
+        <KpiTile icon="orders" accent="blue" label="Open" value={String(counts.open)} trend={null} href={`/${locale}/${slug}/conversations?status=open`} />
+        <KpiTile icon="billing" accent="purple" label="Closed" value={String(counts.closed)} trend={null} href={`/${locale}/${slug}/conversations?status=closed`} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { LineChart } from "@/components/charts/line-chart";
 import { DonutChart } from "@/components/console/donut-chart";
 import { EmptyState } from "@/components/console/empty-state";
@@ -50,10 +52,10 @@ export default async function AnalyticsPage({
         <Tabs tabs={tabs} />
       </div>
 
-      {analytics.ordersCount === 0 && analytics.aiCostUsd === 0 && analytics.funnel.conversationsStarted === 0 ? (
+      {analytics.ordersCount === 0 && analytics.funnel.conversationsStarted === 0 ? (
         <EmptyState
           title="No activity in this period"
-          description="Sales, orders, and AI usage will appear here once your Agent starts taking orders."
+          description="Sales, orders, and customer conversations will appear here once your Agent starts taking orders."
           actionLabel="Set up your Agent"
           actionHref={`/${locale}/${slug}/agent`}
         />
@@ -67,7 +69,8 @@ export default async function AnalyticsPage({
               value={money(analytics.totalSalesMinor)}
               trend={analytics.trends.sales}
               trendLabel={`vs prior ${rangeDays} days`}
-            />
+          href={`/${locale}/${slug}/orders?status=completed`}
+        />
             <KpiTile
               icon="orders"
               accent="blue"
@@ -75,7 +78,8 @@ export default async function AnalyticsPage({
               value={String(analytics.ordersCount)}
               trend={analytics.trends.orders}
               trendLabel={`vs prior ${rangeDays} days`}
-            />
+          href={`/${locale}/${slug}/orders`}
+        />
             <KpiTile
               icon="billing"
               accent="purple"
@@ -83,19 +87,24 @@ export default async function AnalyticsPage({
               value={money(analytics.avgOrderValueMinor)}
               trend={analytics.trends.avgOrderValue}
               trendLabel={`vs prior ${rangeDays} days`}
-            />
+          href={`/${locale}/${slug}/orders`}
+        />
             <KpiTile
-              icon="agent"
+              icon="conversations"
               accent="orange"
-              label="AI cost"
-              value={`$${analytics.aiCostUsd.toFixed(4)}`}
-              trend={analytics.trends.aiCost}
-              trendLabel={`vs prior ${rangeDays} days`}
+              label="Customer conversations"
+              value={String(analytics.funnel.conversationsStarted)}
+              trend={null}
+              href={`/${locale}/${slug}/conversations`}
             />
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Customer funnel</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <Link href={`/${locale}/${slug}/conversations`} prefetch={false} className="hover:underline">
+                Customer funnel
+              </Link>
+            </h2>
             <div className="flex flex-col gap-2">
               {(
                 [
@@ -129,7 +138,11 @@ export default async function AnalyticsPage({
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Sales over time</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <Link href={`/${locale}/${slug}/orders?status=completed`} prefetch={false} className="hover:underline">
+                Sales over time
+              </Link>
+            </h2>
             {analytics.totalSalesMinor > 0 ? (
               <LineChart
                 data={analytics.salesSeries}
@@ -143,7 +156,11 @@ export default async function AnalyticsPage({
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <section className="rounded-xl border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Orders by status</h2>
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                <Link href={`/${locale}/${slug}/orders`} prefetch={false} className="hover:underline">
+                  Orders by status
+                </Link>
+              </h2>
               {analytics.ordersCount > 0 ? (
                 <DonutChart segments={analytics.ordersByStatusGroup} centerLabel="Orders" />
               ) : (
@@ -152,7 +169,11 @@ export default async function AnalyticsPage({
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">How customers paid</h2>
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                <Link href={`/${locale}/${slug}/orders`} prefetch={false} className="hover:underline">
+                  How customers paid
+                </Link>
+              </h2>
               {analytics.paymentMethodBreakdown.length > 0 ? (
                 <DonutChart segments={analytics.paymentMethodBreakdown} centerLabel="Orders" />
               ) : (
@@ -162,7 +183,11 @@ export default async function AnalyticsPage({
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Top products</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">
+              <Link href={`/${locale}/${slug}/products`} prefetch={false} className="hover:underline">
+                Top products
+              </Link>
+            </h2>
             {analytics.topProducts.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-start text-sm">

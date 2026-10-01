@@ -43,7 +43,7 @@ export function AgentTestPanel({ tenantId, currency, slug, locale }: Props) {
             {state.result.handledBy === "deterministic"
               ? `Handled deterministically (rule: ${state.result.rule}) — no AI call made.`
               : "provider" in state.result
-                ? `Handled by AI: ${state.result.provider}/${state.result.model} · $${state.result.costUsd.toFixed(6)}${state.result.fallbackUsed ? " · fallback used" : ""}`
+                ? `Handled by AI: ${state.result.provider}/${state.result.model}${state.result.fallbackUsed ? " · fallback used" : ""}`
                 : `AI call failed: ${state.result.error}`}
           </p>
         </div>

@@ -19,8 +19,18 @@ const STATUS_STYLE: Record<string, string> = {
   closed: "bg-slate-100 text-slate-500",
 };
 
-export default async function BusinessesPage({ params }: { params: Promise<{ locale: string }> }) {
+const STATUS_FILTERS = ["onboarding", "active", "suspended", "closed"] as const;
+
+export default async function BusinessesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ status?: string }>;
+}) {
   const { locale } = await params;
+  const { status: statusParam } = await searchParams;
+  const statusFilter = (STATUS_FILTERS as readonly string[]).includes(statusParam ?? "") ? statusParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
 
@@ -45,6 +55,8 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
   const activeCount = all.filter((t) => t.status === "active").length;
   const onboardingCount = all.filter((t) => t.status === "onboarding").length;
   const suspendedCount = all.filter((t) => t.status === "suspended").length;
+  const shown = statusFilter ? all.filter((t) => t.status === statusFilter) : all;
+  const base = `/${locale}/super-admin/businesses`;
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
@@ -60,14 +72,23 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(all.length)} trend={null} />
-        <KpiTile icon="agent" accent="blue" label="Active" value={String(activeCount)} trend={null} />
-        <KpiTile icon="customers" accent="orange" label="Onboarding" value={String(onboardingCount)} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="Suspended" value={String(suspendedCount)} trend={null} />
+        <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(all.length)} trend={null} href={base} />
+        <KpiTile icon="agent" accent="blue" label="Active" value={String(activeCount)} trend={null} href={`${base}?status=active`} />
+        <KpiTile icon="customers" accent="orange" label="Onboarding" value={String(onboardingCount)} trend={null} href={`${base}?status=onboarding`} />
+        <KpiTile icon="alert" accent="purple" label="Suspended" value={String(suspendedCount)} trend={null} href={`${base}?status=suspended`} />
       </div>
 
+      {statusFilter && (
+        <p className="text-sm text-slate-600">
+          Showing <span className="font-medium capitalize">{statusFilter}</span> businesses ·{" "}
+          <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
+            Show all
+          </Link>
+        </p>
+      )}
+
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        {all.length > 0 ? (
+        {shown.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
@@ -82,7 +103,7 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
                 </tr>
               </thead>
               <tbody>
-                {all.map((tenant) => {
+                {shown.map((tenant) => {
                   const subscription = subByTenant.get(tenant.id);
                   const agentActive = agentActiveByTenant.get(tenant.id) ?? false;
                   return (
@@ -153,7 +174,10 @@ export default async function BusinessesPage({ params }: { params: Promise<{ loc
             </table>
           </div>
         ) : (
-          <EmptyState title="No businesses yet" description="Businesses will appear here as they sign up." />
+          <EmptyState
+            title={statusFilter ? "No businesses with this status" : "No businesses yet"}
+            description={statusFilter ? "Try another filter." : "Businesses will appear here as they sign up."}
+          />
         )}
       </section>
     </div>

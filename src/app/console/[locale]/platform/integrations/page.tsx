@@ -41,13 +41,13 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
       </p>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(rows.length)} trend={null} />
-        <KpiTile icon="billing" accent="blue" label="Moyasar connected" value={String(moyasarCount)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Tap connected" value={String(tapCount)} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="No gateway connected" value={String(noneCount)} trend={null} />
+        <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(rows.length)} trend={null} href={`/${locale}/super-admin/businesses`} />
+        <KpiTile icon="billing" accent="blue" label="Moyasar connected" value={String(moyasarCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
+        <KpiTile icon="billing" accent="orange" label="Tap connected" value={String(tapCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
+        <KpiTile icon="alert" accent="purple" label="No gateway connected" value={String(noneCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="gateways" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">

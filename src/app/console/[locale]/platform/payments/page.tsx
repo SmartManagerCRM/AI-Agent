@@ -71,6 +71,7 @@ export default async function PaymentsPage({
           label="Total revenue"
           value={money(summary.totalRevenueMinor, summary.currency)}
           trend={null}
+          href={`/${locale}/super-admin/payments?status=succeeded`}
         />
         <KpiTile
           icon="analytics"
@@ -78,9 +79,10 @@ export default async function PaymentsPage({
           label="MRR estimate"
           value={money(summary.mrrMinor, summary.currency)}
           trend={null}
+          href={`/${locale}/super-admin/subscribers?status=active`}
         />
-        <KpiTile icon="check" accent="orange" label="Succeeded" value={String(summary.succeededCount)} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="Failed" value={String(summary.failedCount)} trend={null} />
+        <KpiTile icon="check" accent="orange" label="Succeeded" value={String(summary.succeededCount)} trend={null} href={`/${locale}/super-admin/payments?status=succeeded`} />
+        <KpiTile icon="alert" accent="purple" label="Failed" value={String(summary.failedCount)} trend={null} href={`/${locale}/super-admin/payments?status=failed`} />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">

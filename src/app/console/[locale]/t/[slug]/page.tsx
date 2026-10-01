@@ -54,6 +54,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           label={t("dashboard.kpiSales")}
           value={money(stats.totalSalesMinor)}
           trend={stats.trends.sales}
+          href={`/${locale}/${slug}/analytics`}
         />
         <KpiTile
           icon="billing"
@@ -61,6 +62,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           label={t("dashboard.kpiOrders")}
           value={String(stats.ordersCount)}
           trend={stats.trends.orders}
+          href={`/${locale}/${slug}/orders`}
         />
         <KpiTile
           icon="customers"
@@ -68,6 +70,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           label={t("dashboard.kpiCustomers")}
           value={String(stats.customersCount)}
           trend={stats.trends.customers}
+          href={`/${locale}/${slug}/customers`}
         />
         <KpiTile
           icon="analytics"
@@ -75,12 +78,17 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           label={t("dashboard.kpiAov")}
           value={money(stats.avgOrderValueMinor)}
           trend={stats.trends.avgOrderValue}
+          href={`/${locale}/${slug}/analytics`}
         />
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900">{t("dashboard.salesOverview")}</h2>
+          <h2 className="text-sm font-semibold text-slate-900">
+            <Link href={`/${locale}/${slug}/analytics`} prefetch={false} className="hover:underline">
+              {t("dashboard.salesOverview")}
+            </Link>
+          </h2>
           <p className="mb-3 text-xs text-slate-500">{t("dashboard.salesOverviewSubtitle")}</p>
           {stats.ordersCount > 0 ? (
             <LineChart
@@ -98,7 +106,11 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           )}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("dashboard.ordersByStatus")}</h2>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <Link href={`/${locale}/${slug}/orders`} prefetch={false} className="hover:underline">
+              {t("dashboard.ordersByStatus")}
+            </Link>
+          </h2>
           {stats.ordersCount > 0 ? (
             <DonutChart segments={stats.ordersByStatusGroup} centerLabel={t("dashboard.kpiOrders")} />
           ) : (

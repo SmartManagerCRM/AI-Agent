@@ -21,13 +21,13 @@ export default async function AiAgentsPage({ params }: { params: Promise<{ local
       <h1 className="text-2xl font-semibold text-slate-900">AI Agents</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="agent" accent="emerald" label="Total businesses" value={String(rows.length)} trend={null} />
-        <KpiTile icon="check" accent="blue" label="Agent active" value={String(activeCount)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Cost (30d)" value={`$${totalCost30d.toFixed(2)}`} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="At/over budget" value={String(overBudget)} trend={null} />
+        <KpiTile icon="agent" accent="emerald" label="Total businesses" value={String(rows.length)} trend={null} href={`/${locale}/super-admin/businesses`} />
+        <KpiTile icon="check" accent="blue" label="Agent active" value={String(activeCount)} trend={null} href={`/${locale}/super-admin/ai-agents#agents`} />
+        <KpiTile icon="billing" accent="orange" label="Cost (30d)" value={`$${totalCost30d.toFixed(2)}`} trend={null} href={`/${locale}/super-admin/usage`} />
+        <KpiTile icon="alert" accent="purple" label="At/over budget" value={String(overBudget)} trend={null} href={`/${locale}/super-admin/usage`} />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="agents" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">
             <thead>

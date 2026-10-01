@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { createUserClient } from "@/server/supabase/clients";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
 const LEVEL_STYLE: Record<string, string> = {
@@ -17,11 +17,13 @@ export default async function IngestionJobPage({ params }: { params: Promise<{ l
   await requireSuperAdmin(locale);
   if (!/^[0-9a-f-]{36}$/i.test(jobId)) notFound();
   const supabase = await createUserClient();
+  // Cost columns are hidden from signed-in users (column grants) — Super Admin checked above.
+  const admin = serviceClient();
 
   const [{ data: job }, { data: events }, { data: calls }] = await Promise.all([
-    supabase.from("brain_ingestion_jobs").select("*").eq("id", jobId).maybeSingle(),
+    admin.from("brain_ingestion_jobs").select("*").eq("id", jobId).maybeSingle(),
     supabase.from("brain_ingestion_events").select("id, at, step, level, message, data").eq("job_id", jobId).order("id"),
-    supabase
+    admin
       .from("agent_interactions")
       .select("created_at, purpose, provider, model, input_tokens, output_tokens, estimated_cost_usd, latency_ms, success, error_message")
       .eq("ingestion_job_id", jobId)

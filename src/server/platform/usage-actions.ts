@@ -91,6 +91,7 @@ export async function setSubscriberUsageOverridesAction(
   if (error) return "VALIDATION_ERROR: could not save the overrides — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/super-admin/businesses/${parsed.data.slug}`);
+  revalidatePath(`/${parsed.data.locale}/super-admin/subscribers/${parsed.data.slug}`);
   revalidatePath(`/${parsed.data.locale}/super-admin/usage`);
   return reset ? "Reset to plan defaults." : "Overrides saved.";
 }

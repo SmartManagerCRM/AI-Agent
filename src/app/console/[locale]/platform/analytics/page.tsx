@@ -39,13 +39,14 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
       </p>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <KpiTile icon="alert" accent="purple" label="Churn rate" value={`${analytics.churnRatePct}%`} trend={null} />
+        <KpiTile icon="alert" accent="purple" label="Churn rate" value={`${analytics.churnRatePct}%`} trend={null} href={`/${locale}/super-admin/subscribers?status=canceled`} />
         <KpiTile
           icon="check"
           accent="emerald"
           label="Retention rate"
           value={`${analytics.retentionRatePct}%`}
           trend={null}
+          href={`/${locale}/super-admin/subscribers?status=active`}
         />
         <KpiTile
           icon="billing"
@@ -55,6 +56,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
             analytics.arpuCurrency ? formatMoney(analytics.arpuMinor, analytics.arpuCurrency, exponent, locale) : "—"
           }
           trend={null}
+          href={`/${locale}/super-admin/payments`}
         />
       </div>
 

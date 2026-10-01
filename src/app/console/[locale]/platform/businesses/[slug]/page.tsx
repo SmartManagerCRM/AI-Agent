@@ -91,6 +91,13 @@ export default async function BusinessDetailPage({
           >
             {detail.tenant.status}
           </span>
+          <Link
+            href={`/${locale}/super-admin/subscribers/${slug}`}
+            prefetch={false}
+            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+          >
+            Edit subscriber
+          </Link>
           {activeGrant ? (
             <div className="flex items-center gap-2">
               <Link
@@ -129,28 +136,31 @@ export default async function BusinessDetailPage({
       {tab === "overview" && (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiTile icon="orders" accent="emerald" label="Orders" value={String(detail.ordersCount)} trend={null} />
+            <KpiTile icon="orders" accent="emerald" label="Orders" value={String(detail.ordersCount)} trend={null} href={`${baseHref}?tab=orders`} />
             <KpiTile
               icon="conversations"
               accent="blue"
               label="Conversations"
               value={String(detail.conversationsCount)}
               trend={null}
-            />
+          href={`${baseHref}?tab=agent`}
+        />
             <KpiTile
               icon="agent"
               accent="emerald"
               label="Agent"
               value={detail.agent.active ? "Active" : "Inactive"}
               trend={null}
-            />
+          href={`${baseHref}?tab=agent`}
+        />
             <KpiTile
               icon="billing"
               accent="orange"
               label="Total paid"
               value={money(detail.paymentSummary.totalPaidMinor, detail.paymentSummary.currency)}
               trend={null}
-            />
+          href={`${baseHref}?tab=billing`}
+        />
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
@@ -188,28 +198,32 @@ export default async function BusinessDetailPage({
               label="Sources"
               value={String(detail.brain.sourceCount)}
               trend={null}
-            />
+          href={`${baseHref}?tab=brain`}
+        />
             <KpiTile
               icon="billing"
               accent="orange"
               label="Pending review"
               value={String(detail.brain.pendingReview)}
               trend={null}
-            />
+          href={`${baseHref}?tab=brain`}
+        />
             <KpiTile
               icon="orders"
               accent="blue"
               label="Approved entries"
               value={String(detail.brain.approvedEntries)}
               trend={null}
-            />
+          href={`${baseHref}?tab=brain`}
+        />
             <KpiTile
               icon="alert"
               accent="purple"
               label="Open conflicts"
               value={String(detail.brain.openConflicts)}
               trend={null}
-            />
+          href={`${baseHref}?tab=brain`}
+        />
           </div>
           {detail.brain.sourceCount === 0 && detail.brain.approvedEntries === 0 && (
             <EmptyState
@@ -228,28 +242,32 @@ export default async function BusinessDetailPage({
             label="Status"
             value={detail.agent.active ? "Active" : "Inactive"}
             trend={null}
-          />
+          href={`/${locale}/super-admin/subscribers/${slug}`}
+        />
           <KpiTile
             icon="conversations"
             accent="blue"
             label="Interactions (30d)"
             value={String(detail.agent.interactions30d)}
             trend={null}
-          />
+          href={`${baseHref}?tab=agent`}
+        />
           <KpiTile
             icon="analytics"
             accent="purple"
             label="Handled without AI"
             value={`${detail.agent.deterministicPct}%`}
             trend={null}
-          />
+          href={`${baseHref}?tab=agent`}
+        />
           <KpiTile
             icon="billing"
             accent="orange"
             label="AI cost (30d)"
             value={`$${detail.agent.costUsd30d.toFixed(4)}`}
             trend={null}
-          />
+          href={`${baseHref}?tab=usage`}
+        />
         </div>
       )}
 

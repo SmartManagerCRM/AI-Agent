@@ -172,20 +172,21 @@ export default async function BusinessBrainPage({
       <GoLivePanel state={goLive} slug={slug} locale={locale} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="branches" accent="emerald" label="Sources" value={String((sources ?? []).length)} trend={null} />
-        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(pendingCount ?? 0)} trend={null} />
-        <KpiTile icon="orders" accent="blue" label="Approved entries" value={String(approvedCount ?? 0)} trend={null} />
+        <KpiTile icon="branches" accent="emerald" label="Sources" value={String((sources ?? []).length)} trend={null} href={`/${locale}/${slug}/brain#sources`} />
+        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(pendingCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
+        <KpiTile icon="orders" accent="blue" label="Approved entries" value={String(approvedCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
         <KpiTile
           icon="conversations"
           accent="purple"
           label="Open conflicts"
           value={String((conflicts ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/brain#conflicts`}
         />
       </div>
 
       {(conflicts ?? []).length > 0 && (
-        <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+        <section id="conflicts" className="scroll-mt-20 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
           <h2 className="mb-3 text-sm font-semibold text-amber-900">Conflicts to resolve</h2>
           <ul className="flex flex-col gap-3">
             {(conflicts ?? []).map((conflict) => (
@@ -236,7 +237,7 @@ export default async function BusinessBrainPage({
         currency={tenant.currency}
       />
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="sources" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Sources</h2>
         {(sources ?? []).length > 0 ? (
           <ul className="mt-3 flex flex-col gap-2">
@@ -329,7 +330,7 @@ export default async function BusinessBrainPage({
         <CreateEntryForm tenantId={tenant.id} slug={slug} locale={locale} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="knowledge" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Knowledge entries</h2>
         {(entries ?? []).length > 0 ? (
           <ul className="flex flex-col gap-3">

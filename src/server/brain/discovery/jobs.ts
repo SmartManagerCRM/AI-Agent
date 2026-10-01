@@ -3,7 +3,7 @@ import "server-only";
 import { after } from "next/server";
 
 import { runIngestionJob, STALE_JOB_MINUTES, type IngestionInput } from "./pipeline";
-import type { TypedSupabaseClient } from "@/server/supabase/clients";
+import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 import type { IngestionJobStatus, Json } from "@/types/database";
 
 /** Abuse/cost guard: analyses a business may start per rolling 24 hours. */
@@ -60,6 +60,7 @@ export async function startDiscoveryJob(
     .single();
   if (error || !job) return { ok: false, error: "Could not start the analysis." };
 
-  after(() => runIngestionJob(supabase, job.id));
+  // The service role reads only what signed-in users can't (budget, model prices); every write stays the owner's.
+  after(() => runIngestionJob(supabase, job.id, { privileged: serviceClient() }));
   return { ok: true, jobId: job.id };
 }

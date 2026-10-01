@@ -224,7 +224,8 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   if (usage.blocked) return limitedResult(usage.blocked);
 
   const kind = input.kind ?? "fast";
-  const rows = await loadModelConfigs(supabase);
+  // Model prices are hidden from signed-in users (column grants); the console preview runs as one.
+  const rows = await loadModelConfigs(serviceClient());
   const chain = fallbackChain(rows, kind);
 
   if (chain.length === 0) {

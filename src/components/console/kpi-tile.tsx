@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Icon, type NavIconKey, NAV_ICON_PATHS } from "@/components/console/icons";
 import type { Trend } from "@/server/tenant/dashboard-stats";
 
@@ -16,6 +18,7 @@ export function KpiTile({
   value,
   trend,
   trendLabel = "vs prior 30 days",
+  href,
 }: {
   icon: NavIconKey;
   accent: keyof typeof ICON_BG;
@@ -24,9 +27,11 @@ export function KpiTile({
   trend: Trend;
   /** Text after the percentage — defaults to the Dashboard's fixed 30-day comparison. */
   trendLabel?: string;
+  /** The page this figure comes from — the whole card links there. */
+  href?: string;
 }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+  const body = (
+    <>
       <div className="flex items-center gap-3">
         <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${ICON_BG[accent]}`}>
           <Icon path={NAV_ICON_PATHS[icon]} size={18} />
@@ -39,6 +44,16 @@ export function KpiTile({
           {trend.direction === "up" ? "↑" : "↓"} {trend.pct}% {trendLabel}
         </p>
       )}
-    </div>
+    </>
+  );
+  if (!href) return <div className="rounded-xl border border-slate-200 bg-white p-4">{body}</div>;
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="block rounded-xl border border-slate-200 bg-white p-4 transition hover:border-emerald-300 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500"
+    >
+      {body}
+    </Link>
   );
 }

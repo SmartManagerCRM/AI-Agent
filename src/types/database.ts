@@ -956,6 +956,37 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      admin_update_business: {
+        Args: {
+          p_tenant_id: string;
+          p_name_locale: string;
+          p_business_name: string;
+          p_business_type_key: string;
+          p_status: string;
+          p_contact_email: string | null;
+          p_contact_phone: string | null;
+          p_website_url: string | null;
+          p_country: string | null;
+          p_city: string | null;
+          p_timezone: string;
+          p_default_language: string;
+          p_deployment_mode: string;
+          p_owner_full_name: string | null;
+          p_owner_phone: string | null;
+        };
+        Returns: undefined;
+      };
+      admin_update_subscription: {
+        Args: {
+          p_tenant_id: string;
+          p_plan_key: string;
+          p_status: string;
+          p_trial_ends_at: string;
+          p_current_period_start: string | null;
+          p_current_period_end: string | null;
+        };
+        Returns: undefined;
+      };
       tenant_usage_summary: {
         Args: { p_tenant_id: string };
         Returns: Json;

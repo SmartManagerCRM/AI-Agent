@@ -62,7 +62,11 @@ const testMessageSchema = z.object({
   message: z.string().trim().min(1).max(1000),
 });
 
-export type TestAgentState = { message: string; result: GatewayResult } | { message: string; error: string } | undefined;
+/** What the console preview may show a subscriber: the reply and how it was handled — never its AI cost. */
+export type PreviewResult = DistributiveOmit<GatewayResult, "costUsd" | "cart">;
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+
+export type TestAgentState = { message: string; result: PreviewResult } | { message: string; error: string } | undefined;
 
 /**
  * Runs one message through the Agent Gateway from the console — the
@@ -92,5 +96,7 @@ export async function testAgentMessageAction(_prevState: TestAgentState, formDat
   });
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
-  return { message: parsed.data.message, result };
+  // Stripped here, on the server: the cost must not reach the browser at all.
+  const { costUsd: _cost, cart: _cart, ...preview } = result as GatewayResult & { costUsd?: number; cart?: unknown };
+  return { message: parsed.data.message, result: preview as PreviewResult };
 }

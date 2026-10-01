@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { formatMoney } from "@/lib/money";
@@ -13,8 +15,18 @@ const STATUS_STYLE: Record<string, string> = {
   no_plan: "bg-slate-100 text-slate-500",
 };
 
-export default async function SubscribersPage({ params }: { params: Promise<{ locale: string }> }) {
+const STATUS_FILTERS = ["active", "trialing", "past_due", "canceled", "no_plan"] as const;
+
+export default async function SubscribersPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ status?: string }>;
+}) {
   const { locale } = await params;
+  const { status: statusParam } = await searchParams;
+  const statusFilter = (STATUS_FILTERS as readonly string[]).includes(statusParam ?? "") ? statusParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
 
@@ -27,6 +39,8 @@ export default async function SubscribersPage({ params }: { params: Promise<{ lo
   const activeCount = subscribers.filter((s) => s.status === "active").length;
   const trialCount = subscribers.filter((s) => s.status === "trialing").length;
   const pastDueCount = subscribers.filter((s) => s.status === "past_due").length;
+  const shown = statusFilter ? subscribers.filter((s) => s.status === statusFilter) : subscribers;
+  const base = `/${locale}/super-admin/subscribers`;
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
@@ -48,14 +62,45 @@ export default async function SubscribersPage({ params }: { params: Promise<{ lo
           label="Total subscribers"
           value={String(subscribers.length)}
           trend={null}
+          href={base}
         />
-        <KpiTile icon="billing" accent="blue" label="Active" value={String(activeCount)} trend={null} />
-        <KpiTile icon="agent" accent="orange" label="Trialing" value={String(trialCount)} trend={null} />
-        <KpiTile icon="alert" accent="purple" label="Past due" value={String(pastDueCount)} trend={null} />
+        <KpiTile
+          icon="billing"
+          accent="blue"
+          label="Active"
+          value={String(activeCount)}
+          trend={null}
+          href={`${base}?status=active`}
+        />
+        <KpiTile
+          icon="agent"
+          accent="orange"
+          label="Trialing"
+          value={String(trialCount)}
+          trend={null}
+          href={`${base}?status=trialing`}
+        />
+        <KpiTile
+          icon="alert"
+          accent="purple"
+          label="Past due"
+          value={String(pastDueCount)}
+          trend={null}
+          href={`${base}?status=past_due`}
+        />
       </div>
 
+      {statusFilter && (
+        <p className="text-sm text-slate-600">
+          Showing <span className="font-medium capitalize">{statusFilter.replace("_", " ")}</span> subscribers ·{" "}
+          <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
+            Show all
+          </Link>
+        </p>
+      )}
+
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        {subscribers.length > 0 ? (
+        {shown.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
@@ -67,16 +112,23 @@ export default async function SubscribersPage({ params }: { params: Promise<{ lo
                   <th className="py-2 text-start font-medium">Status</th>
                   <th className="py-2 text-start font-medium">Joined</th>
                   <th className="py-2 text-start font-medium">Revenue</th>
+                  <th className="py-2 text-start font-medium" />
                 </tr>
               </thead>
               <tbody>
-                {subscribers.map((s) => (
-                  <tr key={s.userId} className="border-b border-slate-100 last:border-0">
+                {shown.map((s) => (
+                  <tr key={s.userId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="py-2">
-                      <p className="font-medium text-slate-900">{s.name}</p>
+                      <Link href={`${base}/${s.slug}`} prefetch={false} className="font-medium text-slate-900 hover:underline">
+                        {s.name}
+                      </Link>
                       {s.email && <p className="text-xs text-slate-400">{s.email}</p>}
                     </td>
-                    <td className="py-2 text-slate-600">{s.businessName}</td>
+                    <td className="py-2 text-slate-600">
+                      <Link href={`${base}/${s.slug}`} prefetch={false} className="hover:underline">
+                        {s.businessName}
+                      </Link>
+                    </td>
                     <td className="py-2 text-slate-600">{s.businessTypeLabel}</td>
                     <td className="py-2 text-slate-600">{s.planLabel ?? "—"}</td>
                     <td className="py-2">
@@ -90,13 +142,25 @@ export default async function SubscribersPage({ params }: { params: Promise<{ lo
                     <td className="py-2 text-slate-600">
                       {formatMoney(s.revenueMinor, s.currency, exponentByCode.get(s.currency) ?? 2, locale)}
                     </td>
+                    <td className="py-2 text-end">
+                      <Link
+                        href={`${base}/${s.slug}`}
+                        prefetch={false}
+                        className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+                      >
+                        Edit
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <EmptyState title="No subscribers yet" description="They'll appear here once the first business signs up." />
+          <EmptyState
+            title={statusFilter ? "No subscribers with this status" : "No subscribers yet"}
+            description={statusFilter ? "Try another filter." : "They'll appear here once the first business signs up."}
+          />
         )}
       </section>
     </div>

@@ -46,23 +46,25 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
           label="Team members"
           value={String((members ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/staff#team`}
         />
-        <KpiTile icon="conversations" accent="blue" label="Active" value={String(activeCount)} trend={null} />
+        <KpiTile icon="conversations" accent="blue" label="Active" value={String(activeCount)} trend={null} href={`/${locale}/${slug}/staff#team`} />
         <KpiTile
           icon="billing"
           accent="orange"
           label="Pending invites"
           value={String((invites ?? []).length)}
           trend={null}
+          href={`/${locale}/${slug}/staff#${(invites ?? []).length > 0 ? "invites" : "invite"}`}
         />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="invite" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Invite someone</h2>
         <InviteStaffForm tenantId={tenant.id} locale={locale} slug={slug} />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="team" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Team</h2>
         {(members ?? []).length > 0 ? (
           <div className="overflow-x-auto">
@@ -147,7 +149,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
       </section>
 
       {(invites ?? []).length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <section id="invites" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">Pending invites</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">

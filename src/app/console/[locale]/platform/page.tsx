@@ -145,6 +145,7 @@ export default async function SuperAdminDashboard({
           label="Total Subscribers"
           value={String(kpis.totalSubscribers)}
           trend={kpis.totalSubscribersTrend}
+          href={`/${locale}/super-admin/subscribers`}
         />
         <KpiTile
           icon="building"
@@ -152,6 +153,7 @@ export default async function SuperAdminDashboard({
           label="Total Businesses"
           value={String(kpis.totalBusinesses)}
           trend={kpis.totalBusinessesTrend}
+          href={`/${locale}/super-admin/businesses`}
         />
         <KpiTile
           icon="agent"
@@ -159,6 +161,7 @@ export default async function SuperAdminDashboard({
           label="AI Agents Active"
           value={String(kpis.activeAgents)}
           trend={null}
+          href={`/${locale}/super-admin/ai-agents`}
         />
         <KpiTile
           icon="billing"
@@ -170,6 +173,7 @@ export default async function SuperAdminDashboard({
               : "—"
           }
           trend={kpis.monthlyRevenueTrend}
+          href={`/${locale}/super-admin/payments`}
         />
         <KpiTile
           icon="conversations"
@@ -177,6 +181,7 @@ export default async function SuperAdminDashboard({
           label="Total Conversations"
           value={String(kpis.totalConversations)}
           trend={kpis.totalConversationsTrend}
+          href={`/${locale}/super-admin/usage`}
         />
         <KpiTile
           icon="marketing"
@@ -184,13 +189,18 @@ export default async function SuperAdminDashboard({
           label="Active Subscriptions"
           value={String(kpis.activeSubscriptions)}
           trend={kpis.activeSubscriptionsTrend}
+          href={`/${locale}/super-admin/subscribers?status=active`}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-slate-900">Platform Growth</h2>
+            <h2 className="text-sm font-semibold text-slate-900">
+              <Link href={`/${locale}/super-admin/analytics`} prefetch={false} className="hover:underline">
+                Platform Growth
+              </Link>
+            </h2>
             <Tabs tabs={rangeTabs} />
           </div>
           <Tabs tabs={metricTabs} />
@@ -217,7 +227,12 @@ export default async function SuperAdminDashboard({
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Subscribers by Plan</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">Subscribers by Plan</h2>
+            <Link href={`/${locale}/super-admin/plans`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              View →
+            </Link>
+          </div>
           {subscribersByPlan.length > 0 ? (
             <DonutChart segments={subscribersByPlan} centerLabel="Total" />
           ) : (
@@ -228,7 +243,12 @@ export default async function SuperAdminDashboard({
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Top Business Types</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">Top Business Types</h2>
+            <Link href={`/${locale}/super-admin/businesses`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              View →
+            </Link>
+          </div>
           {topBusinessTypes.length > 0 ? (
             <ul className="flex flex-col gap-2.5 text-sm">
               {topBusinessTypes.map((type) => {
@@ -255,7 +275,12 @@ export default async function SuperAdminDashboard({
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Geographic Distribution</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">Geographic Distribution</h2>
+            <Link href={`/${locale}/super-admin/businesses`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              View →
+            </Link>
+          </div>
           {geographic.length > 0 ? (
             <ul className="flex flex-col gap-2.5 text-sm">
               {geographic.map((g) => {
@@ -279,7 +304,12 @@ export default async function SuperAdminDashboard({
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">AI Usage (30d)</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">AI Usage (30d)</h2>
+            <Link href={`/${locale}/super-admin/usage`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              View →
+            </Link>
+          </div>
           <dl className="flex flex-col gap-3 text-sm">
             <div className="flex items-baseline justify-between">
               <dt className="text-slate-500">Interactions</dt>
@@ -357,7 +387,12 @@ export default async function SuperAdminDashboard({
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Recent Platform Activity</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-slate-900">Recent Platform Activity</h2>
+            <Link href={`/${locale}/super-admin/audit-logs`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
+              View →
+            </Link>
+          </div>
           {recentActivity.length > 0 ? (
             <ul className="flex flex-col gap-3">
               {recentActivity.map((event) => {

@@ -50,9 +50,9 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiTile icon="marketing" accent="emerald" label="Active coupons" value={String(activeCount)} trend={null} />
-        <KpiTile icon="orders" accent="blue" label="Redemptions" value={String(totalRedemptions)} trend={null} />
-        <KpiTile icon="billing" accent="purple" label="Discount given" value={money(totalDiscountMinor)} trend={null} />
+        <KpiTile icon="marketing" accent="emerald" label="Active coupons" value={String(activeCount)} trend={null} href={`/${locale}/${slug}/marketing#coupons`} />
+        <KpiTile icon="orders" accent="blue" label="Redemptions" value={String(totalRedemptions)} trend={null} href={`/${locale}/${slug}/orders`} />
+        <KpiTile icon="billing" accent="purple" label="Discount given" value={money(totalDiscountMinor)} trend={null} href={`/${locale}/${slug}/orders`} />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
@@ -66,7 +66,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
         />
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
+      <section id="coupons" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Coupons</h2>
         {(coupons ?? []).length > 0 ? (
           <div className="overflow-x-auto">

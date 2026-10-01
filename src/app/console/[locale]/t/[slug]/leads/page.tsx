@@ -39,12 +39,12 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
       <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(all.length)} trend={null} />
-        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} />
-        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} />
+        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(all.length)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white">
+      <div id="leads" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white">
         {all.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">

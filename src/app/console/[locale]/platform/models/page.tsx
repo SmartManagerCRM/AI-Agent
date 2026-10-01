@@ -1,6 +1,6 @@
 import { CreateModelConfigForm } from "@/components/platform/create-model-config-form";
 import { setAiModelConfigFieldAction } from "@/server/platform/actions";
-import { createUserClient } from "@/server/supabase/clients";
+import { serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
 /**
@@ -14,9 +14,8 @@ import { requireSuperAdmin } from "@/server/tenant/context";
 export default async function ModelConfigsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   await requireSuperAdmin(locale);
-  const supabase = await createUserClient();
-
-  const { data: configs } = await supabase
+  // Token prices are hidden from signed-in users (column grants) — Super Admin checked above.
+  const { data: configs } = await serviceClient()
     .from("ai_model_configs")
     .select(
       "id, provider, model, kind, input_price_per_million_usd, output_price_per_million_usd, is_active, is_default",
