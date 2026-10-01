@@ -100,6 +100,14 @@ describe("unknown products are not hallucinated", () => {
       "I want to talk to someone",
       "ok",
       "السلام عليكم",
+      // Cart / order commands go to the AI's cart tools, never "not on our menu".
+      "add it",
+      "Add the lentil soup to my cart",
+      "show cart and payment",
+      "أضفها للسلة",
+      "أضفها",
+      "احذفه",
+      "ajoute au panier",
     ]) {
       expect(run(message), message).toBeNull();
     }

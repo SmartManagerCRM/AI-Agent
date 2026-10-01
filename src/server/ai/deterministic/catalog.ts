@@ -185,6 +185,19 @@ const QUERY_CUES = words(`have got sell serve show want looking find عندكم 
 
 const QUESTION_WORDS = words(`what شنو شنوة شو ايش اش واش ماذا quoi`);
 
+/** Arabic verbs carry attached pronouns ("أضفها", "احذفه"), so they match by prefix. */
+const ACTION_PREFIXES = ["اضف", "ضيف", "زيد", "احذف", "امسح", "اطلب", "ادفع", "اشتر"].map((w) => normalizeText(w));
+const CART_WORDS = words(`سله للسله بالسله السله`);
+const isAction = (toks: string[]) =>
+  toks.some((t) => ACTIONS.has(t) || CART_WORDS.has(t) || ACTION_PREFIXES.some((p) => t.startsWith(p)));
+
+/** Cart / order / payment commands ("add it", "checkout", "أضفها للسلة") — the AI's cart tools handle these, never a catalog lookup. */
+const ACTIONS = words(`
+  add remove delete cart basket checkout buy purchase pay payment place confirm quantity
+  اضف اضيف ضيف زيد احذف امسح سله السله اطلب اشتري ادفع الدفع اكد
+  ajoute ajouter enleve supprime panier commander acheter payer paiement confirmer
+`);
+
 export function detectLang(message: string, fallback: string): Lang {
   if (/[؀-ۿ]/.test(message)) return "ar";
   const toks = new Set(tokenize(message));
@@ -336,7 +349,7 @@ export function matchCatalog(message: string, c: Catalog, ctx: CatalogContext = 
   const toks = tokenize(message);
   if (toks.length === 0) return null;
   const has = (set: Set<string>) => toks.some((t) => set.has(t));
-  if (has(REASONING)) return null;
+  if (has(REASONING) || isAction(toks)) return null;
 
   const lang = detectLang(message, c.locale);
   const t = T[lang];
