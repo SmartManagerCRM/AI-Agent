@@ -853,6 +853,8 @@ export type Database = {
           billing_interval: "month" | "year";
           trial_days: number;
           limits: Json;
+          conversation_limit: number | null;
+          grace_period_hours: number;
           is_default: boolean;
           is_active: boolean;
           sort_order: number;
@@ -870,8 +872,12 @@ export type Database = {
           plan_key: string;
           status: "trialing" | "active" | "past_due" | "canceled";
           trial_ends_at: string;
+          current_period_start: string | null;
           current_period_end: string | null;
           canceled_at: string | null;
+          conversation_limit_override: number | null;
+          conversation_limit_reached_at: string | null;
+          conversation_limit_grace_until: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -898,9 +904,84 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      ai_cost_limits: {
+        Row: {
+          id: string;
+          plan_key: string | null;
+          tenant_id: string | null;
+          limit_usd: number;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      ai_usage_periods: {
+        Row: {
+          tenant_id: string;
+          period_start: string;
+          ai_cost_usd: number;
+          ai_calls: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      usage_settings: {
+        Row: {
+          id: boolean;
+          conversation_warning_percents: number[];
+          ai_cost_warning_percent: number;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: Partial<
+          Pick<
+            Database["public"]["Tables"]["usage_settings"]["Row"],
+            "conversation_warning_percents" | "ai_cost_warning_percent"
+          >
+        >;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
+      tenant_usage_summary: {
+        Args: { p_tenant_id: string };
+        Returns: Json;
+      };
+      ai_usage_check: {
+        Args: { p_tenant_id: string };
+        Returns: Json;
+      };
+      reserve_ai_cost: {
+        Args: { p_tenant_id: string; p_estimate_usd: number };
+        Returns: Json;
+      };
+      settle_ai_cost: {
+        Args: { p_tenant_id: string; p_reservation_id: string | null; p_actual_usd: number };
+        Returns: undefined;
+      };
+      platform_usage_overview: {
+        Args: { p_tenant_id?: string | null };
+        Returns: Json;
+      };
+      set_subscription_usage_overrides: {
+        Args: { p_tenant_id: string; p_conversation_limit: number | null; p_ai_cost_limit: number | null };
+        Returns: undefined;
+      };
+      set_plan_usage_limits: {
+        Args: {
+          p_plan_key: string;
+          p_conversation_limit: number | null;
+          p_ai_cost_limit: number | null;
+          p_grace_period_hours: number;
+        };
+        Returns: undefined;
+      };
       ingest_brain_fact: {
         Args: {
           p_tenant_id: string;

@@ -50,7 +50,7 @@ async function geminiChat(input: ChatInput): Promise<AIProviderResult<ChatResult
       // maxOutputTokens — a small cap could be spent entirely on thinking and
       // return no answer. Low effort plus headroom keeps replies complete;
       // only tokens actually generated are billed.
-      maxOutputTokens: thinking ? Math.max(input.maxTokens ?? 1024, THINKING_MIN_OUTPUT_TOKENS) : (input.maxTokens ?? 1024),
+      maxOutputTokens: geminiMaxOutputTokens(input.model, input.maxTokens),
       ...(thinking ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
     },
   };
@@ -89,6 +89,11 @@ export function isThinkingModel(model: string): boolean {
 }
 
 const THINKING_MIN_OUTPUT_TOKENS = 2048;
+
+/** The output-token ceiling actually sent to Gemini (thinking models need room to think) — also the AI cost guard's worst case. */
+export function geminiMaxOutputTokens(model: string, maxTokens: number | undefined): number {
+  return isThinkingModel(model) ? Math.max(maxTokens ?? 1024, THINKING_MIN_OUTPUT_TOKENS) : (maxTokens ?? 1024);
+}
 
 async function post(model: string, apiKey: string, body: unknown): Promise<Response | { ok: false; error: string }> {
   try {

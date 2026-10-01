@@ -2,16 +2,19 @@ import "server-only";
 
 import { isEntitled } from "@/server/billing/entitlement";
 import { getOrCreateCart, viewCart, type CartView } from "@/server/commerce/cart";
+import { estimateCallCostUsd } from "@/server/billing/usage";
 import { getCostGuardStatus } from "./cost-guard";
 import { relevantProducts } from "./deterministic/catalog";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { agentLog, errorCategory } from "./diagnostics";
 import { matchDeterministic } from "./deterministic/match";
+import { geminiMaxOutputTokens } from "./gemini";
 import { calculateCostUsd } from "./pricing";
 import { fallbackChain, loadModelConfigs, type ModelKind } from "./router";
 import { buildSystemPrompt } from "./system-prompt";
 import { AGENT_TOOLS } from "./tools/registry";
 import { executeTool, type ToolContext } from "./tools/handlers";
+import { checkAiUsage, reserveAiCall, settleAiCall, type UsageLimit } from "./usage-guard";
 import type { AITurnMessage, ContentBlock } from "./provider";
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -42,6 +45,31 @@ const CART_MUTATING_TOOLS = new Set([
  * still gets a text-only reply and can never write a real cart or order.
  */
 const MAX_AGENT_STEPS = 8;
+const MAX_OUTPUT_TOKENS = 512;
+
+/**
+ * What a customer sees when the subscriber's AI is limited (conversation
+ * limit after its grace period, or the AI cost cap): never plans, limits or
+ * costs — they can still browse, order and check out deterministically.
+ * The console preview is the subscriber themself, so it gets the plan wording.
+ */
+const AI_LIMITED_CUSTOMER_REPLY: Record<string, { withProducts: string; plain: string }> = {
+  en: {
+    withProducts: "I can't give you a personal answer right now, but here's what we have that matches:",
+    plain: "I can't answer that one right now. You can still browse the menu, order and check out here.",
+  },
+  ar: {
+    withProducts: "لا يمكنني تقديم إجابة مخصصة الآن، لكن هذا ما لدينا ويطابق طلبك:",
+    plain: "لا يمكنني الإجابة على ذلك الآن. لا يزال بإمكانك تصفح القائمة والطلب وإتمام الدفع هنا.",
+  },
+  fr: {
+    withProducts: "Je ne peux pas vous donner une réponse personnalisée pour le moment, mais voici ce qui correspond :",
+    plain:
+      "Je ne peux pas répondre à cela pour le moment. Vous pouvez toujours parcourir le menu, commander et payer ici.",
+  },
+};
+const AI_LIMITED_PREVIEW_REPLY =
+  "AI service is temporarily limited for this billing period. Upgrade your plan or wait until your next billing period.";
 
 export type GatewayInput = {
   tenant: { id: string; currency: string; slug: string };
@@ -154,12 +182,40 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     };
   }
 
+  // Only the products this message is about reach the model — never the whole catalog.
+  const relevant = snapshot.catalog ? relevantProducts(input.message, snapshot.catalog) : [];
+
+  // Paid-plan limits (AIUsageGuard): conversation limit after its grace
+  // period, and the hard AI cost cap. Deterministic replies above never
+  // reach this point, so browsing, cart, checkout and orders keep working.
+  const usage = await checkAiUsage(input.tenant.id);
+  const limitedResult = async (limit: UsageLimit): Promise<GatewayResult> => {
+    agentLog("usage_limited", { ...log, limit });
+    await recordInteraction(supabase, {
+      tenantId: input.tenant.id,
+      requestType: input.requestType,
+      handledBy: "deterministic",
+      deterministicRule: limit === "conversation_limit" ? "usage_conversation_limit" : "usage_ai_cost_limit",
+    });
+    const copy = AI_LIMITED_CUSTOMER_REPLY[input.locale] ?? AI_LIMITED_CUSTOMER_REPLY.en;
+    if (input.requestType === "console_preview") {
+      return { handledBy: "deterministic", reply: AI_LIMITED_PREVIEW_REPLY, rule: `usage_${limit}` };
+    }
+    if (relevant.length > 0) {
+      return {
+        handledBy: "deterministic",
+        reply: copy.withProducts,
+        rule: `usage_${limit}`,
+        productIds: relevant.slice(0, 8).map((p) => p.id),
+      };
+    }
+    return { handledBy: "deterministic", reply: copy.plain, rule: `usage_${limit}` };
+  };
+  if (usage.blocked) return limitedResult(usage.blocked);
+
   const kind = input.kind ?? "fast";
   const rows = await loadModelConfigs(supabase);
   const chain = fallbackChain(rows, kind);
-
-  // Only the products this message is about reach the model — never the whole catalog.
-  const relevant = snapshot.catalog ? relevantProducts(input.message, snapshot.catalog) : [];
 
   if (chain.length === 0) {
     const reply =
@@ -217,7 +273,8 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   let lastError = "";
   let lastModel: { provider: string; model: string } | null = null;
   let cartMutated = false;
-  for (let i = 0; i < chain.length; i++) {
+  let limitedBy: UsageLimit | null = null;
+  for (let i = 0; i < chain.length && !limitedBy; i++) {
     const { row, provider } = chain[i];
     const startedAt = Date.now();
     let totalInputTokens = 0;
@@ -225,8 +282,32 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     let finalText = "";
     let stepError: string | null = null;
 
+    const pricing = {
+      inputPricePerMillionUsd: row.input_price_per_million_usd,
+      outputPricePerMillionUsd: row.output_price_per_million_usd,
+    };
     for (let step = 0; step < MAX_AGENT_STEPS; step++) {
-      const result = await provider.chat({ model: row.model, system, messages, tools, maxTokens: 512 });
+      // Every model call reserves its worst-case cost first (paid plans; a no-op for trials).
+      let reservationId: string | null = null;
+      if (usage.governed) {
+        const maxOutput =
+          row.provider === "gemini" ? geminiMaxOutputTokens(row.model, MAX_OUTPUT_TOKENS) : MAX_OUTPUT_TOKENS;
+        const promptChars =
+          system.length + JSON.stringify(messages).length + (tools ? JSON.stringify(tools).length : 0);
+        const reservation = await reserveAiCall(input.tenant.id, estimateCallCostUsd(pricing, promptChars, maxOutput));
+        if (!reservation.allowed) {
+          limitedBy = reservation.reason;
+          break;
+        }
+        reservationId = reservation.reservationId;
+      }
+      const result = await provider.chat({ model: row.model, system, messages, tools, maxTokens: MAX_OUTPUT_TOKENS });
+      if (reservationId) {
+        const actual = result.ok
+          ? calculateCostUsd(pricing, result.value.usage.inputTokens, result.value.usage.outputTokens)
+          : 0;
+        await settleAiCall(input.tenant.id, reservationId, actual);
+      }
       if (!result.ok) {
         stepError = result.error;
         break;
@@ -262,6 +343,9 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       messages.push({ role: "user", content: toolResults });
     }
 
+    // Limit reached before this provider made any call: nothing was spent — a limited reply, not a failure.
+    if (limitedBy && totalInputTokens === 0 && totalOutputTokens === 0) break;
+
     const latencyMs = Date.now() - startedAt;
     agentLog("ai_call", {
       ...log,
@@ -273,14 +357,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     });
 
     if (!stepError) {
-      const costUsd = calculateCostUsd(
-        {
-          inputPricePerMillionUsd: row.input_price_per_million_usd,
-          outputPricePerMillionUsd: row.output_price_per_million_usd,
-        },
-        totalInputTokens,
-        totalOutputTokens,
-      );
+      const costUsd = calculateCostUsd(pricing, totalInputTokens, totalOutputTokens);
       await recordInteraction(supabase, {
         tenantId: input.tenant.id,
         requestType: input.requestType,
@@ -299,9 +376,15 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         const cartRow = await getOrCreateCart(supabase, input.tenant.id, toolContext.conversationId);
         cart = await viewCart(supabase, input.tenant.id, cartRow.id, input.locale);
       }
+      // Limit hit mid-turn (after tool steps already ran): what the model said so far, else the limited copy.
+      const limitedCopy = limitedBy
+        ? input.requestType === "console_preview"
+          ? AI_LIMITED_PREVIEW_REPLY
+          : (AI_LIMITED_CUSTOMER_REPLY[input.locale] ?? AI_LIMITED_CUSTOMER_REPLY.en).plain
+        : null;
       return {
         handledBy: "ai",
-        reply: finalText || "Sorry, I didn't catch that — could you rephrase?",
+        reply: finalText || limitedCopy || "Sorry, I didn't catch that — could you rephrase?",
         provider: row.provider,
         model: row.model,
         costUsd,
@@ -313,6 +396,8 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     lastError = stepError;
     lastModel = { provider: row.provider, model: row.model };
   }
+
+  if (limitedBy) return limitedResult(limitedBy);
 
   // Recorded with the last model tried: the ledger rejects an "ai" row without a
   // provider/model, which is how these failures used to disappear silently.

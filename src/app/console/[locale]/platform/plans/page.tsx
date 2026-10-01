@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { PlanForm } from "@/components/platform/plan-form";
+import { PlanUsageLimitsForm } from "@/components/platform/usage-limits-forms";
 import { formatMoney } from "@/lib/money";
 import { setDefaultPlanAction, setPlanActiveAction } from "@/server/platform/plan-actions";
+import { loadPlanAiCostLimits } from "@/server/platform/usage";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
 /**
  * Super Admin Master Spec, Phase 3 — Subscriptions & Plans management.
  * Real fields only: name/price/currency/billing interval/trial length/
- * active/default/sort order. Deliberately no `limits`/feature-matrix
- * editor — see plan-actions.ts's doc comment for why.
+ * active/default/sort order, plus the paid-plan usage limits (conversation
+ * limit, AI cost cap, grace period) the AI usage guard enforces. Deliberately
+ * no `limits`/feature-matrix editor — see plan-actions.ts's doc comment for why.
  */
 export default async function PlansPage({
   params,
@@ -24,13 +27,16 @@ export default async function PlansPage({
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
 
-  const [{ data: plans }, { data: currencies }, { data: subscriptions }] = await Promise.all([
+  const [{ data: plans }, { data: currencies }, { data: subscriptions }, aiCostLimits] = await Promise.all([
     supabase
       .from("subscription_plans")
-      .select("key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order")
+      .select(
+        "key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order, conversation_limit, grace_period_hours",
+      )
       .order("sort_order"),
     supabase.from("currencies").select("code, name").order("code"),
     supabase.from("subscriptions").select("plan_key, status"),
+    loadPlanAiCostLimits(supabase),
   ]);
 
   const { data: exponentRows } = await supabase.from("currencies").select("code, exponent");
@@ -115,48 +121,59 @@ export default async function PlansPage({
             }
 
             return (
-              <div
-                key={p.key}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-100 p-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-slate-900">
-                    {p.name[locale] ?? p.name.en ?? p.key}{" "}
-                    <span className="font-mono text-xs text-slate-400">({p.key})</span>
-                  </p>
-                  <p className="text-slate-500">
-                    {formatMoney(p.price_minor, p.currency, exponent, locale)} / {p.billing_interval} · {p.trial_days}
-                    -day trial · {activeSubscriberCountByPlan.get(p.key) ?? 0} active,{" "}
-                    {subscriberCountByPlan.get(p.key) ?? 0} total subscribers
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Link
-                    href={`/${locale}/super-admin/plans?edit=${p.key}`}
-                    prefetch={false}
-                    className="text-xs font-medium text-emerald-600 hover:underline"
-                  >
-                    Edit
-                  </Link>
-                  <form action={setPlanActiveAction}>
-                    <input type="hidden" name="key" value={p.key} />
-                    <input type="hidden" name="value" value={(!p.is_active).toString()} />
-                    <input type="hidden" name="locale" value={locale} />
-                    <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                      {p.is_active ? "Active" : "Inactive"}
-                    </button>
-                  </form>
-                  <form action={setDefaultPlanAction}>
-                    <input type="hidden" name="key" value={p.key} />
-                    <input type="hidden" name="locale" value={locale} />
-                    <button
-                      type="submit"
-                      disabled={p.is_default}
-                      className="text-xs font-medium text-emerald-600 hover:underline disabled:text-slate-400 disabled:no-underline"
+              <div key={p.key} className="flex flex-col gap-3 rounded-md border border-slate-100 p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-slate-900">
+                      {p.name[locale] ?? p.name.en ?? p.key}{" "}
+                      <span className="font-mono text-xs text-slate-400">({p.key})</span>
+                    </p>
+                    <p className="text-slate-500">
+                      {formatMoney(p.price_minor, p.currency, exponent, locale)} / {p.billing_interval} · {p.trial_days}
+                      -day trial · {activeSubscriberCountByPlan.get(p.key) ?? 0} active,{" "}
+                      {subscriberCountByPlan.get(p.key) ?? 0} total subscribers
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/${locale}/super-admin/plans?edit=${p.key}`}
+                      prefetch={false}
+                      className="text-xs font-medium text-emerald-600 hover:underline"
                     >
-                      {p.is_default ? "Default" : "Make default"}
-                    </button>
-                  </form>
+                      Edit
+                    </Link>
+                    <form action={setPlanActiveAction}>
+                      <input type="hidden" name="key" value={p.key} />
+                      <input type="hidden" name="value" value={(!p.is_active).toString()} />
+                      <input type="hidden" name="locale" value={locale} />
+                      <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
+                        {p.is_active ? "Active" : "Inactive"}
+                      </button>
+                    </form>
+                    <form action={setDefaultPlanAction}>
+                      <input type="hidden" name="key" value={p.key} />
+                      <input type="hidden" name="locale" value={locale} />
+                      <button
+                        type="submit"
+                        disabled={p.is_default}
+                        className="text-xs font-medium text-emerald-600 hover:underline disabled:text-slate-400 disabled:no-underline"
+                      >
+                        {p.is_default ? "Default" : "Make default"}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+                <div className="border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Paid-plan usage limits (per billing period; trials are not affected)
+                  </p>
+                  <PlanUsageLimitsForm
+                    locale={locale}
+                    planKey={p.key}
+                    conversationLimit={p.conversation_limit}
+                    aiCostLimitUsd={aiCostLimits.get(p.key) ?? null}
+                    gracePeriodHours={p.grace_period_hours}
+                  />
                 </div>
               </div>
             );

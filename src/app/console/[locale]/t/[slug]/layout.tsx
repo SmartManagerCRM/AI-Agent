@@ -5,6 +5,7 @@ import { MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/
 import { TenantNav, type NavItem } from "@/components/console/tenant-nav";
 import { TopHeader } from "@/components/console/top-header";
 import { TrialCard } from "@/components/console/trial-card";
+import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import type { Locale } from "@/i18n/locales";
 import { daysUntil } from "@/lib/dates";
 import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
@@ -60,6 +61,8 @@ export default async function TenantLayout({
     ]),
   );
   const isLive = deploymentStatus === "published";
+  // Paid plans have a monthly conversation limit; the trial view stays as it was.
+  const usage = subscription?.status === "active" ? await loadSubscriberUsage(supabase, tenant.id) : null;
 
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
@@ -160,6 +163,17 @@ export default async function TenantLayout({
                 subscription={subscription ? { status: subscription.status, planKey: subscription.plan_key } : null}
                 daysRemaining={daysRemaining}
                 conversationCount={conversationCount ?? 0}
+                usage={
+                  usage?.isPaid && usage.conversationLimit !== null
+                    ? {
+                        used: usage.conversationsUsed,
+                        limit: usage.conversationLimit,
+                        warningLevel: usage.warningLevel,
+                        limited: usage.conversationState === "blocked" || usage.aiLimited,
+                        inGrace: usage.conversationState === "grace",
+                      }
+                    : null
+                }
               />
             </div>
           </MobileSidebarFrame>

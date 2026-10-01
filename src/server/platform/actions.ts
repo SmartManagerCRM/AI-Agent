@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createUserClient } from "@/server/supabase/clients";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
 /**
@@ -59,12 +59,17 @@ export async function updatePlatformSettingsAction(
     .update({
       platform_name: parsed.data.platformName,
       maintenance_mode: parsed.data.maintenanceMode === "on",
-      default_ai_monthly_budget_usd: parsed.data.defaultAiMonthlyBudgetUsd ?? null,
       supported_languages: parseCsvList(parsed.data.supportedLanguages, (s) => s.toLowerCase()),
       supported_currencies: parseCsvList(parsed.data.supportedCurrencies, (s) => s.toUpperCase()),
     })
     .eq("id", true);
   if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
+  // The AI budget column is hidden from signed-in users (column grants) — written with the service role, Super Admin checked above.
+  const { error: budgetError } = await serviceClient()
+    .from("platform_settings")
+    .update({ default_ai_monthly_budget_usd: parsed.data.defaultAiMonthlyBudgetUsd ?? null })
+    .eq("id", true);
+  if (budgetError) return "VALIDATION_ERROR: could not save the AI budget — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/super-admin/settings`);
 }
@@ -115,8 +120,8 @@ export async function setTenantAiBudgetAction(formData: FormData): Promise<void>
   if (!parsed.success) return;
 
   await requireSuperAdmin(parsed.data.locale);
-  const supabase = await createUserClient();
-  await supabase
+  // Hidden from signed-in users by column grants — service role, after the Super Admin check above.
+  await serviceClient()
     .from("tenant_settings")
     .update({ ai_monthly_budget_usd: parsed.data.budgetUsd ?? null })
     .eq("tenant_id", parsed.data.tenantId);

@@ -7,11 +7,14 @@ import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
 import { setTenantAiBudgetAction } from "@/server/platform/actions";
 import { endImpersonationAction, startImpersonationAction } from "@/server/platform/impersonation-actions";
+import { SubscriberUsageOverridesForm } from "@/components/platform/usage-limits-forms";
 import { getBusinessDetail } from "@/server/platform/business-detail";
+import { loadPlatformUsage } from "@/server/platform/usage";
+import { USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
-const TABS = ["overview", "brain", "agent", "orders", "billing", "activity"] as const;
+const TABS = ["overview", "brain", "agent", "usage", "orders", "billing", "activity"] as const;
 type TabKey = (typeof TABS)[number];
 
 const STATUS_STYLE: Record<string, string> = {
@@ -59,11 +62,14 @@ export default async function BusinessDetailPage({
   const money = (minor: number, currency?: string | null) =>
     formatMoney(minor, currency ?? detail.tenant.currency, exponent, locale);
 
+  const usage = tab === "usage" ? ((await loadPlatformUsage(supabase, detail.tenant.id))[0] ?? null) : null;
+
   const baseHref = `/${locale}/super-admin/businesses/${slug}`;
   const tabs: Tab[] = [
     { key: "overview", label: "Overview" },
     { key: "brain", label: "Business Brain" },
     { key: "agent", label: "Agent" },
+    { key: "usage", label: "Usage Limits" },
     { key: "orders", label: "Orders" },
     { key: "billing", label: "Subscription & Payments" },
     { key: "activity", label: "Activity" },
@@ -285,6 +291,18 @@ export default async function BusinessDetailPage({
         </section>
       )}
 
+      {tab === "usage" &&
+        (usage ? (
+          <UsageLimitsSection usage={usage} locale={locale} slug={slug} />
+        ) : (
+          <section className="rounded-xl border border-slate-200 bg-white p-4">
+            <EmptyState
+              title="No subscription"
+              description="Usage limits apply once this business has a subscription."
+            />
+          </section>
+        ))}
+
       {tab === "orders" && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           {detail.recentOrders.length > 0 ? (
@@ -373,5 +391,88 @@ export default async function BusinessDetailPage({
         </section>
       )}
     </div>
+  );
+}
+
+const usd = (v: number | null, digits = 2) => (v === null ? "—" : `$${v.toFixed(digits)}`);
+
+/** Super Admin only: this period's conversation and AI-cost usage, plan defaults vs overrides. */
+function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow; locale: string; slug: string }) {
+  const date = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
+  const aiRemaining = usage.aiCostLimit !== null ? Math.max(0, usage.aiCostLimit - usage.aiCostUsed) : null;
+  const convRemaining =
+    usage.conversationLimit !== null ? Math.max(0, usage.conversationLimit - usage.conversationsUsed) : null;
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900">Usage Limits</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${USAGE_STATE_STYLE[usage.usageState]}`}>
+          {usage.usageState.replace(/_/g, " ")}
+        </span>
+      </div>
+      {!usage.isPaid && (
+        <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-800">
+          Not on a paid billing period ({usage.status}). The paid-plan limits below apply only while the subscription is
+          active and paid; trial rules are unchanged.
+        </p>
+      )}
+
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+        <dt className="text-slate-500">Plan</dt>
+        <dd className="capitalize text-slate-900">{usage.planKey}</dd>
+        <dt className="text-slate-500">Billing period</dt>
+        <dd className="text-slate-900">
+          {date(usage.periodStart)} → {date(usage.periodEnd)} (resets {date(usage.periodEnd)})
+        </dd>
+        <dt className="text-slate-500">Conversations</dt>
+        <dd className="text-slate-900">
+          {usage.conversationsUsed.toLocaleString(locale)} /{" "}
+          {usage.conversationLimit?.toLocaleString(locale) ?? "no limit"}
+          {usage.conversationPercent !== null && ` (${usage.conversationPercent}%)`}
+          {convRemaining !== null && ` · ${convRemaining.toLocaleString(locale)} remaining`}
+        </dd>
+        {usage.graceUntil && (
+          <>
+            <dt className="text-slate-500">Grace period until</dt>
+            <dd className="text-slate-900">{new Date(usage.graceUntil).toLocaleString(locale)}</dd>
+          </>
+        )}
+        <dt className="text-slate-500">AI cost (counted against the cap)</dt>
+        <dd className="text-slate-900">
+          {usd(usage.aiCostUsed, 4)} / {usd(usage.aiCostLimit)}
+          {usage.aiCostPercent !== null && ` (${usage.aiCostPercent}%)`}
+          {aiRemaining !== null && ` · ${usd(aiRemaining, 4)} remaining`}
+          {usage.aiCostReserved > 0 && ` · ${usd(usage.aiCostReserved, 4)} in flight`}
+        </dd>
+        <dt className="text-slate-500">Agent AI cost this period (all calls)</dt>
+        <dd className="text-slate-900">
+          {usd(usage.agentAiCost, 4)} · {usage.agentAiResponses.toLocaleString(locale)} AI responses
+        </dd>
+        <dt className="text-slate-500">Business Brain AI cost (tracked separately)</dt>
+        <dd className="text-slate-900">
+          {usd(usage.brainAiCost, 4)} this period · {usd(usage.brainAiCostTotal, 4)} all time
+        </dd>
+      </dl>
+
+      <div className="border-t border-slate-100 pt-4">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Limits</p>
+        <p className="mb-3 text-xs text-slate-500">
+          Plan defaults: {usage.conversationLimitDefault?.toLocaleString(locale) ?? "no limit"} conversations,{" "}
+          {usd(usage.aiCostLimitDefault)} AI cost. Effective:{" "}
+          {usage.conversationLimit?.toLocaleString(locale) ?? "no limit"} conversations, {usd(usage.aiCostLimit)} AI
+          cost. Leave a field empty to use the plan default.
+        </p>
+        <SubscriberUsageOverridesForm
+          locale={locale}
+          tenantId={usage.tenantId}
+          slug={slug}
+          conversationLimitOverride={usage.conversationLimitOverride}
+          aiCostLimitOverride={usage.aiCostLimitOverride}
+          conversationLimitDefault={usage.conversationLimitDefault}
+          aiCostLimitDefault={usage.aiCostLimitDefault}
+        />
+      </div>
+    </section>
   );
 }

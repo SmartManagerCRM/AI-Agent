@@ -2,6 +2,8 @@ import { Button } from "@/components/console/button";
 import { daysUntil } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { subscribeAction } from "@/server/billing/actions";
+import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
+import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -32,6 +34,7 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
   ]);
   const exponentByCode = new Map((planCurrencies ?? []).map((c) => [c.code, c.exponent]));
   const trialDaysRemaining = subscription?.status === "trialing" ? daysUntil(subscription.trial_ends_at) : null;
+  const usage = subscription?.status === "active" ? await loadSubscriberUsage(supabase, tenant.id) : null;
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -62,6 +65,8 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
           <p className="text-sm text-slate-500">No active plan yet — pick one below to get started.</p>
         )}
       </section>
+
+      {usage?.isPaid && <UsageSection usage={usage} locale={locale} />}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-slate-900">Plans</h2>
@@ -98,5 +103,104 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
         </div>
       </section>
     </div>
+  );
+}
+
+const STATE_LABEL: Record<SubscriberUsage["conversationState"], { label: string; style: string }> = {
+  ok: { label: "Active", style: "bg-emerald-50 text-emerald-700" },
+  grace: { label: "Grace period", style: "bg-amber-50 text-amber-700" },
+  blocked: { label: "Limit reached", style: "bg-red-50 text-red-700" },
+};
+
+const NOTICE_STYLE = {
+  info: "border-blue-200 bg-blue-50 text-blue-900",
+  warning: "border-amber-200 bg-amber-50 text-amber-900",
+  danger: "border-red-200 bg-red-50 text-red-900",
+} as const;
+
+/** This billing period's customer conversations — never AI cost figures (the summary doesn't carry them). */
+function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: string }) {
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleString(locale, { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const limit = usage.conversationLimit;
+  const remaining = limit !== null ? Math.max(0, limit - usage.conversationsUsed) : null;
+  const percent = limit ? Math.min(100, (usage.conversationsUsed / limit) * 100) : 0;
+  const state = usage.aiLimited
+    ? { label: "AI limited", style: "bg-red-50 text-red-700" }
+    : STATE_LABEL[usage.conversationState];
+  const barColor =
+    usage.conversationState !== "ok" || usage.warningLevel >= 95
+      ? "bg-red-500"
+      : usage.warningLevel > 0
+        ? "bg-amber-400"
+        : "bg-emerald-500";
+  // The period ends at `periodEnd`; the last day included is the day before it.
+  const lastDay = usage.periodEnd ? new Date(new Date(usage.periodEnd).getTime() - 1).toISOString() : null;
+
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900">Usage this billing period</h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${state.style}`}>{state.label}</span>
+      </div>
+
+      {limit !== null ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-sm text-slate-700">
+              <span className="text-2xl font-bold text-slate-900">
+                {usage.conversationsUsed.toLocaleString(locale)}
+              </span>
+              {" / "}
+              {limit.toLocaleString(locale)} customer conversations
+            </p>
+            <p className="text-sm text-slate-500">{remaining?.toLocaleString(locale)} remaining</p>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(1, percent)}%` }} />
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-slate-700">
+          {usage.conversationsUsed.toLocaleString(locale)} customer conversations — no limit on this plan.
+        </p>
+      )}
+
+      <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+        {usage.periodStart && lastDay && (
+          <div>
+            <dt className="text-slate-500">Billing period</dt>
+            <dd className="text-slate-900">
+              {formatDate(usage.periodStart)} – {formatDate(lastDay)}
+            </dd>
+          </div>
+        )}
+        {usage.periodEnd && (
+          <div>
+            <dt className="text-slate-500">Usage resets on</dt>
+            <dd className="text-slate-900">{formatDate(usage.periodEnd)}</dd>
+          </div>
+        )}
+        {usage.conversationState === "grace" && usage.graceUntil && (
+          <div>
+            <dt className="text-slate-500">Grace period ends</dt>
+            <dd className="text-slate-900">{formatDateTime(usage.graceUntil)}</dd>
+          </div>
+        )}
+      </dl>
+
+      {usageNotices(usage, formatDate).map((notice) => (
+        <div key={notice.title} className={`rounded-lg border p-3 text-sm ${NOTICE_STYLE[notice.tone]}`}>
+          <p className="font-medium">{notice.title}</p>
+          <p className="mt-1">{notice.body}</p>
+        </div>
+      ))}
+      <p className="text-xs text-slate-500">
+        One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders
+        keep working at any usage level.
+      </p>
+    </section>
   );
 }

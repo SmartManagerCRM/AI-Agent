@@ -7,16 +7,18 @@ type Props = {
   /** Computed by the caller (a server component) — never Date.now() here, that's impure in render. */
   daysRemaining: number | null;
   conversationCount: number;
+  /** Paid plans only: this billing period's customer conversations against the plan's limit. */
+  usage?: { used: number; limit: number; warningLevel: number; limited: boolean; inGrace: boolean } | null;
 };
 
 /**
- * Real data only — `subscription_plans.limits` is empty for every plan
- * today, so there is no real conversation cap to show; showing a fake
- * "X / 500" would misrepresent the account. When there's no subscription
+ * Real data only. A paid plan shows this period's conversations against its
+ * real limit (`tenant_usage_summary`); the trial has no conversation cap, so
+ * it shows the plain count — never a fabricated "X / 500". When there's no subscription
  * row at all (this tenant's actual current state), this is an honest
  * empty state, not a fabricated trial.
  */
-export function TrialCard({ locale, slug, subscription, daysRemaining, conversationCount }: Props) {
+export function TrialCard({ locale, slug, subscription, daysRemaining, conversationCount, usage }: Props) {
   if (!subscription) {
     return (
       <div className="rounded-xl bg-slate-800 p-4 text-sm">
@@ -48,7 +50,28 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
         </span>
       </div>
       {isTrialing && <p className="mt-2 text-slate-300">{daysRemaining} days remaining</p>}
-      <p className="mt-1 text-slate-400">{conversationCount} conversations so far</p>
+      {usage ? (
+        <>
+          <p
+            className={`mt-1 ${usage.limited || usage.warningLevel >= 95 ? "text-red-300" : usage.warningLevel > 0 ? "text-amber-300" : "text-slate-400"}`}
+          >
+            {usage.used.toLocaleString(locale)} / {usage.limit.toLocaleString(locale)} conversations this period
+          </p>
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
+            <div
+              className={`h-full rounded-full ${usage.limited || usage.warningLevel >= 95 ? "bg-red-500" : usage.warningLevel > 0 ? "bg-amber-400" : "bg-emerald-500"}`}
+              style={{ width: `${Math.min(100, Math.max(2, (usage.used / usage.limit) * 100))}%` }}
+            />
+          </div>
+          {usage.limited ? (
+            <p className="mt-2 text-xs text-red-300">AI service is limited — see Billing.</p>
+          ) : (
+            usage.inGrace && <p className="mt-2 text-xs text-amber-300">Conversation limit reached — grace period.</p>
+          )}
+        </>
+      ) : (
+        <p className="mt-1 text-slate-400">{conversationCount} conversations so far</p>
+      )}
       {isTrialing && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
           <div
