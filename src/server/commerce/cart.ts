@@ -47,24 +47,48 @@ export type CartView = {
   coupon: CouponPreview | null;
 };
 
+/**
+ * The conversation's ACTIVE cart, or a new one. A cart that became an order
+ * (`converted`) is never reused — after each order the customer gets a fresh
+ * cart, pre-filled with the details they already gave (contact, fulfillment,
+ * payment choice, table) so they don't have to enter them again.
+ */
 export async function getOrCreateCart(
   supabase: TypedSupabaseClient,
   tenantId: string,
   conversationId: string,
 ): Promise<CartRow> {
-  const { data: existing } = await supabase
+  const findActive = () =>
+    supabase
+      .from("carts")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("conversation_id", conversationId)
+      .eq("status", "active")
+      .maybeSingle();
+
+  const { data: existing } = await findActive();
+  if (existing) return toCartRow(existing);
+
+  const { data: previous } = await supabase
     .from("carts")
-    .select("*")
+    .select("customer_name, customer_phone, customer_email, delivery_address, fulfillment_type, payment_method, branch_id, table_id")
     .eq("tenant_id", tenantId)
     .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
-  if (existing) return toCartRow(existing);
 
   const { data, error } = await supabase
     .from("carts")
-    .insert({ tenant_id: tenantId, conversation_id: conversationId })
+    .insert({ tenant_id: tenantId, conversation_id: conversationId, ...(previous ?? {}) })
     .select("*")
     .single();
+  if (error?.code === "23505") {
+    // A parallel request created the active cart first (one active cart per conversation) — use that one.
+    const { data: raced } = await findActive();
+    if (raced) return toCartRow(raced);
+  }
   if (error || !data) throw new Error(`Failed to create cart: ${error?.message ?? "unknown error"}`);
   return toCartRow(data);
 }
