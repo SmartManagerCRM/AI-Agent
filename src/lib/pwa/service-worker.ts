@@ -3,7 +3,7 @@
  *
  * What it caches — and only this: the build's own static files
  * (`/_next/static/…`, content-hashed and identical for every visitor), the
- * app icons and the favicon. Every page, API call, server action, RSC
+ * app icons, the favicon and the notification sounds. Every page, API call, server action, RSC
  * payload, auth request, payment and anything on another origin (Supabase,
  * payment gateways) goes straight to the network untouched, so no business,
  * order, customer, payment or session data is ever stored here and no stale
@@ -16,8 +16,8 @@
 
 /** Same-origin paths served cache-first: immutable build output. */
 export const SW_IMMUTABLE_PREFIX = "/_next/static/";
-/** Same-origin paths served from cache and refreshed in the background. */
-export const SW_ICON_PATHS = ["/icons/", "/brand/", "/favicon.ico"] as const;
+/** Same-origin paths served from cache and refreshed in the background (icons, notification sounds). */
+export const SW_ICON_PATHS = ["/icons/", "/brand/", "/sounds/", "/favicon.ico"] as const;
 export const SW_PRECACHE = ["/icons/icon-192.png", "/favicon.ico"] as const;
 
 export const OFFLINE_COPY = {
@@ -73,6 +73,24 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(staleWhileRevalidate(event, request));
   }
   // Everything else (pages' data, APIs, auth, payments, images) is not handled here.
+});
+
+// A console notification (new order, new subscriber, upgrade) shown while the
+// tab was in the background: focus an open console window, or open one.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || "/subscriber", self.location.origin);
+  if (target.origin !== self.location.origin) return;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const open = windows.find((client) => new URL(client.url).origin === target.origin);
+    if (open) {
+      await open.focus();
+      if ("navigate" in open) await open.navigate(target.href).catch(() => undefined);
+      return;
+    }
+    await self.clients.openWindow(target.href);
+  })());
 });
 
 /** Pages always come from the network; only a failed load gets the offline notice. */

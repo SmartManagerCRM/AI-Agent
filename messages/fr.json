@@ -316,5 +316,33 @@
     "offline": "Vous êtes hors ligne. Certaines fonctionnalités d’AI Agent nécessitent une connexion Internet.",
     "updateAvailable": "Nouvelle version disponible",
     "refresh": "Actualiser"
+  },
+  "notifications": {
+    "orderAlertsOn": "Alertes commandes : ON",
+    "orderAlertsOff": "Alertes commandes : OFF",
+    "platformAlertsOn": "Alertes plateforme : ON",
+    "platformAlertsOff": "Alertes plateforme : OFF",
+    "enableSound": "Activer le son",
+    "enablePromptOrders": "Activez les notifications sonores pour les nouvelles commandes.",
+    "enablePromptPlatform": "Activez les notifications sonores pour les nouveaux abonnés et les mises à niveau.",
+    "dismiss": "Fermer",
+    "newBadge": "Nouveau",
+    "newOrder": "Nouvelle commande",
+    "orderNumber": "Commande n° {number}",
+    "itemsOne": "1 article",
+    "itemsOther": "{count} articles",
+    "newOrders": "{count} nouvelles commandes",
+    "latest": "Dernière",
+    "viewOrder": "Voir la commande",
+    "viewOrders": "Voir les commandes",
+    "newOrderNotification": "Nouvelle commande reçue",
+    "newSubscriber": "Nouvel abonné",
+    "joined": "{name} a rejoint SmartManager.",
+    "plan": "Formule {plan}",
+    "upgrade": "Mise à niveau d’abonnement",
+    "upgraded": "{name} est passé de {from} à {to}.",
+    "viewSubscriber": "Voir l’abonné",
+    "newSubscriberNotification": "Nouvel abonné SmartManager",
+    "upgradeNotification": "Abonnement mis à niveau"
   }
 }

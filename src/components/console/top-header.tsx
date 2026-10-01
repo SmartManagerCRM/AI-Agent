@@ -4,6 +4,7 @@ import { AccountMenu } from "@/components/console/account-menu";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { LocaleSwitcher } from "@/components/console/locale-switcher";
 import { MobileMenuButton } from "@/components/console/mobile-sidebar";
+import { SoundToggle } from "@/components/notifications/notification-center";
 import { WorkspaceSwitcher } from "@/components/console/workspace-switcher";
 import type { Locale } from "@/i18n/locales";
 
@@ -39,6 +40,7 @@ export function TopHeader({
         <WorkspaceSwitcher locale={locale} current={workspace} others={otherWorkspaces} />
       </div>
       <div className="flex shrink-0 items-center gap-3">
+        <SoundToggle />
         <LocaleSwitcher locale={locale} />
         <Link
           href={`/${locale}/${workspace.slug}/conversations`}

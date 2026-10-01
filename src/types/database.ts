@@ -167,6 +167,21 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["platform_announcements"]["Row"]>;
         Relationships: [];
       };
+      notification_events: {
+        Row: {
+          id: string;
+          kind: "new_order_received" | "new_subscriber" | "subscription_upgraded";
+          audience: "tenant" | "platform";
+          tenant_id: string;
+          entity_id: string;
+          dedupe_key: string;
+          payload: Json;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       super_admin_impersonations: {
         Row: {
           id: string;

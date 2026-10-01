@@ -234,6 +234,6 @@ async function refreshSession(
 export const config = {
   matcher: [
     // PWA files (`/sw.js`, `/manifest.webmanifest`) are served as-is, never rewritten.
-    "/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sw\\.js$|manifest\\.webmanifest$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sw\\.js$|manifest\\.webmanifest$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?|wav|mp3)$).*)",
   ],
 };

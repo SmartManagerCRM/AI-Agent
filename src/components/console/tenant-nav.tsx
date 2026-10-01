@@ -4,11 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icons";
+import { useNewOrderCount } from "@/components/notifications/notification-center";
 
 export type NavItem = { key: NavIconKey; href: string; label: string; badge?: string };
 
 export function TenantNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
+  // Orders received while the console is open and not yet acknowledged.
+  const newOrders = useNewOrderCount();
 
   return (
     <nav className="flex flex-col gap-0.5 text-sm">
@@ -27,7 +30,14 @@ export function TenantNav({ items }: { items: NavItem[] }) {
               <Icon path={NAV_ICON_PATHS[item.key]} />
               {item.label}
             </span>
-            {item.badge && (
+            {item.key === "orders" && newOrders > 0 ? (
+              <span
+                data-testid="nav-new-orders"
+                className="animate-pulse rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white"
+              >
+                {newOrders}
+              </span>
+            ) : item.badge && (
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                   item.badge === "New" ? "bg-teal-500/20 text-teal-300" : "bg-slate-700 text-slate-200"

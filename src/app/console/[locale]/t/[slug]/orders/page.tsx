@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { NewOrderBadge } from "@/components/notifications/notification-center";
 import { SearchInput } from "@/components/console/search-input";
 import { StatusPill } from "@/components/console/status-pill";
 import { Tabs, type Tab } from "@/components/console/tabs";
@@ -116,8 +117,15 @@ export default async function OrdersPage({
               </thead>
               <tbody>
                 {orders.map((order) => (
-                  <tr key={order.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-3 font-medium text-slate-900">#{order.order_number}</td>
+                  <tr
+                    key={order.id}
+                    id={`order-${order.id}`}
+                    className="scroll-mt-24 border-b border-slate-100 transition-colors last:border-0 has-[[data-new-order]]:bg-emerald-50"
+                  >
+                    <td className="px-4 py-3 font-medium text-slate-900">
+                      #{order.order_number}
+                      <NewOrderBadge orderId={order.id} />
+                    </td>
                     <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
                     <td className="px-4 py-3 text-slate-700">{money(order.total_minor)}</td>

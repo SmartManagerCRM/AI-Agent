@@ -230,3 +230,18 @@ install (only the console's pages link the manifest).
 - **Updates**: after each deploy, open apps show "New version available —
   Refresh"; nothing reloads until the user clicks it.
 - **Nothing to configure**: no environment variables, no hPanel settings.
+
+## Real-time notifications (order / subscriber / upgrade sounds)
+
+- **Database**: `supabase/migrations/20261001190000_realtime_notifications.sql`
+  (already applied to production). Triggers on the order and subscription
+  state machines write `notification_events`; the table is in the
+  `supabase_realtime` publication and RLS limits each console to its own
+  business's orders (`orders.read`) or, for platform events, Super Admin.
+- **Nothing to configure**: no environment variables. Supabase Realtime is
+  on by default for the project; the browser connects with the signed-in
+  user's session.
+- **Sounds** are local files in `public/sounds/` (regenerate with
+  `node scripts/generate-notification-sounds.mjs`).
+- Browsers only play sound after the user interacts with the page: the
+  console shows "Enable sound" until then, and alerts stay visual.

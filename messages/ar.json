@@ -316,5 +316,33 @@
     "offline": "أنت غير متصل بالإنترنت. تتطلب بعض ميزات AI Agent اتصالاً بالإنترنت.",
     "updateAvailable": "يتوفر إصدار جديد",
     "refresh": "تحديث"
+  },
+  "notifications": {
+    "orderAlertsOn": "تنبيهات الطلبات: تشغيل",
+    "orderAlertsOff": "تنبيهات الطلبات: إيقاف",
+    "platformAlertsOn": "تنبيهات المنصة: تشغيل",
+    "platformAlertsOff": "تنبيهات المنصة: إيقاف",
+    "enableSound": "تفعيل الصوت",
+    "enablePromptOrders": "فعّل التنبيهات الصوتية للطلبات الجديدة.",
+    "enablePromptPlatform": "فعّل التنبيهات الصوتية للمشتركين الجدد والترقيات.",
+    "dismiss": "إغلاق",
+    "newBadge": "جديد",
+    "newOrder": "طلب جديد",
+    "orderNumber": "طلب رقم {number}",
+    "itemsOne": "منتج واحد",
+    "itemsOther": "{count} منتجات",
+    "newOrders": "{count} طلبات جديدة",
+    "latest": "الأحدث",
+    "viewOrder": "عرض الطلب",
+    "viewOrders": "عرض الطلبات",
+    "newOrderNotification": "تم استلام طلب جديد",
+    "newSubscriber": "مشترك جديد",
+    "joined": "انضم {name} إلى SmartManager.",
+    "plan": "باقة {plan}",
+    "upgrade": "ترقية الاشتراك",
+    "upgraded": "قام {name} بالترقية من {from} إلى {to}.",
+    "viewSubscriber": "عرض المشترك",
+    "newSubscriberNotification": "مشترك جديد في SmartManager",
+    "upgradeNotification": "تمت ترقية الاشتراك"
   }
 }

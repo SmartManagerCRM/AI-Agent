@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/mobile-sidebar";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import { TenantNav, type NavItem } from "@/components/console/tenant-nav";
 import { TopHeader } from "@/components/console/top-header";
 import { TrialCard } from "@/components/console/trial-card";
@@ -13,6 +14,7 @@ import { loadDeploymentStatus } from "@/server/agent-public/go-live";
 import { publicAgentUrls } from "@/server/agent-public/urls";
 import { endImpersonationAction } from "@/server/platform/impersonation-actions";
 import { timed } from "@/server/perf";
+import { notificationLabels } from "@/server/notifications/labels";
 import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
@@ -99,8 +101,11 @@ export default async function TenantLayout({
     ? membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : "Super Admin";
 
+  const alertLabels = await notificationLabels("orders");
+
   return (
     <MobileSidebarProvider>
+      <NotificationCenter scope={{ kind: "tenant", tenantId: tenant.id }} locale={locale} slug={slug} labels={alertLabels}>
       <div className="flex min-h-screen flex-col">
         {impersonating && (
           <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
@@ -197,6 +202,7 @@ export default async function TenantLayout({
           </div>
         </div>
       </div>
+      </NotificationCenter>
     </MobileSidebarProvider>
   );
 }

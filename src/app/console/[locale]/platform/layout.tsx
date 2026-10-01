@@ -4,9 +4,11 @@ import type { ReactNode } from "react";
 
 import { MobileMenuButton, MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/mobile-sidebar";
 import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icons";
+import { NotificationCenter, SoundToggle } from "@/components/notifications/notification-center";
 import { PlatformAccountMenu } from "@/components/platform/account-menu";
 import { PlatformSearchForm } from "@/components/platform/search-form";
 import { signOutAction } from "@/server/auth/actions";
+import { notificationLabels } from "@/server/notifications/labels";
 import { getPlatformAlerts } from "@/server/platform/dashboard-stats";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
@@ -74,8 +76,12 @@ export default async function PlatformLayout({
     },
   ];
 
+  // Super Admin only (requireSuperAdmin above; platform events are also Super-Admin-only in the database).
+  const alertLabels = await notificationLabels("platform");
+
   return (
     <MobileSidebarProvider>
+      <NotificationCenter scope={{ kind: "platform" }} locale={locale} labels={alertLabels}>
       <div className="flex min-h-screen bg-slate-50">
         <MobileSidebarFrame>
           <div>
@@ -139,11 +145,15 @@ export default async function PlatformLayout({
               <MobileMenuButton />
               <PlatformSearchForm locale={locale} />
             </div>
-            <PlatformAccountMenu locale={locale} name={name} alertCount={alerts.length} alerts={alerts} />
+            <div className="flex shrink-0 items-center gap-3">
+              <SoundToggle />
+              <PlatformAccountMenu locale={locale} name={name} alertCount={alerts.length} alerts={alerts} />
+            </div>
           </header>
           <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</main>
         </div>
       </div>
+      </NotificationCenter>
     </MobileSidebarProvider>
   );
 }

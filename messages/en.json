@@ -316,5 +316,33 @@
     "offline": "You're offline. Some AI Agent features require an internet connection.",
     "updateAvailable": "New version available",
     "refresh": "Refresh"
+  },
+  "notifications": {
+    "orderAlertsOn": "Order alerts ON",
+    "orderAlertsOff": "Order alerts OFF",
+    "platformAlertsOn": "Platform alerts ON",
+    "platformAlertsOff": "Platform alerts OFF",
+    "enableSound": "Enable sound",
+    "enablePromptOrders": "Enable sound notifications for new orders.",
+    "enablePromptPlatform": "Enable sound notifications for new subscribers and upgrades.",
+    "dismiss": "Dismiss",
+    "newBadge": "New",
+    "newOrder": "New order",
+    "orderNumber": "Order #{number}",
+    "itemsOne": "1 item",
+    "itemsOther": "{count} items",
+    "newOrders": "{count} new orders",
+    "latest": "Latest",
+    "viewOrder": "View order",
+    "viewOrders": "View orders",
+    "newOrderNotification": "New order received",
+    "newSubscriber": "New subscriber",
+    "joined": "{name} has joined SmartManager.",
+    "plan": "{plan} plan",
+    "upgrade": "Subscription upgrade",
+    "upgraded": "{name} upgraded from {from} → {to}.",
+    "viewSubscriber": "View subscriber",
+    "newSubscriberNotification": "New SmartManager subscriber",
+    "upgradeNotification": "Subscription upgraded"
   }
 }
