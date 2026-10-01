@@ -48,4 +48,25 @@ describe("isEntitled", () => {
     const sub: SubscriptionSnapshot = { status: "canceled", trialEndsAt: "2026-01-01T00:00:00Z", currentPeriodEnd: "2027-01-01T00:00:00Z" };
     expect(isEntitled(sub, NOW)).toBe(false);
   });
+
+  it("a trial that used up its conversations or AI allowance is over before its end date", () => {
+    const sub: SubscriptionSnapshot = {
+      status: "trialing",
+      trialEndsAt: "2027-01-01T00:00:00Z",
+      currentPeriodEnd: null,
+      trialLimitReachedAt: "2026-06-30T00:00:00Z",
+    };
+    expect(isEntitled(sub, NOW)).toBe(false);
+    expect(isEntitled({ ...sub, trialLimitReachedAt: null }, NOW)).toBe(true);
+  });
+
+  it("a recorded trial limit never affects a paid subscription", () => {
+    const sub: SubscriptionSnapshot = {
+      status: "active",
+      trialEndsAt: "2026-01-01T00:00:00Z",
+      currentPeriodEnd: "2027-01-01T00:00:00Z",
+      trialLimitReachedAt: "2026-01-01T00:00:00Z",
+    };
+    expect(isEntitled(sub, NOW)).toBe(true);
+  });
 });

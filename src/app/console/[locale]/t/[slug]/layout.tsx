@@ -61,8 +61,11 @@ export default async function TenantLayout({
     ]),
   );
   const isLive = deploymentStatus === "published";
-  // Paid plans have a monthly conversation limit; the trial view stays as it was.
-  const usage = subscription?.status === "active" ? await loadSubscriberUsage(supabase, tenant.id) : null;
+  // Paid plans have a monthly conversation limit; the free trial its own.
+  const usage =
+    subscription?.status === "active" || subscription?.status === "trialing"
+      ? await loadSubscriberUsage(supabase, tenant.id)
+      : null;
 
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
@@ -164,13 +167,14 @@ export default async function TenantLayout({
                 daysRemaining={daysRemaining}
                 conversationCount={conversationCount ?? 0}
                 usage={
-                  usage?.isPaid && usage.conversationLimit !== null
+                  (usage?.isPaid || usage?.isTrial) && usage.conversationLimit !== null
                     ? {
                         used: usage.conversationsUsed,
                         limit: usage.conversationLimit,
                         warningLevel: usage.warningLevel,
                         limited: usage.conversationState === "blocked" || usage.aiLimited,
                         inGrace: usage.conversationState === "grace",
+                        trialEnded: usage.trialEnded,
                       }
                     : null
                 }

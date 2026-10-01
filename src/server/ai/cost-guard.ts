@@ -64,11 +64,14 @@ export type CostGuardAlert = {
  * is nothing real to alert on.
  */
 export async function getCostGuardAlerts(supabase: TypedSupabaseClient): Promise<CostGuardAlert[]> {
+  // The AI budget columns are hidden from signed-in users (column grants) —
+  // read with the service role; only the Super Admin dashboard calls this.
+  const admin = serviceClient();
   const [{ data: tenants }, { data: tenantSettings }, { data: platformSettings }, { data: interactions }] =
     await Promise.all([
       supabase.from("tenants").select("id, slug, business_name"),
-      supabase.from("tenant_settings").select("tenant_id, ai_monthly_budget_usd"),
-      supabase.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
+      admin.from("tenant_settings").select("tenant_id, ai_monthly_budget_usd"),
+      admin.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
       // Summed per tenant in Postgres — not every AI interaction this month.
       supabase.rpc("agent_interaction_totals_by_tenant", { p_since: startOfMonthUtc() }),
     ]);

@@ -98,6 +98,8 @@ export async function setSubscriberUsageOverridesAction(
 const settingsSchema = z.object({
   conversationWarningPercents: z.string().trim().min(1),
   aiCostWarningPercent: z.coerce.number().int().min(1).max(100),
+  trialConversationLimit: optionalNumber.pipe(z.number().int().positive().nullable()),
+  trialAiCostLimitUsd: optionalNumber.pipe(z.number().min(0).max(1000).nullable()),
   locale: z.string(),
 });
 
@@ -108,6 +110,8 @@ export async function updateUsageSettingsAction(
   const parsed = settingsSchema.safeParse({
     conversationWarningPercents: formData.get("conversationWarningPercents"),
     aiCostWarningPercent: formData.get("aiCostWarningPercent"),
+    trialConversationLimit: formData.get("trialConversationLimit"),
+    trialAiCostLimitUsd: formData.get("trialAiCostLimitUsd"),
     locale: formData.get("locale"),
   });
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
@@ -126,7 +130,13 @@ export async function updateUsageSettingsAction(
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("usage_settings")
-    .update({ conversation_warning_percents: percents, ai_cost_warning_percent: parsed.data.aiCostWarningPercent })
+    .update({
+      conversation_warning_percents: percents,
+      ai_cost_warning_percent: parsed.data.aiCostWarningPercent,
+      // Empty = no such trial limit (the trial then ends on its date or the other limit).
+      trial_conversation_limit: parsed.data.trialConversationLimit,
+      trial_ai_cost_limit_usd: parsed.data.trialAiCostLimitUsd,
+    })
     .eq("id", true);
   if (error) return "VALIDATION_ERROR: could not save the thresholds — please try again.";
 

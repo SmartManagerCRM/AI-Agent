@@ -878,6 +878,8 @@ export type Database = {
           conversation_limit_override: number | null;
           conversation_limit_reached_at: string | null;
           conversation_limit_grace_until: string | null;
+          trial_limit_reached_at: string | null;
+          trial_limit_reason: "conversation_limit" | "ai_cost_limit" | null;
           created_at: string;
           updated_at: string;
         };
@@ -935,13 +937,18 @@ export type Database = {
           id: boolean;
           conversation_warning_percents: number[];
           ai_cost_warning_percent: number;
+          trial_conversation_limit: number | null;
+          trial_ai_cost_limit_usd: number | null;
           updated_at: string;
         };
         Insert: never;
         Update: Partial<
           Pick<
             Database["public"]["Tables"]["usage_settings"]["Row"],
-            "conversation_warning_percents" | "ai_cost_warning_percent"
+            | "conversation_warning_percents"
+            | "ai_cost_warning_percent"
+            | "trial_conversation_limit"
+            | "trial_ai_cost_limit_usd"
           >
         >;
         Relationships: [];

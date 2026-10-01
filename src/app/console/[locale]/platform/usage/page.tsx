@@ -68,7 +68,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
         {[
           ["Near conversation limit", summary.approachingConversationLimit],
           ["Near AI cost cap", summary.approachingAiCostLimit],
@@ -76,6 +76,7 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           ["Conversation-limited", summary.conversationLimited],
           ["AI-cost-limited", summary.aiCostLimited],
           ["Both limits reached", summary.bothLimited],
+          ["Trials ended by a limit", summary.trialsEndedByLimit],
         ].map(([label, value]) => (
           <div key={label} className="rounded-xl border border-slate-200 bg-white p-3">
             <p className="text-xs text-slate-500">{label}</p>
@@ -155,8 +156,10 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
                     <span className="text-xs text-slate-400">{pct(r.conversationPercent)}</span>
                   </td>
                   <td className="py-2 text-slate-600">
-                    {usd(r.isPaid ? r.aiCostUsed : r.agentAiCost, 4)} / {usd(r.aiCostLimit)}{" "}
-                    <span className="text-xs text-slate-400">{r.isPaid ? pct(r.aiCostPercent) : "not capped"}</span>
+                    {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost, 4)} / {usd(r.aiCostLimit)}{" "}
+                    <span className="text-xs text-slate-400">
+                      {r.isPaid || r.isTrial ? pct(r.aiCostPercent) : "not capped"}
+                    </span>
                   </td>
                   <td className="py-2 text-slate-600">{usd(r.brainAiCost, 4)}</td>
                   <td className="py-2">
@@ -179,10 +182,11 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-900">Warning thresholds</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">Warning thresholds &amp; trial limits</h2>
         <p className="mb-3 text-xs text-slate-500">
           Subscribers see conversation warnings at these levels (plus 100%). The AI cost warning is visible to Super
-          Admin only. Plan limits are edited on{" "}
+          Admin only. A free trial ends on its end date, after its trial conversations, or once its AI allowance is used
+          — whichever comes first (empty = no such limit). Plan limits are edited on{" "}
           <Link href={`/${locale}/super-admin/plans`} prefetch={false} className="text-emerald-700 hover:underline">
             Subscriptions &amp; Plans
           </Link>
@@ -192,6 +196,8 @@ export default async function PlatformUsagePage({ params }: { params: Promise<{ 
           locale={locale}
           conversationWarningPercents={settings.conversationWarningPercents}
           aiCostWarningPercent={settings.aiCostWarningPercent}
+          trialConversationLimit={settings.trialConversationLimit}
+          trialAiCostLimitUsd={settings.trialAiCostLimitUsd}
         />
       </section>
     </div>

@@ -67,13 +67,18 @@ async function resolveForModes(slug: string, allowedModes: ("external_agent" | "
 
   const { data: subscriptionRow } = await supabase
     .from("subscriptions")
-    .select("status, trial_ends_at, current_period_end")
+    .select("status, trial_ends_at, current_period_end, trial_limit_reached_at")
     .eq("tenant_id", data.id)
     .maybeSingle();
   if (
     !isEntitled(
       subscriptionRow
-        ? { status: subscriptionRow.status, trialEndsAt: subscriptionRow.trial_ends_at, currentPeriodEnd: subscriptionRow.current_period_end }
+        ? {
+            status: subscriptionRow.status,
+            trialEndsAt: subscriptionRow.trial_ends_at,
+            currentPeriodEnd: subscriptionRow.current_period_end,
+            trialLimitReachedAt: subscriptionRow.trial_limit_reached_at,
+          }
         : null,
     )
   ) {

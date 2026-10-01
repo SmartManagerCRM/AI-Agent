@@ -152,10 +152,14 @@ export function UsageSettingsForm({
   locale,
   conversationWarningPercents,
   aiCostWarningPercent,
+  trialConversationLimit,
+  trialAiCostLimitUsd,
 }: {
   locale: string;
   conversationWarningPercents: number[];
   aiCostWarningPercent: number;
+  trialConversationLimit: number | null;
+  trialAiCostLimitUsd: number | null;
 }) {
   const [message, formAction, pending] = useActionState(updateUsageSettingsAction, undefined);
   return (
@@ -183,8 +187,32 @@ export function UsageSettingsForm({
           className={`w-28 ${input}`}
         />
       </label>
+      <label className="flex flex-col gap-1 text-xs text-slate-600">
+        Trial conversations
+        <input
+          name="trialConversationLimit"
+          type="number"
+          min="1"
+          step="1"
+          placeholder="No limit"
+          defaultValue={trialConversationLimit ?? ""}
+          className={`w-32 ${input}`}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs text-slate-600">
+        Trial AI allowance (USD)
+        <input
+          name="trialAiCostLimitUsd"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="No cap"
+          defaultValue={trialAiCostLimitUsd ?? ""}
+          className={`w-32 ${input}`}
+        />
+      </label>
       <button type="submit" disabled={pending} className={button}>
-        {pending ? "Saving…" : "Save thresholds"}
+        {pending ? "Saving…" : "Save settings"}
       </button>
       <Result message={message} />
     </form>

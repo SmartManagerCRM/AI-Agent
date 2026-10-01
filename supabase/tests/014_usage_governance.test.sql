@@ -8,7 +8,7 @@
 --   J    reservations: in-flight calls count against the cap
 -- (Parallel-session concurrency: supabase/tests/concurrency/reserve_ai_cost.sh.)
 begin;
-select plan(99);
+select plan(118);
 
 -- ── Fixtures ────────────────────────────────────────────────────────────
 insert into auth.users (id, email) values
@@ -31,6 +31,8 @@ insert into public.subscriptions (tenant_id, plan_key, status, trial_ends_at, cu
   ('00000000-0000-4000-8000-0000000000b1', 'starter', 'active', now() - interval '20 days', now() - interval '1 day', now() - interval '1 day' + interval '1 month'),
   ('00000000-0000-4000-8000-0000000000b2', 'starter', 'active', now() - interval '20 days', now() - interval '1 day', now() - interval '1 day' + interval '1 month'),
   ('00000000-0000-4000-8000-0000000000b3', 'starter', 'trialing', now() + interval '5 days', null, null);
+-- The trial started (went live) two days ago.
+update public.subscriptions set created_at = now() - interval '2 days' where tenant_id = '00000000-0000-4000-8000-0000000000b3';
 
 create function pg_temp.add_conversations(p_tenant uuid, p_count int, p_at timestamptz default now() - interval '1 hour')
 returns void language sql as $$
@@ -242,16 +244,57 @@ select is((select (r ->> 'brain_ai_cost')::numeric from jsonb_array_elements(pub
   5::numeric, 'H: Business Brain cost is reported separately');
 reset role;
 
--- ── I. Trial unchanged ─────────────────────────────────────────────────
-select pg_temp.add_conversations('00000000-0000-4000-8000-0000000000b3', 1500);
-select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'usage_state', 'TRIAL', 'I: trial is reported as TRIAL');
-select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'conversation_state', 'ok', 'I: paid-plan conversation limit not applied to a trial');
-insert into public.ai_usage_periods (tenant_id, period_start, ai_cost_usd)
-values ('00000000-0000-4000-8000-0000000000b3', (pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'period_start')::timestamptz, 100);
-select is(public.reserve_ai_cost('00000000-0000-4000-8000-0000000000b3', 0.01), '{"allowed": true, "governed": false, "reservation_id": null}'::jsonb,
-  'I: trial is not governed by the paid AI cost caps (existing trial rules apply)');
-select is((select trial_ends_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), now() + interval '5 days', 'I: trial end date untouched');
-select is((select conversation_limit_reached_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), null, 'I: no grace period started on a trial');
+-- ── I. Trial: its days OR 500 conversations OR $0.50 of AI ─────────────
+select is((select trial_conversation_limit from public.usage_settings), 500, 'I: trial conversation limit defaults to 500');
+select is((select trial_ai_cost_limit_usd from public.usage_settings), 0.50, 'I: trial AI allowance defaults to $0.50');
+-- Before the trial window: never counted.
+select pg_temp.add_conversations('00000000-0000-4000-8000-0000000000b3', 3, now() - interval '3 days');
+select pg_temp.add_conversations('00000000-0000-4000-8000-0000000000b3', 500);
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'conversations_used', '500', 'I: counts only the trial window');
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'conversation_limit', '500', 'I: a trial uses the trial limit, not the plan''s');
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'usage_state', 'TRIAL', 'I: 500 / 500 conversations → trial still on');
+select is(public.reserve_ai_cost('00000000-0000-4000-8000-0000000000b3', 0.001) ->> 'governed', 'true', 'I: trial AI calls are metered');
+select is((select trial_limit_reached_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), null, 'I: trial not ended at 500');
+select pg_temp.add_conversations('00000000-0000-4000-8000-0000000000b3', 1);
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'usage_state', 'TRIAL_ENDED', 'I: the 501st conversation ends the trial');
+select is((select trial_limit_reason from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), 'conversation_limit', 'I: trial end recorded server-side');
+select is((select conversation_limit_reached_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), null, 'I: no paid-plan grace period on a trial');
+select is(public.reserve_ai_cost('00000000-0000-4000-8000-0000000000b3', 0.001) ->> 'reason', 'trial_ended', 'I: no AI once the trial ended');
+select is((select count(*)::int from public.audit_logs where tenant_id = '00000000-0000-4000-8000-0000000000b3' and action = 'usage.trial_limit_reached'), 1, 'I: trial end audited once');
+update public.usage_settings set trial_conversation_limit = 1000 where id;
+select is((select trial_limit_reached_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), null,
+  'I: Super Admin raising the trial limit clears the record at once');
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'usage_state', 'TRIAL', 'I: … and the trial is back on');
+update public.usage_settings set trial_conversation_limit = 500 where id;
+delete from public.conversations where tenant_id = '00000000-0000-4000-8000-0000000000b3';
+
+-- $0.50 of Agent AI (spend already in the ledger counts; Business Brain never does).
+insert into public.agent_interactions (tenant_id, request_type, handled_by, success, estimated_cost_usd, provider, model) values
+  ('00000000-0000-4000-8000-0000000000b3', 'external_agent', 'ai', true, 0.30, 'gemini', 'test-model'),
+  ('00000000-0000-4000-8000-0000000000b3', 'brain_ingestion', 'ai', true, 5, 'gemini', 'test-model');
+-- First use of the trial window's counter (as right after this migration): seeded from the ledger.
+delete from public.ai_usage_periods where tenant_id = '00000000-0000-4000-8000-0000000000b3';
+select is((pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'ai_cost_used')::numeric, 0.30, 'I: trial spend already in the ledger counts, Business Brain does not');
+select pg_temp.set_ai_spend('00000000-0000-4000-8000-0000000000b3', 0.49);
+select ok((public.reserve_ai_cost('00000000-0000-4000-8000-0000000000b3', 0.002) ->> 'allowed')::boolean, 'I: $0.49 of $0.50 → allowed');
+select ok(not (public.reserve_ai_cost('00000000-0000-4000-8000-0000000000b3', 0.02) ->> 'allowed')::boolean, 'I: a call that could overshoot $0.50 is refused');
+select pg_temp.set_ai_spend('00000000-0000-4000-8000-0000000000b3', 0.50);
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'usage_state', 'TRIAL_ENDED', 'I: $0.50 of AI ends the trial');
+select is((select trial_limit_reason from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), 'ai_cost_limit', 'I: AI allowance recorded as the reason');
+
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000000a3","role":"authenticated"}';
+select is(public.tenant_usage_summary('00000000-0000-4000-8000-0000000000b3') ->> 'trial_end_reason', 'usage_limit', 'I: the subscriber sees a usage limit, never an AI cost');
+select ok(not exists (select 1 from jsonb_object_keys(public.tenant_usage_summary('00000000-0000-4000-8000-0000000000b3')) k where k ~ 'cost|usd|budget|ai_state|usage_state'),
+  'I: no AI figures in a trial subscriber''s summary');
+select is(public.tenant_usage_summary('00000000-0000-4000-8000-0000000000b3') ->> 'conversation_limit', '500', 'I: the subscriber sees the trial conversation limit');
+reset role;
+
+-- The end date still ends the trial, as before.
+update public.subscriptions set trial_ends_at = now() - interval '1 minute', trial_limit_reached_at = null, trial_limit_reason = null
+  where tenant_id = '00000000-0000-4000-8000-0000000000b3';
+select is(pg_temp.snap('00000000-0000-4000-8000-0000000000b3') ->> 'trial_end_reason', 'expired', 'I: the end date still ends the trial');
+select is((select trial_limit_reached_at from public.subscriptions where tenant_id = '00000000-0000-4000-8000-0000000000b3'), null, 'I: an expired trial is not recorded as a limit');
 
 -- ── J. In-flight reservations count against the cap ────────────────────
 select pg_temp.set_ai_spend('00000000-0000-4000-8000-0000000000b1', 15.95);

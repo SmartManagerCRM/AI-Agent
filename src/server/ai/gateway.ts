@@ -109,9 +109,22 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   // deterministic outcome, not a reason to ever reach the AI provider.
   const { data: subscriptionRow } = await serviceClient()
     .from("subscriptions")
-    .select("status, trial_ends_at, current_period_end")
+    .select("status, trial_ends_at, current_period_end, trial_limit_reached_at")
     .eq("tenant_id", input.tenant.id)
     .maybeSingle();
+  const notEntitled = async (rule: string): Promise<GatewayResult> => {
+    await recordInteraction(supabase, {
+      tenantId: input.tenant.id,
+      requestType: input.requestType,
+      handledBy: "deterministic",
+      deterministicRule: rule,
+    });
+    return {
+      handledBy: "deterministic",
+      reply: "This business's subscription isn't active right now — please check back later.",
+      rule,
+    };
+  };
   if (
     !isEntitled(
       subscriptionRow
@@ -119,22 +132,18 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
             status: subscriptionRow.status,
             trialEndsAt: subscriptionRow.trial_ends_at,
             currentPeriodEnd: subscriptionRow.current_period_end,
+            trialLimitReachedAt: subscriptionRow.trial_limit_reached_at,
           }
         : null,
     )
   ) {
-    await recordInteraction(supabase, {
-      tenantId: input.tenant.id,
-      requestType: input.requestType,
-      handledBy: "deterministic",
-      deterministicRule: "trial_expired",
-    });
-    return {
-      handledBy: "deterministic",
-      reply: "This business's subscription isn't active right now — please check back later.",
-      rule: "trial_expired",
-    };
+    return notEntitled(subscriptionRow?.trial_limit_reached_at ? "trial_limit_reached" : "trial_expired");
   }
+  // A trial also ends once its conversations or AI allowance run out — checked
+  // (and recorded) on every trial message, so the conversation that goes over
+  // the limit is the first one refused, exactly like the end date.
+  const trialUsage = subscriptionRow?.status === "trialing" ? await checkAiUsage(input.tenant.id) : null;
+  if (trialUsage?.trialEnded) return notEntitled("trial_limit_reached");
 
   const snapshot = await buildBrainSnapshot(supabase, input.tenant, input.locale, input.conversationId);
   const log = { business_slug: input.tenant.slug, tenant_id: input.tenant.id, request_type: input.requestType };
@@ -185,10 +194,11 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   // Only the products this message is about reach the model — never the whole catalog.
   const relevant = snapshot.catalog ? relevantProducts(input.message, snapshot.catalog) : [];
 
-  // Paid-plan limits (AIUsageGuard): conversation limit after its grace
-  // period, and the hard AI cost cap. Deterministic replies above never
-  // reach this point, so browsing, cart, checkout and orders keep working.
-  const usage = await checkAiUsage(input.tenant.id);
+  // Usage limits (AIUsageGuard): on paid plans the conversation limit after
+  // its grace period and the hard AI cost cap; on trials the AI allowance.
+  // Deterministic replies above never reach this point, so browsing, cart,
+  // checkout and orders keep working.
+  const usage = trialUsage ?? (await checkAiUsage(input.tenant.id));
   const limitedResult = async (limit: UsageLimit): Promise<GatewayResult> => {
     agentLog("usage_limited", { ...log, limit });
     await recordInteraction(supabase, {

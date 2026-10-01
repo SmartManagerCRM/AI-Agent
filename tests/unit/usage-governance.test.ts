@@ -6,6 +6,7 @@ import {
   CONVERSATION_LIMIT_MESSAGE,
   estimateCallCostUsd,
   parseSubscriberUsage,
+  TRIAL_ENDED_MESSAGE,
   usageNotices,
   type SubscriberUsage,
 } from "@/server/billing/usage";
@@ -13,6 +14,10 @@ import { parseUsageRows, summarizePlatformUsage } from "@/server/platform/usage-
 
 const base: SubscriberUsage = {
   isPaid: true,
+  isTrial: false,
+  trialEnded: false,
+  trialEndReason: null,
+  trialEndsAt: null,
   status: "active",
   planKey: "starter",
   periodStart: "2026-10-17T00:00:00.000Z",
@@ -89,6 +94,53 @@ describe("subscriber notices", () => {
     const notices = usageNotices({ ...base, aiLimited: true }, date);
     expect(notices.map((n) => n.body).join(" ")).toContain(AI_LIMITED_MESSAGE);
     expect(JSON.stringify(notices)).not.toMatch(/\$|cost|budget/i);
+  });
+});
+
+describe("free trial notices", () => {
+  const trial: SubscriberUsage = {
+    ...base,
+    isPaid: false,
+    isTrial: true,
+    status: "trialing",
+    trialEndsAt: "2026-10-08T00:00:00.000Z",
+    conversationLimit: 500,
+  };
+
+  it("parses the trial fields and maps an AI-allowance end to a generic usage limit only", () => {
+    const parsed = parseSubscriberUsage({ is_trial: true, trial_ended: true, trial_end_reason: "ai_cost_limit" });
+    expect(parsed?.trialEnded).toBe(true);
+    expect(parsed?.trialEndReason).toBeNull();
+    expect(
+      parseSubscriberUsage({ is_trial: true, trial_ended: true, trial_end_reason: "usage_limit" })?.trialEndReason,
+    ).toBe("usage_limit");
+  });
+
+  it("warns at the trial's conversation levels, with the end date and the limit", () => {
+    const [notice] = usageNotices({ ...trial, conversationsUsed: 430, warningLevel: 85 }, date);
+    expect(notice.title).toBe("You've used 85% of your trial conversations");
+    expect(notice.body).toContain("2026-10-08");
+    expect(notice.body).toContain("500 customer conversations");
+  });
+
+  it.each([
+    ["conversation_limit", "You've used all 500 trial conversations."],
+    ["usage_limit", "You've used the trial's AI usage allowance."],
+    ["expired", "The trial period is over."],
+  ] as const)("trial ended (%s) → says why, with no cost figures", (reason, why) => {
+    const notices = usageNotices({ ...trial, trialEnded: true, trialEndReason: reason }, date);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].body).toContain(why);
+    expect(notices[0].body).toContain(TRIAL_ENDED_MESSAGE);
+    expect(JSON.stringify(notices)).not.toMatch(/\$|cost|budget/i);
+  });
+
+  it("no paid-plan wording on a trial", () => {
+    expect(
+      usageNotices({ ...trial, aiLimited: true }, date)
+        .map((n) => n.body)
+        .join(" "),
+    ).not.toContain("billing period");
   });
 });
 

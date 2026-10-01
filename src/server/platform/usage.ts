@@ -19,16 +19,25 @@ export async function loadPlanAiCostLimits(supabase: TypedSupabaseClient): Promi
   return new Map((data ?? []).flatMap((r) => (r.plan_key ? [[r.plan_key, Number(r.limit_usd)] as const] : [])));
 }
 
-export async function loadUsageSettings(
-  supabase: TypedSupabaseClient,
-): Promise<{ conversationWarningPercents: number[]; aiCostWarningPercent: number }> {
+export async function loadUsageSettings(supabase: TypedSupabaseClient): Promise<{
+  conversationWarningPercents: number[];
+  aiCostWarningPercent: number;
+  trialConversationLimit: number | null;
+  trialAiCostLimitUsd: number | null;
+}> {
   const { data } = await supabase
     .from("usage_settings")
-    .select("conversation_warning_percents, ai_cost_warning_percent")
+    .select("conversation_warning_percents, ai_cost_warning_percent, trial_conversation_limit, trial_ai_cost_limit_usd")
     .eq("id", true)
     .maybeSingle();
   return {
     conversationWarningPercents: data?.conversation_warning_percents ?? [70, 85, 95],
     aiCostWarningPercent: data?.ai_cost_warning_percent ?? 80,
+    trialConversationLimit: data ? data.trial_conversation_limit : 500,
+    trialAiCostLimitUsd: data
+      ? data.trial_ai_cost_limit_usd === null
+        ? null
+        : Number(data.trial_ai_cost_limit_usd)
+      : 0.5,
   };
 }

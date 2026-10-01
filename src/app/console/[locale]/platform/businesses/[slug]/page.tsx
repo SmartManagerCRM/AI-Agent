@@ -411,19 +411,29 @@ function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow
           {usage.usageState.replace(/_/g, " ")}
         </span>
       </div>
-      {!usage.isPaid && (
+      {usage.isTrial ? (
         <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-          Not on a paid billing period ({usage.status}). The paid-plan limits below apply only while the subscription is
-          active and paid; trial rules are unchanged.
+          Free trial — it ends on {date(usage.periodEnd)}, after {usage.conversationLimit?.toLocaleString(locale) ?? "∞"}{" "}
+          conversations, or once its {usd(usage.aiCostLimit)} AI allowance is used, whichever comes first
+          {usage.trialEnded && ` (ended: ${usage.trialEndReason?.replace(/_/g, " ")})`}. Trial limits are set on Usage &amp;
+          AI Cost; the overrides below apply to paid billing periods.
         </p>
+      ) : (
+        !usage.isPaid && (
+          <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-800">
+            Not on a paid billing period ({usage.status}). The paid-plan limits below apply only while the subscription
+            is active and paid.
+          </p>
+        )
       )}
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <dt className="text-slate-500">Plan</dt>
         <dd className="capitalize text-slate-900">{usage.planKey}</dd>
-        <dt className="text-slate-500">Billing period</dt>
+        <dt className="text-slate-500">{usage.isTrial ? "Trial period" : "Billing period"}</dt>
         <dd className="text-slate-900">
-          {date(usage.periodStart)} → {date(usage.periodEnd)} (resets {date(usage.periodEnd)})
+          {date(usage.periodStart)} → {date(usage.periodEnd)}
+          {!usage.isTrial && ` (resets ${date(usage.periodEnd)})`}
         </dd>
         <dt className="text-slate-500">Conversations</dt>
         <dd className="text-slate-900">
@@ -438,7 +448,7 @@ function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow
             <dd className="text-slate-900">{new Date(usage.graceUntil).toLocaleString(locale)}</dd>
           </>
         )}
-        <dt className="text-slate-500">AI cost (counted against the cap)</dt>
+        <dt className="text-slate-500">{usage.isTrial ? "AI cost (against the trial allowance)" : "AI cost (counted against the cap)"}</dt>
         <dd className="text-slate-900">
           {usd(usage.aiCostUsed, 4)} / {usd(usage.aiCostLimit)}
           {usage.aiCostPercent !== null && ` (${usage.aiCostPercent}%)`}

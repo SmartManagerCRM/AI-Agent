@@ -12,6 +12,7 @@ export type UsageState =
   | "AI_COST_LIMIT_REACHED"
   | "BOTH_LIMITS_REACHED"
   | "TRIAL"
+  | "TRIAL_ENDED"
   | "NOT_ACTIVE";
 
 export type SubscriberUsageRow = {
@@ -22,6 +23,10 @@ export type SubscriberUsageRow = {
   planKey: string;
   status: string;
   isPaid: boolean;
+  isTrial: boolean;
+  trialEnded: boolean;
+  /** Super Admin only: "expired" | "conversation_limit" | "ai_cost_limit". */
+  trialEndReason: string | null;
   periodStart: string | null;
   periodEnd: string | null;
   conversationLimit: number | null;
@@ -73,6 +78,9 @@ export function parseUsageRows(raw: unknown): SubscriberUsageRow[] {
         planKey: str(r.plan_key) ?? "",
         status: str(r.status) ?? "",
         isPaid: r.is_paid === true,
+        isTrial: r.is_trial === true,
+        trialEnded: r.trial_ended === true,
+        trialEndReason: str(r.trial_end_reason),
         periodStart: str(r.period_start),
         periodEnd: str(r.period_end),
         conversationLimit: num(r.conversation_limit),
@@ -125,6 +133,7 @@ export type PlatformUsageSummary = {
   conversationLimited: number;
   aiCostLimited: number;
   bothLimited: number;
+  trialsEndedByLimit: number;
 };
 
 const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
@@ -168,6 +177,9 @@ export function summarizePlatformUsage(rows: SubscriberUsageRow[]): PlatformUsag
     conversationLimited: paid.filter((r) => r.conversationState === "blocked").length,
     aiCostLimited: paid.filter((r) => r.aiState === "blocked").length,
     bothLimited: paid.filter((r) => r.usageState === "BOTH_LIMITS_REACHED").length,
+    trialsEndedByLimit: rows.filter(
+      (r) => r.isTrial && (r.trialEndReason === "conversation_limit" || r.trialEndReason === "ai_cost_limit"),
+    ).length,
   };
 }
 
@@ -180,5 +192,6 @@ export const USAGE_STATE_STYLE: Record<UsageState, string> = {
   AI_COST_LIMIT_REACHED: "bg-red-50 text-red-700",
   BOTH_LIMITS_REACHED: "bg-red-100 text-red-800",
   TRIAL: "bg-blue-50 text-blue-700",
+  TRIAL_ENDED: "bg-red-50 text-red-700",
   NOT_ACTIVE: "bg-slate-100 text-slate-500",
 };

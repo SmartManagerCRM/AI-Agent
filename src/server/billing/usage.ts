@@ -10,8 +10,15 @@ import type { ModelPricing } from "@/server/ai/pricing";
  */
 export type ConversationState = "ok" | "grace" | "blocked";
 
+/** Why a trial ended — an AI-allowance end is only ever reported as a generic "usage_limit". */
+export type TrialEndReason = "expired" | "conversation_limit" | "usage_limit";
+
 export type SubscriberUsage = {
   isPaid: boolean;
+  isTrial: boolean;
+  trialEnded: boolean;
+  trialEndReason: TrialEndReason | null;
+  trialEndsAt: string | null;
   status: string;
   planKey: string;
   periodStart: string | null;
@@ -40,8 +47,13 @@ export function parseSubscriberUsage(raw: unknown): SubscriberUsage | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
   const state = r.conversation_state;
+  const reason = r.trial_end_reason;
   return {
     isPaid: r.is_paid === true,
+    isTrial: r.is_trial === true,
+    trialEnded: r.trial_ended === true,
+    trialEndReason: reason === "expired" || reason === "conversation_limit" || reason === "usage_limit" ? reason : null,
+    trialEndsAt: str(r.trial_ends_at),
     status: str(r.status) ?? "",
     planKey: str(r.plan_key) ?? "",
     periodStart: str(r.period_start),
@@ -63,10 +75,39 @@ export const AI_LIMITED_MESSAGE =
 export const CONVERSATION_LIMIT_MESSAGE =
   "You've reached your monthly customer conversation limit. Upgrade your plan to continue AI service, or wait until your next billing period.";
 
+export const TRIAL_ENDED_MESSAGE = "Your free trial has ended. Subscribe to a plan to bring your Agent back online.";
+
 export type UsageNotice = { tone: "info" | "warning" | "danger"; title: string; body: string };
+
+/** The free trial's notices: its conversation warnings, and why it ended. Never AI cost details. */
+function trialNotices(usage: SubscriberUsage, formatDate: (iso: string) => string): UsageNotice[] {
+  if (usage.trialEnded) {
+    const why =
+      usage.trialEndReason === "conversation_limit"
+        ? usage.conversationLimit !== null
+          ? `You've used all ${usage.conversationLimit.toLocaleString("en")} trial conversations.`
+          : "You've used all your trial conversations."
+        : usage.trialEndReason === "usage_limit"
+          ? "You've used the trial's AI usage allowance."
+          : "The trial period is over.";
+    return [{ tone: "danger", title: "Free trial ended", body: `${why} ${TRIAL_ENDED_MESSAGE}` }];
+  }
+  if (usage.warningLevel > 0 && usage.conversationLimit !== null) {
+    const ends = usage.trialEndsAt ? ` The trial ends on ${formatDate(usage.trialEndsAt)}` : " The trial ends";
+    return [
+      {
+        tone: usage.warningLevel >= 95 ? "danger" : "warning",
+        title: `You've used ${usage.warningLevel}% of your trial conversations`,
+        body: `${ends.trim()} or after ${usage.conversationLimit.toLocaleString("en")} customer conversations, whichever comes first. Subscribe to a plan to keep your Agent running.`,
+      },
+    ];
+  }
+  return [];
+}
 
 /** The subscriber console's usage notices (warnings at the configured levels, the grace period, the limit). */
 export function usageNotices(usage: SubscriberUsage, formatDate: (iso: string) => string): UsageNotice[] {
+  if (usage.isTrial) return trialNotices(usage, formatDate);
   const notices: UsageNotice[] = [];
   const resets = usage.periodEnd ? `Your usage resets on ${formatDate(usage.periodEnd)}.` : "";
   if (usage.conversationState === "blocked") {

@@ -34,7 +34,10 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
   ]);
   const exponentByCode = new Map((planCurrencies ?? []).map((c) => [c.code, c.exponent]));
   const trialDaysRemaining = subscription?.status === "trialing" ? daysUntil(subscription.trial_ends_at) : null;
-  const usage = subscription?.status === "active" ? await loadSubscriberUsage(supabase, tenant.id) : null;
+  const usage =
+    subscription?.status === "active" || subscription?.status === "trialing"
+      ? await loadSubscriberUsage(supabase, tenant.id)
+      : null;
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -66,7 +69,7 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
         )}
       </section>
 
-      {usage?.isPaid && <UsageSection usage={usage} locale={locale} />}
+      {(usage?.isPaid || usage?.isTrial) && <UsageSection usage={usage} locale={locale} />}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-slate-900">Plans</h2>
@@ -118,7 +121,7 @@ const NOTICE_STYLE = {
   danger: "border-red-200 bg-red-50 text-red-900",
 } as const;
 
-/** This billing period's customer conversations — never AI cost figures (the summary doesn't carry them). */
+/** This billing period's (or the free trial's) customer conversations — never AI cost figures (the summary doesn't carry them). */
 function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: string }) {
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
@@ -127,11 +130,16 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
   const limit = usage.conversationLimit;
   const remaining = limit !== null ? Math.max(0, limit - usage.conversationsUsed) : null;
   const percent = limit ? Math.min(100, (usage.conversationsUsed / limit) * 100) : 0;
-  const state = usage.aiLimited
-    ? { label: "AI limited", style: "bg-red-50 text-red-700" }
-    : STATE_LABEL[usage.conversationState];
+  const trial = usage.isTrial;
+  const state = trial
+    ? usage.trialEnded
+      ? { label: "Trial ended", style: "bg-red-50 text-red-700" }
+      : { label: "Free trial", style: "bg-blue-50 text-blue-700" }
+    : usage.aiLimited
+      ? { label: "AI limited", style: "bg-red-50 text-red-700" }
+      : STATE_LABEL[usage.conversationState];
   const barColor =
-    usage.conversationState !== "ok" || usage.warningLevel >= 95
+    usage.trialEnded || usage.conversationState !== "ok" || usage.warningLevel >= 95
       ? "bg-red-500"
       : usage.warningLevel > 0
         ? "bg-amber-400"
@@ -142,7 +150,7 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">Usage this billing period</h2>
+        <h2 className="text-sm font-semibold text-slate-900">{trial ? "Free trial usage" : "Usage this billing period"}</h2>
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${state.style}`}>{state.label}</span>
       </div>
 
@@ -171,13 +179,13 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         {usage.periodStart && lastDay && (
           <div>
-            <dt className="text-slate-500">Billing period</dt>
+            <dt className="text-slate-500">{trial ? "Trial period" : "Billing period"}</dt>
             <dd className="text-slate-900">
               {formatDate(usage.periodStart)} – {formatDate(lastDay)}
             </dd>
           </div>
         )}
-        {usage.periodEnd && (
+        {usage.periodEnd && !trial && (
           <div>
             <dt className="text-slate-500">Usage resets on</dt>
             <dd className="text-slate-900">{formatDate(usage.periodEnd)}</dd>
@@ -198,8 +206,11 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
         </div>
       ))}
       <p className="text-xs text-slate-500">
-        One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders
-        keep working at any usage level.
+        {trial
+          ? `One conversation is one customer chat session, however many messages it has. The free trial ends on ${
+              usage.trialEndsAt ? formatDate(usage.trialEndsAt) : "its end date"
+            }${limit !== null ? ` or after ${limit.toLocaleString(locale)} customer conversations` : ""}, whichever comes first.`
+          : "One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders keep working at any usage level."}
       </p>
     </section>
   );

@@ -7,14 +7,21 @@ type Props = {
   /** Computed by the caller (a server component) — never Date.now() here, that's impure in render. */
   daysRemaining: number | null;
   conversationCount: number;
-  /** Paid plans only: this billing period's customer conversations against the plan's limit. */
-  usage?: { used: number; limit: number; warningLevel: number; limited: boolean; inGrace: boolean } | null;
+  /** This billing period's (or the trial's) customer conversations against its limit. */
+  usage?: {
+    used: number;
+    limit: number;
+    warningLevel: number;
+    limited: boolean;
+    inGrace: boolean;
+    trialEnded?: boolean;
+  } | null;
 };
 
 /**
- * Real data only. A paid plan shows this period's conversations against its
- * real limit (`tenant_usage_summary`); the trial has no conversation cap, so
- * it shows the plain count — never a fabricated "X / 500". When there's no subscription
+ * Real data only: conversations against the real limit from
+ * `tenant_usage_summary` (this paid period's, or the free trial's), else
+ * the plain count — never a fabricated limit. When there's no subscription
  * row at all (this tenant's actual current state), this is an honest
  * empty state, not a fabricated trial.
  */
@@ -49,13 +56,14 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
           {subscription.status.replace("_", " ")}
         </span>
       </div>
-      {isTrialing && <p className="mt-2 text-slate-300">{daysRemaining} days remaining</p>}
+      {isTrialing && !usage?.trialEnded && <p className="mt-2 text-slate-300">{daysRemaining} days remaining</p>}
       {usage ? (
         <>
           <p
             className={`mt-1 ${usage.limited || usage.warningLevel >= 95 ? "text-red-300" : usage.warningLevel > 0 ? "text-amber-300" : "text-slate-400"}`}
           >
-            {usage.used.toLocaleString(locale)} / {usage.limit.toLocaleString(locale)} conversations this period
+            {usage.used.toLocaleString(locale)} / {usage.limit.toLocaleString(locale)} conversations
+            {subscription.status === "trialing" ? " in trial" : " this period"}
           </p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
             <div
@@ -63,7 +71,9 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
               style={{ width: `${Math.min(100, Math.max(2, (usage.used / usage.limit) * 100))}%` }}
             />
           </div>
-          {usage.limited ? (
+          {usage.trialEnded ? (
+            <p className="mt-2 text-xs text-red-300">Free trial ended — see Billing.</p>
+          ) : usage.limited ? (
             <p className="mt-2 text-xs text-red-300">AI service is limited — see Billing.</p>
           ) : (
             usage.inGrace && <p className="mt-2 text-xs text-amber-300">Conversation limit reached — grace period.</p>
@@ -72,7 +82,7 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
       ) : (
         <p className="mt-1 text-slate-400">{conversationCount} conversations so far</p>
       )}
-      {isTrialing && (
+      {isTrialing && !usage && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
           <div
             className="h-full rounded-full bg-emerald-500"

@@ -3,9 +3,10 @@
 #
 # Many LLM calls for the same subscriber reserve their cost at the same
 # moment; the cap must still hold exactly. Fires N parallel sessions, each
-# calling public.reserve_ai_cost, against a paid Starter subscriber that has
-# already spent $14.90 of its $15 cap with every call estimated at $0.01:
-# exactly 10 may be allowed, never more. Then settles them in parallel and
+# calling public.reserve_ai_cost with a $0.01 estimate, against
+#   SCENARIO=paid  (default) a paid Starter subscriber with $14.90 of its $15 cap spent
+#   SCENARIO=trial a trial with $0.40 of its $0.50 AI allowance spent
+# Exactly 10 may be allowed, never more. Then settles them in parallel and
 # checks the recorded spend.
 #
 # LOCAL / TEST DATABASES ONLY — it creates (and removes) its own fixture
@@ -14,6 +15,7 @@ set -euo pipefail
 
 : "${DATABASE_URL:?set DATABASE_URL to a local/test database}"
 N="${N:-40}"
+SCENARIO="${SCENARIO:-paid}"
 TENANT="00000000-0000-4000-8000-00000000c0c0"
 PSQL=(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -qAt)
 
@@ -24,14 +26,18 @@ cleanup
 "${PSQL[@]}" <<SQL
 insert into public.tenants (id, slug, business_name, business_type_key, status, currency)
 values ('$TENANT', 'usage-concurrency', '{"en":"Usage Concurrency"}', 'restaurant', 'active', 'USD');
-insert into public.subscriptions (tenant_id, plan_key, status, trial_ends_at, current_period_start, current_period_end)
-values ('$TENANT', 'starter', 'active', now() - interval '20 days', now() - interval '1 day', now() - interval '1 day' + interval '1 month');
-insert into public.ai_usage_periods (tenant_id, period_start, ai_cost_usd)
-select '$TENANT', current_period_start, 14.90 from public.subscriptions where tenant_id = '$TENANT';
 SQL
+if [ "$SCENARIO" = "trial" ]; then
+  "${PSQL[@]}" -c "insert into public.subscriptions (tenant_id, plan_key, status, trial_ends_at) values ('$TENANT', 'starter', 'trialing', now() + interval '3 days')"
+  SPENT_BEFORE=0.40
+else
+  "${PSQL[@]}" -c "insert into public.subscriptions (tenant_id, plan_key, status, trial_ends_at, current_period_start, current_period_end) values ('$TENANT', 'starter', 'active', now() - interval '20 days', now() - interval '1 day', now() - interval '1 day' + interval '1 month')"
+  SPENT_BEFORE=14.90
+fi
+"${PSQL[@]}" -c "insert into public.ai_usage_periods (tenant_id, period_start, ai_cost_usd) values ('$TENANT', (app.usage_snapshot('$TENANT', false) ->> 'period_start')::timestamptz, $SPENT_BEFORE)"
 
 LIMIT=$("${PSQL[@]}" -c "select app.usage_snapshot('$TENANT', false) ->> 'ai_cost_limit'")
-EXPECTED=$("${PSQL[@]}" -c "select floor(($LIMIT - 14.90) / 0.01)::int")
+EXPECTED=$("${PSQL[@]}" -c "select floor(($LIMIT - $SPENT_BEFORE) / 0.01)::int")
 
 OUT=$(mktemp -d)
 for i in $(seq 1 "$N"); do
@@ -41,7 +47,7 @@ wait
 
 ALLOWED=$(grep -l '"allowed": true' "$OUT"/* | wc -l)
 DENIED=$(grep -l '"reason": "ai_cost_limit"' "$OUT"/* | wc -l)
-echo "parallel reservations: $N, allowed: $ALLOWED, denied: $DENIED (cap \$$LIMIT, expected allowed: $EXPECTED)"
+echo "[$SCENARIO] parallel reservations: $N, allowed: $ALLOWED, denied: $DENIED (cap \$$LIMIT, expected allowed: $EXPECTED)"
 [ "$ALLOWED" -eq "$EXPECTED" ] || { echo "FAIL: allowed $ALLOWED, expected $EXPECTED"; exit 1; }
 [ $((ALLOWED + DENIED)) -eq "$N" ] || { echo "FAIL: some calls neither allowed nor denied"; exit 1; }
 

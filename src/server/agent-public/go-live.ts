@@ -56,7 +56,11 @@ export async function loadGoLive(supabase: TypedSupabaseClient, tenant: Tenant, 
     { data: branches },
   ] = await Promise.all([
     supabase.from("agent_deployments").select("status, published_at, paused_at").eq("tenant_id", tenant.id).maybeSingle(),
-    supabase.from("subscriptions").select("status, trial_ends_at, current_period_end").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase
+      .from("subscriptions")
+      .select("status, trial_ends_at, current_period_end, trial_limit_reached_at")
+      .eq("tenant_id", tenant.id)
+      .maybeSingle(),
     supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("business_types").select("name").eq("key", tenant.business_type_key).maybeSingle(),
     supabase
@@ -89,7 +93,12 @@ export async function loadGoLive(supabase: TypedSupabaseClient, tenant: Tenant, 
 
   const subscriptionState: GoLiveState["subscription"] = !subscription
     ? "none"
-    : isEntitled({ status: subscription.status, trialEndsAt: subscription.trial_ends_at, currentPeriodEnd: subscription.current_period_end })
+    : isEntitled({
+        status: subscription.status,
+        trialEndsAt: subscription.trial_ends_at,
+        currentPeriodEnd: subscription.current_period_end,
+        trialLimitReachedAt: subscription.trial_limit_reached_at,
+      })
       ? "entitled"
       : "expired";
 
