@@ -23,11 +23,12 @@ export { overallHealth, type HealthCheck, type HealthStatus, type OverallHealth 
  *
  * About the database response time: it measures the round trip from this
  * server to Supabase, and the query itself is trivial (~0.2 ms in the
- * database). Supabase's edge logs show this app's requests entering at
- * Cloudflare FRA (Frankfurt) for a project hosted in ap-northeast-2
- * (Seoul), so the number is dominated by that network path: about 250 ms
- * on a warm connection and 700–800 ms when a new connection has to be set
- * up. That is why the "degraded" bar sits at 2 s.
+ * database), so the number is dominated by the network path. The app
+ * server (Hostinger, Frankfurt) and the database (Supabase eu-central-1,
+ * Frankfurt, since 2026-10-01) now share a region; before that the
+ * database was in ap-northeast-2 (Seoul) and the round trip alone was
+ * about 250 ms warm and 700–800 ms on a new connection. The "degraded"
+ * bar stays at 2 s so only a real problem trips it.
  */
 export async function getSystemHealth(supabase: TypedSupabaseClient): Promise<HealthCheck[]> {
   const [application, database, aiProvider, paymentGateway] = await Promise.all([
