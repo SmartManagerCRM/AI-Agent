@@ -208,3 +208,25 @@ automate:
 - **No CDN** in front of static assets — Hostinger serves them directly
   from `.next/standalone/.next/static/`. Fine at MVP scale; revisit if
   asset load time becomes a problem.
+
+## Installable app (PWA)
+
+The console (subscriber dashboard and Super Admin) installs as an app;
+the customer-facing Agent and the marketing site are not offered for
+install (only the console's pages link the manifest).
+
+- **Files**: `/manifest.webmanifest` (`src/lib/pwa/manifest.ts`), `/sw.js`
+  (`src/lib/pwa/service-worker.ts`, stamped with the build id), icons in
+  `public/icons/`, `public/favicon.ico`. Regenerate the icons from the
+  official logo with `node scripts/generate-pwa-icons.mjs`.
+- **Needs HTTPS** on the console host (Hostinger's SSL); browsers only
+  register service workers and offer install on secure origins.
+- **Opens at** `/subscriber`: a signed-in user lands on their own business
+  (or Super Admin), anyone else on the login page.
+- **Caches only** the build's static files and icons — never pages, API
+  responses, auth, orders, customers or payments. Offline, a page load
+  shows "You're offline. Some AI Agent features require an internet
+  connection."
+- **Updates**: after each deploy, open apps show "New version available —
+  Refresh"; nothing reloads until the user clicks it.
+- **Nothing to configure**: no environment variables, no hPanel settings.

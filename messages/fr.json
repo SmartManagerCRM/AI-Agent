@@ -307,5 +307,14 @@
       "failed": "Cette tentative de paiement a échoué — revenez à la conversation pour réessayer.",
       "secure": "Les paiements sont traités de manière sécurisée."
     }
+  },
+  "pwa": {
+    "installTitle": "Installer AI Agent",
+    "installDescription": "Installez SmartManager AI Agent pour un accès plus rapide et une expérience d’application dédiée.",
+    "install": "Installer",
+    "notNow": "Plus tard",
+    "offline": "Vous êtes hors ligne. Certaines fonctionnalités d’AI Agent nécessitent une connexion Internet.",
+    "updateAvailable": "Nouvelle version disponible",
+    "refresh": "Actualiser"
   }
 }

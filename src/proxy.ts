@@ -60,7 +60,10 @@ export function isWidgetPath(pathname: string): boolean {
 
 function buildCsp(nonce: string, pathname: string): string {
   const frameAncestors = isWidgetPath(pathname) ? "*" : "'none'";
-  return `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; frame-ancestors ${frameAncestors}; base-uri 'self'; object-src 'none'`;
+  // worker-src/manifest-src: the console's PWA service worker (`/sw.js`) and
+  // manifest are same-origin files; without worker-src the worker would be
+  // judged against the nonce-only script-src.
+  return `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; worker-src 'self'; manifest-src 'self'; frame-ancestors ${frameAncestors}; base-uri 'self'; object-src 'none'`;
 }
 
 function withCsp(response: NextResponse, csp: string): NextResponse {
@@ -230,6 +233,7 @@ async function refreshSession(
 
 export const config = {
   matcher: [
-    "/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)$).*)",
+    // PWA files (`/sw.js`, `/manifest.webmanifest`) are served as-is, never rewritten.
+    "/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|sw\\.js$|manifest\\.webmanifest$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff2?)$).*)",
   ],
 };

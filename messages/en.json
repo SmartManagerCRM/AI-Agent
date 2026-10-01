@@ -307,5 +307,14 @@
       "failed": "This payment attempt failed — return to the chat to try again.",
       "secure": "Payments are processed securely."
     }
+  },
+  "pwa": {
+    "installTitle": "Install AI Agent",
+    "installDescription": "Install SmartManager AI Agent for faster access and a dedicated app experience.",
+    "install": "Install",
+    "notNow": "Not now",
+    "offline": "You're offline. Some AI Agent features require an internet connection.",
+    "updateAvailable": "New version available",
+    "refresh": "Refresh"
   }
 }
