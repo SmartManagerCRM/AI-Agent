@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -10,29 +11,45 @@ const CHANNEL_LABEL: Record<string, string> = {
   website_widget: "Website Widget",
 };
 
+const STATUSES = ["all", "open", "closed"] as const;
+type StatusTab = (typeof STATUSES)[number];
+const PAGE_SIZE = 50;
+
 export default async function ConversationsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; page?: string }>;
 }) {
   const { locale, slug } = await params;
-  const { status: statusFilter } = await searchParams;
+  const { status: statusParam, page: pageParam } = await searchParams;
+  const statusFilter: StatusTab = STATUSES.find((s) => s === statusParam) ?? "all";
+  const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const { data: allConversations } = await supabase
+  // Counts are exact (counted in Postgres), and the list is paged — every conversation is reachable.
+  const countOf = (status: StatusTab) => {
+    let count = supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+    if (status !== "all") count = count.eq("status", status);
+    return count.then(({ count: n }) => n ?? 0);
+  };
+  let query = supabase
     .from("conversations")
     .select("id, channel, status, started_at, last_message_at")
     .eq("tenant_id", tenant.id)
     .order("last_message_at", { ascending: false, nullsFirst: false })
-    .limit(100);
+    .order("id", { ascending: false })
+    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+  if (statusFilter !== "all") query = query.eq("status", statusFilter);
+  const [{ data: pageRows }, statusCounts] = await Promise.all([query, Promise.all(STATUSES.map(countOf))]);
+  const conversations = pageRows ?? [];
 
-  const conversationIds = (allConversations ?? []).map((c) => c.id);
+  const conversationIds = conversations.map((c) => c.id);
   const [{ data: lastMessages }, { data: relatedOrders }] = await Promise.all([
     // Only each conversation's newest message, picked in Postgres — not
-    // every message of all 100 conversations.
+    // every message of every conversation on this page.
     conversationIds.length
       ? supabase.rpc("conversation_last_messages", { p_conversation_ids: conversationIds })
       : Promise.resolve({ data: [] }),
@@ -51,21 +68,15 @@ export default async function ConversationsPage({
       customerByConversation.set(order.conversation_id, order.customer_name);
   }
 
-  const counts = { all: (allConversations ?? []).length, open: 0, closed: 0 };
-  for (const c of allConversations ?? []) counts[c.status === "open" ? "open" : "closed"]++;
-
-  const conversations =
-    statusFilter && statusFilter !== "all"
-      ? (allConversations ?? []).filter((c) => c.status === statusFilter)
-      : (allConversations ?? []);
+  const counts = Object.fromEntries(STATUSES.map((s, i) => [s, statusCounts[i]])) as Record<StatusTab, number>;
 
   const baseHref = `/${locale}/${slug}/conversations`;
-  const tabs: Tab[] = (["all", "open", "closed"] as const).map((key) => ({
+  const tabs: Tab[] = STATUSES.map((key) => ({
     key,
     label: key.charAt(0).toUpperCase() + key.slice(1),
     count: counts[key],
     href: key === "all" ? baseHref : `${baseHref}?status=${key}`,
-    active: (statusFilter ?? "all") === key,
+    active: statusFilter === key,
   }));
 
   return (
@@ -138,6 +149,13 @@ export default async function ConversationsPage({
             />
           </div>
         )}
+        <Pagination
+          basePath={baseHref}
+          params={{ status: statusFilter === "all" ? undefined : statusFilter }}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={counts[statusFilter]}
+        />
       </div>
     </div>
   );

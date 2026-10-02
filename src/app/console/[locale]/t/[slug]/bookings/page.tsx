@@ -4,6 +4,7 @@ import { ServiceRow } from "@/components/catalog/service-row";
 import { CreateServiceForm } from "@/components/console/create-service-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import { isFuture } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { cancelBookingAction } from "@/server/booking/actions";
@@ -17,12 +18,23 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 /** Bookable services + real bookings (Customer Agent Master Prompt §26). Every booking here was written by the create_booking tool — none are fabricated. */
-export default async function BookingsPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+const PAGE_SIZE = 50;
+
+export default async function BookingsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { locale, slug } = await params;
+  const page = parsePage((await searchParams).page);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: allServices }, { data: bookings }, { data: currency }] = await Promise.all([
+  const now = new Date().toISOString();
+  // Counts are exact (counted in Postgres), and the list is paged — every booking is reachable.
+  const [{ data: allServices }, { data: bookings }, { data: currency }, { count: totalBookings }, { count: upcomingBookings }] = await Promise.all([
     supabase
       .from("bookable_services")
       .select("id, name, duration_minutes, price_minor, is_active, source, archived_at")
@@ -33,8 +45,16 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
       .select("id, service_id, customer_name, customer_phone, starts_at, status")
       .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
-      .limit(200),
+      .order("id", { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenant.id)
+      .eq("status", "confirmed")
+      .gt("starts_at", now),
   ]);
   const exponent = currency?.exponent ?? 2;
   // Deleted services are hidden; their past bookings still show the service's name.
@@ -42,7 +62,6 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
   const serviceNameById = new Map(
     (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );
-  const upcoming = (bookings ?? []).filter((b) => b.status === "confirmed" && isFuture(b.starts_at));
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,12 +76,12 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
           trend={null}
           href={`/${locale}/${slug}/bookings#services`}
         />
-        <KpiTile icon="orders" accent="blue" label="Upcoming bookings" value={String(upcoming.length)} trend={null} href={`/${locale}/${slug}/bookings#bookings`} />
+        <KpiTile icon="orders" accent="blue" label="Upcoming bookings" value={String(upcomingBookings ?? 0)} trend={null} href={`/${locale}/${slug}/bookings#bookings`} />
         <KpiTile
           icon="audit"
           accent="purple"
           label="Total bookings"
-          value={String((bookings ?? []).length)}
+          value={String(totalBookings ?? 0)}
           trend={null}
           href={`/${locale}/${slug}/bookings#bookings`}
         />
@@ -155,6 +174,7 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
         ) : (
           <EmptyState title="No bookings yet" description="Bookings the Agent takes will show up here." />
         )}
+        <Pagination basePath={`/${locale}/${slug}/bookings`} params={{}} page={page} pageSize={PAGE_SIZE} total={totalBookings ?? 0} />
       </section>
     </div>
   );

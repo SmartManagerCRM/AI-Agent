@@ -1,16 +1,18 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import { ManualOrders } from "@/components/commerce/manual-orders";
 import { NewOrderBadge } from "@/components/notifications/notification-center";
 import { SearchInput } from "@/components/console/search-input";
 import { StatusPill } from "@/components/console/status-pill";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
-import { orderStatusGroup } from "@/lib/order-status";
+import { ORDER_STATUS_GROUPS } from "@/lib/order-status";
 import { markCashPaymentCollectedAction, updateOrderStatusAction } from "@/server/commerce/order-actions";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import type { Database } from "@/types/database";
 
 const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
 
@@ -27,27 +29,48 @@ const NEXT_STATUSES: Record<string, string[]> = {
 };
 
 const GROUPS = ["all", "pending", "active", "completed", "cancelled"] as const;
+type Group = (typeof GROUPS)[number];
+const PAGE_SIZE = 50;
+
+type OrderStatus = Database["public"]["Tables"]["orders"]["Row"]["status"];
+
+/** The raw statuses behind each status tab. */
+const statusesIn = (group: Exclude<Group, "all">) =>
+  Object.entries(ORDER_STATUS_GROUPS)
+    .filter(([, g]) => g === group)
+    .map(([status]) => status as OrderStatus);
 
 export default async function OrdersPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
   const { locale, slug } = await params;
-  const { status: statusFilter, q } = await searchParams;
+  const { status: statusParam, q, page: pageParam } = await searchParams;
+  const statusFilter: Group = GROUPS.find((g) => g === statusParam) ?? "all";
+  const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
+  // Counts are exact (counted in Postgres), and the list is paged — every order is reachable, however many there are.
+  const countOf = (group: Group) => {
+    let count = supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+    if (group !== "all") count = count.in("status", statusesIn(group));
+    if (q) count = count.ilike("customer_name", `%${q}%`);
+    return count.then(({ count: n }) => n ?? 0);
+  };
   let query = supabase
     .from("orders")
     .select("id, order_number, status, fulfillment_type, customer_name, total_minor, currency, placed_at, created_via")
     .eq("tenant_id", tenant.id)
     .order("placed_at", { ascending: false })
-    .limit(100);
+    .order("id", { ascending: false })
+    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+  if (statusFilter !== "all") query = query.in("status", statusesIn(statusFilter));
   if (q) query = query.ilike("customer_name", `%${q}%`);
-  const [{ data: ordersRaw }, { data: currency }, { data: catalog }] = await timed(
+  const [{ data: ordersRaw }, { data: currency }, { data: catalog }, groupCounts] = await timed(
     "orders.queries",
     Promise.all([
       query,
@@ -60,15 +83,16 @@ export default async function OrdersPage({
         .is("source_price", null) // still waiting for the owner's price
         .order("created_at", { ascending: false })
         .limit(1000),
+      Promise.all(GROUPS.map(countOf)),
     ]),
   );
-  const allOrders = ordersRaw ?? [];
+  const orders = ordersRaw ?? [];
   const exponents = new Map((currency ?? []).map((c) => [c.code, c.exponent]));
   const exponent = exponents.get(tenant.currency) ?? 2;
   // Each order in the currency it was placed in (it keeps it if the business later switches).
   const money = (minor: number, code: string = tenant.currency) => formatMoney(minor, code, exponents.get(code) ?? 2, locale);
 
-  const orderIds = allOrders.map((o) => o.id);
+  const orderIds = orders.map((o) => o.id);
   const { data: payments } = await supabase
     .from("payments")
     .select("id, order_id, provider, status, created_at")
@@ -80,13 +104,7 @@ export default async function OrdersPage({
       latestPaymentByOrder.set(p.order_id, { id: p.id, provider: p.provider, status: p.status });
   }
 
-  const counts = { all: allOrders.length, pending: 0, active: 0, completed: 0, cancelled: 0 };
-  for (const order of allOrders) counts[orderStatusGroup(order.status)]++;
-
-  const orders =
-    statusFilter && statusFilter !== "all"
-      ? allOrders.filter((o) => orderStatusGroup(o.status) === statusFilter)
-      : allOrders;
+  const counts = Object.fromEntries(GROUPS.map((group, i) => [group, groupCounts[i]])) as Record<Group, number>;
 
   const baseHref = `/${locale}/${slug}/orders`;
   const tabs: Tab[] = GROUPS.map((group) => ({
@@ -94,7 +112,7 @@ export default async function OrdersPage({
     label: group.charAt(0).toUpperCase() + group.slice(1),
     count: counts[group],
     href: group === "all" ? baseHref : `${baseHref}?status=${group}`,
-    active: (statusFilter ?? "all") === group,
+    active: statusFilter === group,
   }));
 
   return (
@@ -212,17 +230,24 @@ export default async function OrdersPage({
         ) : (
           <div className="p-4">
             <EmptyState
-              title={allOrders.length === 0 ? "No orders yet" : "No orders match this filter"}
+              title={counts.all === 0 && !q ? "No orders yet" : "No orders match this filter"}
               description={
-                allOrders.length === 0
+                counts.all === 0 && !q
                   ? "Orders from your AI Agent show up here — or add one yourself with “Add order”."
                   : "Try a different status or clear your search."
               }
-              actionLabel={allOrders.length === 0 ? "Add a product" : undefined}
-              actionHref={allOrders.length === 0 ? `/${locale}/${slug}/products` : undefined}
+              actionLabel={counts.all === 0 && !q ? "Add a product" : undefined}
+              actionHref={counts.all === 0 && !q ? `/${locale}/${slug}/products` : undefined}
             />
           </div>
         )}
+        <Pagination
+          basePath={baseHref}
+          params={{ status: statusFilter === "all" ? undefined : statusFilter, q }}
+          page={page}
+          pageSize={PAGE_SIZE}
+          total={counts[statusFilter]}
+        />
       </div>
     </div>
   );
