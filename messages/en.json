@@ -343,6 +343,13 @@
     "upgraded": "{name} upgraded from {from} → {to}.",
     "viewSubscriber": "View subscriber",
     "newSubscriberNotification": "New SmartManager subscriber",
-    "upgradeNotification": "Subscription upgraded"
+    "upgradeNotification": "Subscription upgraded",
+    "brainTitle": "Business Brain",
+    "brainDone": "Analysis finished",
+    "brainStopped": "Analysis stopped",
+    "brainAdded": "Added {products} product(s) and {services} service(s) to your catalog as drafts — approve them before customers see them.",
+    "brainNothingAdded": "Your pages are up to date with what it found.",
+    "brainReview": "Review catalog",
+    "brainView": "View results"
   }
 }

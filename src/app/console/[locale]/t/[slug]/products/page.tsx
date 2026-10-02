@@ -1,18 +1,20 @@
 import { CreateCategoryForm } from "@/components/catalog/create-category-form";
 import { CreateProductForm } from "@/components/catalog/create-product-form";
+import { FileImportForm } from "@/components/catalog/file-import-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
 import { formatMoney } from "@/lib/money";
+import { setProductStatusAction } from "@/server/catalog/actions";
 import { timed } from "@/server/perf";
 import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
 /** 16 rows of the 3-column grid. */
 const PAGE_SIZE = 48;
-const PRODUCT_COLUMNS = "id, name, price_minor, status";
+const PRODUCT_COLUMNS = "id, name, price_minor, status, source";
 
 /**
  * One page of this tenant's products, newest first. A search keeps its
@@ -132,8 +134,26 @@ export default async function ProductsPage({
         </ul>
       </section>
 
+      <section id="import" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Add products from a file</h2>
+        <FileImportForm slug={slug} locale={locale} defaultKind="product" />
+      </section>
+
       <section id="products" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Products</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-900">Products</h2>
+          {(draftCount ?? 0) > 0 && (
+            <form action={setProductStatusAction} className="flex items-center gap-2 text-xs text-slate-500">
+              <input type="hidden" name="status" value="active" />
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="locale" value={locale} />
+              <span>Drafts aren&apos;t shown to customers.</span>
+              <button type="submit" className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 hover:bg-emerald-100">
+                Activate all {draftCount} drafts
+              </button>
+            </form>
+          )}
+        </div>
         <CreateProductForm
           tenantId={tenant.id}
           slug={slug}
@@ -149,16 +169,34 @@ export default async function ProductsPage({
                   <Icon path={NAV_ICON_PATHS.products} size={28} />
                 </div>
                 <p className="font-medium text-slate-900">{product.name[locale] ?? Object.values(product.name)[0]}</p>
-                <div className="mt-1 flex items-center justify-between text-sm">
+                <div className="mt-1 flex items-center justify-between gap-2 text-sm">
                   <span className="text-slate-500">{money(product.price_minor)}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                      product.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {product.status}
+                  <span className="flex items-center gap-1.5">
+                    {product.source !== "manual" && (
+                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+                        {product.source === "brain" ? "From Business Brain" : "Imported"}
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        product.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {product.status}
+                    </span>
                   </span>
                 </div>
+                {product.status === "draft" && (
+                  <form action={setProductStatusAction} className="mt-2">
+                    <input type="hidden" name="productId" value={product.id} />
+                    <input type="hidden" name="status" value="active" />
+                    <input type="hidden" name="slug" value={slug} />
+                    <input type="hidden" name="locale" value={locale} />
+                    <button type="submit" className="text-xs font-medium text-emerald-700 hover:underline">
+                      Activate
+                    </button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>

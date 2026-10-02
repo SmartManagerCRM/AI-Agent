@@ -245,3 +245,17 @@ install (only the console's pages link the manifest).
   `node scripts/generate-notification-sounds.mjs`).
 - Browsers only play sound after the user interacts with the page: the
   console shows "Enable sound" until then, and alerts stay visual.
+
+## Console: Brain → catalog, manual orders, file imports
+
+- **Database**: `supabase/migrations/20261002090000_console_catalog_and_manual_orders.sql`.
+- **Business Brain → pages**: when an analysis ends, the products and services
+  it found are added to the catalog as drafts (never shown to customers);
+  approving them in the Brain activates them, rejecting archives them. Open
+  console pages refresh by themselves (Realtime event `brain_analysis_finished`).
+- **Manual orders**: Orders → "Add order" / "Bulk add orders" (CSV, all or
+  nothing), priced by `create_manual_orders` exactly like checkout.
+- **File import**: Products & Services (and Bookings) → upload an HTML or text
+  PDF price list; parsed by rules only — no AI calls, no AI cost. Scanned
+  (image-only) PDFs are refused with an explanation. Uploads up to 8 MB
+  (`serverActions.bodySizeLimit` in `next.config.ts`).

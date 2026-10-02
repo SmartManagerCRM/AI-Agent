@@ -79,6 +79,13 @@ describe("event validation", () => {
     expect(acceptEvent(scope, null)).toBeNull();
   });
 
+  it('a business console also takes its own "analysis finished" event (never another business\'s)', () => {
+    const scope = { kind: "tenant" as const, tenantId: TENANT };
+    expect(acceptEvent(scope, order({ kind: "brain_analysis_finished" }))).not.toBeNull();
+    expect(acceptEvent(scope, order({ kind: "brain_analysis_finished", tenant_id: OTHER }))).toBeNull();
+    expect(acceptEvent({ kind: "platform" }, order({ kind: "brain_analysis_finished" }))).toBeNull();
+  });
+
   it("the Super Admin console accepts platform events only", () => {
     const scope = { kind: "platform" as const };
     expect(acceptEvent(scope, order({ kind: "new_subscriber", audience: "platform" }))).not.toBeNull();

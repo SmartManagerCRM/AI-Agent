@@ -12,7 +12,8 @@
  * These checks are a second line, never the authorisation itself.
  */
 
-export type NotificationKind = "new_order_received" | "new_subscriber" | "subscription_upgraded";
+export type NotificationKind =
+  "new_order_received" | "brain_analysis_finished" | "new_subscriber" | "subscription_upgraded";
 
 export type NotificationEvent = {
   id: string;
@@ -54,7 +55,8 @@ export function acceptEvent(scope: NotificationScope, row: unknown): Notificatio
   if (typeof e.entity_id !== "string" || !UUID.test(e.entity_id)) return null;
   if (typeof e.created_at !== "string" || !e.payload || typeof e.payload !== "object") return null;
   if (scope.kind === "tenant") {
-    if (e.kind !== "new_order_received" || e.audience !== "tenant" || e.tenant_id !== scope.tenantId) return null;
+    if (e.kind !== "new_order_received" && e.kind !== "brain_analysis_finished") return null;
+    if (e.audience !== "tenant" || e.tenant_id !== scope.tenantId) return null;
   } else if (e.audience !== "platform" || (e.kind !== "new_subscriber" && e.kind !== "subscription_upgraded")) {
     return null;
   }

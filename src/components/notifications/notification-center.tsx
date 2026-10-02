@@ -69,6 +69,14 @@ export type NotificationLabels = {
   viewSubscriber: string;
   newSubscriberNotification: string;
   upgradeNotification: string;
+  // Business Brain
+  brainTitle: string;
+  brainDone: string;
+  brainStopped: string;
+  brainAdded: string; // "{products} … {services} …"
+  brainNothingAdded: string;
+  brainReview: string;
+  brainView: string;
 };
 
 type Props = {
@@ -79,6 +87,8 @@ type Props = {
   labels: NotificationLabels;
   /** Unacknowledged orders get one softer reminder after this long. */
   reminderMs?: number;
+  /** The signed-in user: orders they entered themselves refresh the page without alerting them. */
+  selfUserId?: string;
   children: ReactNode;
 };
 
@@ -166,7 +176,7 @@ async function showBrowserNotification(title: string, body: string, tag: string,
 const SELECT = "id, kind, audience, tenant_id, entity_id, payload, created_at";
 const HIGHLIGHT_MS = 10 * 60 * 1000;
 
-export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 12000, children }: Props) {
+export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 12000, selfUserId, children }: Props) {
   const router = useRouter();
   const isTenant = scope.kind === "tenant";
   const prefKey = isTenant ? "sm-ai-agent:alerts:orders" : "sm-ai-agent:alerts:platform";
@@ -196,6 +206,12 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
   const href = useCallback(
     (event: NotificationEvent) => {
       if (event.kind === "new_order_received") return `/${locale}/${slug}/orders#order-${event.entity_id}`;
+      if (event.kind === "brain_analysis_finished") {
+        const p = event.payload as { products_added?: number; services_added?: number };
+        if ((p.products_added ?? 0) > 0) return `/${locale}/${slug}/products#products`;
+        if ((p.services_added ?? 0) > 0) return `/${locale}/${slug}/bookings#services`;
+        return `/${locale}/${slug}/brain`;
+      }
       const p = event.payload as { slug?: string };
       return `/${locale}/super-admin/subscribers/${p.slug ?? ""}`;
     },
@@ -215,6 +231,18 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
           heading: o.orderNumber !== null ? fill(labels.orderNumber, { number: o.orderNumber }) : labels.newOrder,
           body: parts.join(" · "),
           notification: labels.newOrderNotification,
+        };
+      }
+      if (event.kind === "brain_analysis_finished") {
+        const b = event.payload as { status?: string; products_added?: number; services_added?: number };
+        const products = b.products_added ?? 0;
+        const services = b.services_added ?? 0;
+        const stopped = b.status === "failed" || b.status === "cancelled";
+        return {
+          title: labels.brainTitle,
+          heading: stopped ? labels.brainStopped : labels.brainDone,
+          body: products + services > 0 ? fill(labels.brainAdded, { products, services }) : labels.brainNothingAdded,
+          notification: labels.brainDone,
         };
       }
       const p = event.payload as Record<string, string | null | undefined>;
@@ -306,12 +334,29 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
       if (!event || disposed) return;
       if (!lastSeen || Date.parse(event.created_at) > Date.parse(lastSeen)) lastSeen = event.created_at;
       if (!deduper.firstTime(event)) return;
+      const refresh = () => {
+        // Re-render the server pages (order list, counts, catalog, analytics) without a reload.
+        if (refreshTimer.current) clearTimeout(refreshTimer.current);
+        refreshTimer.current = setTimeout(() => router.refresh(), 400);
+      };
+      // An analysis finished: refresh whatever page is open and say what changed — no sound.
+      if (event.kind === "brain_analysis_finished") {
+        setAlerts((prev) => [...prev.filter((a) => a.kind !== "brain_analysis_finished"), event].slice(-20));
+        refresh();
+        return;
+      }
+      // An order this user just entered by hand: update the page, don't alert them about it.
+      if (
+        (event.payload as { created_by?: string }).created_by &&
+        (event.payload as { created_by?: string }).created_by === selfUserId
+      ) {
+        refresh();
+        return;
+      }
       setAlerts((prev) => [...prev, event].slice(-20));
       if (event.kind === "new_order_received") {
         setHighlighted((prev) => new Map(prev).set(event.entity_id, Date.now()));
-        // Re-render the server pages (order list, counts, dashboard) without a reload.
-        if (refreshTimer.current) clearTimeout(refreshTimer.current);
-        refreshTimer.current = setTimeout(() => router.refresh(), 400);
+        refresh();
       }
       schedulerRef.current?.add(event);
       const text = describeRef.current(event);
@@ -422,7 +467,10 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
   );
 
   const orderAlerts = alerts.filter((a) => a.kind === "new_order_received");
-  const platformAlerts = alerts.filter((a) => a.kind !== "new_order_received").slice(-3);
+  const platformAlerts = alerts
+    .filter((a) => a.kind === "new_subscriber" || a.kind === "subscription_upgraded")
+    .slice(-3);
+  const brainAlert = alerts.find((a) => a.kind === "brain_analysis_finished");
   const latestOrder = orderAlerts[orderAlerts.length - 1];
 
   return (
@@ -462,6 +510,18 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
             actionLabel={orderAlerts.length === 1 ? labels.viewOrder : labels.viewOrders}
             dismissLabel={labels.dismiss}
             onDone={() => acknowledge(orderAlerts.map((a) => a.id))}
+          />
+        )}
+        {brainAlert && (
+          <AlertCard
+            icon="🧠"
+            title={describe(brainAlert).title}
+            heading={describe(brainAlert).heading}
+            body={describe(brainAlert).body}
+            actionHref={href(brainAlert)}
+            actionLabel={href(brainAlert).endsWith("/brain") ? labels.brainView : labels.brainReview}
+            dismissLabel={labels.dismiss}
+            onDone={() => acknowledge([brainAlert.id])}
           />
         )}
         {platformAlerts.map((event) => {

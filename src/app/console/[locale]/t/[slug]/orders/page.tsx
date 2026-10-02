@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { ManualOrders } from "@/components/commerce/manual-orders";
 import { NewOrderBadge } from "@/components/notifications/notification-center";
 import { SearchInput } from "@/components/console/search-input";
 import { StatusPill } from "@/components/console/status-pill";
@@ -41,14 +42,24 @@ export default async function OrdersPage({
 
   let query = supabase
     .from("orders")
-    .select("id, order_number, status, fulfillment_type, customer_name, total_minor, currency, placed_at")
+    .select("id, order_number, status, fulfillment_type, customer_name, total_minor, currency, placed_at, created_via")
     .eq("tenant_id", tenant.id)
     .order("placed_at", { ascending: false })
     .limit(100);
   if (q) query = query.ilike("customer_name", `%${q}%`);
-  const [{ data: ordersRaw }, { data: currency }] = await timed(
+  const [{ data: ordersRaw }, { data: currency }, { data: catalog }] = await timed(
     "orders.queries",
-    Promise.all([query, supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle()]),
+    Promise.all([
+      query,
+      supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+      supabase
+        .from("products")
+        .select("id, name, price_minor, status")
+        .eq("tenant_id", tenant.id)
+        .neq("status", "archived")
+        .order("created_at", { ascending: false })
+        .limit(1000),
+    ]),
   );
   const allOrders = ordersRaw ?? [];
   const exponent = currency?.exponent ?? 2;
@@ -89,6 +100,20 @@ export default async function OrdersPage({
         <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
         <SearchInput placeholder="Search by customer..." defaultValue={q} />
       </div>
+      <ManualOrders
+        slug={slug}
+        locale={locale}
+        currency={tenant.currency}
+        exponent={exponent}
+        products={(catalog ?? [])
+          .map((p) => ({
+            id: p.id,
+            name: p.name[locale] ?? Object.values(p.name)[0] ?? "",
+            priceMinor: p.price_minor,
+            draft: p.status === "draft",
+          }))
+          .sort((a, b) => Number(a.draft) - Number(b.draft) || a.name.localeCompare(b.name))}
+      />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile icon="orders" accent="emerald" label="Total orders" value={String(counts.all)} trend={null} href={`/${locale}/${slug}/orders`} />
@@ -125,6 +150,11 @@ export default async function OrdersPage({
                     <td className="px-4 py-3 font-medium text-slate-900">
                       #{order.order_number}
                       <NewOrderBadge orderId={order.id} />
+                      {order.created_via !== "agent" && (
+                        <span className="ms-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                          {order.created_via === "manual" ? "Manual" : "Imported"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
@@ -182,7 +212,7 @@ export default async function OrdersPage({
               title={allOrders.length === 0 ? "No orders yet" : "No orders match this filter"}
               description={
                 allOrders.length === 0
-                  ? "Once customers start ordering through your AI Agent, their orders will show up here."
+                  ? "Orders from your AI Agent show up here — or add one yourself with “Add order”."
                   : "Try a different status or clear your search."
               }
               actionLabel={allOrders.length === 0 ? "Add a product" : undefined}

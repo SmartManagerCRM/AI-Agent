@@ -30,5 +30,12 @@ export async function notificationLabels(area: "orders" | "platform"): Promise<N
     viewSubscriber: t("viewSubscriber"),
     newSubscriberNotification: t("newSubscriberNotification"),
     upgradeNotification: t("upgradeNotification"),
+    brainTitle: t("brainTitle"),
+    brainDone: t("brainDone"),
+    brainStopped: t("brainStopped"),
+    brainAdded: raw("brainAdded"),
+    brainNothingAdded: t("brainNothingAdded"),
+    brainReview: t("brainReview"),
+    brainView: t("brainView"),
   };
 }

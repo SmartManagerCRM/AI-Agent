@@ -1,3 +1,4 @@
+import { FileImportForm } from "@/components/catalog/file-import-form";
 import { CreateServiceForm } from "@/components/console/create-service-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
@@ -22,7 +23,7 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
   const [{ data: services }, { data: bookings }, { data: currency }] = await Promise.all([
     supabase
       .from("bookable_services")
-      .select("id, name, duration_minutes, price_minor, is_active")
+      .select("id, name, duration_minutes, price_minor, is_active, source")
       .eq("tenant_id", tenant.id)
       .order("created_at"),
     supabase
@@ -68,6 +69,12 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
         <div className="mb-4">
           <CreateServiceForm tenantId={tenant.id} slug={slug} locale={locale} currencyExponent={exponent} />
         </div>
+        <details className="mb-4 rounded-md border border-slate-100 p-3">
+          <summary className="cursor-pointer text-sm font-medium text-slate-700">Add services from a file (HTML or PDF)</summary>
+          <div className="mt-3">
+            <FileImportForm slug={slug} locale={locale} defaultKind="service" />
+          </div>
+        </details>
         <div className="flex flex-col gap-2">
           {(services ?? []).map((s) => (
             <div
@@ -77,6 +84,11 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
               <span className="text-slate-900">
                 {s.name[locale] ?? Object.values(s.name)[0]} — {s.duration_minutes} min
                 {s.price_minor !== null && ` · ${formatMoney(s.price_minor, tenant.currency, exponent, locale)}`}
+                {s.source !== "manual" && (
+                  <span className="ms-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
+                    {s.source === "brain" ? "From Business Brain" : "Imported"}
+                  </span>
+                )}
               </span>
               <form action={setServiceActiveAction}>
                 <input type="hidden" name="serviceId" value={s.id} />

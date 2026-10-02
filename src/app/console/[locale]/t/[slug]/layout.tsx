@@ -105,7 +105,13 @@ export default async function TenantLayout({
 
   return (
     <MobileSidebarProvider>
-      <NotificationCenter scope={{ kind: "tenant", tenantId: tenant.id }} locale={locale} slug={slug} labels={alertLabels}>
+      <NotificationCenter
+        scope={{ kind: "tenant", tenantId: tenant.id }}
+        locale={locale}
+        slug={slug}
+        labels={alertLabels}
+        selfUserId={user?.id}
+      >
       <div className="flex min-h-screen flex-col">
         {impersonating && (
           <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">

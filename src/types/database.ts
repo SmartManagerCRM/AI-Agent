@@ -170,7 +170,7 @@ export type Database = {
       notification_events: {
         Row: {
           id: string;
-          kind: "new_order_received" | "new_subscriber" | "subscription_upgraded";
+          kind: "new_order_received" | "brain_analysis_finished" | "new_subscriber" | "subscription_upgraded";
           audience: "tenant" | "platform";
           tenant_id: string;
           entity_id: string;
@@ -321,6 +321,9 @@ export type Database = {
           description: LocalizedText;
           price_minor: number;
           status: "draft" | "active" | "archived";
+          /** Where the product came from: added by hand, Business Brain draft, or a file import. */
+          source: "manual" | "brain" | "file_import";
+          brain_fact_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -597,6 +600,8 @@ export type Database = {
           duration_minutes: number;
           price_minor: number | null;
           is_active: boolean;
+          source: "manual" | "brain" | "file_import";
+          brain_fact_key: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -762,6 +767,8 @@ export type Database = {
           total_minor: number;
           coupon_id: string | null;
           discount_minor: number;
+          /** agent = customer checkout; manual / bulk_import = entered by staff in the console. */
+          created_via: "agent" | "manual" | "bulk_import";
           placed_at: string;
           completed_at: string | null;
           created_at: string;
@@ -1249,6 +1256,10 @@ export type Database = {
       update_order_status: {
         Args: { p_order_id: string; p_new_status: string; p_note?: string | null };
         Returns: undefined;
+      };
+      create_manual_orders: {
+        Args: { p_tenant_id: string; p_orders: Json; p_created_via?: "manual" | "bulk_import" };
+        Returns: { order_id: string; order_number: number }[];
       };
       create_payment_attempt: {
         Args: { p_order_id: string };

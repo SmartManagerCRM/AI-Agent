@@ -343,6 +343,13 @@
     "upgraded": "قام {name} بالترقية من {from} إلى {to}.",
     "viewSubscriber": "عرض المشترك",
     "newSubscriberNotification": "مشترك جديد في SmartManager",
-    "upgradeNotification": "تمت ترقية الاشتراك"
+    "upgradeNotification": "تمت ترقية الاشتراك",
+    "brainTitle": "ذكاء الأعمال",
+    "brainDone": "اكتمل التحليل",
+    "brainStopped": "توقف التحليل",
+    "brainAdded": "تمت إضافة {products} منتج و{services} خدمة إلى الكتالوج كمسودات — وافق عليها قبل أن يراها العملاء.",
+    "brainNothingAdded": "صفحاتك محدّثة بما تم العثور عليه.",
+    "brainReview": "مراجعة الكتالوج",
+    "brainView": "عرض النتائج"
   }
 }

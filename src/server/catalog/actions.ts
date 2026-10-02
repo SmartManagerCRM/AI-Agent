@@ -118,3 +118,32 @@ export async function createProductAction(
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
+
+const productStatusSchema = z.object({
+  productId: z.uuid().optional(),
+  status: z.enum(["active", "draft", "archived"]),
+  locale: z.string(),
+  slug: z.string().min(1),
+});
+
+/**
+ * Switch a product between draft and active (drafts — e.g. what the
+ * Business Brain found — are never shown to customers). Without a
+ * `productId`, every draft of the business is activated at once. RLS
+ * (`catalog.write`) decides who may.
+ */
+export async function setProductStatusAction(formData: FormData): Promise<void> {
+  const parsed = productStatusSchema.safeParse({
+    productId: formData.get("productId") || undefined,
+    status: formData.get("status"),
+    locale: formData.get("locale"),
+    slug: formData.get("slug"),
+  });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const update = supabase.from("products").update({ status: parsed.data.status }).eq("tenant_id", tenant.id);
+  if (parsed.data.productId) await update.eq("id", parsed.data.productId);
+  else if (parsed.data.status === "active") await update.eq("status", "draft");
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
+}

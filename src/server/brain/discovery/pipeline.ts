@@ -32,6 +32,7 @@ import { computeReadiness, type Readiness } from "./readiness";
 import type { PageTopic } from "./source-router";
 import { canonicalizeUrl, crawlWebsite, type CrawledPage, type FetchPage } from "./website";
 import { loadModelConfigs, type SelectedModel } from "@/server/ai/router";
+import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
 import { safeFetch } from "@/server/brain/safe-fetch";
 import { parseCrawlUrl, UnsafeCrawlTargetError } from "@/server/brain/url-safety";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -275,6 +276,27 @@ class JobRun {
         : final === "failed"
           ? (this.errors[0]?.message ?? "No source could be read.")
           : null;
+    // What the Brain found shows up in Products & Services and Bookings right
+    // away (as drafts until approved) — before the final status, whose
+    // change tells open consoles to refresh.
+    if (final !== "failed") {
+      const added = await this.addFindingsToCatalog().catch(() => null);
+      if (!added || added.failed) {
+        await this.event(
+          "conflict_check",
+          "warning",
+          "Couldn't add the products and services found to your catalog — they're still here in the Business Brain for review.",
+        );
+      }
+      if (added && added.products + added.services > 0) {
+        await this.event(
+          "conflict_check",
+          "success",
+          `Added ${added.products} product(s) and ${added.services} service(s) to your catalog — as drafts until you approve them.`,
+        );
+      }
+    }
+
     await this.update({
       status: final,
       status_reason: reason,
@@ -789,6 +811,15 @@ class JobRun {
 
   private async update(values: JobUpdate) {
     await this.supabase.from("brain_ingestion_jobs").update(values).eq("id", this.job.id).neq("status", "cancelled");
+  }
+
+  private async addFindingsToCatalog() {
+    const { data: tenant } = await this.supabase
+      .from("tenants")
+      .select("id, currency, default_language")
+      .eq("id", this.tenantId)
+      .maybeSingle();
+    return tenant ? draftBrainCatalog(this.supabase, tenant) : null;
   }
 
   async event(step: string, level: "info" | "success" | "warning" | "error", message: string, data?: Record<string, unknown>) {

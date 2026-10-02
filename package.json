@@ -42,6 +42,7 @@
     "tailwindcss": "^4",
     "tesseract.js": "^7.0.0",
     "typescript": "^5",
+    "unpdf": "^1.8.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

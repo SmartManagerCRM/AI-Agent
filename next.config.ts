@@ -51,7 +51,13 @@ const nextConfig: NextConfig = {
   // worker thread loaded from its own package files, so it must stay an
   // external Node package (not bundled), and the standalone output must
   // carry its WASM core and the bundled Arabic/English/French language data.
-  serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core", "unpdf"],
+  // Catalog file import (Products & Services): HTML/PDF price lists up to 8 MB
+  // go through a server action, whose default body limit is 1 MB. Kept under
+  // the proxy's 10 MB request buffer.
+  experimental: {
+    serverActions: { bodySizeLimit: "9mb" },
+  },
   outputFileTracingIncludes: {
     "/console/**": [
       "./node_modules/tesseract.js/src/**/*",

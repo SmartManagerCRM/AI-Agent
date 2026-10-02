@@ -343,6 +343,13 @@
     "upgraded": "{name} est passé de {from} à {to}.",
     "viewSubscriber": "Voir l’abonné",
     "newSubscriberNotification": "Nouvel abonné SmartManager",
-    "upgradeNotification": "Abonnement mis à niveau"
+    "upgradeNotification": "Abonnement mis à niveau",
+    "brainTitle": "Business Brain",
+    "brainDone": "Analyse terminée",
+    "brainStopped": "Analyse interrompue",
+    "brainAdded": "{products} produit(s) et {services} service(s) ajoutés au catalogue en brouillon — approuvez-les avant que les clients ne les voient.",
+    "brainNothingAdded": "Vos pages sont à jour avec ce qui a été trouvé.",
+    "brainReview": "Voir le catalogue",
+    "brainView": "Voir les résultats"
   }
 }
