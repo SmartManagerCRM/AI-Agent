@@ -10,7 +10,7 @@ const profile: VoiceProfile = {
   gender: "male",
   provider: "fake",
   voiceId: "voice-male",
-  voiceName: "Eric",
+  voiceName: "Chris",
   model: "eleven_flash_v2_5",
   pricePerMillionCharsUsd: 50,
   settings: { stability: 0.5, speed: 0.97 },

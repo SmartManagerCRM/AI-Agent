@@ -374,14 +374,16 @@ install (only the console's pages link the manifest).
   `20261004090000_agent_premium_voice.sql`, already applied to production):
   - Which voice speaks is data: `voice_profiles` (one active row per gender:
     voice id, model `eleven_flash_v2_5`, voice settings, price per million
-    characters). Voices: male "Eric - Smooth, Trustworthy", female
+    characters). Voices: male "Chris - Charming, Down-to-Earth", female
     "Sarah - Mature, Reassuring, Confident" — both ElevenLabs built-in
     (premade) voices, which every plan may use through the API. Voice
     Library voices (e.g. the first male voice, "Rick") are refused through
     the API on lower plans with HTTP 402 (logged as `HTTP_402` in
     `agent_interactions`); migration `20261004100000_agent_male_voice_premade.sql`
-    moved the male voice to Eric for that reason. Change a voice by updating
-    its row; no deploy needed.
+    moved the male voice to a built-in voice for that reason, and
+    `20261004110000_agent_male_voice_chris.sql` set it to Chris (the owner's
+    pick; Eric sounded too formal). Change a voice by updating its row; no
+    deploy needed.
   - Flow: Agent text → audio cache (private bucket `agent-voice`, one file per
     business + voice + language + sentence) → hit: played at once, no cost;
     miss: ElevenLabs, streamed to the customer while it is stored for next
