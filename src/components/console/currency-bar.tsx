@@ -80,7 +80,7 @@ export function CurrencyBar({
         <>
           <button type="button" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} aria-label="Close menu" />
           <div
-            className="absolute end-0 z-20 mt-2 flex max-h-[70vh] w-72 max-w-[calc(100vw-2rem)] flex-col rounded-lg border border-slate-200 bg-white shadow-lg"
+            className="fixed inset-x-4 top-16 z-20 flex max-h-[70vh] flex-col rounded-lg border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:end-0 sm:top-auto sm:mt-2 sm:w-72"
             role="dialog"
             aria-label="Choose the business currency"
           >

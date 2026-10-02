@@ -1,3 +1,4 @@
+import { AlertDeviceSettings } from "@/components/notifications/alert-device-settings";
 import { BusinessProfileForm } from "@/components/business/business-profile-form";
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
 import { PaymentSettingsForm } from "@/components/commerce/payment-settings-form";
@@ -18,6 +19,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+
+      <AlertDeviceSettings />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Business profile</h2>

@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 import { runAgentGateway } from "@/server/ai";
-import { AGENT_MODALITY_TEXT } from "@/server/ai/channel";
+import { AGENT_MODALITY_TEXT, AGENT_MODALITY_VOICE } from "@/server/ai/channel";
 import { agentLog } from "@/server/ai/diagnostics";
 import type { AITurnMessage } from "@/server/ai/provider";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
@@ -24,6 +24,8 @@ const sendMessageSchema = z.object({
   surface: z.enum(["external_agent", "website_widget"]).default("external_agent"),
   /** Raw, unvalidated — re-checked against `branch_tables` below before it's trusted for anything (spec §25/§39). */
   tableId: z.string().trim().max(100).optional(),
+  /** How the customer entered the message (spoken = transcribed in their browser). Delivery metadata only. */
+  modality: z.enum(["text", "voice"]).default("text"),
 });
 
 export type SendAgentMessageState =
@@ -47,6 +49,7 @@ export async function sendAgentMessageAction(
     message: formData.get("message"),
     surface: formData.get("surface") ?? undefined,
     tableId: formData.get("tableId") ?? undefined,
+    modality: formData.get("modality") ?? undefined,
   });
   if (!parsed.success) return { error: "Enter a message." };
 
@@ -71,13 +74,14 @@ export async function sendAgentMessageAction(
   }
 
   const history = await loadHistory(supabase, conversation.id);
+  const modality = parsed.data.modality === "voice" ? AGENT_MODALITY_VOICE : AGENT_MODALITY_TEXT;
 
   await supabase.from("conversation_messages").insert({
     tenant_id: tenant.id,
     conversation_id: conversation.id,
     role: "user",
     content: parsed.data.message,
-    modality: AGENT_MODALITY_TEXT,
+    modality,
   });
 
   const result = await runAgentGateway(supabase, {
@@ -96,7 +100,7 @@ export async function sendAgentMessageAction(
     role: "assistant",
     content: result.reply,
     handled_by: result.handledBy,
-    modality: AGENT_MODALITY_TEXT,
+    modality,
   });
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
 

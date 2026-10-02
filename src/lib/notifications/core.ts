@@ -113,7 +113,10 @@ export type SchedulerOptions = {
 /** Events this close to the last sound are announced by it (simultaneous orders). */
 const COVERED_BY_LAST_SOUND_MS = 1500;
 
-type Tracked = { event: NotificationEvent; sounds: number; firstSoundAt: number | null; acknowledged: boolean };
+type Tracked = { event: NotificationEvent; sounds: number; firstSoundAt: number | null; acknowledged: boolean; addedAt: number };
+
+/** A chime that couldn't play (audio suspended in the background) is still owed for this long. */
+const MISSED_SOUND_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * Turns a stream of events into a calm sequence of sounds:
@@ -145,7 +148,7 @@ export class AlertScheduler {
 
   add(event: NotificationEvent) {
     if (!this.o.claim(event.id)) return;
-    this.tracked.set(event.id, { event, sounds: 0, firstSoundAt: null, acknowledged: false });
+    this.tracked.set(event.id, { event, sounds: 0, firstSoundAt: null, acknowledged: false, addedAt: this.o.now() });
     while (this.tracked.size > 100) this.tracked.delete(this.tracked.keys().next().value as string);
     const now = this.o.now();
     const sinceLast = now - this.lastSoundAt;
@@ -168,6 +171,19 @@ export class AlertScheduler {
     for (const [id, t] of this.tracked) if (!eventIds || eventIds.includes(id)) t.acknowledged = true;
   }
 
+  /**
+   * Audio became available again (the console came back to the foreground,
+   * or the user tapped): events whose chime couldn't play get one now — if
+   * still unacknowledged and recent.
+   */
+  flushMissed() {
+    const now = this.o.now();
+    for (const [id, t] of this.tracked) {
+      if (t.sounds === 0 && now - t.addedAt > MISSED_SOUND_WINDOW_MS) this.tracked.delete(id);
+    }
+    this.soundPending();
+  }
+
   dispose() {
     if (this.followUp !== null) this.o.clearTimer(this.followUp);
     if (this.reminder !== null) this.o.clearTimer(this.reminder);
@@ -179,7 +195,9 @@ export class AlertScheduler {
     if (pending.length === 0) return;
     const now = this.o.now();
     // The most recent event decides the sound (platform: subscriber vs upgrade).
-    this.o.play(soundFor(pending[pending.length - 1].event.kind));
+    // If it couldn't play (audio suspended while the console was in the
+    // background), nothing counts as announced: flushMissed() retries.
+    if (!this.o.play(soundFor(pending[pending.length - 1].event.kind))) return;
     this.lastSoundAt = now;
     for (const t of pending) {
       t.sounds = 1;

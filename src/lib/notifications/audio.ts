@@ -76,6 +76,22 @@ export async function unlockAudio(names: SoundName[]): Promise<boolean> {
   return audioReady();
 }
 
+/**
+ * Resumes audio the phone suspended while the console was in the background
+ * (no gesture needed once the page has been interacted with). True when
+ * sound can play again.
+ */
+export async function resumeAudio(): Promise<boolean> {
+  if (!context) return false;
+  try {
+    if (context.state !== "running") await context.resume();
+  } catch {
+    // Still needs a tap: the gesture listener will unlock it.
+  }
+  notify();
+  return audioReady();
+}
+
 /** Plays a sound now; false if audio is locked, the file failed to load, or the browser refused. */
 export function playSound(name: SoundName, volume = 1): boolean {
   const buffer = decoded.get(name);

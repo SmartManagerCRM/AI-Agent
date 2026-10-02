@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentT } from "./agent-i18n";
 
 import type { CartView } from "@/server/commerce/cart";
@@ -9,8 +9,9 @@ import { categoryIcon, findMentionedProducts } from "./agent-model";
 import { focusRing, ProductCard, useAgentUi } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
 import { CartButton } from "./chrome";
-import { BackIcon, CartIcon, CheckIcon, SendIcon } from "./icons";
+import { BackIcon, CartIcon, CheckIcon, MicIcon, SendIcon, SpeakerIcon, StopIcon } from "./icons";
 import type { ChatMessage } from "./use-agent-chat";
+import { useVoice } from "./use-voice";
 
 /** Renders assistant text with bare URLs (e.g. a payment link from `place_order`) as clickable links. */
 function renderWithLinks(text: string) {
@@ -51,6 +52,28 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   const formatTime = useTimeFormat();
   const hasCatalog = products.length > 0;
 
+  // Speaking is typing by voice: the browser transcribes, the transcript is sent like any message.
+  const onInterim = useCallback((heard: string) => setDraft(heard), []);
+  const onFinal = useCallback(
+    (heard: string) => {
+      setDraft("");
+      chat.send(heard, { voice: true });
+    },
+    [chat],
+  );
+  const voice = useVoice({ locale: ui.locale, onInterim, onFinal });
+  const { speak } = voice;
+
+  // A spoken question gets a spoken answer (read by the browser — no AI cost).
+  const spokenReplies = useRef(new Set<number>());
+  const last = chat.messages[chat.messages.length - 1];
+  const previous = chat.messages[chat.messages.length - 2];
+  useEffect(() => {
+    if (!last || last.role !== "assistant" || !previous?.voice || spokenReplies.current.has(last.id)) return;
+    spokenReplies.current.add(last.id);
+    speak(last.id, last.text);
+  }, [last, previous, speak]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chat.messages.length, chat.pending]);
@@ -76,7 +99,8 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   }
 
   const submit = () => {
-    if (!draft.trim() || chat.pending) return;
+    if (!draft.trim() || chat.pending || voice.listening) return;
+    voice.stopSpeaking();
     chat.send(draft);
     setDraft("");
   };
@@ -141,7 +165,19 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
           )}
 
           {chat.messages.map((m) => (
-            <Message key={m.id} message={m} time={formatTime(m.at)} />
+            <Message
+              key={m.id}
+              message={m}
+              time={formatTime(m.at)}
+              listen={
+                voice.canSpeak && m.role === "assistant"
+                  ? {
+                      speaking: voice.speakingId === m.id,
+                      toggle: () => (voice.speakingId === m.id ? voice.stopSpeaking() : voice.speak(m.id, m.text)),
+                    }
+                  : undefined
+              }
+            />
           ))}
 
           {chat.pending && (
@@ -174,6 +210,16 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
         </div>
       )}
 
+      {(voice.listening || voice.errorKey) && (
+        <p
+          role="status"
+          className={`bg-agent-cream px-4 pt-2 text-center text-xs ${voice.errorKey ? "text-red-700" : "text-agent-800"}`}
+          data-testid="voice-status"
+        >
+          {voice.errorKey ? t(voice.errorKey) : t("voice.listening")}
+        </p>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -189,15 +235,35 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
           id="agent-chat-input"
           name="message"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (voice.errorKey) voice.clearError();
+          }}
+          readOnly={voice.listening}
           maxLength={1000}
           autoComplete="off"
-          placeholder={t("chat.placeholder", { name: aiName })}
+          placeholder={voice.listening ? t("voice.listening") : t("chat.placeholder", { name: aiName })}
           className="h-12 min-w-0 flex-1 rounded-full bg-white px-5 text-[15px] text-slate-900 shadow-sm ring-1 ring-slate-900/10 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-agent-400"
         />
+        {voice.canListen && (
+          <button
+            type="button"
+            onClick={voice.listening ? voice.stop : voice.start}
+            disabled={chat.pending && !voice.listening}
+            aria-label={voice.listening ? t("voice.stop") : t("voice.speak")}
+            aria-pressed={voice.listening}
+            data-testid="voice-mic"
+            className={`${focusRing} relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-sm ring-1 transition active:scale-95 disabled:opacity-50 ${
+              voice.listening ? "bg-red-600 text-white ring-red-600" : "bg-white text-agent-800 ring-slate-900/10 hover:bg-agent-50"
+            }`}
+          >
+            {voice.listening && <span className="absolute inset-0 rounded-full bg-red-500/40 motion-safe:animate-ping" aria-hidden="true" />}
+            {voice.listening ? <StopIcon size={18} className="relative" /> : <MicIcon size={21} />}
+          </button>
+        )}
         <button
           type="submit"
-          disabled={chat.pending || !draft.trim()}
+          disabled={chat.pending || !draft.trim() || voice.listening}
           aria-label={t("chat.send")}
           className={`${focusRing} flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-agent-700 text-white shadow-lg shadow-agent-900/25 transition hover:bg-agent-800 active:scale-95 disabled:bg-agent-700/50 disabled:shadow-none`}
         >
@@ -226,7 +292,16 @@ function Bubble({ children, time }: { children: React.ReactNode; time?: string }
   );
 }
 
-function Message({ message, time }: { message: ChatMessage; time: string }) {
+function Message({
+  message,
+  time,
+  listen,
+}: {
+  message: ChatMessage;
+  time: string;
+  /** Read this reply aloud (the browser's own voice), or stop reading it. */
+  listen?: { speaking: boolean; toggle: () => void };
+}) {
   const t = useAgentT();
   const { products } = useAgentUi();
 
@@ -238,6 +313,7 @@ function Message({ message, time }: { message: ChatMessage; time: string }) {
             {message.text}
           </p>
           <p className="mt-1 flex items-center justify-end gap-1 text-[11px] text-agent-100/80 tabular-nums">
+            {message.voice && <MicIcon size={12} strokeWidth={2.2} aria-label={t("voice.spoken")} />}
             {time}
             <CheckIcon size={13} strokeWidth={2.4} aria-label={t("chat.sent")} />
           </p>
@@ -253,6 +329,20 @@ function Message({ message, time }: { message: ChatMessage; time: string }) {
   return (
     <AssistantRow>
       <Bubble time={time}>{renderWithLinks(message.text)}</Bubble>
+      {listen && (
+        <button
+          type="button"
+          onClick={listen.toggle}
+          aria-pressed={listen.speaking}
+          data-testid="voice-listen"
+          className={`${focusRing} -mt-1 flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${
+            listen.speaking ? "bg-agent-700 text-white" : "bg-white/70 text-agent-800 ring-1 ring-agent-200 hover:bg-white"
+          }`}
+        >
+          {listen.speaking ? <StopIcon size={12} /> : <SpeakerIcon size={14} />}
+          {listen.speaking ? t("voice.stopReading") : t("voice.listen")}
+        </button>
+      )}
       {mentioned.length > 0 && (
         <div className="-me-3 flex w-[calc(100%+0.75rem)] snap-x gap-3 overflow-x-auto pe-3 pb-2 [scrollbar-width:none] sm:-me-4 [&::-webkit-scrollbar]:hidden">
           {mentioned.map((p) => (

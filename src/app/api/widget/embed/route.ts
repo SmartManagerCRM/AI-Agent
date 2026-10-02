@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
   var iframe = document.createElement("iframe");
   iframe.src = ${JSON.stringify(widgetUrl)};
   iframe.title = "Chat";
+  // Lets customers speak to the Agent (speech is transcribed by their own browser).
+  iframe.allow = "microphone";
   iframe.style.cssText =
     "position:fixed;bottom:88px;right:20px;width:0;height:0;border:none;border-radius:12px;" +
     "box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:2147483000;background:#fff;display:none;";

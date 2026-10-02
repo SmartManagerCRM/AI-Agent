@@ -15,6 +15,8 @@ export type ChatMessage = {
   cart?: CartView | null;
   /** Catalog products the server says this reply is about (rendered as product cards). */
   productIds?: string[];
+  /** The customer spoke this message (the transcript is what was sent). */
+  voice?: boolean;
 };
 
 /**
@@ -39,17 +41,19 @@ export function useAgentChat({
   const [pending, startTransition] = useTransition();
   const nextId = useRef(1);
 
-  const send = (text: string) => {
+  const send = (text: string, options?: { voice?: boolean }) => {
     const trimmed = text.trim();
     if (!trimmed || pending) return;
+    const voice = options?.voice === true;
     setError(null);
-    setMessages((prev) => [...prev, { id: nextId.current++, role: "user", text: trimmed, at: Date.now() }]);
+    setMessages((prev) => [...prev, { id: nextId.current++, role: "user", text: trimmed, at: Date.now(), voice }]);
 
     startTransition(async () => {
       const formData = new FormData();
       formData.set("slug", slug);
       formData.set("message", trimmed);
       formData.set("surface", surface);
+      if (voice) formData.set("modality", "voice");
       if (tableId) formData.set("tableId", tableId);
       const result = await sendAgentMessageAction(undefined, formData);
       if (result && "error" in result) {

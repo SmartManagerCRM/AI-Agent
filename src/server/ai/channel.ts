@@ -16,9 +16,11 @@
  * metadata about delivery, not an input to the gateway, the tools, or any
  * commerce module, none of which read it or ever should.
  *
- * MVP ships `"text"` only; `"voice"` is reserved so adding it is a new
- * adapter and a new value, never a schema or interface change here.
+ * `"voice"` is the Customer Agent's browser voice mode: speech is
+ * transcribed and replies are read aloud on the customer's own device, so
+ * the gateway still only ever sees and returns text.
  */
 export type AgentModality = "text" | "voice";
 
 export const AGENT_MODALITY_TEXT: AgentModality = "text";
+export const AGENT_MODALITY_VOICE: AgentModality = "voice";

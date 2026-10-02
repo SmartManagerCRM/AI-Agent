@@ -15,7 +15,7 @@ import {
 } from "react";
 
 import { formatMoney } from "@/lib/money";
-import { audioReady, playSound, preloadSounds, subscribeAudio, unlockAudio } from "@/lib/notifications/audio";
+import { audioReady, playSound, preloadSounds, resumeAudio, subscribeAudio, unlockAudio } from "@/lib/notifications/audio";
 import {
   AlertScheduler,
   Deduper,
@@ -100,6 +100,12 @@ type ContextValue = {
   labels: NotificationLabels;
   unacknowledgedOrders: number;
   isNewOrder: (orderId: string) => boolean;
+  /** Plays the alert sound now (from a tap), so the owner can check this device's volume. */
+  testSound: () => boolean;
+  /** Keep the screen on while the console is open, so the order sound can always play. */
+  keepAwake: boolean;
+  setKeepAwake: (on: boolean) => void;
+  keepAwakeSupported: boolean;
 };
 
 const NotificationContext = createContext<ContextValue | null>(null);
@@ -126,6 +132,17 @@ function writePref(key: string, on: boolean) {
     // Storage blocked: the choice lasts for this page only.
   }
   prefListeners.forEach((l) => l());
+}
+/** Off unless turned on (opt-in settings such as keep-screen-on). */
+function readFlag(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "on";
+  } catch {
+    return false;
+  }
+}
+function writeFlag(key: string, on: boolean) {
+  writePref(key, on);
 }
 function subscribePref(listener: () => void) {
   prefListeners.add(listener);
@@ -159,12 +176,28 @@ function maybeAskNotificationPermission() {
   }
 }
 
-async function showBrowserNotification(title: string, body: string, tag: string, url: string) {
+/**
+ * While the console is in the background (phone locked, another app open),
+ * browsers don't let a page play its own sound: the system notification —
+ * with the phone's notification sound — is the alert. Orders vibrate in a
+ * distinct pattern, stay on screen until handled, and re-alert per order.
+ */
+async function showBrowserNotification(title: string, body: string, tag: string, url: string, urgent: boolean) {
   try {
     if (document.visibilityState !== "hidden" || !("Notification" in window) || Notification.permission !== "granted") {
       return;
     }
-    const options = { body, tag, icon: "/icons/icon-192.png", badge: "/icons/icon-192.png", data: { url } };
+    const options = {
+      body,
+      tag,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url },
+      silent: false,
+      renotify: true,
+      requireInteraction: urgent,
+      vibrate: urgent ? [400, 150, 400, 150, 800] : [200],
+    } as NotificationOptions;
     const registration = await navigator.serviceWorker?.getRegistration();
     if (registration) await registration.showNotification(title, options);
     else new Notification(title, options).onclick = () => window.focus();
@@ -294,17 +327,70 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
     };
   }, [isTenant, reminderMs]);
 
+  // ── Back from the background: wake audio, play any chime that was missed ─
+  useEffect(() => {
+    const flush = () => {
+      if (audioReady()) schedulerRef.current?.flushMissed();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && readPref(prefKey)) void resumeAudio().then(flush);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    const unsubscribe = subscribeAudio(flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+      unsubscribe();
+    };
+  }, [prefKey]);
+
+  // ── Keep the screen on (opt-in, this device) ────────────────────────────
+  const awakeKey = `${prefKey}:keep-awake`;
+  const keepAwake = useSyncExternalStore(
+    subscribePref,
+    () => readFlag(awakeKey),
+    () => false,
+  );
+  const keepAwakeSupported = useSyncExternalStore(
+    subscribePref,
+    () => typeof navigator !== "undefined" && "wakeLock" in navigator,
+    () => false,
+  );
+  useEffect(() => {
+    if (!keepAwake || !keepAwakeSupported) return;
+    type Sentinel = { release: () => Promise<void>; released: boolean };
+    let sentinel: Sentinel | null = null;
+    let disposed = false;
+    const acquire = async () => {
+      if (disposed || document.visibilityState !== "visible" || (sentinel && !sentinel.released)) return;
+      try {
+        sentinel = await (navigator as Navigator & { wakeLock: { request: (t: "screen") => Promise<Sentinel> } }).wakeLock.request("screen");
+      } catch {
+        // Refused (low battery, not visible): the screen may sleep.
+      }
+    };
+    void acquire();
+    // The browser releases the lock whenever the page is hidden; take it back on return.
+    document.addEventListener("visibilitychange", acquire);
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", acquire);
+      void sentinel?.release().catch(() => undefined);
+    };
+  }, [keepAwake, keepAwakeSupported]);
+  const setKeepAwake = useCallback((on: boolean) => writeFlag(awakeKey, on), [awakeKey]);
+
   // ── Audio: preload when idle; unlock on the first user gesture ──────────
   useEffect(() => {
     const preload = setTimeout(() => preloadSounds(sounds), 1500);
     const unlock = () => {
-      if (readPref(prefKey)) void unlockAudio(sounds);
+      if (readPref(prefKey) && !audioReady()) void unlockAudio(sounds);
     };
+    // Kept for the page's lifetime: phones suspend audio whenever the console
+    // goes to the background, and the next tap must be able to wake it again.
     const events = ["pointerdown", "keydown", "touchend", "click"] as const;
-    const onGesture = () => {
-      unlock();
-      if (audioReady()) events.forEach((e) => document.removeEventListener(e, onGesture, true));
-    };
+    const onGesture = () => unlock();
     events.forEach((e) => document.addEventListener(e, onGesture, true));
     // A navigation that already carried a user gesture can start audio straight away.
     if ((navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive)
@@ -365,6 +451,7 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
         [text.heading, text.body].filter(Boolean).join(" — "),
         event.id,
         hrefRef.current(event),
+        event.kind === "new_order_received",
       );
     };
 
@@ -453,17 +540,26 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
     else writePref(prefKey, false);
   }, [soundOn, ready, enable, prefKey, sounds]);
 
+  const testSound = useCallback(() => {
+    void unlockAudio(sounds).then(() => playSound(sounds[0]));
+    return true;
+  }, [sounds]);
+
   const value = useMemo<ContextValue>(
     () => ({
       soundOn,
       ready,
       toggle,
       enable,
+      testSound,
+      keepAwake,
+      setKeepAwake,
+      keepAwakeSupported,
       labels,
       unacknowledgedOrders: alerts.filter((a) => a.kind === "new_order_received").length,
       isNewOrder: (orderId) => highlighted.has(orderId),
     }),
-    [soundOn, ready, toggle, enable, labels, alerts, highlighted],
+    [soundOn, ready, toggle, enable, testSound, keepAwake, setKeepAwake, keepAwakeSupported, labels, alerts, highlighted],
   );
 
   const orderAlerts = alerts.filter((a) => a.kind === "new_order_received");
@@ -631,6 +727,14 @@ export function SoundToggle() {
       <span className="sr-only sm:hidden">{text}</span>
     </button>
   );
+}
+
+/** This device's alert settings (Settings → "Order alerts on this device"). */
+export function useAlertDeviceSettings() {
+  const ctx = useContext(NotificationContext);
+  if (!ctx) return null;
+  const { soundOn, ready, toggle, testSound, keepAwake, setKeepAwake, keepAwakeSupported } = ctx;
+  return { soundOn, ready, toggle, testSound, keepAwake, setKeepAwake, keepAwakeSupported };
 }
 
 /** Live count of unacknowledged new orders (sidebar "Orders" badge). */

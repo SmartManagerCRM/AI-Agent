@@ -306,6 +306,19 @@
       "succeeded": "Payment received — thank you!",
       "failed": "This payment attempt failed — return to the chat to try again.",
       "secure": "Payments are processed securely."
+    },
+    "voice": {
+      "speak": "Speak your message",
+      "stop": "Stop and send",
+      "listening": "Listening… speak now",
+      "spoken": "Spoken",
+      "listen": "Listen",
+      "stopReading": "Stop",
+      "blocked": "Microphone access is blocked — allow it in your browser settings to speak.",
+      "noSpeech": "I didn't hear anything — tap the mic and try again.",
+      "network": "Voice needs an internet connection — please type your message.",
+      "noMic": "No microphone was found on this device.",
+      "failed": "Voice isn't available right now — please type your message."
     }
   },
   "pwa": {

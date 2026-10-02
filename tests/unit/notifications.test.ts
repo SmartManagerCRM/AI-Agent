@@ -199,6 +199,53 @@ describe("sound scheduling", () => {
     expect(h.played.map((p) => p.sound)).toEqual(["new-subscriber", "subscription-upgrade"]);
   });
 
+  it("a chime that couldn't play (audio suspended in the background) plays once audio is back", () => {
+    let playable = false;
+    let now = 0;
+    const played: SoundName[] = [];
+    const scheduler = new AlertScheduler({
+      play: (sound) => {
+        if (!playable) return false;
+        played.push(sound);
+        return true;
+      },
+      reminderMs: null,
+      now: () => now,
+      setTimer: () => 0,
+      clearTimer: () => undefined,
+    });
+    scheduler.add(order());
+    scheduler.add(order());
+    expect(played).toEqual([]);
+    now = 60_000;
+    playable = true;
+    scheduler.flushMissed();
+    expect(played).toEqual(["new-order"]); // one chime for both, not two
+    scheduler.flushMissed();
+    expect(played).toHaveLength(1); // never twice
+  });
+
+  it("missed chimes expire after 10 minutes, and acknowledged orders never chime late", () => {
+    let playable = false;
+    let now = 0;
+    const played: SoundName[] = [];
+    const scheduler = new AlertScheduler({
+      play: (sound) => (playable ? (played.push(sound), true) : false),
+      reminderMs: null,
+      now: () => now,
+      setTimer: () => 0,
+      clearTimer: () => undefined,
+    });
+    scheduler.add(order());
+    const seen = order();
+    scheduler.add(seen);
+    scheduler.acknowledge([seen.id]);
+    now = 11 * 60_000;
+    playable = true;
+    scheduler.flushMissed();
+    expect(played).toEqual([]);
+  });
+
   it("disposing cancels pending sounds", () => {
     const h = harness();
     h.scheduler.add(order());

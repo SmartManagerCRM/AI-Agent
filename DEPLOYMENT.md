@@ -245,6 +245,13 @@ install (only the console's pages link the manifest).
   `node scripts/generate-notification-sounds.mjs`).
 - Browsers only play sound after the user interacts with the page: the
   console shows "Enable sound" until then, and alerts stay visual.
+- **Phone locked / console in the background**: browsers never let a
+  website play its own sound there. New orders then raise a system
+  notification (phone's notification sound + vibration, kept on screen),
+  and the order sound plays as soon as the console is back in front (for
+  orders up to 10 minutes old, once). Settings → "Order alerts on this
+  device" has a test-sound button and "Keep the screen on" (Wake Lock) for
+  a phone or tablet at the counter.
 
 ## Console: Brain → catalog, manual orders, file imports
 
@@ -317,3 +324,19 @@ install (only the console's pages link the manifest).
   The server needs outbound HTTPS to those hosts; if none answers, the switch
   is refused and nothing changes (rates are never guessed). The confirmation
   dialog credits "Rates By Exchange Rate API" as its terms require.
+
+## Customer Agent: voice
+
+- Customers can tap the mic in the chat and speak: their **own browser**
+  transcribes (Web Speech API) and the transcript is sent like a typed
+  message, through the same deterministic-first chat. Replies to spoken
+  messages are read aloud by the browser (`speechSynthesis`); every reply
+  also has Listen / Stop. No audio is sent to an AI model, so voice costs
+  exactly what typing costs. Spoken turns are stored with
+  `conversation_messages.modality = 'voice'`.
+- **Nothing to configure**: no migration, no environment variables. The
+  `Permissions-Policy` header allows the microphone for the app's own pages
+  only (`microphone=(self)`), and the widget embed's iframe asks for it
+  (`allow="microphone"`).
+- Browsers without speech recognition (e.g. Firefox, some in-app browsers)
+  simply don't show the mic; typing is unchanged. The mic needs HTTPS.

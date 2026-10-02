@@ -306,6 +306,19 @@
       "succeeded": "Paiement reçu — merci !",
       "failed": "Cette tentative de paiement a échoué — revenez à la conversation pour réessayer.",
       "secure": "Les paiements sont traités de manière sécurisée."
+    },
+    "voice": {
+      "speak": "Dicter votre message",
+      "stop": "Arrêter et envoyer",
+      "listening": "Je vous écoute… parlez maintenant",
+      "spoken": "Message vocal",
+      "listen": "Écouter",
+      "stopReading": "Arrêter",
+      "blocked": "L'accès au micro est bloqué — autorisez-le dans les réglages du navigateur pour parler.",
+      "noSpeech": "Je n'ai rien entendu — touchez le micro et réessayez.",
+      "network": "La voix nécessite une connexion Internet — veuillez écrire votre message.",
+      "noMic": "Aucun micro n'a été trouvé sur cet appareil.",
+      "failed": "La voix n'est pas disponible pour le moment — veuillez écrire votre message."
     }
   },
   "pwa": {
