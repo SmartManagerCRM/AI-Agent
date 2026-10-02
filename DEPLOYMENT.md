@@ -296,3 +296,24 @@ install (only the console's pages link the manifest).
 - An HTML file whose photos use relative paths needs its web address
   (`<base>`, canonical or og:url link) to find them; otherwise the import says
   so. PDFs: text only, no photos.
+
+## Business currency (header picker)
+
+- **Database**: `supabase/migrations/20261003150000_business_currency_switch.sql`
+  (already applied to production): 78 currencies (MENA + international, ISO
+  4217 exponents), `tenant_currency_changes` (each switch with its full rate
+  snapshot), `change_business_currency()` and currency-aware report functions.
+- The currency picker in the subscriber console header switches the business's
+  selling currency and **converts** product and service prices, the delivery
+  fee, the minimum order and fixed-amount coupons in one transaction. Drafts
+  waiting for a price listed in the new currency get that price exactly. Past
+  orders keep their own currency; dashboard / analytics / customer / coupon
+  totals express them in the current currency at the rates saved by the switch.
+- `tenants.currency` can no longer be changed by a plain update (a trigger
+  refuses it) — only through the converting switch (`settings.write`).
+- **Exchange rates**: free, keyless public feeds — `open.er-api.com` (daily),
+  falling back to the `@fawazahmed0/currency-api` feed on jsDelivr and its
+  pages.dev mirror; cached for an hour. No API key or environment variable.
+  The server needs outbound HTTPS to those hosts; if none answers, the switch
+  is refused and nothing changes (rates are never guessed). The confirmation
+  dialog credits "Rates By Exchange Rate API" as its terms require.

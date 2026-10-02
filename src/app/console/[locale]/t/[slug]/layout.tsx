@@ -4,10 +4,12 @@ import { getTranslations } from "next-intl/server";
 import { MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/mobile-sidebar";
 import { NotificationCenter } from "@/components/notifications/notification-center";
 import { TenantNav, type NavItem } from "@/components/console/tenant-nav";
+import { CurrencyBar } from "@/components/console/currency-bar";
 import { TopHeader } from "@/components/console/top-header";
 import { TrialCard } from "@/components/console/trial-card";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import type { Locale } from "@/i18n/locales";
+import { MENA_CURRENCIES } from "@/lib/currencies";
 import { daysUntil } from "@/lib/dates";
 import { currentUser, isSuperAdmin, myTenantMemberships, requireTenantMember } from "@/server/tenant/context";
 import { loadDeploymentStatus } from "@/server/agent-public/go-live";
@@ -39,6 +41,8 @@ export default async function TenantLayout({
     { count: openConversationCount },
     { data: announcements },
     deploymentStatus,
+    { data: currencies },
+    { data: roleGrants },
   ] = await timed(
     "layout.tenant",
     Promise.all([
@@ -60,8 +64,23 @@ export default async function TenantLayout({
         .eq("is_active", true)
         .order("created_at", { ascending: false }),
       loadDeploymentStatus(supabase, tenant.id),
+      supabase.from("currencies").select("code, name").order("code"),
+      // May this member change the business currency (settings.write)? The database checks it again.
+      membership
+        ? supabase
+            .from("roles")
+            .select("id, role_permissions!inner(permission_key)")
+            .eq("key", membership.role_key)
+            .eq("role_permissions.permission_key", "settings.write")
+        : Promise.resolve({ data: null }),
     ]),
   );
+  const canChangeCurrency = impersonating || (roleGrants ?? []).length > 0;
+  const currencyOptions = (currencies ?? []).map((c) => ({
+    code: c.code,
+    name: c.name[locale] ?? c.name.en ?? c.code,
+    mena: MENA_CURRENCIES.has(c.code),
+  }));
   const isLive = deploymentStatus === "published";
   // Paid plans have a monthly conversation limit; the free trial its own.
   const usage =
@@ -203,6 +222,15 @@ export default async function TenantLayout({
               superAdminLabel={t("superAdminLink")}
               signOutLabel={t("signOut")}
               openConversationCount={openConversationCount ?? 0}
+              currencyBar={
+                <CurrencyBar
+                  current={tenant.currency}
+                  options={currencyOptions}
+                  canChange={canChangeCurrency}
+                  locale={locale}
+                  slug={slug}
+                />
+              }
             />
             <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</main>
           </div>

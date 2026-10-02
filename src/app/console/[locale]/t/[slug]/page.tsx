@@ -20,14 +20,17 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
 
   const [stats, { data: currencyRow }, { data: profile }] = await Promise.all([
     getTenantDashboardStats(supabase, tenant.id, locale),
-    supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+    supabase.from("currencies").select("code, exponent"),
     user
       ? supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
-  const exponent = currencyRow?.exponent ?? 2;
+  const exponents = new Map((currencyRow ?? []).map((c) => [c.code, c.exponent]));
+  const exponent = exponents.get(tenant.currency) ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
+  // A past order is shown in the currency it was placed in.
+  const orderMoney = (minor: number, currency: string) => formatMoney(minor, currency, exponents.get(currency) ?? 2, locale);
   const firstName = (profile?.full_name ?? "").split(" ")[0] || t("dashboard.fallbackName");
 
   return (
@@ -148,7 +151,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
                     <tr key={order.id} className="border-b border-slate-100">
                       <td className="py-2 font-medium text-slate-900">#{order.orderNumber}</td>
                       <td className="py-2 text-slate-700">{order.customerName ?? "—"}</td>
-                      <td className="py-2 text-slate-700">{money(order.totalMinor)}</td>
+                      <td className="py-2 text-slate-700">{orderMoney(order.totalMinor, order.currency)}</td>
                       <td className="py-2">
                         <StatusPill status={order.status} />
                       </td>

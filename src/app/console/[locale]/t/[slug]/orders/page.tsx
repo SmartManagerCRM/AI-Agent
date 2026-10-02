@@ -51,7 +51,7 @@ export default async function OrdersPage({
     "orders.queries",
     Promise.all([
       query,
-      supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
+      supabase.from("currencies").select("code, exponent"),
       supabase
         .from("products")
         .select("id, name, price_minor, status")
@@ -63,8 +63,10 @@ export default async function OrdersPage({
     ]),
   );
   const allOrders = ordersRaw ?? [];
-  const exponent = currency?.exponent ?? 2;
-  const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
+  const exponents = new Map((currency ?? []).map((c) => [c.code, c.exponent]));
+  const exponent = exponents.get(tenant.currency) ?? 2;
+  // Each order in the currency it was placed in (it keeps it if the business later switches).
+  const money = (minor: number, code: string = tenant.currency) => formatMoney(minor, code, exponents.get(code) ?? 2, locale);
 
   const orderIds = allOrders.map((o) => o.id);
   const { data: payments } = await supabase
@@ -159,7 +161,7 @@ export default async function OrdersPage({
                     </td>
                     <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
-                    <td className="px-4 py-3 text-slate-700">{money(order.total_minor)}</td>
+                    <td className="px-4 py-3 text-slate-700">{money(order.total_minor, order.currency)}</td>
                     <td className="px-4 py-3">
                       <StatusPill status={order.status} />
                     </td>

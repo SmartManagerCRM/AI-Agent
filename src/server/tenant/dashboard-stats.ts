@@ -23,6 +23,8 @@ export type DashboardStats = {
     orderNumber: number;
     customerName: string | null;
     totalMinor: number;
+    /** The order's own currency (it keeps it if the business later switches). */
+    currency: string;
     status: string;
     createdAt: string;
   }[];
@@ -60,7 +62,7 @@ export async function getTenantDashboardStats(
       supabase.rpc("tenant_dashboard_stats", { p_tenant_id: tenantId, p_locale: locale, p_window_days: WINDOW_DAYS }),
       supabase
         .from("orders")
-        .select("id, order_number, customer_name, total_minor, status, created_at")
+        .select("id, order_number, customer_name, total_minor, currency, status, created_at")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false })
         .limit(5),
@@ -122,6 +124,7 @@ export async function getTenantDashboardStats(
     orderNumber: order.order_number,
     customerName: order.customer_name,
     totalMinor: order.total_minor,
+    currency: order.currency,
     status: order.status,
     createdAt: order.created_at,
   }));

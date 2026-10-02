@@ -38,7 +38,12 @@ export function KpiTile({
         </span>
         <p className="text-xs font-medium text-slate-500">{label}</p>
       </div>
-      <p className="mt-3 text-2xl font-semibold text-slate-900">{value}</p>
+      {/* Long amounts (e.g. LBP 1,234,567.00) step down a size so they fit the card (a line only ever breaks between the currency and the number). */}
+      <p
+        className={`mt-3 font-semibold tabular-nums text-slate-900 ${value.length > 12 ? "text-lg sm:text-xl" : value.length > 8 ? "text-xl sm:text-2xl" : "text-2xl"}`}
+      >
+        {value}
+      </p>
       {trend && (
         <p className={`mt-1 text-xs font-medium ${trend.direction === "up" ? "text-emerald-600" : "text-red-600"}`}>
           {trend.direction === "up" ? "↑" : "↓"} {trend.pct}% {trendLabel}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { AccountMenu } from "@/components/console/account-menu";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -18,6 +19,8 @@ type Props = {
   superAdminLabel: string;
   signOutLabel: string;
   openConversationCount: number;
+  /** The business-currency picker (subscriber consoles only). */
+  currencyBar?: ReactNode;
 };
 
 export function TopHeader({
@@ -30,6 +33,7 @@ export function TopHeader({
   superAdminLabel,
   signOutLabel,
   openConversationCount,
+  currencyBar,
 }: Props) {
   const initial = userName.trim().charAt(0).toUpperCase() || "?";
 
@@ -39,7 +43,8 @@ export function TopHeader({
         <MobileMenuButton />
         <WorkspaceSwitcher locale={locale} current={workspace} others={otherWorkspaces} />
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        {currencyBar}
         <SoundToggle />
         <LocaleSwitcher locale={locale} />
         <Link

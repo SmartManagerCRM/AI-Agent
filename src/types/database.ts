@@ -1266,6 +1266,14 @@ export type Database = {
         Args: { p_order_id: string; p_new_status: string; p_note?: string | null };
         Returns: undefined;
       };
+      change_business_currency: {
+        Args: { p_tenant_id: string; p_currency: string; p_usd_rates: Json; p_rate_source: string; p_rates_as_of: string | null };
+        Returns: Json;
+      };
+      order_fx_factor: {
+        Args: { p_tenant_id: string; p_currency: string };
+        Returns: number | null;
+      };
       create_manual_orders: {
         Args: { p_tenant_id: string; p_orders: Json; p_created_via?: "manual" | "bulk_import" };
         Returns: { order_id: string; order_number: number }[];
