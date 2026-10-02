@@ -180,6 +180,9 @@ describe("platform usage analytics", () => {
       ai_state: "ok",
       agent_ai_cost: 3,
       agent_ai_responses: 600,
+      agent_voice_cost: "0.0123",
+      agent_voice_clips: 41,
+      agent_voice_characters: 2460,
       brain_ai_cost: 0.5,
       usage_state: "CONVERSATION_WARNING",
     },
@@ -224,6 +227,18 @@ describe("platform usage analytics", () => {
     expect(s.totalBrainAiCost).toBeCloseTo(0.7, 6);
     expect(s.avgCostPerConversation).toBeCloseTo(20 / 2000, 9);
     expect(s.avgCostPerAiResponse).toBeCloseTo(20 / 2000, 9);
+  });
+
+  it("premium voice is reported on its own, never as AI responses", () => {
+    expect(rows[0].agentVoiceCost).toBeCloseTo(0.0123, 9);
+    expect(rows[0].agentVoiceClips).toBe(41);
+    expect(rows[0].agentVoiceCharacters).toBe(2460);
+    expect(rows[1].agentVoiceClips).toBe(0);
+    expect(s.totalVoiceCost).toBeCloseTo(0.0123, 9);
+    expect(s.totalVoiceClips).toBe(41);
+    expect(s.totalAiResponses).toBe(2000);
+    expect(s.avgCostPerAiResponse).toBeCloseTo(20 / 2000, 9);
+    expect(s.byPlan.find((p) => p.planKey === "starter")?.agentVoiceCost).toBeCloseTo(0.0123, 9);
   });
 
   it("utilization by plan counts paid subscribers only", () => {

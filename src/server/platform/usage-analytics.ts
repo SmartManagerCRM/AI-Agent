@@ -44,9 +44,13 @@ export type SubscriberUsageRow = {
   aiCostReserved: number;
   aiCostPercent: number | null;
   aiState: "ok" | "warning" | "blocked";
-  /** All Agent AI spend this period from the interaction ledger (trials included), Business Brain excluded. */
+  /** All Agent AI spend this period from the interaction ledger (trials included); Business Brain and premium voice excluded. */
   agentAiCost: number;
   agentAiResponses: number;
+  /** Premium voice this period: audio generated (cache replays cost nothing and aren't counted). Counts toward the AI cost cap. */
+  agentVoiceCost: number;
+  agentVoiceClips: number;
+  agentVoiceCharacters: number;
   brainAiCost: number;
   brainAiCostTotal: number;
   usageState: UsageState;
@@ -99,6 +103,9 @@ export function parseUsageRows(raw: unknown): SubscriberUsageRow[] {
         aiState,
         agentAiCost: num(r.agent_ai_cost) ?? 0,
         agentAiResponses: num(r.agent_ai_responses) ?? 0,
+        agentVoiceCost: num(r.agent_voice_cost) ?? 0,
+        agentVoiceClips: num(r.agent_voice_clips) ?? 0,
+        agentVoiceCharacters: num(r.agent_voice_characters) ?? 0,
         brainAiCost: num(r.brain_ai_cost) ?? 0,
         brainAiCostTotal: num(r.brain_ai_cost_total) ?? 0,
         usageState: (str(r.usage_state) as UsageState | null) ?? "NOT_ACTIVE",
@@ -112,6 +119,7 @@ export type PlanUsage = {
   subscribers: number;
   paidSubscribers: number;
   agentAiCost: number;
+  agentVoiceCost: number;
   conversations: number;
   /** Mean of each paid subscriber's conversation-limit utilization (%), null when none. */
   avgConversationUtilization: number | null;
@@ -122,6 +130,8 @@ export type PlanUsage = {
 export type PlatformUsageSummary = {
   totalAgentAiCost: number;
   totalBrainAiCost: number;
+  totalVoiceCost: number;
+  totalVoiceClips: number;
   totalConversations: number;
   totalAiResponses: number;
   avgCostPerConversation: number | null;
@@ -153,6 +163,7 @@ export function summarizePlatformUsage(rows: SubscriberUsageRow[]): PlatformUsag
         subscribers: list.length,
         paidSubscribers: paid.length,
         agentAiCost: list.reduce((s, r) => s + r.agentAiCost, 0),
+        agentVoiceCost: list.reduce((s, r) => s + r.agentVoiceCost, 0),
         conversations: list.reduce((s, r) => s + r.conversationsUsed, 0),
         avgConversationUtilization: mean(
           paid.flatMap((r) => (r.conversationPercent !== null ? [r.conversationPercent] : [])),
@@ -166,6 +177,8 @@ export function summarizePlatformUsage(rows: SubscriberUsageRow[]): PlatformUsag
   return {
     totalAgentAiCost,
     totalBrainAiCost: rows.reduce((s, r) => s + r.brainAiCost, 0),
+    totalVoiceCost: rows.reduce((s, r) => s + r.agentVoiceCost, 0),
+    totalVoiceClips: rows.reduce((s, r) => s + r.agentVoiceClips, 0),
     totalConversations,
     totalAiResponses,
     avgCostPerConversation: totalConversations > 0 ? totalAgentAiCost / totalConversations : null,

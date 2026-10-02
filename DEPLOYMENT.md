@@ -384,6 +384,12 @@ install (only the console's pages link the manifest).
     `20261004110000_agent_male_voice_chris.sql` set it to Chris (the owner's
     pick; Eric sounded too formal). Change a voice by updating its row; no
     deploy needed.
+  - Reporting: voice audio is spend, not a customer interaction. It counts
+    toward the subscriber's AI cost cap, but is left out of "AI responses",
+    interaction counts and the deterministic share; Super Admin sees it on
+    its own (Usage: "Premium voice cost" and a per-plan column; Business 360:
+    voice cost, clips, characters) — migration
+    `20261004120000_voice_separate_from_ai_responses.sql`, applied.
   - Flow: Agent text → audio cache (private bucket `agent-voice`, one file per
     business + voice + language + sentence) → hit: played at once, no cost;
     miss: ElevenLabs, streamed to the customer while it is stored for next

@@ -55,12 +55,12 @@ export default async function PlatformUsagePage({
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Usage &amp; AI Cost</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Each subscriber&apos;s current billing period. Agent AI cost excludes Business Brain analysis, which is shown
-          separately.
+          Each subscriber&apos;s current billing period. Agent AI cost excludes Business Brain analysis and premium voice,
+          which are shown separately (voice still counts toward each subscriber&apos;s AI cost cap).
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <KpiTile
           icon="billing"
           accent="orange"
@@ -76,6 +76,14 @@ export default async function PlatformUsagePage({
           value={usd(summary.totalBrainAiCost, 4)}
           trend={null}
           href={`/${locale}/super-admin/business-brain`}
+        />
+        <KpiTile
+          icon="agent"
+          accent="emerald"
+          label={`Premium voice cost (${summary.totalVoiceClips.toLocaleString(locale)} clips)`}
+          value={usd(summary.totalVoiceCost, 4)}
+          trend={null}
+          href={`/${locale}/super-admin/usage#by-plan`}
         />
         <KpiTile
           icon="conversations"
@@ -129,6 +137,7 @@ export default async function PlatformUsagePage({
                 <th className="py-2 text-start font-medium">Subscribers (paid)</th>
                 <th className="py-2 text-start font-medium">Conversations</th>
                 <th className="py-2 text-start font-medium">Agent AI cost</th>
+                <th className="py-2 text-start font-medium">Voice cost</th>
                 <th className="py-2 text-start font-medium">Avg conversation use</th>
                 <th className="py-2 text-start font-medium">Avg AI cap use</th>
               </tr>
@@ -142,6 +151,7 @@ export default async function PlatformUsagePage({
                   </td>
                   <td className="py-2 text-slate-600">{p.conversations.toLocaleString(locale)}</td>
                   <td className="py-2 text-slate-600">{usd(p.agentAiCost, 4)}</td>
+                  <td className="py-2 text-slate-600">{usd(p.agentVoiceCost, 4)}</td>
                   <td className="py-2 text-slate-600">{pct(p.avgConversationUtilization)}</td>
                   <td className="py-2 text-slate-600">{pct(p.avgAiCostUtilization)}</td>
                 </tr>
@@ -199,7 +209,7 @@ export default async function PlatformUsagePage({
                     <span className="text-xs text-slate-400">{pct(r.conversationPercent)}</span>
                   </td>
                   <td className="py-2 text-slate-600">
-                    {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost, 4)} / {usd(r.aiCostLimit)}{" "}
+                    {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost + r.agentVoiceCost, 4)} / {usd(r.aiCostLimit)}{" "}
                     <span className="text-xs text-slate-400">
                       {r.isPaid || r.isTrial ? pct(r.aiCostPercent) : "not capped"}
                     </span>

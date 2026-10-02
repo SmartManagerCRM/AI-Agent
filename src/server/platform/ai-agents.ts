@@ -42,8 +42,8 @@ export async function getPlatformAgentRows(supabase: TypedSupabaseClient): Promi
   for (const row of interactions ?? []) {
     const stat = statsByTenant.get(row.tenant_id) ?? { total: 0, deterministic: 0, cost: 0 };
     stat.cost += row.estimated_cost_usd;
-    // Business Discovery AI calls are spend, not customer interactions.
-    if (row.request_type === "brain_ingestion") {
+    // Business Discovery AI calls and premium voice audio are spend, not customer interactions.
+    if (row.request_type === "brain_ingestion" || row.request_type === "voice_tts") {
       statsByTenant.set(row.tenant_id, stat);
       continue;
     }
