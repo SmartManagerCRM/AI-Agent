@@ -349,7 +349,8 @@ install (only the console's pages link the manifest).
 
 ## Customer Agent: language bar, background photo, spoken greeting
 
-- **Language bar** (header, next to the cart): EN · AR · FR as letters. The
+- **Language menu** (header, next to the cart): a dropdown showing the
+  current language as letters (EN / AR / FR, never flags). The
   Agent's screens are translated into all three, so customers can always
   pick any of them (the business's enabled languages are listed first);
   the conversation switches to the picked language and the built-in
@@ -367,4 +368,12 @@ install (only the console's pages link the manifest).
   device.
 - The landing page's "Ask" bar has a mic: it opens the conversation and
   starts listening in one tap.
+- **Agent voice** (Agent settings → Voice: Male, the default, or Female;
+  stored as `tenant_settings.agent.voice`, no migration). Spoken with each
+  customer's own device voices (free): the most natural voice of the chosen
+  gender in the reply's language (Edge "Natural", Apple "Enhanced",
+  "Neural" voices first), recognised by the voice's name; a device whose
+  voices don't say their gender (common on Android) uses its standard voice
+  for the language. Replies are read sentence by sentence at a calm pace.
+  "Preview voice" plays the greeting on the owner's own device.
 

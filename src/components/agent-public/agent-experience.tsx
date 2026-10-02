@@ -24,6 +24,7 @@ import { HomeView } from "./home-view";
 import { CheckIcon, CloseIcon, PlusIcon } from "./icons";
 import { useAgentChat } from "./use-agent-chat";
 import { useAgentCommerce } from "./use-agent-commerce";
+import type { VoiceGender } from "./voice";
 
 // Screens a customer only reaches after tapping something load on first use, keeping them out of the
 // home page's initial JavaScript.
@@ -45,6 +46,8 @@ export type AgentExperienceProps = {
   greeting: string | null;
   /** Public URL of the business's background photo (Agent settings), if any. */
   backgroundUrl: string | null;
+  /** The Agent's spoken voice, chosen in Agent settings. */
+  voiceGender: VoiceGender;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
@@ -146,6 +149,7 @@ export function AgentExperience(props: AgentExperienceProps) {
       about: props.about,
       greeting: props.greeting,
       backgroundUrl: props.backgroundUrl,
+      voiceGender: props.voiceGender,
       categories: props.categories,
       products: props.products,
       services: props.services,

@@ -124,6 +124,8 @@ export type Database = {
             tone: string | null;
             /** Storage path (catalog-images bucket) of the photo behind the whole customer Agent. */
             background_path?: string | null;
+            /** The Agent's spoken voice (customer devices' own speech): male or female. */
+            voice?: "male" | "female" | null;
           };
           checkout: {
             ordering_enabled: boolean;

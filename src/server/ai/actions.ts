@@ -16,6 +16,7 @@ const updateSettingsSchema = z.object({
   assistantName: z.string().trim().max(80).optional().or(z.literal("")),
   greeting: z.string().trim().max(300).optional().or(z.literal("")),
   tone: z.enum(["friendly", "formal", "playful"]),
+  voice: z.enum(["male", "female"]).default("male"),
   locale: z.string(),
   slug: z.string().min(1),
 });
@@ -29,6 +30,7 @@ export async function updateAgentSettingsAction(
     assistantName: formData.get("assistantName"),
     greeting: formData.get("greeting"),
     tone: formData.get("tone"),
+    voice: formData.get("voice") ?? undefined,
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
@@ -51,6 +53,7 @@ export async function updateAgentSettingsAction(
         greeting: parsed.data.greeting || null,
         tone: parsed.data.tone,
         background_path: current?.agent?.background_path ?? null,
+        voice: parsed.data.voice,
       },
     })
     .eq("tenant_id", parsed.data.tenantId);

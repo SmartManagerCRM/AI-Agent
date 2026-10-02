@@ -104,21 +104,129 @@ export function spokenText(reply: string): string {
     .trim();
 }
 
-type VoiceLike = { lang: string; localService?: boolean; default?: boolean };
+/** The Agent's voice, as chosen in Agent settings. */
+export type VoiceGender = "male" | "female";
+export const VOICE_GENDERS: readonly VoiceGender[] = ["male", "female"];
+export const DEFAULT_VOICE_GENDER: VoiceGender = "male";
+
+type VoiceLike = { lang: string; name?: string; localService?: boolean; default?: boolean };
+
+/*
+ * Browsers don't say whether a voice is male or female, so it is read from
+ * the voice's name: the speaker names Apple (iPhone, Mac), Microsoft
+ * (Windows, Edge) and Google (Chrome) give their English, Arabic and French
+ * voices, plus an explicit "Male"/"Female" in the name.
+ */
+const MALE_NAMES = new Set([
+  // English
+  "alex", "aaron", "arthur", "daniel", "fred", "gordon", "oliver", "rishi", "tom", "david", "mark", "george", "james", "richard",
+  "guy", "davis", "andrew", "brian", "brandon", "christopher", "eric", "jacob", "jason", "roger", "ryan", "steffan", "thomas",
+  "tony", "liam", "william",
+  // French
+  "nicolas", "paul", "claude", "henri", "alain", "jerome", "maurice", "yves", "remy", "lucien", "antoine", "jean", "thierry",
+  // Arabic
+  "maged", "majed", "tarik", "naayf", "hamed", "shakir", "hamdan", "fahed", "rami", "taim", "omar", "moaz", "ismael", "ali",
+  "bassel", "jamal", "abdullah", "laith", "hedi", "saleh",
+]);
+const FEMALE_NAMES = new Set([
+  // English
+  "samantha", "karen", "moira", "tessa", "victoria", "allison", "ava", "susan", "zoe", "nicky", "fiona", "martha", "serena", "kate",
+  "zira", "hazel", "catherine", "linda", "heera", "aria", "jenny", "michelle", "sara", "emma", "libby", "sonia", "natasha", "jane",
+  "nancy", "amber", "ashley", "cora", "elizabeth", "monica",
+  // French
+  "amelie", "audrey", "aurelie", "julie", "hortense", "denise", "eloise", "vivienne", "celeste", "coralie", "jacqueline",
+  "josephine", "yvette", "sylvie",
+  // Arabic
+  "laila", "hoda", "zariyah", "salma", "fatima", "amany", "layla", "mouna", "iman", "amina", "rana", "sana", "noura", "aysha",
+  "amal", "reem", "maryam",
+]);
+
+/** A voice's gender from its name, or null when the name doesn't tell. */
+export function voiceGender(name: string | undefined): VoiceGender | null {
+  if (!name) return null;
+  const lower = name.toLowerCase();
+  if (/\bfemale\b/.test(lower)) return "female";
+  if (/\bmale\b/.test(lower)) return "male";
+  const words = normalizeSpeech(lower)
+    .split(" ")
+    .map((w) => w.replace(/(multilingual)?(neural)?$/, ""));
+  for (const word of words) {
+    if (MALE_NAMES.has(word)) return "male";
+    if (FEMALE_NAMES.has(word)) return "female";
+  }
+  return null;
+}
+
+/** The newer, human-sounding voices (Edge "Natural", Apple "Enhanced"/"Premium", Google/Microsoft "Neural"). */
+const NATURAL_VOICE = /natural|neural|enhanced|premium|siri/i;
 
 /**
- * A voice for the reply's language — exact region first, then any voice of
- * the language. None → the reply is not spoken (reading Arabic with an
- * English voice is worse than silence).
+ * A voice for the reply's language: the chosen gender first, then the
+ * most natural-sounding voice, the exact region, a voice on the device.
+ * With no voice of the chosen gender in that language the device's own
+ * voice for the language is used (never silence for a voice preference);
+ * with no voice of the language at all, none — reading Arabic with an
+ * English voice is worse than silence.
  */
-export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: string): V | null {
+export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: string, gender?: VoiceGender): V | null {
   const norm = (l: string) => l.toLowerCase().replace("_", "-");
   const want = norm(lang);
   const base = want.split("-")[0];
   const same = voices.filter((v) => norm(v.lang).split("-")[0] === base);
   if (same.length === 0) return null;
-  const rank = (v: V) => (norm(v.lang) === want ? 0 : 2) + (v.localService ? 0 : 1);
+  const rank = (v: V) => {
+    const g = gender ? voiceGender(v.name) : null;
+    return (
+      (gender ? (g === gender ? 0 : g === null ? 50 : 100) : 0) +
+      (norm(v.lang) === want ? 0 : 10) +
+      (NATURAL_VOICE.test(v.name ?? "") ? 0 : 3) +
+      (v.localService ? 0 : 1)
+    );
+  };
   return [...same].sort((a, b) => rank(a) - rank(b))[0];
+}
+
+/**
+ * A reply split into its sentences, read one after another: the short
+ * natural pauses between them make delivery calmer and clearer (and keep
+ * every utterance short — some browsers cut long ones off).
+ */
+export function speechChunks(text: string): string[] {
+  const sentences = text.match(/[^.!?؟…\n]+(?:[.!?؟…]+|\n|$)/g) ?? [text];
+  const chunks: string[] = [];
+  for (const sentence of sentences.map((s) => s.trim()).filter(Boolean)) {
+    const last = chunks[chunks.length - 1];
+    // Very short pieces ("OK." "1.") stay with the sentence before them.
+    if (last && (sentence.length < 12 || last.length < 12) && last.length + sentence.length < 160) chunks[chunks.length - 1] = `${last} ${sentence}`;
+    else chunks.push(sentence);
+  }
+  return chunks;
+}
+
+/** Delivery: unhurried, natural pitch (shifting the pitch of a good voice makes it sound synthetic). */
+export const SPEECH_RATE = 0.97;
+
+/**
+ * What to say, sentence by sentence, and with which voice: each part in the
+ * language it is written in (an Arabic introduction, then a greeting the
+ * business typed in English), in the business's chosen voice gender.
+ * Parts with no voice for their language are skipped — unless the browser
+ * hasn't listed its voices yet, when the language tag alone picks one.
+ */
+export function planSpeech<V extends VoiceLike>(
+  parts: readonly string[],
+  options: { locale: string; gender: VoiceGender; voices: readonly V[]; browserLanguages?: readonly string[] },
+): { text: string; lang: string; voice: V | null }[] {
+  const plan: { text: string; lang: string; voice: V | null }[] = [];
+  for (const part of parts) {
+    const text = spokenText(part);
+    if (!text) continue;
+    const lang = speechLang(replyLanguage(text, options.locale), options.browserLanguages ?? []);
+    const voice = pickVoice(options.voices, lang, options.gender);
+    if (!voice && options.voices.length > 0) continue;
+    for (const chunk of speechChunks(text)) plan.push({ text: chunk, lang: voice?.lang ?? lang, voice });
+  }
+  return plan;
 }
 
 /** Recognition error → message key (agent.voice.*). */

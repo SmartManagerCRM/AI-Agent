@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeSpeech, pickTranscript, pickVoice, replyLanguage, speechLang, speechVocabulary, spokenText, voiceErrorKey } from "@/components/agent-public/voice";
+import {
+  normalizeSpeech,
+  pickTranscript,
+  pickVoice,
+  planSpeech,
+  replyLanguage,
+  speechChunks,
+  speechLang,
+  speechVocabulary,
+  spokenText,
+  voiceErrorKey,
+  voiceGender,
+} from "@/components/agent-public/voice";
 
 describe("Agent voice (browser speech, no AI)", () => {
   it("listens in the Agent's language: Arabic in the customer's own dialect, English and French in one standard accent", () => {
@@ -62,5 +74,58 @@ describe("Agent voice (browser speech, no AI)", () => {
     expect(voiceErrorKey("no-speech")).toBe("voice.noSpeech");
     expect(voiceErrorKey("aborted")).toBeNull();
     expect(voiceErrorKey("something-new")).toBe("voice.failed");
+  });
+
+  it("tells a voice's gender from its name (Apple, Microsoft, Google), or says it can't", () => {
+    expect(voiceGender("Microsoft Guy Online (Natural) - English (United States)")).toBe("male");
+    expect(voiceGender("Microsoft Aria Online (Natural) - English (United States)")).toBe("female");
+    expect(voiceGender("Microsoft AvaMultilingual Online (Natural) - English (United States)")).toBe("female");
+    expect(voiceGender("ar-SA-HamedNeural")).toBe("male");
+    expect(voiceGender("Microsoft Zariyah Online (Natural) - Arabic (Saudi Arabia)")).toBe("female");
+    expect(voiceGender("Maged")).toBe("male");
+    expect(voiceGender("Samantha (Enhanced)")).toBe("female");
+    expect(voiceGender("Amélie")).toBe("female");
+    expect(voiceGender("Google UK English Male")).toBe("male");
+    expect(voiceGender("Google UK English Female")).toBe("female");
+    expect(voiceGender("Google US English")).toBeNull();
+    expect(voiceGender("en-us-x-iom-local")).toBeNull();
+  });
+
+  it("speaks with the chosen gender's most natural voice, else the device's own voice — never silence", () => {
+    const voices = [
+      { lang: "en-US", name: "Microsoft Zira - English (United States)", localService: true },
+      { lang: "en-US", name: "Microsoft David - English (United States)", localService: true },
+      { lang: "en-US", name: "Microsoft Guy Online (Natural) - English (United States)", localService: false },
+      { lang: "en-US", name: "Microsoft Aria Online (Natural) - English (United States)", localService: false },
+      { lang: "ar-SA", name: "Google العربية", localService: false },
+    ];
+    expect(pickVoice(voices, "en-US", "male")?.name).toContain("Guy");
+    expect(pickVoice(voices, "en-US", "female")?.name).toContain("Aria");
+    // Only an unnamed Arabic voice: used for either gender.
+    expect(pickVoice(voices, "ar-SA", "male")?.name).toBe("Google العربية");
+    expect(pickVoice(voices, "fr-FR", "male")).toBeNull();
+  });
+
+  it("reads sentence by sentence, keeping tiny pieces together", () => {
+    expect(speechChunks("Great choice! Here are some options. OK.")).toEqual(["Great choice!", "Here are some options. OK."]);
+    expect(speechChunks("أهلاً! كيف يمكنني مساعدتك؟ لدينا قهوة طازجة كل يوم.")).toEqual(["أهلاً! كيف يمكنني مساعدتك؟", "لدينا قهوة طازجة كل يوم."]);
+    expect(speechChunks("No punctuation here")).toEqual(["No punctuation here"]);
+  });
+
+  it("plans the greeting: each part in its own language, in the chosen voice", () => {
+    const voices = [
+      { lang: "ar-SA", name: "Maged", localService: true },
+      { lang: "ar-SA", name: "Laila", localService: true },
+      { lang: "en-US", name: "Daniel", localService: true },
+      { lang: "en-US", name: "Samantha", localService: true },
+    ];
+    const plan = planSpeech(["أهلاً! أنا Doudi.", "Welcome to Qahwa! Fresh coffee, ready when you are."], { locale: "ar", gender: "female", voices });
+    expect(plan.map((p) => `${p.voice?.name}: ${p.text}`)).toEqual([
+      "Laila: أهلاً! أنا Doudi.",
+      "Samantha: Welcome to Qahwa!",
+      "Samantha: Fresh coffee, ready when you are.",
+    ]);
+    expect(planSpeech(["Bonjour !"], { locale: "fr", gender: "male", voices })).toEqual([]); // no French voice
+    expect(planSpeech(["Hello there."], { locale: "en", gender: "male", voices: [] })[0]).toMatchObject({ lang: "en-US", voice: null });
   });
 });

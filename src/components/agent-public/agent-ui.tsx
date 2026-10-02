@@ -19,6 +19,7 @@ import {
 import { MinusIcon, PlusIcon, TrashIcon } from "./icons";
 import type { AgentChat } from "./use-agent-chat";
 import type { AgentCommerce } from "./use-agent-commerce";
+import type { VoiceGender } from "./voice";
 
 export type Screen = "home" | "browse" | "cart" | "checkout" | "done";
 
@@ -40,6 +41,7 @@ export type AgentUi = {
   greeting: string | null;
   /** The business's photo behind the whole Agent, if it set one. */
   backgroundUrl: string | null;
+  voiceGender: VoiceGender;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];

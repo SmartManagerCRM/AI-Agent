@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import { pickTranscript, pickVoice, replyLanguage, speechLang, speechVocabulary, spokenText, voiceErrorKey } from "./voice";
+import { pickTranscript, planSpeech, SPEECH_RATE, speechLang, speechVocabulary, voiceErrorKey, type VoiceGender } from "./voice";
 
 /** The parts of the Web Speech API used here (not every TypeScript DOM lib ships them). */
 type RecognitionResult = ArrayLike<{ transcript: string }> & { isFinal: boolean };
@@ -74,22 +74,26 @@ export function useVoiceMuted(): [boolean, (muted: boolean) => void] {
   return [muted, setMuted];
 }
 
-/**
- * Voice for the Customer Agent, entirely in the browser: speech → text with
- * the Web Speech API's recognition, replies → speech with `speechSynthesis`.
- * No audio leaves the page for an AI model, so a spoken message costs the
- * same as a typed one. Unsupported browsers simply don't offer the mic.
- */
 /** How many guesses to ask the recognizer for (free: they come from the same recognition). */
 const ALTERNATIVES = 5;
 
+/**
+ * Voice for the Customer Agent, entirely in the browser: speech → text with
+ * the Web Speech API's recognition, replies → speech with `speechSynthesis`
+ * in the business's chosen voice (male / female). No audio leaves the page
+ * for an AI model, so a spoken message costs the same as a typed one.
+ * Unsupported browsers simply don't offer the mic.
+ */
 export function useVoice({
   locale,
+  gender,
   names,
   onInterim,
   onFinal,
 }: {
   locale: string;
+  /** The Agent's voice, chosen by the business in Agent settings. */
+  gender: VoiceGender;
   /** This business's own product, category and service names (every language) — what customers are likely to say. */
   names: readonly string[];
   /** The words heard so far (shown in the composer while listening). */
@@ -139,19 +143,19 @@ export function useVoice({
     (id: number, reply: string | string[], options?: { onStart?: () => void }) => {
       if (!canSpeak) return false;
       const synth = window.speechSynthesis;
-      const utterances: SpeechSynthesisUtterance[] = [];
-      for (const part of Array.isArray(reply) ? reply : [reply]) {
-        const text = spokenText(part);
-        if (!text) continue;
-        const partLang = speechLang(replyLanguage(text, locale), navigator.languages ?? []);
-        const voice = pickVoice(synth.getVoices(), partLang);
-        // Voices load lazily on some browsers; with none listed yet the language tag alone picks one.
-        if (!voice && synth.getVoices().length > 0) continue;
+      const plan = planSpeech(Array.isArray(reply) ? reply : [reply], {
+        locale,
+        gender,
+        voices: synth.getVoices(),
+        browserLanguages: navigator.languages ?? [],
+      });
+      const utterances = plan.map(({ text, lang, voice }) => {
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = voice?.lang ?? partLang;
+        utterance.lang = lang;
         if (voice) utterance.voice = voice;
-        utterances.push(utterance);
-      }
+        utterance.rate = SPEECH_RATE;
+        return utterance;
+      });
       if (utterances.length === 0) return false;
       synth.cancel();
       const done = () => setSpeakingId((current) => (current === id ? null : current));
@@ -164,7 +168,7 @@ export function useVoice({
       for (const u of utterances) synth.speak(u);
       return true;
     },
-    [canSpeak, locale],
+    [canSpeak, locale, gender],
   );
 
   const finish = useCallback(() => {

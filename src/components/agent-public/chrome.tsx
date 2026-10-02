@@ -1,12 +1,13 @@
 "use client";
 
+import { useEffect, useId, useRef, useState } from "react";
 import { useAgentT } from "./agent-i18n";
 
 import { LOCALE_COOKIE, LOCALE_NATIVE_NAMES, type Locale } from "@/i18n/locales";
 
 import { focusRing, useAgentUi, type Screen } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
-import { BackIcon, CartIcon, ChatIcon, GridIcon, HomeIcon, PhoneIcon } from "./icons";
+import { BackIcon, CartIcon, ChatIcon, CheckIcon, ChevronDownIcon, GlobeIcon, GridIcon, HomeIcon, PhoneIcon } from "./icons";
 
 function switchLocale(next: Locale) {
   document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
@@ -22,36 +23,87 @@ function switchLocale(next: Locale) {
 const LANGUAGE_LETTERS: Record<Locale, string> = { en: "EN", ar: "AR", fr: "FR" };
 
 /**
- * The Agent's language bar: every language the Agent speaks, as letters,
- * next to the cart. Picking one only sets the same `NEXT_LOCALE` cookie the
- * agent host already negotiates from (src/proxy.ts) and reloads, so `<html
- * lang dir>` is rendered correctly; the conversation then replies in it.
+ * The Agent's language menu, next to the cart: the current language as
+ * letters, opening a list of every language the Agent speaks. Picking one
+ * only sets the same `NEXT_LOCALE` cookie the agent host already
+ * negotiates from (src/proxy.ts) and reloads, so `<html lang dir>` is
+ * rendered correctly; the conversation then replies in it.
  */
 export function LanguageSwitcher({ tone = "light", className = "" }: { tone?: "light" | "dark"; className?: string }) {
   const t = useAgentT();
   const { locale, languages } = useAgentUi();
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
   if (languages.length < 2) return null;
 
-  const track = tone === "dark" ? "bg-white/10 ring-1 ring-white/20" : "bg-white ring-1 ring-slate-200";
-  const idle = tone === "dark" ? "text-white/80 hover:bg-white/15 hover:text-white" : "text-slate-600 hover:bg-slate-100";
-  const active = tone === "dark" ? "bg-white text-agent-900 shadow-sm" : "bg-agent-700 text-white shadow-sm";
+  const trigger =
+    tone === "dark"
+      ? "bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15"
+      : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50";
 
   return (
-    <div role="group" aria-label={t("language.label")} className={`flex h-10 shrink-0 items-center gap-0.5 rounded-full p-1 backdrop-blur ${track} ${className}`} data-testid="language-bar">
-      {languages.map((l) => (
-        <button
-          key={l}
-          type="button"
-          lang={l}
-          title={LOCALE_NATIVE_NAMES[l]}
-          aria-label={LOCALE_NATIVE_NAMES[l]}
-          aria-pressed={l === locale}
-          onClick={() => l !== locale && switchLocale(l)}
-          className={`${focusRing} flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tracking-wide transition ${l === locale ? active : idle}`}
+    <div ref={ref} className={`relative z-30 shrink-0 ${className}`} data-testid="language-menu">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={menuId}
+        aria-label={`${t("language.label")}: ${LOCALE_NATIVE_NAMES[locale]}`}
+        onClick={() => setOpen((v) => !v)}
+        className={`${focusRing} flex h-10 items-center gap-1 rounded-full ps-2.5 pe-2 text-xs font-bold tracking-wide backdrop-blur transition ${trigger}`}
+      >
+        <GlobeIcon size={15} />
+        {LANGUAGE_LETTERS[locale]}
+        <ChevronDownIcon size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <ul
+          id={menuId}
+          role="menu"
+          className="motion-safe:animate-agent-fade absolute end-0 top-12 z-50 min-w-44 overflow-hidden rounded-2xl bg-white py-1 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10"
         >
-          {LANGUAGE_LETTERS[l]}
-        </button>
-      ))}
+          {languages.map((l) => (
+            <li key={l} role="none">
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={l === locale}
+                lang={l}
+                onClick={() => {
+                  setOpen(false);
+                  if (l !== locale) switchLocale(l);
+                }}
+                className={`${focusRing} flex w-full items-center gap-3 px-4 py-2.5 text-start hover:bg-agent-50 ${l === locale ? "font-semibold text-agent-800" : ""}`}
+              >
+                <span
+                  className={`flex h-7 w-9 shrink-0 items-center justify-center rounded-md text-[11px] font-bold tracking-wide ${
+                    l === locale ? "bg-agent-700 text-white" : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {LANGUAGE_LETTERS[l]}
+                </span>
+                <span className="flex-1">{LOCALE_NATIVE_NAMES[l]}</span>
+                {l === locale && <CheckIcon size={16} className="text-agent-700" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

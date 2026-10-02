@@ -1,19 +1,65 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 
 import { Button } from "@/components/console/button";
+import { DEFAULT_VOICE_GENDER, planSpeech, SPEECH_RATE, type VoiceGender } from "@/components/agent-public/voice";
 import { updateAgentSettingsAction } from "@/server/ai/actions";
 
 type Props = {
   tenantId: string;
   slug: string;
   locale: string;
-  current: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null };
+  current: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null; voice?: VoiceGender | null };
 };
+
+/** The two Agent voices, with the character each is chosen for. */
+const VOICES: { value: VoiceGender; label: string; description: string }[] = [
+  {
+    value: "male",
+    label: "Male",
+    description: "Around 28–35. Warm, confident and professional — friendly but calm, short clear sentences.",
+  },
+  {
+    value: "female",
+    label: "Female",
+    description: "The same personality: warm, intelligent and approachable — natural, calm delivery, never robotic.",
+  },
+];
 
 export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
   const [error, formAction, pending] = useActionState(updateAgentSettingsAction, undefined);
+  const [voice, setVoice] = useState<VoiceGender>(current.voice ?? DEFAULT_VOICE_GENDER);
+  const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const greetingRef = useRef<HTMLInputElement>(null);
+
+  // Speaks the name and greeting as typed, with this device's voice of the chosen gender — what a
+  // customer on the same kind of phone or computer hears.
+  const preview = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      setPreviewNote("This browser can't speak — try Chrome, Safari or Edge.");
+      return;
+    }
+    const synth = window.speechSynthesis;
+    const name = nameRef.current?.value.trim() || "your assistant";
+    const greeting = greetingRef.current?.value.trim() || "How can I help you today?";
+    const plan = planSpeech([`Hi! I'm ${name}.`, greeting], { locale, gender: voice, voices: synth.getVoices(), browserLanguages: navigator.languages });
+    if (plan.length === 0) {
+      setPreviewNote("This device has no voice for that language.");
+      return;
+    }
+    synth.cancel();
+    for (const part of plan) {
+      const u = new SpeechSynthesisUtterance(part.text);
+      u.lang = part.lang;
+      if (part.voice) u.voice = part.voice;
+      u.rate = SPEECH_RATE;
+      synth.speak(u);
+    }
+    const used = plan[plan.length - 1].voice?.name;
+    setPreviewNote(used ? `Playing on this device with “${used}”.` : "Playing with this device's default voice.");
+  };
 
   return (
     <form action={formAction} className="flex max-w-md flex-col gap-3">
@@ -23,6 +69,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
       <label className="flex flex-col gap-1 text-sm">
         Assistant name
         <input
+          ref={nameRef}
           name="assistantName"
           defaultValue={current.assistant_name ?? ""}
           maxLength={80}
@@ -32,11 +79,13 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
       <label className="flex flex-col gap-1 text-sm">
         Greeting
         <input
+          ref={greetingRef}
           name="greeting"
           defaultValue={current.greeting ?? ""}
           maxLength={300}
           className="rounded-md border border-neutral-300 px-3 py-2"
         />
+        <span className="text-xs text-slate-500">Shown on your Agent&apos;s page and in the chat, and spoken when a customer opens it.</span>
       </label>
       <label className="flex flex-col gap-1 text-sm">
         Tone
@@ -46,6 +95,41 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
           <option value="playful">Playful</option>
         </select>
       </label>
+
+      <fieldset className="flex flex-col gap-2 text-sm" data-testid="agent-voice">
+        <legend className="mb-1">Voice</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {VOICES.map((v) => (
+            <label
+              key={v.value}
+              className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition ${
+                voice === v.value ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500" : "border-neutral-300 hover:bg-slate-50"
+              }`}
+            >
+              <span className="flex items-center gap-2 font-medium text-slate-900">
+                <input type="radio" name="voice" value={v.value} checked={voice === v.value} onChange={() => setVoice(v.value)} className="accent-emerald-600" />
+                {v.label}
+              </span>
+              <span className="text-xs leading-snug text-slate-500">{v.description}</span>
+            </label>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="secondary" onClick={preview}>
+            ▶ Preview voice
+          </Button>
+          {previewNote && (
+            <span className="text-xs text-slate-500" role="status">
+              {previewNote}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-500">
+          Your Agent speaks with each customer&apos;s own phone or computer voice — free, no AI cost. It picks that device&apos;s most
+          natural voice of the gender you choose; a device without one uses its standard voice.
+        </p>
+      </fieldset>
+
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
         Save

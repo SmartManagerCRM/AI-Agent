@@ -85,7 +85,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     () => [...products, ...categories, ...services].flatMap((item) => Object.values(item.name)),
     [products, categories, services],
   );
-  const voice = useVoice({ locale: ui.locale, names, onInterim, onFinal });
+  const voice = useVoice({ locale: ui.locale, gender: ui.voiceGender, names, onInterim, onFinal });
   const { speak, start: startListening } = voice;
   const [muted, setMuted] = useVoiceMuted();
 
