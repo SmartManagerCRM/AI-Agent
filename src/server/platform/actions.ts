@@ -165,6 +165,7 @@ export async function setTenantAgentActiveAction(formData: FormData): Promise<vo
         assistant_name: current?.agent.assistant_name ?? null,
         greeting: current?.agent.greeting ?? null,
         tone: current?.agent.tone ?? null,
+        background_path: current?.agent.background_path ?? null,
       },
     })
     .eq("tenant_id", parsed.data.tenantId);

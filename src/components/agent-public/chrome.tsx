@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
 import { useAgentT } from "./agent-i18n";
 
 import { LOCALE_COOKIE, LOCALE_NATIVE_NAMES, type Locale } from "@/i18n/locales";
 
 import { focusRing, useAgentUi, type Screen } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
-import { BackIcon, CartIcon, ChatIcon, ChevronDownIcon, GlobeIcon, GridIcon, HomeIcon, PhoneIcon } from "./icons";
+import { BackIcon, CartIcon, ChatIcon, GridIcon, HomeIcon, PhoneIcon } from "./icons";
 
 function switchLocale(next: Locale) {
   document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
@@ -19,83 +18,40 @@ function switchLocale(next: Locale) {
   else window.location.reload();
 }
 
+/** Language codes as letters (never flags: a language isn't a country). */
+const LANGUAGE_LETTERS: Record<Locale, string> = { en: "EN", ar: "AR", fr: "FR" };
+
 /**
- * Switches the Agent's interface language among the languages this
- * business enabled. It only sets the same `NEXT_LOCALE` cookie the agent
- * host already negotiates from (src/proxy.ts) and reloads, so `<html
- * lang dir>` is rendered correctly for the new language.
+ * The Agent's language bar: every language the Agent speaks, as letters,
+ * next to the cart. Picking one only sets the same `NEXT_LOCALE` cookie the
+ * agent host already negotiates from (src/proxy.ts) and reloads, so `<html
+ * lang dir>` is rendered correctly; the conversation then replies in it.
  */
-export function LanguageSwitcher({ tone = "light" }: { tone?: "light" | "dark" }) {
+export function LanguageSwitcher({ tone = "light", className = "" }: { tone?: "light" | "dark"; className?: string }) {
   const t = useAgentT();
   const { locale, languages } = useAgentUi();
-  const [open, setOpen] = useState(false);
-  const menuId = useId();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-
   if (languages.length < 2) return null;
 
-  const choose = (next: Locale) => {
-    setOpen(false);
-    if (next === locale) return;
-    switchLocale(next);
-  };
-
-  const trigger =
-    tone === "dark"
-      ? "bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15"
-      : "bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50";
+  const track = tone === "dark" ? "bg-white/10 ring-1 ring-white/20" : "bg-white ring-1 ring-slate-200";
+  const idle = tone === "dark" ? "text-white/80 hover:bg-white/15 hover:text-white" : "text-slate-600 hover:bg-slate-100";
+  const active = tone === "dark" ? "bg-white text-agent-900 shadow-sm" : "bg-agent-700 text-white shadow-sm";
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={menuId}
-        aria-label={t("language.label")}
-        onClick={() => setOpen((v) => !v)}
-        className={`${focusRing} flex h-10 items-center gap-1.5 rounded-full px-3 text-xs font-semibold uppercase backdrop-blur transition ${trigger}`}
-      >
-        <GlobeIcon size={16} />
-        {locale}
-        <ChevronDownIcon size={14} />
-      </button>
-      {open && (
-        <ul
-          id={menuId}
-          role="menu"
-          className="motion-safe:animate-agent-fade absolute end-0 top-12 z-50 min-w-40 overflow-hidden rounded-2xl bg-white py-1 text-sm text-slate-800 shadow-xl ring-1 ring-slate-900/10"
+    <div role="group" aria-label={t("language.label")} className={`flex h-10 shrink-0 items-center gap-0.5 rounded-full p-1 backdrop-blur ${track} ${className}`} data-testid="language-bar">
+      {languages.map((l) => (
+        <button
+          key={l}
+          type="button"
+          lang={l}
+          title={LOCALE_NATIVE_NAMES[l]}
+          aria-label={LOCALE_NATIVE_NAMES[l]}
+          aria-pressed={l === locale}
+          onClick={() => l !== locale && switchLocale(l)}
+          className={`${focusRing} flex h-8 min-w-8 items-center justify-center rounded-full px-1.5 text-[11px] font-bold tracking-wide transition ${l === locale ? active : idle}`}
         >
-          {languages.map((l) => (
-            <li key={l} role="none">
-              <button
-                type="button"
-                role="menuitemradio"
-                aria-checked={l === locale}
-                lang={l}
-                onClick={() => choose(l)}
-                className={`${focusRing} flex w-full items-center justify-between gap-3 px-4 py-2.5 text-start hover:bg-agent-50 ${l === locale ? "font-semibold text-agent-800" : ""}`}
-              >
-                {LOCALE_NATIVE_NAMES[l]}
-                <span className="text-xs uppercase text-slate-400">{l}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+          {LANGUAGE_LETTERS[l]}
+        </button>
+      ))}
     </div>
   );
 }

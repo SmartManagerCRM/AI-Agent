@@ -201,8 +201,10 @@ const ACTIONS = words(`
 export function detectLang(message: string, fallback: string): Lang {
   if (/[؀-ۿ]/.test(message)) return "ar";
   const toks = new Set(tokenize(message));
-  if (["avez", "vous", "quoi", "combien", "carte", "voudrais", "je", "est", "prix"].some((w) => toks.has(w))) return "fr";
-  return fallback === "ar" || fallback === "fr" ? (/[a-z]/i.test(message) ? "en" : fallback) : "en";
+  if (["avez", "vous", "quoi", "combien", "carte", "voudrais", "je", "est", "prix", "merci", "bonjour"].some((w) => toks.has(w))) return "fr";
+  // A French conversation stays French (same script) unless the message is plainly English.
+  if (fallback === "fr") return ["what", "how", "much", "the", "do", "you", "have", "is", "please", "thanks"].some((w) => toks.has(w)) ? "en" : "fr";
+  return fallback === "ar" ? (/[a-z]/i.test(message) ? "en" : fallback) : "en";
 }
 
 const T: Record<Lang, {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useAgentT } from "./agent-i18n";
 
@@ -16,7 +16,7 @@ import {
   type AgentService,
   type FulfillmentType,
 } from "./agent-model";
-import { AgentUiProvider, focusRing, ProductVisual, useAgentUi, type AgentUi, type Screen } from "./agent-ui";
+import { AgentUiProvider, focusRing, ProductVisual, useAgentUi, type AgentUi, type Screen, type VoiceBridge } from "./agent-ui";
 import { BrowseView } from "./browse-view";
 import { ChatView } from "./chat-view";
 import { BottomNav } from "./chrome";
@@ -43,6 +43,8 @@ export type AgentExperienceProps = {
   assistantName: string | null;
   about: string | null;
   greeting: string | null;
+  /** Public URL of the business's background photo (Agent settings), if any. */
+  backgroundUrl: string | null;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
@@ -80,6 +82,10 @@ export function AgentExperience(props: AgentExperienceProps) {
   const [nav, setNav] = useState<NavState>(HOME);
   const [product, setProduct] = useState<AgentProduct | null>(null);
   const [focusToken, setFocusToken] = useState(0);
+  const voiceBridge = useRef<VoiceBridge | null>(null);
+  const registerVoice = useCallback((bridge: VoiceBridge | null) => {
+    voiceBridge.current = bridge;
+  }, []);
 
   const commerce = useAgentCommerce({
     slug: props.slug,
@@ -88,7 +94,7 @@ export function AgentExperience(props: AgentExperienceProps) {
     popularProductIds: props.popularProductIds,
     activeTableId: props.activeTable?.id ?? null,
   });
-  const chat = useAgentChat({ slug: props.slug, surface, tableId: props.activeTable?.id ?? null, onCart: commerce.syncCart });
+  const chat = useAgentChat({ slug: props.slug, surface, tableId: props.activeTable?.id ?? null, locale: props.locale, onCart: commerce.syncCart });
 
   const navigate = useCallback((next: NavState, replace = false) => {
     setNav((prev) => {
@@ -139,6 +145,7 @@ export function AgentExperience(props: AgentExperienceProps) {
       aiName: props.assistantName || t("aiName", { business: props.businessName }),
       about: props.about,
       greeting: props.greeting,
+      backgroundUrl: props.backgroundUrl,
       categories: props.categories,
       products: props.products,
       services: props.services,
@@ -162,9 +169,15 @@ export function AgentExperience(props: AgentExperienceProps) {
         if (message) chat.send(message);
         else setFocusToken((n) => n + 1);
       },
+      // Called from the tap itself, so the browser lets the mic start (and the greeting speak).
+      listen: () => {
+        navigate({ ...nav, chatOpen: true });
+        voiceBridge.current?.start();
+      },
+      registerVoice,
       openProduct: setProduct,
     }),
-    [props, surface, locale, fallbackLocale, currency, currencyExponent, commerce, chat, cartCount, nav, navigate, back, t],
+    [props, surface, locale, fallbackLocale, currency, currencyExponent, commerce, chat, cartCount, nav, navigate, back, t, registerVoice],
   );
 
   const hasContact = !!(props.about || props.info.phone || props.info.address || props.info.city || props.info.email || props.info.todayHours);
@@ -181,7 +194,12 @@ export function AgentExperience(props: AgentExperienceProps) {
 
   return (
     <AgentUiProvider value={ui}>
-      <div lang={locale} dir={localeDirection(locale)} className="min-h-dvh bg-agent-cream text-slate-900 antialiased">
+      <div
+        lang={locale}
+        dir={localeDirection(locale)}
+        className={`isolate min-h-dvh text-slate-900 antialiased ${props.backgroundUrl ? "" : "bg-agent-cream"}`}
+      >
+        {props.backgroundUrl && <AgentBackdrop url={props.backgroundUrl} home={nav.screen === "home" || (nav.screen === "done" && !commerce.orderResult)} />}
         <a href="#agent-main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-[60] focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:shadow-lg">
           {t("common.skipToContent")}
         </a>
@@ -209,6 +227,29 @@ export function AgentExperience(props: AgentExperienceProps) {
         <AddedToast bottomNav={showBottomNav} chatOpen={nav.chatOpen} />
       </div>
     </AgentUiProvider>
+  );
+}
+
+/**
+ * The business's photo behind the whole Agent. On the landing page it is
+ * shown strongly under a dark wash (white text stays readable, like the
+ * hero); behind the other screens a light wash keeps lists and forms easy
+ * to read. A fixed layer rather than `background-attachment: fixed`, which
+ * phones ignore.
+ */
+function AgentBackdrop({ url, home }: { url: string; home: boolean }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10" data-testid="agent-backdrop">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url("${encodeURI(url)}")` }} />
+      <div
+        className={`absolute inset-0 transition-colors duration-300 ${home ? "" : "bg-agent-cream/90"}`}
+        style={
+          home
+            ? { backgroundImage: "linear-gradient(180deg, rgba(12,10,8,0.62) 0%, rgba(12,10,8,0.38) 32%, rgba(12,10,8,0.55) 62%, rgba(12,10,8,0.78) 100%)" }
+            : undefined
+        }
+      />
+    </div>
   );
 }
 

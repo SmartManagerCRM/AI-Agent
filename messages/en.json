@@ -318,7 +318,9 @@
       "noSpeech": "I didn't hear anything — tap the mic and try again.",
       "network": "Voice needs an internet connection — please type your message.",
       "noMic": "No microphone was found on this device.",
-      "failed": "Voice isn't available right now — please type your message."
+      "failed": "Voice isn't available right now — please type your message.",
+      "mute": "Turn the Agent's voice off",
+      "unmute": "Turn the Agent's voice on"
     }
   },
   "pwa": {

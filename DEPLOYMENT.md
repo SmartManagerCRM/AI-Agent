@@ -346,3 +346,25 @@ install (only the console's pages link the manifest).
   (`allow="microphone"`).
 - Browsers without speech recognition (e.g. Firefox, some in-app browsers)
   simply don't show the mic; typing is unchanged. The mic needs HTTPS.
+
+## Customer Agent: language bar, background photo, spoken greeting
+
+- **Language bar** (header, next to the cart): EN · AR · FR as letters. The
+  Agent's screens are translated into all three, so customers can always
+  pick any of them (the business's enabled languages are listed first);
+  the conversation switches to the picked language and the built-in
+  replies (menu, hours, thanks, greeting, prices) answer in it.
+- **Background photo**: Agent settings → Background photo. Re-encoded to
+  WebP (≤1600 px) and stored in the existing `catalog-images` bucket under
+  the business's id; the path lives in `tenant_settings.agent.background_path`
+  (no migration). Shown behind the whole Agent: strongly under a dark wash
+  on the landing page, softly behind the other screens and the chat.
+- **Greeting**: the landing page and the conversation show the greeting
+  saved in Agent settings, and the Agent reads it aloud once per visit
+  (browser speech, no AI cost) — as the page opens, or at the customer's
+  first tap where the browser doesn't allow speech before one. Customers
+  can turn the Agent's voice off (chat header); it is remembered on their
+  device.
+- The landing page's "Ask" bar has a mic: it opens the conversation and
+  starts listening in one tap.
+

@@ -1,9 +1,9 @@
 import "server-only";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import type { AgentExperienceProps } from "@/components/agent-public/agent-experience";
-import { isLocale, LOCALES, type Locale } from "@/i18n/locales";
+import { isLocale, LOCALE_COOKIE, LOCALES, type Locale } from "@/i18n/locales";
 import { productImageUrl } from "@/lib/product-image";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import type { PublicTenant } from "@/server/agent-public/tenant";
@@ -83,8 +83,11 @@ export async function loadAgentExperience(
     getPopularityByProduct(supabase, tenant.id),
   ]);
 
-  const languages = tenant.enabledLanguages.filter(isLocale);
-  const locale = await uiLocale(languages, tenant.defaultLanguage);
+  // The Agent's own screens are translated into every supported language, so customers can always pick
+  // any of them (the business's enabled languages first); replies follow the language they picked.
+  const enabled = tenant.enabledLanguages.filter(isLocale);
+  const languages = [...enabled, ...LOCALES.filter((l) => !enabled.includes(l))];
+  const locale = await uiLocale(enabled, tenant.defaultLanguage);
   // The payment page renders its own strings server-side, so they are not shipped to the Agent page.
   const { pay: _pay, ...messages } = ((await import(`../../../messages/${locale}.json`)).default as { agent: AgentMessages }).agent;
   void _pay;
@@ -115,6 +118,7 @@ export async function loadAgentExperience(
       assistantName: settings.agent.assistant_name ?? null,
       about: localized(aboutEntry?.content, locale, tenant.defaultLanguage, true),
       greeting: settings.agent.greeting ?? null,
+      backgroundUrl: productImageUrl(settings.agent.background_path),
       categories: (categories ?? []).map((c) => ({ id: c.id, name: c.name })),
       products: (products ?? []).map((p) => ({
         id: p.id,
@@ -146,13 +150,17 @@ export async function loadAgentExperience(
 }
 
 /**
- * The interface language: the one the agent host already negotiated for
- * this request (cookie / Accept-Language, `src/proxy.ts`) when this
- * business has it enabled, else the business's own default language.
+ * The interface language the agent host negotiated (`src/proxy.ts`): when
+ * the customer picked it in the Agent's language bar (the locale cookie),
+ * any supported language; when only guessed from the browser
+ * (Accept-Language), one this business has enabled. Else the business's
+ * own default language.
  */
 async function uiLocale(languages: Locale[], defaultLanguage: string): Promise<Locale> {
   const negotiated = (await headers()).get("x-next-intl-locale");
-  if (isLocale(negotiated) && languages.includes(negotiated)) return negotiated;
+  const picked = (await cookies()).get(LOCALE_COOKIE)?.value;
+  // Chosen by the customer (language bar) — any supported language; only browser-guessed ones must be enabled.
+  if (isLocale(negotiated) && (negotiated === picked || languages.includes(negotiated))) return negotiated;
   if (isLocale(defaultLanguage)) return defaultLanguage;
   return languages[0] ?? LOCALES[0];
 }

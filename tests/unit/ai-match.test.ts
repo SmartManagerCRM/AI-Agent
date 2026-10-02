@@ -68,4 +68,17 @@ describe("matchDeterministic", () => {
     const snapshot: BrainSnapshot = { ...baseSnapshot, notes: {} };
     expect(matchDeterministic("do you deliver?", snapshot)).toBeNull();
   });
+
+  it("answers in the customer's language: the one they write in, else the conversation's", () => {
+    const ar: BrainSnapshot = { ...baseSnapshot, locale: "ar", defaultBranch: { ...baseSnapshot.defaultBranch!, openingHours: { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] } } };
+    expect(matchDeterministic("ساعات العمل", ar)?.reply).toBe("Roasters Downtown مغلق اليوم.");
+    expect(matchDeterministic("شكرا", ar)?.reply).toBe("على الرحب والسعة!");
+    expect(matchDeterministic("مرحبا", ar)?.reply).toContain("أنا مساعدك Aria");
+    // English typed in the Arabic Agent gets English.
+    expect(matchDeterministic("thanks", ar)?.reply).toBe("You're welcome!");
+    expect(matchDeterministic("merci", { ...baseSnapshot, locale: "fr" })?.reply).toBe("Avec plaisir !");
+    expect(matchDeterministic("combien est le latte", { ...baseSnapshot, locale: "fr" })?.reply).toBe("Latte coûte 15.00 SAR.");
+    // A greeting the business saved is used as written, in any language.
+    expect(matchDeterministic("مرحبا", { ...ar, greeting: "Welcome!" })?.reply).toBe("Welcome!");
+  });
 });

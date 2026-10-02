@@ -318,7 +318,9 @@
       "noSpeech": "Je n'ai rien entendu — touchez le micro et réessayez.",
       "network": "La voix nécessite une connexion Internet — veuillez écrire votre message.",
       "noMic": "Aucun micro n'a été trouvé sur cet appareil.",
-      "failed": "La voix n'est pas disponible pour le moment — veuillez écrire votre message."
+      "failed": "La voix n'est pas disponible pour le moment — veuillez écrire votre message.",
+      "mute": "Couper la voix de l'Agent",
+      "unmute": "Activer la voix de l'Agent"
     }
   },
   "pwa": {

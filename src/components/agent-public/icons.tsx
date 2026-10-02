@@ -191,3 +191,10 @@ export const SpeakerIcon = (p: IconProps) => (
     <path d="M18 6.5a7.5 7.5 0 0 1 0 11" />
   </Svg>
 );
+export const SpeakerOffIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+    <path d="m16 9.5 5 5" />
+    <path d="m21 9.5-5 5" />
+  </Svg>
+);

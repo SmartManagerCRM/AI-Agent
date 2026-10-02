@@ -22,6 +22,9 @@ import type { AgentCommerce } from "./use-agent-commerce";
 
 export type Screen = "home" | "browse" | "cart" | "checkout" | "done";
 
+/** What the conversation's voice exposes to the rest of the Agent (registered by the chat, which owns the mic). */
+export type VoiceBridge = { start: () => void };
+
 export type AgentUi = {
   slug: string;
   surface: "external_agent" | "website_widget";
@@ -35,6 +38,8 @@ export type AgentUi = {
   aiName: string;
   about: string | null;
   greeting: string | null;
+  /** The business's photo behind the whole Agent, if it set one. */
+  backgroundUrl: string | null;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
@@ -53,6 +58,10 @@ export type AgentUi = {
   go: (screen: Screen, options?: { categoryId?: string | null }) => void;
   back: () => void;
   openChat: (message?: string) => void;
+  /** Opens the conversation and starts listening (the landing page's mic). */
+  listen: () => void;
+  /** The chat registers its mic here (null when it unmounts) so `listen` can start it. */
+  registerVoice: (bridge: VoiceBridge | null) => void;
   openProduct: (product: AgentProduct) => void;
 };
 
@@ -241,14 +250,18 @@ export function ProductCard({ product, variant = "grid" }: { product: AgentProdu
 }
 
 export function SectionHeader({ title, action }: { title: string; action?: { label: string; onClick: () => void } }) {
+  // On the business's own photo (landing page) the headings are light, like the hero above them.
+  const onPhoto = !!useAgentUi().backgroundUrl;
   return (
     <div className="flex items-end justify-between gap-3">
-      <h2 className="text-lg font-bold tracking-tight text-slate-900">{title}</h2>
+      <h2 className={`text-lg font-bold tracking-tight ${onPhoto ? "text-white drop-shadow" : "text-slate-900"}`}>{title}</h2>
       {action && (
         <button
           type="button"
           onClick={action.onClick}
-          className={`${focusRing} shrink-0 rounded-full px-2 py-1 text-sm font-semibold text-agent-700 hover:bg-agent-50`}
+          className={`${focusRing} shrink-0 rounded-full px-2 py-1 text-sm font-semibold ${
+            onPhoto ? "bg-white/15 text-white backdrop-blur hover:bg-white/25" : "text-agent-700 hover:bg-agent-50"
+          }`}
         >
           {action.label}
         </button>

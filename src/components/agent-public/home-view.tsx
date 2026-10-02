@@ -7,7 +7,8 @@ import { categoryIcon, serviceIcon, toneFor } from "./agent-model";
 import { focusRing, ProductCard, SectionHeader, useAgentUi } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
 import { BusinessMark, CartButton, LanguageSwitcher } from "./chrome";
-import { CalendarIcon, ChevronIcon, ClockIcon, MailIcon, PhoneIcon, PinIcon, SendIcon } from "./icons";
+import { CalendarIcon, ChevronIcon, ClockIcon, MailIcon, MicIcon, PhoneIcon, PinIcon, SendIcon } from "./icons";
+import { useCanListen } from "./use-voice";
 
 // n tiles → n columns (up to 4) so a short row never leaves an orphan; 5–6 tiles wrap 3-per-row on
 // phones and sit in one row on desktop.
@@ -34,7 +35,8 @@ type Tile = { key: string; label: string; sub?: string; icon: string; tone: stri
 export function HomeView() {
   const t = useAgentT();
   const ui = useAgentUi();
-  const { businessName, businessTypeKey, aiName, categories, products, services, orderingEnabled, info, text, popularIds } = ui;
+  const { businessName, businessTypeKey, aiName, categories, products, services, orderingEnabled, info, text, popularIds, greeting, backgroundUrl } = ui;
+  const canListen = useCanListen();
 
   // What the page shows follows what the business actually has: its real catalog (browsable even when
   // online ordering is off — then there's simply no Add/cart), its services, and its contact details.
@@ -97,15 +99,22 @@ export function HomeView() {
       <section
         aria-labelledby="agent-welcome"
         className="relative isolate overflow-hidden rounded-b-[2rem] px-4 pt-4 pb-24 text-white sm:px-6 lg:rounded-[2rem] lg:px-10 lg:pt-6 lg:pb-28"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 88% 8%, rgba(47,201,154,0.38), transparent 42%), radial-gradient(circle at 0% 100%, rgba(47,201,154,0.2), transparent 48%), linear-gradient(160deg, #052a22 0%, #0b4f3f 58%, #0c6a53 100%)",
-        }}
+        // The business's own photo (behind the whole Agent) replaces the brand gradient.
+        style={
+          backgroundUrl
+            ? undefined
+            : {
+                backgroundImage:
+                  "radial-gradient(circle at 88% 8%, rgba(47,201,154,0.38), transparent 42%), radial-gradient(circle at 0% 100%, rgba(47,201,154,0.2), transparent 48%), linear-gradient(160deg, #052a22 0%, #0b4f3f 58%, #0c6a53 100%)",
+              }
+        }
       >
-        <div
-          className="pointer-events-none absolute inset-0 -z-10 opacity-60 [background-image:radial-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:18px_18px]"
-          aria-hidden="true"
-        />
+        {!backgroundUrl && (
+          <div
+            className="pointer-events-none absolute inset-0 -z-10 opacity-60 [background-image:radial-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:18px_18px]"
+            aria-hidden="true"
+          />
+        )}
         <div className="flex items-center gap-3">
           <BusinessMark />
           <div className="min-w-0 flex-1">
@@ -130,7 +139,10 @@ export function HomeView() {
             <p className="mt-0.5 text-[1.35rem] leading-tight font-extrabold tracking-tight break-words sm:text-2xl">
               {t("home.iam", { name: aiName })}
             </p>
-            <p className="mt-1.5 text-[13px] leading-snug text-white/75">{t(`role.${roleKey}`)}</p>
+            {/* The greeting the business saved in Agent settings; the built-in line only when there is none. */}
+            <p dir="auto" className="mt-1.5 text-[13px] leading-snug text-white/80" data-testid="home-greeting">
+              {greeting || t(`role.${roleKey}`)}
+            </p>
           </div>
         </div>
 
@@ -181,20 +193,35 @@ export function HomeView() {
           </ul>
         )}
 
-        <button
-          type="button"
-          onClick={() => ui.openChat()}
-          className={`${focusRing} group flex items-center gap-3 rounded-3xl bg-white p-2.5 ps-3 text-start shadow-[0_10px_30px_-14px_rgba(5,42,34,0.45)] ring-1 ring-slate-900/5 transition hover:ring-agent-300`}
-        >
-          <AgentAvatar size={42} online />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-bold text-slate-900">{t("ask.title", { name: aiName })}</span>
-            <span className="block truncate text-xs text-slate-500">{t(`ask.subtitle.${capability}`)}</span>
-          </span>
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-agent-700 text-white shadow-md transition group-hover:bg-agent-800">
+        <div className="flex items-center gap-2 rounded-3xl bg-white p-2.5 ps-3 shadow-[0_10px_30px_-14px_rgba(5,42,34,0.45)] ring-1 ring-slate-900/5 transition focus-within:ring-agent-300 hover:ring-agent-300">
+          <button type="button" onClick={() => ui.openChat()} className={`${focusRing} flex min-w-0 flex-1 items-center gap-3 rounded-2xl text-start`}>
+            <AgentAvatar size={42} online />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-bold text-slate-900">{t("ask.title", { name: aiName })}</span>
+              <span className="block truncate text-xs text-slate-500">{t(`ask.subtitle.${capability}`)}</span>
+            </span>
+          </button>
+          {canListen && (
+            <button
+              type="button"
+              onClick={ui.listen}
+              aria-label={t("voice.speak")}
+              data-testid="home-mic"
+              data-voice-mic
+              className={`${focusRing} flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-agent-50 text-agent-800 ring-1 ring-agent-200 transition hover:bg-agent-100 active:scale-95`}
+            >
+              <MicIcon size={20} />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => ui.openChat()}
+            aria-label={t("ask.title", { name: aiName })}
+            className={`${focusRing} flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-agent-700 text-white shadow-md transition hover:bg-agent-800 active:scale-95`}
+          >
             <SendIcon size={18} className="rtl:-scale-x-100" />
-          </span>
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* ── Popular (only from real order history) ─────────────────── */}
@@ -275,7 +302,7 @@ export function HomeView() {
       {/* ── Business info ───────────────────────────────────────────── */}
       <BusinessInfoCard />
 
-      <p className="flex items-center justify-center gap-1.5 px-4 text-center text-xs text-slate-400">
+      <p className={`flex items-center justify-center gap-1.5 px-4 text-center text-xs ${backgroundUrl ? "text-white/75" : "text-slate-400"}`}>
         <Image src="/brand/logo-mark.png" alt="" width={16} height={16} className="rounded" />
         {t("poweredBy")}
       </p>

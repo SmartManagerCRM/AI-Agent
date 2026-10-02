@@ -34,6 +34,46 @@ function synthesisSupported(): boolean {
 const noSubscription = () => () => {};
 const onServer = () => false;
 
+/** Whether this browser can transcribe speech (the mic is only offered where it works). */
+export function useCanListen(): boolean {
+  return useSyncExternalStore(noSubscription, () => recognitionCtor() !== null, onServer);
+}
+
+const MUTED_KEY = "agent-voice-muted";
+const MUTED_EVENT = "agent-voice-muted";
+function readMuted(): boolean {
+  try {
+    return window.localStorage.getItem(MUTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function subscribeMuted(onChange: () => void) {
+  window.addEventListener(MUTED_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(MUTED_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/**
+ * The customer's "Agent voice off" choice, remembered on this device: no
+ * spoken greeting and no replies read automatically (Listen still works).
+ */
+export function useVoiceMuted(): [boolean, (muted: boolean) => void] {
+  const muted = useSyncExternalStore(subscribeMuted, readMuted, onServer);
+  const setMuted = useCallback((next: boolean) => {
+    try {
+      window.localStorage.setItem(MUTED_KEY, next ? "1" : "0");
+    } catch {
+      // Storage blocked (private mode): the choice lasts for this page only.
+    }
+    window.dispatchEvent(new Event(MUTED_EVENT));
+  }, []);
+  return [muted, setMuted];
+}
+
 /**
  * Voice for the Customer Agent, entirely in the browser: speech → text with
  * the Web Speech API's recognition, replies → speech with `speechSynthesis`.
@@ -57,7 +97,7 @@ export function useVoice({
   /** The finished transcript — sent as the customer's message. */
   onFinal: (text: string) => void;
 }) {
-  const canListen = useSyncExternalStore(noSubscription, () => recognitionCtor() !== null, onServer);
+  const canListen = useCanListen();
   const canSpeak = useSyncExternalStore(noSubscription, synthesisSupported, onServer);
   const [listening, setListening] = useState(false);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
@@ -88,25 +128,40 @@ export function useVoice({
     setSpeakingId(null);
   }, []);
 
+  /**
+   * Reads text aloud with the browser's own voice. Several parts are read
+   * one after the other, each in the language it is written in (an Arabic
+   * introduction, then a greeting the business typed in English).
+   * `onStart` fires once the browser actually starts speaking — browsers
+   * refuse to speak before the customer's first tap on the page.
+   */
   const speak = useCallback(
-    (id: number, reply: string) => {
+    (id: number, reply: string | string[], options?: { onStart?: () => void }) => {
       if (!canSpeak) return false;
-      const text = spokenText(reply);
-      if (!text) return false;
       const synth = window.speechSynthesis;
-      // Read in the language the reply is written in (an Arabic Agent can answer with an English product name list).
-      const replyLang = speechLang(replyLanguage(text, locale), navigator.languages ?? []);
-      const voice = pickVoice(synth.getVoices(), replyLang);
-      // Voices load lazily on some browsers; with none listed yet the language tag alone picks one.
-      if (!voice && synth.getVoices().length > 0) return false;
+      const utterances: SpeechSynthesisUtterance[] = [];
+      for (const part of Array.isArray(reply) ? reply : [reply]) {
+        const text = spokenText(part);
+        if (!text) continue;
+        const partLang = speechLang(replyLanguage(text, locale), navigator.languages ?? []);
+        const voice = pickVoice(synth.getVoices(), partLang);
+        // Voices load lazily on some browsers; with none listed yet the language tag alone picks one.
+        if (!voice && synth.getVoices().length > 0) continue;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = voice?.lang ?? partLang;
+        if (voice) utterance.voice = voice;
+        utterances.push(utterance);
+      }
+      if (utterances.length === 0) return false;
       synth.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = voice?.lang ?? replyLang;
-      if (voice) utterance.voice = voice;
-      utterance.onend = () => setSpeakingId((current) => (current === id ? null : current));
-      utterance.onerror = () => setSpeakingId((current) => (current === id ? null : current));
+      const done = () => setSpeakingId((current) => (current === id ? null : current));
+      utterances[0].onstart = () => options?.onStart?.();
+      utterances.forEach((u, i) => {
+        u.onerror = done;
+        if (i === utterances.length - 1) u.onend = done;
+      });
       setSpeakingId(id);
-      synth.speak(utterance);
+      for (const u of utterances) synth.speak(u);
       return true;
     },
     [canSpeak, locale],

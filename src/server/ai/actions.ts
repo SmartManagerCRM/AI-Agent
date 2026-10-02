@@ -1,10 +1,14 @@
 "use server";
 
+import { createHash } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
+
 import { runAgentGateway, type GatewayResult } from "@/server/ai/gateway";
-import { createUserClient } from "@/server/supabase/clients";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
 const updateSettingsSchema = z.object({
@@ -46,12 +50,72 @@ export async function updateAgentSettingsAction(
         assistant_name: parsed.data.assistantName || null,
         greeting: parsed.data.greeting || null,
         tone: parsed.data.tone,
+        background_path: current?.agent?.background_path ?? null,
       },
     })
     .eq("tenant_id", parsed.data.tenantId);
   if (error) return "VALIDATION_ERROR: could not save Agent settings — please try again.";
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
+}
+
+const backgroundSchema = z.object({ locale: z.string(), slug: z.string().min(1) });
+const MAX_BACKGROUND_BYTES = 6_000_000;
+/** Wide enough for a desktop screen, still light on a phone (WebP). */
+const BACKGROUND_EDGE = 1600;
+
+export type AgentBackgroundState = { ok: boolean; message: string } | undefined;
+
+/**
+ * The photo behind the whole customer Agent (Agent settings → Background
+ * photo): re-encoded to WebP, stored in the catalog-images bucket, and
+ * pointed at from `tenant_settings.agent.background_path`. The settings
+ * update runs under the owner's own session (RLS), so someone without
+ * permission to change settings changes nothing and the file is removed.
+ */
+export async function updateAgentBackgroundAction(_prev: AgentBackgroundState, formData: FormData): Promise<AgentBackgroundState> {
+  const parsed = backgroundSchema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
+  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const remove = formData.get("remove") === "on";
+  const file = formData.get("photo");
+  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: "Choose a photo first." };
+  if (file instanceof File && file.size > MAX_BACKGROUND_BYTES) return { ok: false, message: "That photo is larger than 6 MB. Choose a smaller one." };
+
+  let storage;
+  try {
+    storage = bucketWriter(serviceClient());
+  } catch {
+    return { ok: false, message: "Photos can't be stored on this server yet (storage isn't configured)." };
+  }
+  const supabase = await createUserClient();
+  const { data: current } = await supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle();
+  if (!current) return { ok: false, message: "Only the business owner or an admin can change the Agent." };
+  const previous = current.agent?.background_path ?? null;
+
+  let path: string | null = null;
+  if (!remove && file instanceof File) {
+    const image = await normalizeImage(new Uint8Array(await file.arrayBuffer()), { maxEdge: BACKGROUND_EDGE }).catch(() => null);
+    if (!image) return { ok: false, message: "That photo couldn't be used. Upload a JPG, PNG or WebP picture." };
+    const hash = createHash("sha256").update(image.data).digest("hex").slice(0, 16);
+    path = `${tenant.id}/agent-background-${hash}.webp`;
+    if (path !== previous && !(await storage.upload(path, image.data, image.contentType))) {
+      return { ok: false, message: "The photo couldn't be saved — please try again." };
+    }
+  }
+
+  const { data: updated } = await supabase
+    .from("tenant_settings")
+    .update({ agent: { ...current.agent, background_path: path } })
+    .eq("tenant_id", tenant.id)
+    .select("tenant_id");
+  if (!updated || updated.length === 0) {
+    if (path && path !== previous) await storage.remove([path]);
+    return { ok: false, message: "Only the business owner or an admin can change the Agent." };
+  }
+  if (previous && previous !== path) await storage.remove([previous]);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
+  return { ok: true, message: path ? "Background photo saved — it now shows behind your Agent." : "Background photo removed." };
 }
 
 const testMessageSchema = z.object({

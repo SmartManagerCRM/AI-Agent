@@ -7,7 +7,7 @@
  * common, low-ambiguity cases (spec §7's own example — "Add two Cokes" needs
  * no model), not to approximate general understanding.
  */
-import { matchCatalog, type Catalog } from "./catalog";
+import { detectLang, matchCatalog, type Catalog } from "./catalog";
 
 export type OpeningHoursDay = { open: string; close: string }[];
 
@@ -61,6 +61,39 @@ const PAYMENT_WORDS = ["pay", "payment", "cash", "card", "دفع", "paiement"];
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
+type Lang = ReturnType<typeof detectLang>;
+
+/** These replies in the customer's language (the one they write in, else the conversation's). */
+const T: Record<Lang, {
+  thanks: string;
+  hello: (name: string | null) => string;
+  open: (place: string, ranges: string) => string;
+  closed: (place: string) => string;
+  price: (name: string, price: string) => string;
+}> = {
+  en: {
+    thanks: "You're welcome!",
+    hello: (name) => `Hello! I'm your assistant${name ? ` ${name}` : ""}. How can I help?`,
+    open: (place, ranges) => `${place} is open today ${ranges}.`,
+    closed: (place) => `${place} is closed today.`,
+    price: (name, price) => `${name} is ${price}.`,
+  },
+  ar: {
+    thanks: "على الرحب والسعة!",
+    hello: (name) => `أهلاً! أنا مساعدك${name ? ` ${name}` : ""}. كيف يمكنني مساعدتك؟`,
+    open: (place, ranges) => `${place} مفتوح اليوم ${ranges}.`,
+    closed: (place) => `${place} مغلق اليوم.`,
+    price: (name, price) => `سعر ${name}: ${price}.`,
+  },
+  fr: {
+    thanks: "Avec plaisir !",
+    hello: (name) => `Bonjour ! Je suis votre assistant${name ? ` ${name}` : ""}. Comment puis-je vous aider ?`,
+    open: (place, ranges) => `${place} est ouvert aujourd'hui ${ranges}.`,
+    closed: (place) => `${place} est fermé aujourd'hui.`,
+    price: (name, price) => `${name} coûte ${price}.`,
+  },
+};
+
 function normalize(text: string): string {
   return text.trim().toLowerCase();
 }
@@ -77,14 +110,14 @@ export function matchDeterministic(
 ): DeterministicMatch | null {
   const trimmed = message.trim();
   if (!trimmed) return null;
+  const lang = detectLang(trimmed, snapshot.locale);
 
   if (containsAny(trimmed, THANKS_WORDS)) {
-    return { rule: "thanks", reply: "You're welcome!" };
+    return { rule: "thanks", reply: T[lang].thanks };
   }
 
   if (trimmed.length <= 20 && containsAny(trimmed, GREETING_WORDS)) {
-    const name = snapshot.assistantName ? ` ${snapshot.assistantName}` : "";
-    return { rule: "greeting", reply: snapshot.greeting || `Hello! I'm your assistant${name}. How can I help?` };
+    return { rule: "greeting", reply: snapshot.greeting || T[lang].hello(snapshot.assistantName) };
   }
 
   if (containsAny(trimmed, HOURS_WORDS)) {
@@ -95,7 +128,7 @@ export function matchDeterministic(
         : snapshot.facts?.openingHours
           ? { name: snapshot.facts.name ?? "We", phone: snapshot.facts.phone ?? null, openingHours: snapshot.facts.openingHours }
           : snapshot.defaultBranch;
-    const reply = describeOpeningHours(hoursSource);
+    const reply = describeOpeningHours(hoursSource, lang);
     if (reply) return { rule: "opening_hours", reply };
   }
 
@@ -117,25 +150,26 @@ export function matchDeterministic(
   if (snapshot.catalog) {
     return matchCatalog(trimmed, snapshot.catalog, { recent: context.recent, infoOfferings: snapshot.facts?.offerings });
   }
-  return matchProductPrice(trimmed, snapshot);
+  return matchProductPrice(trimmed, snapshot, lang);
 }
 
-export function describeOpeningHours(branch: BrainSnapshot["defaultBranch"]): string | null {
+export function describeOpeningHours(branch: BrainSnapshot["defaultBranch"], lang: Lang = "en"): string | null {
   if (!branch) return null;
   const today = WEEKDAY_KEYS[(new Date().getDay() + 6) % 7]; // getDay(): 0=Sun -> map to mon-first index
   const slots = branch.openingHours[today];
-  if (!slots || slots.length === 0) return `${branch.name} is closed today.`;
+  if (!slots || slots.length === 0) return T[lang].closed(branch.name);
+  // Times stay left-to-right inside an Arabic sentence.
   const ranges = slots.map((slot) => `${slot.open}–${slot.close}`).join(", ");
-  return `${branch.name} is open today ${ranges}.`;
+  return T[lang].open(branch.name, lang === "ar" ? `\u2066${ranges}\u2069` : ranges);
 }
 
-function matchProductPrice(message: string, snapshot: BrainSnapshot): DeterministicMatch | null {
+function matchProductPrice(message: string, snapshot: BrainSnapshot, lang: Lang): DeterministicMatch | null {
   const normalized = normalize(message);
   for (const product of snapshot.products) {
     const name = normalize(product.name);
     if (name.length >= 3 && normalized.includes(name)) {
       const price = (product.priceMinor / 10 ** snapshot.currencyExponent).toFixed(snapshot.currencyExponent);
-      return { rule: "product_price", reply: `${product.name} is ${price} ${snapshot.currency}.` };
+      return { rule: "product_price", reply: T[lang].price(product.name, `${price} ${snapshot.currency}`) };
     }
   }
   return null;

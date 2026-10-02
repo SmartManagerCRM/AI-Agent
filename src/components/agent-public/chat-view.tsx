@@ -8,10 +8,10 @@ import type { CartView } from "@/server/commerce/cart";
 import { categoryIcon, findMentionedProducts } from "./agent-model";
 import { focusRing, ProductCard, useAgentUi } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
-import { CartButton } from "./chrome";
-import { BackIcon, CartIcon, CheckIcon, MicIcon, SendIcon, SpeakerIcon, StopIcon } from "./icons";
+import { CartButton, LanguageSwitcher } from "./chrome";
+import { BackIcon, CartIcon, CheckIcon, MicIcon, SendIcon, SpeakerIcon, SpeakerOffIcon, StopIcon } from "./icons";
 import type { ChatMessage } from "./use-agent-chat";
-import { useVoice } from "./use-voice";
+import { useVoice, useVoiceMuted } from "./use-voice";
 
 /** Renders assistant text with bare URLs (e.g. a payment link from `place_order`) as clickable links. */
 function renderWithLinks(text: string) {
@@ -32,6 +32,25 @@ function useTimeFormat() {
 }
 
 type Suggestion = { key: string; label: string; message: string };
+
+/** The greeting bubble's id for Listen / Stop (chat messages are numbered from 1). */
+const GREETING_ID = 0;
+const GREETED_KEY = "agent-greeted:";
+
+function sessionFlag(key: string): boolean {
+  try {
+    return window.sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+function setSessionFlag(key: string) {
+  try {
+    window.sessionStorage.setItem(key, "1");
+  } catch {
+    // Storage blocked: the greeting may be spoken again on the next visit to this page — harmless.
+  }
+}
 
 /**
  * The conversation surface. Replies come only from the existing
@@ -67,7 +86,48 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     [products, categories, services],
   );
   const voice = useVoice({ locale: ui.locale, names, onInterim, onFinal });
-  const { speak } = voice;
+  const { speak, start: startListening } = voice;
+  const [muted, setMuted] = useVoiceMuted();
+
+  // The landing page's mic opens this conversation and starts listening from the same tap.
+  const { registerVoice } = ui;
+  useEffect(() => {
+    registerVoice({ start: startListening });
+    return () => registerVoice(null);
+  }, [registerVoice, startListening]);
+
+  // The Agent opens the conversation by voice: its greeting (the one saved in Agent settings) is read
+  // aloud once per visit, as soon as the page opens — or, where the browser doesn't let a page speak
+  // before the customer's first tap, at that first tap. Read by the browser: no AI cost.
+  const greetingParts = [`${t("home.hi")} ${t("chat.intro", { name: aiName })}`, greeting || t("chat.defaultGreeting")];
+  const greetingRef = useRef(greetingParts);
+  useEffect(() => {
+    greetingRef.current = greetingParts;
+  });
+  const greetedKey = GREETED_KEY + ui.slug;
+  useEffect(() => {
+    if (!voice.canSpeak || muted || sessionFlag(greetedKey)) return;
+    let started = false;
+    const onStart = () => {
+      started = true;
+      setSessionFlag(greetedKey);
+    };
+    speak(GREETING_ID, greetingRef.current, { onStart });
+    const atFirstTap = (e: Event) => {
+      stopWaiting();
+      if (started || sessionFlag(greetedKey)) return;
+      // One try per visit; a customer whose first tap is the mic wants to talk, not to be greeted.
+      setSessionFlag(greetedKey);
+      if (!(e.target instanceof Element && e.target.closest("[data-voice-mic]"))) speak(GREETING_ID, greetingRef.current, { onStart });
+    };
+    const stopWaiting = () => {
+      window.removeEventListener("pointerdown", atFirstTap, true);
+      window.removeEventListener("keydown", atFirstTap, true);
+    };
+    window.addEventListener("pointerdown", atFirstTap, true);
+    window.addEventListener("keydown", atFirstTap, true);
+    return stopWaiting;
+  }, [voice.canSpeak, muted, greetedKey, speak]);
 
   // A spoken question gets a spoken answer (read by the browser — no AI cost).
   const spokenReplies = useRef(new Set<number>());
@@ -76,8 +136,8 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   useEffect(() => {
     if (!last || last.role !== "assistant" || !previous?.voice || spokenReplies.current.has(last.id)) return;
     spokenReplies.current.add(last.id);
-    speak(last.id, last.text);
-  }, [last, previous, speak]);
+    if (!muted) speak(last.id, last.text);
+  }, [last, previous, speak, muted]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -113,7 +173,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   const cartCount = ui.cartCount;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-agent-cream">
+    <div className={`flex h-full min-h-0 flex-col ${ui.backgroundUrl ? "bg-agent-cream/90 backdrop-blur-sm" : "bg-agent-cream"}`}>
       <header className="relative flex items-center gap-3 bg-gradient-to-br from-agent-950 via-agent-900 to-agent-800 px-3 py-3 text-white sm:px-4 lg:rounded-t-[2rem]">
         <button
           type="button"
@@ -131,6 +191,23 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
             {t("chat.online")} · {businessName}
           </p>
         </div>
+        <LanguageSwitcher tone="dark" className="hidden sm:flex" />
+        {voice.canSpeak && (
+          <button
+            type="button"
+            onClick={() => {
+              if (!muted) voice.stopSpeaking();
+              setMuted(!muted);
+            }}
+            aria-pressed={!muted}
+            aria-label={muted ? t("voice.unmute") : t("voice.mute")}
+            title={muted ? t("voice.unmute") : t("voice.mute")}
+            data-testid="voice-mute"
+            className={`${focusRing} flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20 backdrop-blur transition hover:bg-white/15`}
+          >
+            {muted ? <SpeakerOffIcon size={19} /> : <SpeakerIcon size={19} />}
+          </button>
+        )}
         <CartButton tone="dark" />
       </header>
 
@@ -147,10 +224,16 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
               <p>
                 {t("home.hi")} 👋 {t("chat.intro", { name: aiName })}
               </p>
-              <p dir="auto" className="mt-1">
+              <p dir="auto" className="mt-1" data-testid="chat-greeting">
                 {greeting || t("chat.defaultGreeting")}
               </p>
             </Bubble>
+            {voice.canSpeak && (
+              <ListenButton
+                speaking={voice.speakingId === GREETING_ID}
+                toggle={() => (voice.speakingId === GREETING_ID ? voice.stopSpeaking() : voice.speak(GREETING_ID, greetingParts))}
+              />
+            )}
           </AssistantRow>
 
           {chat.messages.length === 0 && (
@@ -258,6 +341,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
             aria-label={voice.listening ? t("voice.stop") : t("voice.speak")}
             aria-pressed={voice.listening}
             data-testid="voice-mic"
+            data-voice-mic
             className={`${focusRing} relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full shadow-sm ring-1 transition active:scale-95 disabled:opacity-50 ${
               voice.listening ? "bg-red-600 text-white ring-red-600" : "bg-white text-agent-800 ring-slate-900/10 hover:bg-agent-50"
             }`}
@@ -334,20 +418,7 @@ function Message({
   return (
     <AssistantRow>
       <Bubble time={time}>{renderWithLinks(message.text)}</Bubble>
-      {listen && (
-        <button
-          type="button"
-          onClick={listen.toggle}
-          aria-pressed={listen.speaking}
-          data-testid="voice-listen"
-          className={`${focusRing} -mt-1 flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${
-            listen.speaking ? "bg-agent-700 text-white" : "bg-white/70 text-agent-800 ring-1 ring-agent-200 hover:bg-white"
-          }`}
-        >
-          {listen.speaking ? <StopIcon size={12} /> : <SpeakerIcon size={14} />}
-          {listen.speaking ? t("voice.stopReading") : t("voice.listen")}
-        </button>
-      )}
+      {listen && <ListenButton speaking={listen.speaking} toggle={listen.toggle} />}
       {mentioned.length > 0 && (
         <div className="-me-3 flex w-[calc(100%+0.75rem)] snap-x gap-3 overflow-x-auto pe-3 pb-2 [scrollbar-width:none] sm:-me-4 [&::-webkit-scrollbar]:hidden">
           {mentioned.map((p) => (
@@ -357,6 +428,25 @@ function Message({
       )}
       {message.cart && <CartSnapshot cart={message.cart} />}
     </AssistantRow>
+  );
+}
+
+/** Read a reply (or the greeting) aloud with the browser's voice, or stop. */
+function ListenButton({ speaking, toggle }: { speaking: boolean; toggle: () => void }) {
+  const t = useAgentT();
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={speaking}
+      data-testid="voice-listen"
+      className={`${focusRing} -mt-1 flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${
+        speaking ? "bg-agent-700 text-white" : "bg-white/70 text-agent-800 ring-1 ring-agent-200 hover:bg-white"
+      }`}
+    >
+      {speaking ? <StopIcon size={12} /> : <SpeakerIcon size={14} />}
+      {speaking ? t("voice.stopReading") : t("voice.listen")}
+    </button>
   );
 }
 

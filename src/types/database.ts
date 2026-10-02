@@ -117,7 +117,14 @@ export type Database = {
       tenant_settings: {
         Row: {
           tenant_id: string;
-          agent: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null };
+          agent: {
+            active: boolean;
+            assistant_name: string | null;
+            greeting: string | null;
+            tone: string | null;
+            /** Storage path (catalog-images bucket) of the photo behind the whole customer Agent. */
+            background_path?: string | null;
+          };
           checkout: {
             ordering_enabled: boolean;
             fulfillment_types: ("pickup" | "delivery" | "dine_in")[];

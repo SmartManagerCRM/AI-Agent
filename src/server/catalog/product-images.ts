@@ -65,7 +65,10 @@ export function sniffImage(b: Uint8Array): "jpeg" | "png" | "webp" | "gif" | "av
  * A safe, small WebP of the picture — or null when the bytes are not a
  * real raster image (or are too large / a decompression bomb).
  */
-export async function normalizeImage(bytes: Uint8Array): Promise<{ data: Buffer; contentType: "image/webp" } | null> {
+export async function normalizeImage(
+  bytes: Uint8Array,
+  options: { maxEdge?: number } = {},
+): Promise<{ data: Buffer; contentType: "image/webp" } | null> {
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_DOWNLOAD || !sniffImage(bytes)) return null;
   const sharp = await loadSharp();
   if (!sharp) return null; // never store an unprocessed file
@@ -75,7 +78,7 @@ export async function normalizeImage(bytes: Uint8Array): Promise<{ data: Buffer;
     if (!meta.width || !meta.height || meta.width < 32 || meta.height < 32) return null; // icons, tracking pixels
     const data = await sharp(input, { limitInputPixels: MAX_PIXELS, animated: false })
       .rotate()
-      .resize({ width: MAX_EDGE, height: MAX_EDGE, fit: "inside", withoutEnlargement: true })
+      .resize({ width: options.maxEdge ?? MAX_EDGE, height: options.maxEdge ?? MAX_EDGE, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
     return { data, contentType: "image/webp" };

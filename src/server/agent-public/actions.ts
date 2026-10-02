@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { LOCALES } from "@/i18n/locales";
+
 import { runAgentGateway } from "@/server/ai";
 import { AGENT_MODALITY_TEXT, AGENT_MODALITY_VOICE } from "@/server/ai/channel";
 import { agentLog } from "@/server/ai/diagnostics";
@@ -26,6 +28,8 @@ const sendMessageSchema = z.object({
   tableId: z.string().trim().max(100).optional(),
   /** How the customer entered the message (spoken = transcribed in their browser). Delivery metadata only. */
   modality: z.enum(["text", "voice"]).default("text"),
+  /** The language the customer picked in the Agent (its language bar); replies follow it. */
+  locale: z.enum(LOCALES).optional(),
 });
 
 export type SendAgentMessageState =
@@ -50,6 +54,7 @@ export async function sendAgentMessageAction(
     surface: formData.get("surface") ?? undefined,
     tableId: formData.get("tableId") ?? undefined,
     modality: formData.get("modality") ?? undefined,
+    locale: formData.get("locale") ?? undefined,
   });
   if (!parsed.success) return { error: "Enter a message." };
 
@@ -73,6 +78,11 @@ export async function sendAgentMessageAction(
     return { error: "You're sending messages a little fast — please wait a moment and try again." };
   }
 
+  // The customer switched language: the conversation (and so every reply) follows.
+  if (parsed.data.locale && parsed.data.locale !== conversation.locale) {
+    await supabase.from("conversations").update({ locale: parsed.data.locale }).eq("id", conversation.id).eq("tenant_id", tenant.id);
+    conversation.locale = parsed.data.locale;
+  }
   const history = await loadHistory(supabase, conversation.id);
   const modality = parsed.data.modality === "voice" ? AGENT_MODALITY_VOICE : AGENT_MODALITY_TEXT;
 

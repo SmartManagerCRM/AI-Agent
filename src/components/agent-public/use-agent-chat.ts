@@ -29,9 +29,12 @@ export function useAgentChat({
   slug,
   surface,
   tableId,
+  locale,
   onCart,
 }: {
   slug: string;
+  /** The Agent's interface language — replies come in it. */
+  locale: string;
   surface: "external_agent" | "website_widget";
   tableId: string | null;
   onCart: (cart: CartView | null) => void;
@@ -54,6 +57,7 @@ export function useAgentChat({
       formData.set("message", trimmed);
       formData.set("surface", surface);
       if (voice) formData.set("modality", "voice");
+      formData.set("locale", locale);
       if (tableId) formData.set("tableId", tableId);
       const result = await sendAgentMessageAction(undefined, formData);
       if (result && "error" in result) {

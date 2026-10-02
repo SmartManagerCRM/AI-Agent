@@ -1,9 +1,11 @@
+import { AgentBackgroundForm } from "@/components/agent/agent-background-form";
 import { AgentSettingsForm } from "@/components/agent/agent-settings-form";
 import { AgentTestPanel } from "@/components/agent/agent-test-panel";
 import { GoLivePanel, LiveBadge } from "@/components/agent/go-live-panel";
 import { Button } from "@/components/console/button";
 import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { productImageUrl } from "@/lib/product-image";
 import { loadGoLive } from "@/server/agent-public/go-live";
 import { publicAgentUrls } from "@/server/agent-public/urls";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
@@ -114,6 +116,11 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">AI behavior</h2>
         <AgentSettingsForm tenantId={tenant.id} slug={slug} locale={locale} current={agentSettings} />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">Background photo</h2>
+        <AgentBackgroundForm slug={slug} locale={locale} currentUrl={productImageUrl(agentSettings.background_path)} />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
