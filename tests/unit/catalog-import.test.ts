@@ -36,7 +36,8 @@ describe("catalog file import — HTML (no AI)", () => {
     expect(items).toHaveLength(8);
     // Headings and footer text are never products; the unpriced tart isn't guessed.
     expect(items.map((i) => i.name)).not.toContain("Seasonal tart (ask our staff)");
-    expect(skipped.otherCurrency).toBe(0);
+    expect(items.every((i) => !i.sourcePrice)).toBe(true);
+    expect(skipped.duplicates).toBe(0);
   });
 
   it("keeps the menu's sections as categories", () => {
@@ -46,20 +47,24 @@ describe("catalog file import — HTML (no AI)", () => {
     expect(items.find((i) => i.name === "Iced Latte")?.category).toBe("Cold Drinks");
   });
 
-  it("skips what is already in the catalog and anything priced in another currency", () => {
+  it("skips what is already in the catalog; a price in another currency becomes a draft to price, never converted", () => {
     const raw = [
       { name: "Espresso", amount: "12", currency: null, category: null, description: null },
       { name: "Imported Tea", amount: "5.00", currency: "USD", category: null, description: null },
       { name: "Mocha", amount: "20", currency: "SAR", category: null, description: null },
       { name: "Mocha", amount: "20", currency: "SAR", category: null, description: null },
     ];
-    const { items, skipped } = prepareCatalogItems(raw, {
+    const { items, skipped, needsPrice } = prepareCatalogItems(raw, {
       tenantCurrency: "SAR",
       kind: "product",
       existingNames: new Set(["espresso"]),
     });
-    expect(items.map((i) => i.name)).toEqual(["Mocha"]);
-    expect(skipped).toMatchObject({ duplicates: 2, otherCurrency: 1 });
+    expect(items.map((i) => i.name)).toEqual(["Imported Tea", "Mocha"]);
+    expect(items[0]).toMatchObject({ priceMajor: null, sourcePrice: { amount: "5.00", currency: "USD" } });
+    expect(items[1]).toMatchObject({ priceMajor: 20 });
+    expect(items[1].sourcePrice).toBeUndefined();
+    expect(skipped).toMatchObject({ duplicates: 2 });
+    expect(needsPrice).toBe(1);
   });
 
   it("services: durations from the text, price optional", () => {

@@ -71,6 +71,7 @@ export async function importOfferings(
     description: o.description ? { [lang(o.description)]: o.description } : {},
     price_minor: Math.round(o.priceMajor * 10 ** exponent),
     status: "active" as const,
+    source: "brain" as const,
   }));
   const { error } = await supabase.from("products").insert(rows);
   if (error) return { ok: false, message: "Couldn't add your products to the catalog — you need permission to edit products." };

@@ -98,9 +98,11 @@ export async function addCatalogItems(
     name: { [lang(i.name)]: i.name },
     description: i.description ? { [lang(i.description)]: i.description } : {},
     price_minor: toMinor(i.priceMajor) ?? 0,
-    status: options.active(i) ? ("active" as const) : ("draft" as const),
+    // A product priced only in another currency waits, as a draft, for the owner's price.
+    status: options.active(i) && !i.sourcePrice ? ("active" as const) : ("draft" as const),
     source: options.source,
     brain_fact_key: i.factKey ?? null,
+    source_price: i.sourcePrice ?? null,
   }));
   for (let i = 0; i < rows.length; i += 200) {
     const { error } = await supabase.from("products").insert(rows.slice(i, i + 200));

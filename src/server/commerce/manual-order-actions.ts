@@ -104,7 +104,8 @@ export async function bulkCreateOrdersAction(_prev: ManualOrderState, formData: 
     .from("products")
     .select("id, name")
     .eq("tenant_id", tenant.id)
-    .neq("status", "archived");
+    .neq("status", "archived")
+    .is("source_price", null); // still waiting for the owner's price
   const catalog = (products ?? []).map((p) => ({ id: p.id, names: Object.values(p.name ?? {}).map(String) }));
 
   const { orders, errors } = buildBulkOrders(csv, catalog);

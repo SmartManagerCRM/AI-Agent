@@ -1,10 +1,12 @@
+import { BrainSyncButton } from "@/components/catalog/brain-sync-button";
 import { FileImportForm } from "@/components/catalog/file-import-form";
+import { ServiceRow } from "@/components/catalog/service-row";
 import { CreateServiceForm } from "@/components/console/create-service-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { isFuture } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { cancelBookingAction, setServiceActiveAction } from "@/server/booking/actions";
+import { cancelBookingAction } from "@/server/booking/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -20,10 +22,10 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: services }, { data: bookings }, { data: currency }] = await Promise.all([
+  const [{ data: allServices }, { data: bookings }, { data: currency }] = await Promise.all([
     supabase
       .from("bookable_services")
-      .select("id, name, duration_minutes, price_minor, is_active, source")
+      .select("id, name, duration_minutes, price_minor, is_active, source, archived_at")
       .eq("tenant_id", tenant.id)
       .order("created_at"),
     supabase
@@ -35,8 +37,10 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
   ]);
   const exponent = currency?.exponent ?? 2;
+  // Deleted services are hidden; their past bookings still show the service's name.
+  const services = (allServices ?? []).filter((s) => s.archived_at === null);
   const serviceNameById = new Map(
-    (services ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
+    (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );
   const upcoming = (bookings ?? []).filter((b) => b.status === "confirmed" && isFuture(b.starts_at));
 
@@ -49,7 +53,7 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
           icon="branches"
           accent="emerald"
           label="Services"
-          value={String((services ?? []).length)}
+          value={String(services.length)}
           trend={null}
           href={`/${locale}/${slug}/bookings#services`}
         />
@@ -74,34 +78,29 @@ export default async function BookingsPage({ params }: { params: Promise<{ local
           <div className="mt-3">
             <FileImportForm slug={slug} locale={locale} defaultKind="service" />
           </div>
+          <div className="mt-3 border-t border-slate-100 pt-3">
+            <BrainSyncButton slug={slug} locale={locale} />
+          </div>
         </details>
         <div className="flex flex-col gap-2">
-          {(services ?? []).map((s) => (
-            <div
+          {services.map((s) => (
+            <ServiceRow
               key={s.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-slate-100 p-2 text-sm"
-            >
-              <span className="text-slate-900">
-                {s.name[locale] ?? Object.values(s.name)[0]} — {s.duration_minutes} min
-                {s.price_minor !== null && ` · ${formatMoney(s.price_minor, tenant.currency, exponent, locale)}`}
-                {s.source !== "manual" && (
-                  <span className="ms-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-                    {s.source === "brain" ? "From Business Brain" : "Imported"}
-                  </span>
-                )}
-              </span>
-              <form action={setServiceActiveAction}>
-                <input type="hidden" name="serviceId" value={s.id} />
-                <input type="hidden" name="value" value={(!s.is_active).toString()} />
-                <input type="hidden" name="locale" value={locale} />
-                <input type="hidden" name="slug" value={slug} />
-                <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                  {s.is_active ? "Active" : "Inactive"}
-                </button>
-              </form>
-            </div>
+              service={{
+                id: s.id,
+                name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
+                durationMinutes: s.duration_minutes,
+                priceMinor: s.price_minor,
+                priceLabel: s.price_minor !== null ? formatMoney(s.price_minor, tenant.currency, exponent, locale) : null,
+                isActive: s.is_active,
+                source: s.source,
+              }}
+              exponent={exponent}
+              locale={locale}
+              slug={slug}
+            />
           ))}
-          {(services ?? []).length === 0 && (
+          {services.length === 0 && (
             <p className="py-2 text-center text-sm text-slate-400">
               Add a service above to let the Agent take bookings.
             </p>

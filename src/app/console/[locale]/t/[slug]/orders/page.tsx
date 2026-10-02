@@ -57,6 +57,7 @@ export default async function OrdersPage({
         .select("id, name, price_minor, status")
         .eq("tenant_id", tenant.id)
         .neq("status", "archived")
+        .is("source_price", null) // still waiting for the owner's price
         .order("created_at", { ascending: false })
         .limit(1000),
     ]),

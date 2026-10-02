@@ -7,20 +7,51 @@ import { addCatalogItems, type CatalogTenant } from "./bulk";
 import { parseDuration, type CatalogItem } from "./import-extract";
 
 /**
- * Business Brain → catalog, the moment an analysis finishes: every product
- * and service the Brain found (and the owner hasn't rejected) appears on
- * the Products & Services and Bookings pages straight away — as a draft
- * (products) or inactive (services), never shown to customers until the
- * owner approves it in the Brain (which activates it, see the
- * `sync_brain_catalog_draft` trigger) or switches it on themselves.
- * Already-approved findings are added active. Each item is linked to its
- * Brain fact, so it is never added twice; names already in the catalog
- * (including archived ones the owner removed) are left alone.
+ * Business Brain → catalog: every product and service the Brain found (and
+ * the owner hasn't rejected) appears on the Products & Services and
+ * Bookings pages — as a draft (products) or inactive (services), never
+ * shown to customers until the owner approves it in the Brain (which
+ * activates it, see the `sync_brain_catalog_draft` trigger) or switches it
+ * on themselves. Already-approved findings are added active.
+ *
+ * Runs when an analysis finishes and whenever the owner approves a
+ * finding, and on demand from the Products page ("Add from Business
+ * Brain") — it is idempotent: each item is linked to its Brain fact, so it
+ * is never added twice, and names already in the catalog (including ones
+ * the owner deleted) are left alone.
+ *
+ * A price listed in another currency is never converted: the product is
+ * added as a draft that needs the owner's own price. A finding without any
+ * price is not guessed at (it stays in the Brain).
  */
-export async function draftBrainCatalog(
-  supabase: TypedSupabaseClient,
-  tenant: CatalogTenant,
-): Promise<{ products: number; services: number; failed: boolean }> {
+export type BrainCatalogResult = {
+  products: number;
+  services: number;
+  /** Of the products added, how many still need the owner's price (listed in another currency). */
+  needsPrice: number;
+  failed: boolean;
+};
+
+type Finding = CatalogItem & { factKey: string; approved: boolean; kind: "product" | "service"; priceKey: string };
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * A menu page read without its spacing glues the section, name, description
+ * and button together ("Drinks CappuccinoEspresso with steamed milk Add").
+ * Such a finding is the same item as a cleaner one with the same price whose
+ * name runs straight into a capital letter inside it — it is dropped.
+ */
+export function isGluedDuplicate(name: string, priceKey: string, others: { name: string; priceKey: string }[]): boolean {
+  return others.some(
+    (o) =>
+      o.priceKey === priceKey &&
+      o.name.length < name.length &&
+      new RegExp(`${escapeRegExp(o.name)}(?=\\p{Lu})`, "u").test(name),
+  );
+}
+
+export async function draftBrainCatalog(supabase: TypedSupabaseClient, tenant: CatalogTenant): Promise<BrainCatalogResult> {
   const [{ data: entries }, { data: products }, { data: services }] = await Promise.all([
     supabase
       .from("business_brain_entries")
@@ -30,6 +61,7 @@ export async function draftBrainCatalog(
       .in("status", ["pending_review", "approved"])
       .eq("is_active", true)
       .not("fact_key", "is", null)
+      .order("status") // approved before pending_review: the owner's version wins a fact
       .limit(2000),
     supabase.from("products").select("name, brain_fact_key").eq("tenant_id", tenant.id),
     supabase.from("bookable_services").select("name, brain_fact_key").eq("tenant_id", tenant.id),
@@ -42,16 +74,16 @@ export async function draftBrainCatalog(
     ),
   });
   const existing = { product: known(products), service: known(services) };
+  const tenantCurrency = tenant.currency.toUpperCase();
 
-  const picked = {
-    product: [] as (CatalogItem & { factKey: string; approved: boolean })[],
-    service: [] as (CatalogItem & { factKey: string; approved: boolean })[],
-  };
+  // Every readable, priced finding (also those already in the catalog — they
+  // still identify glued duplicates).
+  const findings: Finding[] = [];
   const seen = new Set<string>();
   for (const e of entries ?? []) {
     const kind = e.entry_type === "service_candidate" ? "service" : "product";
     const factKey = e.fact_key as string;
-    if (seen.has(`${kind}:${factKey}`) || existing[kind].keys.has(factKey)) continue;
+    if (seen.has(`${kind}:${factKey}`)) continue;
     seen.add(`${kind}:${factKey}`);
     const c = (e.content ?? {}) as {
       normalized?: { name?: unknown; amount?: unknown; currency?: unknown };
@@ -60,19 +92,24 @@ export async function draftBrainCatalog(
       duration_minutes?: unknown;
     };
     const name = typeof c.normalized?.name === "string" ? c.normalized.name.trim().slice(0, 160) : "";
-    if (!name || !isReadableName(name) || existing[kind].names.has(normalizeProductName(name))) continue;
+    if (!name || !isReadableName(name)) continue;
     const currency = typeof c.normalized?.currency === "string" ? c.normalized.currency.toUpperCase() : null;
-    const price = parseAmount(c.normalized?.amount);
-    // A price we can't sell in (unknown or another currency) is not guessed at.
-    const usablePrice = price !== null && currency === tenant.currency.toUpperCase() ? price : null;
-    if (kind === "product" && usablePrice === null) continue;
+    const amount = c.normalized?.amount;
+    const price = parseAmount(amount);
+    if (kind === "product" && price === null) continue;
+    const foreign = price !== null && currency !== tenantCurrency;
     const description =
       typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 2000) : null;
-    picked[kind].push({
+    findings.push({
+      kind,
       factKey,
       approved: e.status === "approved",
       name,
-      priceMajor: usablePrice,
+      priceKey: `${price ?? ""} ${currency ?? ""}`,
+      priceMajor: foreign ? null : price,
+      ...(foreign && kind === "product"
+        ? { sourcePrice: { amount: String(amount), currency } }
+        : {}),
       category: typeof c.category === "string" && c.category.trim() ? c.category.trim().slice(0, 120) : null,
       description,
       durationMinutes:
@@ -80,7 +117,15 @@ export async function draftBrainCatalog(
           ? Math.round(c.duration_minutes)
           : parseDuration(`${name} ${description ?? ""}`),
     });
-    existing[kind].names.add(normalizeProductName(name));
+  }
+
+  const picked = { product: [] as Finding[], service: [] as Finding[] };
+  for (const f of findings) {
+    const have = existing[f.kind];
+    if (have.keys.has(f.factKey) || have.names.has(normalizeProductName(f.name))) continue;
+    if (isGluedDuplicate(f.name, f.priceKey, findings.filter((o) => o.kind === f.kind))) continue;
+    picked[f.kind].push(f);
+    have.names.add(normalizeProductName(f.name));
   }
 
   const isApproved = (i: CatalogItem & { factKey?: string | null }) => (i as { approved?: boolean }).approved === true;
@@ -88,5 +133,10 @@ export async function draftBrainCatalog(
     addCatalogItems(supabase, tenant, picked.product, { kind: "product", source: "brain", active: isApproved }),
     addCatalogItems(supabase, tenant, picked.service, { kind: "service", source: "brain", active: isApproved }),
   ]);
-  return { products: p.ok ? p.added : 0, services: s.ok ? s.added : 0, failed: !p.ok || !s.ok };
+  return {
+    products: p.ok ? p.added : 0,
+    services: s.ok ? s.added : 0,
+    needsPrice: p.ok ? picked.product.filter((i) => i.sourcePrice).length : 0,
+    failed: !p.ok || !s.ok,
+  };
 }

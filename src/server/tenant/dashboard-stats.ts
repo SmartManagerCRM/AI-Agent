@@ -65,7 +65,7 @@ export async function getTenantDashboardStats(
         .order("created_at", { ascending: false })
         .limit(5),
       supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
-      supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId),
+      supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId).neq("status", "archived"),
       supabase
         .from("conversations")
         .select("id, channel, status, last_message_at")

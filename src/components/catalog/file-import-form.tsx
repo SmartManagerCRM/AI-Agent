@@ -21,7 +21,6 @@ export function FileImportForm({
     ? [
         skipped.duplicates ? `${skipped.duplicates} already in your catalog` : null,
         skipped.unpriced ? `${skipped.unpriced} without a price` : null,
-        skipped.otherCurrency ? `${skipped.otherCurrency} priced in another currency` : null,
         skipped.unreadable ? `${skipped.unreadable} unreadable` : null,
       ].filter(Boolean)
     : [];
@@ -32,7 +31,7 @@ export function FileImportForm({
       <input type="hidden" name="locale" value={locale} />
       <p className="text-sm text-slate-600">
         Upload your menu or price list as a web page (<strong>.html</strong>) or a <strong>PDF</strong>. Items are read
-        with rules only — no AI, no cost — and added to your list. Prices without a currency are taken as yours.
+        with rules only — no AI, no cost — and added to your list. Prices without a currency are taken as yours; prices in another currency are never converted — those items are added as drafts for you to price.
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">
@@ -63,6 +62,12 @@ export function FileImportForm({
           className={`rounded-md px-3 py-2 text-sm ${state.ok ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}
         >
           <p className="font-medium">{state.message}</p>
+          {state.needsPrice ? (
+            <p className="mt-0.5 text-xs">
+              {state.needsPrice} {state.needsPrice === 1 ? "is" : "are"} priced in another currency — added as drafts:
+              set your price on each (pencil icon) to put it on sale.
+            </p>
+          ) : null}
           {skippedParts.length > 0 && <p className="mt-0.5 text-xs">Skipped: {skippedParts.join(" · ")}.</p>}
           {state.added && state.added.length > 0 && (
             <p className="mt-1 text-xs text-emerald-700">

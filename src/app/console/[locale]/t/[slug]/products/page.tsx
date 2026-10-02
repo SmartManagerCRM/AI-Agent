@@ -1,8 +1,9 @@
+import { BrainSyncButton } from "@/components/catalog/brain-sync-button";
 import { CreateCategoryForm } from "@/components/catalog/create-category-form";
 import { CreateProductForm } from "@/components/catalog/create-product-form";
 import { FileImportForm } from "@/components/catalog/file-import-form";
+import { ProductCard } from "@/components/catalog/product-card";
 import { EmptyState } from "@/components/console/empty-state";
-import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
@@ -14,10 +15,11 @@ import { requireTenantMember } from "@/server/tenant/context";
 
 /** 16 rows of the 3-column grid. */
 const PAGE_SIZE = 48;
-const PRODUCT_COLUMNS = "id, name, price_minor, status, source";
+const PRODUCT_COLUMNS = "id, name, description, price_minor, status, source, source_price, category_id";
 
 /**
- * One page of this tenant's products, newest first. A search keeps its
+ * One page of this tenant's products, newest first (deleted ones — status
+ * `archived` — are not listed). A search keeps its
  * exact previous semantics — case-insensitive match on the localized name,
  * falling back to the first available translation — so it matches over
  * names only, then fetches full rows for just the requested page.
@@ -35,6 +37,7 @@ async function loadProductsPage(
       .from("products")
       .select(PRODUCT_COLUMNS, { count: "exact" })
       .eq("tenant_id", tenantId)
+      .neq("status", "archived")
       .order("created_at", { ascending: false })
       .order("id")
       .range(from, from + PAGE_SIZE - 1);
@@ -44,6 +47,7 @@ async function loadProductsPage(
     .from("products")
     .select("id, name")
     .eq("tenant_id", tenantId)
+    .neq("status", "archived")
     .order("created_at", { ascending: false })
     .order("id");
   const needle = q.toLowerCase();
@@ -77,12 +81,14 @@ export default async function ProductsPage({
   const supabase = await createUserClient();
 
   const countProducts = () =>
-    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+    supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).neq("status", "archived");
   const [
     { data: categories },
     { count: totalCount },
     { count: activeCount },
     { count: draftCount },
+    { count: readyDraftCount },
+    { count: needsPriceCount },
     { data: currency },
     pageResult,
   ] = await timed(
@@ -92,6 +98,8 @@ export default async function ProductsPage({
       countProducts(),
       countProducts().eq("status", "active"),
       countProducts().eq("status", "draft"),
+      countProducts().eq("status", "draft").is("source_price", null),
+      countProducts().not("source_price", "is", null),
       supabase.from("currencies").select("exponent").eq("code", tenant.currency).single(),
       loadProductsPage(supabase, tenant.id, locale, q, page),
     ]),
@@ -99,6 +107,8 @@ export default async function ProductsPage({
   const exponent = currency?.exponent ?? 2;
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
   const products = pageResult.products;
+  const label = (text: Record<string, string>) => text[locale] ?? Object.values(text)[0] ?? "";
+  const categoryOptions = (categories ?? []).map((c) => ({ id: c.id, label: label(c.name) }));
   const productCount = totalCount ?? 0;
 
   return (
@@ -128,7 +138,7 @@ export default async function ProductsPage({
         <ul className="mt-3 flex flex-wrap gap-2 text-sm">
           {(categories ?? []).map((category) => (
             <li key={category.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">
-              {category.name[locale] ?? Object.values(category.name)[0]}
+              {label(category.name)}
             </li>
           ))}
         </ul>
@@ -137,20 +147,35 @@ export default async function ProductsPage({
       <section id="import" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Add products from a file</h2>
         <FileImportForm slug={slug} locale={locale} defaultKind="product" />
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <p className="mb-2 text-xs text-slate-500">
+            What the Business Brain finds is added here automatically. Approved before this page existed, or added
+            nothing? Bring everything in now:
+          </p>
+          <BrainSyncButton slug={slug} locale={locale} />
+        </div>
       </section>
 
       <section id="products" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-900">Products</h2>
           {(draftCount ?? 0) > 0 && (
-            <form action={setProductStatusAction} className="flex items-center gap-2 text-xs text-slate-500">
+            <form action={setProductStatusAction} className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <input type="hidden" name="status" value="active" />
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="locale" value={locale} />
-              <span>Drafts aren&apos;t shown to customers.</span>
-              <button type="submit" className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 hover:bg-emerald-100">
-                Activate all {draftCount} drafts
-              </button>
+              <span>Drafts and suspended products aren&apos;t shown to customers.</span>
+              {(needsPriceCount ?? 0) > 0 && (
+                <span className="text-amber-700">{needsPriceCount} need your price first.</span>
+              )}
+              {(readyDraftCount ?? 0) > 0 && (
+                <button
+                  type="submit"
+                  className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 hover:bg-emerald-100"
+                >
+                  Activate all {readyDraftCount} drafts
+                </button>
+              )}
             </form>
           )}
         </div>
@@ -164,40 +189,24 @@ export default async function ProductsPage({
         {products.length > 0 ? (
           <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
-              <li key={product.id} className="rounded-lg border border-slate-200 p-3">
-                <div className="mb-2 flex h-24 items-center justify-center rounded-md bg-slate-50 text-slate-300">
-                  <Icon path={NAV_ICON_PATHS.products} size={28} />
-                </div>
-                <p className="font-medium text-slate-900">{product.name[locale] ?? Object.values(product.name)[0]}</p>
-                <div className="mt-1 flex items-center justify-between gap-2 text-sm">
-                  <span className="text-slate-500">{money(product.price_minor)}</span>
-                  <span className="flex items-center gap-1.5">
-                    {product.source !== "manual" && (
-                      <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-                        {product.source === "brain" ? "From Business Brain" : "Imported"}
-                      </span>
-                    )}
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                        product.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {product.status}
-                    </span>
-                  </span>
-                </div>
-                {product.status === "draft" && (
-                  <form action={setProductStatusAction} className="mt-2">
-                    <input type="hidden" name="productId" value={product.id} />
-                    <input type="hidden" name="status" value="active" />
-                    <input type="hidden" name="slug" value={slug} />
-                    <input type="hidden" name="locale" value={locale} />
-                    <button type="submit" className="text-xs font-medium text-emerald-700 hover:underline">
-                      Activate
-                    </button>
-                  </form>
-                )}
-              </li>
+              <ProductCard
+                key={product.id}
+                product={{
+                  id: product.id,
+                  name: label(product.name),
+                  description: label(product.description ?? {}),
+                  priceMinor: product.price_minor,
+                  priceLabel: money(product.price_minor),
+                  status: product.status,
+                  source: product.source,
+                  sourcePrice: product.source_price,
+                  categoryId: product.category_id,
+                }}
+                categories={categoryOptions}
+                exponent={exponent}
+                locale={locale}
+                slug={slug}
+              />
             ))}
           </ul>
         ) : (

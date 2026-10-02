@@ -34,11 +34,19 @@ export type CatalogItem = {
   category: string | null;
   description: string | null;
   durationMinutes: number | null;
+  /**
+   * Products only: the price as listed, when it is in another currency. The
+   * product is added as a draft with no price of its own — the owner sets it
+   * before it can go on sale. Never converted or guessed.
+   */
+  sourcePrice?: { amount: string | null; currency: string | null } | null;
 };
 
 export type PrepareResult = {
   items: CatalogItem[];
-  skipped: { unpriced: number; otherCurrency: number; duplicates: number; unreadable: number };
+  /** Items added that still need the owner's price (listed in another currency). */
+  needsPrice: number;
+  skipped: { unpriced: number; duplicates: number; unreadable: number };
 };
 
 const BLOCKS = "p, li, tr, h1, h2, h3, h4, h5, h6, dt, dd, div, section, article, td, th, br, caption, figcaption";
@@ -121,14 +129,16 @@ export function parseDuration(text: string): number | null {
 
 /**
  * Decides what can be added: a readable name, not already in the catalog,
- * a price in the business's currency (products always need one; services
- * may be "price on request"). Everything else is counted, never guessed.
+ * and (products) a listed price. A price in another currency is never
+ * converted: the product is added as a draft that needs the owner's price,
+ * a service without a price ("price on request"). Everything else is
+ * counted, never guessed.
  */
 export function prepareCatalogItems(
   raw: RawCatalogItem[],
   options: { tenantCurrency: string; kind: "product" | "service"; existingNames: Set<string> },
 ): PrepareResult {
-  const out: PrepareResult = { items: [], skipped: { unpriced: 0, otherCurrency: 0, duplicates: 0, unreadable: 0 } };
+  const out: PrepareResult = { items: [], needsPrice: 0, skipped: { unpriced: 0, duplicates: 0, unreadable: 0 } };
   const seen = new Set<string>();
   for (const item of raw) {
     const duration = options.kind === "service" ? parseDuration(`${item.name} ${item.description ?? ""}`) : null;
@@ -147,19 +157,20 @@ export function prepareCatalogItems(
       out.skipped.duplicates += 1;
       continue;
     }
-    if (item.currency && item.currency.toUpperCase() !== options.tenantCurrency.toUpperCase()) {
-      out.skipped.otherCurrency += 1;
-      continue;
-    }
     const price = item.amount ? parseAmount(item.amount) : null;
     if (price === null && options.kind === "product") {
       out.skipped.unpriced += 1;
       continue;
     }
+    const foreign = Boolean(item.currency && item.currency.toUpperCase() !== options.tenantCurrency.toUpperCase());
+    if (foreign) out.needsPrice += 1;
     seen.add(key);
     out.items.push({
       name,
-      priceMajor: price,
+      priceMajor: foreign ? null : price,
+      ...(foreign && options.kind === "product"
+        ? { sourcePrice: { amount: item.amount ?? null, currency: item.currency?.toUpperCase() ?? null } }
+        : {}),
       category: item.category?.trim().slice(0, 120) || null,
       description: item.description?.trim().slice(0, 2000) || null,
       durationMinutes: duration,

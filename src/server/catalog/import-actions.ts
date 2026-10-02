@@ -27,7 +27,8 @@ export type ImportState =
       ok: boolean;
       message: string;
       added?: string[];
-      skipped?: { unpriced: number; otherCurrency: number; duplicates: number; unreadable: number };
+      needsPrice?: number;
+      skipped?: { unpriced: number; duplicates: number; unreadable: number };
     }
   | undefined;
 
@@ -114,6 +115,7 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
     ok: true,
     message: `${result.added} ${noun}${result.added === 1 ? "" : "s"} added from ${file.name}.`,
     added: items.slice(0, 30).map((i) => i.name),
+    needsPrice: items.filter((i) => i.sourcePrice).length,
     skipped: prepared.skipped,
   };
 }

@@ -70,7 +70,8 @@ export async function loadGoLive(supabase: TypedSupabaseClient, tenant: Tenant, 
       .eq("status", "approved")
       .eq("is_active", true)
       .limit(2000),
-    supabase.from("products").select("name, price_minor, status").eq("tenant_id", tenant.id).neq("status", "archived"),
+    // Deleted (archived) products included: what the owner removed is never added back.
+    supabase.from("products").select("name, price_minor, status").eq("tenant_id", tenant.id),
     supabase.from("bookable_services").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("is_active", true),
     supabase.from("branches").select("opening_hours").eq("tenant_id", tenant.id).eq("is_active", true),
   ]);
@@ -84,7 +85,7 @@ export async function loadGoLive(supabase: TypedSupabaseClient, tenant: Tenant, 
   // An approved "product" whose name is OCR noise isn't knowledge a customer can use.
   const approvedKnowledge = approved.filter((f) => !isOffering(f.entry_type) || isReadableName(offeringName(f.content))).length;
 
-  // Same rule as `publish_agent`: only active products count; drafts still block duplicates.
+  // Same rule as `publish_agent`: only active products count; drafts and deleted ones still block duplicates.
   const catalog = (products ?? []).filter((p) => p.status === "active");
   const activeProducts = catalog.length;
   const pricedProducts = catalog.filter((p) => p.price_minor > 0).length;

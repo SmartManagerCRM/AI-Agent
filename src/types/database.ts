@@ -320,10 +320,13 @@ export type Database = {
           name: LocalizedText;
           description: LocalizedText;
           price_minor: number;
-          status: "draft" | "active" | "archived";
+          /** draft: not yet on sale · suspended: taken off sale by the owner · archived: deleted. */
+          status: "draft" | "active" | "suspended" | "archived";
           /** Where the product came from: added by hand, Business Brain draft, or a file import. */
           source: "manual" | "brain" | "file_import";
           brain_fact_key: string | null;
+          /** The price as found in another currency — the owner must set their own before it can go live. */
+          source_price: { amount: string | null; currency: string | null } | null;
           created_at: string;
           updated_at: string;
         };
@@ -602,6 +605,8 @@ export type Database = {
           is_active: boolean;
           source: "manual" | "brain" | "file_import";
           brain_fact_key: string | null;
+          /** Set when the owner deleted the service (kept for its bookings). */
+          archived_at: string | null;
           created_at: string;
           updated_at: string;
         };

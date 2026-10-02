@@ -259,3 +259,20 @@ install (only the console's pages link the manifest).
   PDF price list; parsed by rules only — no AI calls, no AI cost. Scanned
   (image-only) PDFs are refused with an explanation. Uploads up to 8 MB
   (`serverActions.bodySizeLimit` in `next.config.ts`).
+
+## Products & Services: edit / suspend / delete, Brain items in other currencies
+
+- **Database**: `supabase/migrations/20261003090000_catalog_item_controls.sql`
+  (already applied to production).
+- Every product and service has **edit**, **suspend / activate** and
+  **delete** icons. Suspended items are not shown to customers and are not
+  re-activated by "Activate all drafts" or by a Brain approval. Delete keeps
+  the row (`products.status = 'archived'`, `bookable_services.archived_at`) so
+  past orders and bookings still show what was sold, and the Business Brain
+  or a file import never adds it back.
+- **Brain → catalog** also runs when a finding is approved, and on demand
+  with "Add from Business Brain" (for findings approved before this existed).
+- A Brain finding or imported line **priced in another currency** is never
+  converted: it is added as a draft marked "Price needed · listed as USD 15.00"
+  (`products.source_price`). The database refuses to put it on sale (or in a
+  manual order) until the owner sets their own price.

@@ -292,7 +292,8 @@ class JobRun {
         await this.event(
           "conflict_check",
           "success",
-          `Added ${added.products} product(s) and ${added.services} service(s) to your catalog — as drafts until you approve them.`,
+          `Added ${added.products} product(s) and ${added.services} service(s) to your catalog — as drafts until you approve them.` +
+            (added.needsPrice > 0 ? ` ${added.needsPrice} were priced in another currency: set your own price on each.` : ""),
         );
       }
     }

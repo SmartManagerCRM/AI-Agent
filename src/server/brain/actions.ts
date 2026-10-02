@@ -3,15 +3,31 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { syncApprovedProducts } from "@/server/agent-public/catalog-sync";
 import { CURRENCY_EXPONENT } from "@/server/brain/discovery/extract";
 import { parsePlaceInput } from "@/server/brain/discovery/google-places";
 import { startDiscoveryJob } from "@/server/brain/discovery/jobs";
 import { MAX_DIRECT_MENU_URLS } from "@/server/brain/discovery/pipeline";
 import { parseCrawlUrl } from "@/server/brain/url-safety";
+import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember, requireUser } from "@/server/tenant/context";
 import type { IngestionJobStatus, Json } from "@/types/database";
+
+/**
+ * An approved Brain product or service is in the catalog straight away —
+ * on the Products & Services / Bookings pages and, when the Agent is live,
+ * for customers (unless its price still needs the owner, see draftBrainCatalog).
+ */
+async function catalogApprovedFindings(
+  supabase: Awaited<ReturnType<typeof createUserClient>>,
+  tenant: { id: string; currency: string; default_language: string },
+  locale: string,
+  slug: string,
+) {
+  await draftBrainCatalog(supabase, tenant).catch(() => null);
+  revalidatePath(`/${locale}/${slug}/products`);
+  revalidatePath(`/${locale}/${slug}/bookings`);
+}
 
 const recrawlSchema = z.object({
   url: z.url(),
@@ -229,7 +245,7 @@ export async function confirmFactWithEditAction(formData: FormData): Promise<voi
       .limit(1)
       .maybeSingle();
     if (ownerEntry) await supabase.rpc("approve_brain_entry", { p_entry_id: ownerEntry.id });
-    if (isOffering) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
+    if (isOffering) await catalogApprovedFindings(supabase, tenant, parsed.data.locale, parsed.data.slug);
   }
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
@@ -310,8 +326,7 @@ export async function approveBrainEntryAction(formData: FormData): Promise<void>
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   const { error } = await supabase.rpc("approve_brain_entry", { p_entry_id: parsed.data.entryId });
-  // A live Agent picks up a newly approved product right away.
-  if (!error) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
+  if (!error) await catalogApprovedFindings(supabase, tenant, parsed.data.locale, parsed.data.slug);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
 
@@ -412,6 +427,6 @@ export async function resolveBrainConflictAction(formData: FormData): Promise<vo
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   const { error } = await supabase.rpc("resolve_brain_conflict", { p_conflict_id: parsed.data.conflictId, p_resolved_value: resolvedValue });
-  if (!error) await syncApprovedProducts(supabase, tenant, parsed.data.locale).catch(() => 0);
+  if (!error) await catalogApprovedFindings(supabase, tenant, parsed.data.locale, parsed.data.slug);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }
