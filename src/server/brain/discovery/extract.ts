@@ -437,22 +437,67 @@ function currencyForToken(token: string): string | null {
   return null;
 }
 
+/** Buttons and form controls are UI ("Add", "Order now"), never part of an item's name. */
+const UI_CONTROLS = "button, [role=button], input, select, textarea, script, style, noscript, svg";
+/** Tags that end a piece of text: a card's name, description and price are separate pieces even when the HTML has no spaces between them. */
+const TEXT_BLOCKS = "p, li, dt, dd, div, section, article, header, footer, h1, h2, h3, h4, h5, h6, td, th, tr, figcaption, caption, br, ul, ol, table";
+const UI_WORDS =
+  /^(add|add to (cart|basket|order|bag)|\+ ?add|order( now)?|buy( now)?|select|choose|details|view|more|أضف|إضافة|اطلب|اطلب الآن|ajouter|commander)$/i;
+const NAME_SELECTOR = "h1, h2, h3, h4, h5, h6, [class*=name], [class*=title], strong, b";
+const TAG_SELECTOR = "[class*=tag], [class*=badge], [class*=categ]";
+
+/** An element's text as separate pieces (one per block), without buttons. */
+function textPieces($: cheerio.CheerioAPI, el: unknown): string[] {
+  const copy = $(el as never).clone();
+  copy.find(UI_CONTROLS).remove();
+  copy.find(TEXT_BLOCKS).each((_, child) => {
+    $(child).before("\n").after("\n");
+  });
+  return copy
+    .text()
+    .split("\n")
+    .map(clean)
+    .filter((piece) => piece && !UI_WORDS.test(piece));
+}
+
 function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
   const selector = "li, tr, dt, [class*=item], [class*=product], [class*=menu], [class*=service], [class*=card], [class*=dish]";
-  type Hit = { el: unknown; name: string; price: FoundPrice; heading: string | null };
+  type Hit = { el: unknown; name: string; description: string | null; price: FoundPrice; heading: string | null };
   const hits: Hit[] = [];
   const qualified = new Set<unknown>();
   $(selector).each((_, el) => {
-    const text = clean($(el).text());
-    if (text.length < 3 || text.length > 220) return;
+    const pieces = textPieces($, el);
+    const text = pieces.join(" ");
+    if (text.length < 3 || text.length > 260) return;
     const prices = findPrices(text);
     if (prices.length !== 1) return;
     const price = prices[0];
-    const name = cleanName(toWesternDigits(text).slice(0, price.index) + " " + toWesternDigits(text).slice(price.index + price.length));
+    const tags = new Set(
+      $(el)
+        .find(TAG_SELECTOR)
+        .toArray()
+        .map((t) => clean($(t).text())),
+    );
+    const heading = sectionHeading($, el);
+    // Pieces other than the price, the "Drinks" tag / section name and buttons: the name, then the description.
+    const rest = pieces
+      .map((piece) => {
+        const found = findPrices(piece)[0];
+        return found ? cleanSpaces(toWesternDigits(piece).slice(0, found.index) + " " + toWesternDigits(piece).slice(found.index + found.length)) : piece;
+      })
+      .filter((piece) => piece && !tags.has(piece) && piece !== heading && !UI_WORDS.test(piece));
+    // A fragment holding only a price (a card's footer) isn't the item — its card is.
+    if (rest.length === 0) return;
+    const titled = $(el)
+      .find(NAME_SELECTOR)
+      .toArray()
+      .map((t) => clean($(t).clone().find(UI_CONTROLS).remove().end().text()))
+      .find((t) => t && rest.includes(t) && findPrices(t).length === 0);
+    const name = cleanName(titled ?? rest[0]);
     if (!name) return;
+    const description = rest.filter((piece) => piece !== (titled ?? rest[0])).join(" ").slice(0, 2000) || null;
     qualified.add(el);
-    const heading = clean($(el).closest("section, div, table, ul").prevAll("h1, h2, h3, h4").first().text()) || null;
-    hits.push({ el, name, price, heading });
+    hits.push({ el, name, description: description && description.length > 2 ? description : null, price, heading });
   });
   // Keep the innermost element for each priced line (a card and its row both match).
   return hits
@@ -461,11 +506,24 @@ function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
       name: hit.name,
       amount: hit.price.amount,
       currency: hit.price.currency,
-      description: null,
+      description: hit.description,
       category: hit.heading && hit.heading.length <= 60 ? hit.heading : null,
       kind: "product" as const,
       method: "deterministic" as const,
     }));
+}
+
+/** The menu section an item sits in: the nearest heading before one of its containers ("Drinks"). */
+function sectionHeading($: cheerio.CheerioAPI, el: unknown): string | null {
+  for (const container of $(el as never).parents("section, div, table, ul, ol").toArray().slice(0, 4)) {
+    const heading = clean($(container).prevAll("h1, h2, h3, h4").first().text());
+    if (heading) return heading;
+  }
+  return null;
+}
+
+function cleanSpaces(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 export function cleanName(raw: string): string | null {

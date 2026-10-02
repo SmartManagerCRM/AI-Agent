@@ -54,7 +54,8 @@ const BLOCKS = "p, li, tr, h1, h2, h3, h4, h5, h6, dt, dd, div, section, article
 /** Visible text of an HTML document, one line per block. */
 export function htmlToLines(html: string): string[] {
   const $ = cheerio.load(html);
-  $("script, style, noscript, template, svg, iframe, head").remove();
+  // Buttons ("Add", "Order now") and form controls are never part of an item.
+  $("script, style, noscript, template, svg, iframe, head, button, [role=button], input, select, textarea").remove();
   $("br").replaceWith("\n");
   // Table rows read as one line ("Latte | 18"); other blocks end a line.
   $("td, th").each((_, el) => {

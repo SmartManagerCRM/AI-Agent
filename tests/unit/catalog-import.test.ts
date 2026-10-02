@@ -16,6 +16,31 @@ const prices = (items: { name: string; priceMajor: number | null }[]) =>
   Object.fromEntries(items.map((i) => [i.name, i.priceMajor]));
 
 describe("catalog file import — HTML (no AI)", () => {
+  it("menu cards: name, description and footer in separate tags, an \"Add\" button — never glued together", () => {
+    // The layout that produced "Drinks CappuccinoEspresso with steamed milk and foam Add" and an item called "Add".
+    const raw = extractItemsFromHtml(fixture("card-menu.html").toString("utf8"));
+    const { items } = prepareCatalogItems(raw, { tenantCurrency: "SAR", kind: "product", existingNames: new Set() });
+    expect(items.map((i) => [i.name, i.priceMajor, i.category, i.description])).toEqual([
+      ["Cappuccino", 15, "Drinks", "Espresso with steamed milk and foam"],
+      ["Fresh Lemonade", 13, "Drinks", "Refreshing homemade lemonade"],
+      ["Classic Hummus", 18, "Starters", "Chickpeas, tahini, lemon and olive oil"],
+      ["Crispy Chicken Wings", 26, "Starters", "Golden wings with house seasoning"],
+      ["Classic Cheeseburger", 32, "Main Courses", "Beef patty, cheddar, lettuce, tomato and house sauce"],
+    ]);
+  });
+
+  it("menu cards without class names: the heading is the name, buttons and the section label are dropped", () => {
+    const html = `<section><h2>Desserts</h2><div class="grid">
+      <div class="card"><span>Desserts</span><div><h4>Cheesecake</h4><p>Classic baked cheesecake</p></div><div><span>SAR 21.00</span><button>Add to cart</button></div></div>
+      <div class="card"><span>Desserts</span><div><h4>Chocolate Brownie</h4><p>Warm brownie with vanilla ice cream</p></div><div><span>SAR 20.00</span><a role="button">Add</a></div></div>
+    </div></section>`;
+    const { items } = prepareCatalogItems(extractItemsFromHtml(html), { tenantCurrency: "SAR", kind: "product", existingNames: new Set() });
+    expect(items.map((i) => [i.name, i.priceMajor, i.category, i.description])).toEqual([
+      ["Cheesecake", 21, "Desserts", "Classic baked cheesecake"],
+      ["Chocolate Brownie", 20, "Desserts", "Warm brownie with vanilla ice cream"],
+    ]);
+  });
+
   it("reads a café menu laid out as a table, a list and plain lines", () => {
     const raw = extractItemsFromHtml(fixture("cafe-menu.html").toString("utf8"));
     const { items, skipped } = prepareCatalogItems(raw, {
