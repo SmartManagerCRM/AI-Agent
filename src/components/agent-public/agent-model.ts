@@ -14,6 +14,8 @@ export type AgentProduct = {
   name: LocalizedText;
   description: LocalizedText;
   priceMinor: number;
+  /** The product's photo (our own storage), null when it has none. */
+  imageUrl?: string | null;
 };
 
 export type AgentService = {

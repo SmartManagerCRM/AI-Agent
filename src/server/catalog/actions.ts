@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
-import { createUserClient } from "@/server/supabase/clients";
+import { bucketWriter, storeProductImage } from "@/server/catalog/product-images";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
 const createBranchSchema = z.object({
@@ -244,8 +245,59 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
     .eq("tenant_id", tenant.id)
     .eq("id", parsed.data.productId);
   if (error) return { ok: false, message: "Couldn't save — you need permission to edit products." };
+
+  const photo = savedPhoto(formData.get("photo"));
+  if (photo === "too_large") {
+    revalidateCatalog(locale, slug);
+    return { ok: false, message: "Saved — but that photo is larger than 6 MB. Choose a smaller one." };
+  }
+  if (photo || formData.get("removePhoto") === "on") {
+    let storage;
+    try {
+      storage = bucketWriter(serviceClient());
+    } catch {
+      revalidateCatalog(locale, slug);
+      return { ok: false, message: "Saved — but photos can't be stored on this server yet (storage isn't configured)." };
+    }
+    if (photo) {
+      const stored = await storeProductImage(
+        supabase,
+        storage,
+        tenant.id,
+        parsed.data.productId,
+        new Uint8Array(await photo.arrayBuffer()),
+        null,
+      ).catch(() => false);
+      if (!stored) {
+        revalidateCatalog(locale, slug);
+        return { ok: false, message: "Saved — but that photo couldn't be used. Upload a JPG, PNG or WebP picture." };
+      }
+    } else {
+      const { data: current } = await supabase
+        .from("products")
+        .select("image_path")
+        .eq("tenant_id", tenant.id)
+        .eq("id", parsed.data.productId)
+        .maybeSingle();
+      const { data: cleared } = await supabase
+        .from("products")
+        .update({ image_path: null, image_source_url: null })
+        .eq("tenant_id", tenant.id)
+        .eq("id", parsed.data.productId)
+        .select("id");
+      if (cleared?.length && current?.image_path) await storage.remove([current.image_path]);
+    }
+  }
   revalidateCatalog(locale, slug);
   return { ok: true, message: "Saved." };
+}
+
+const MAX_PHOTO_BYTES = 6_000_000;
+
+/** The uploaded photo file, if one was chosen. */
+function savedPhoto(value: FormDataEntryValue | null): File | "too_large" | null {
+  if (!(value instanceof File) || value.size === 0) return null;
+  return value.size > MAX_PHOTO_BYTES ? "too_large" : value;
 }
 
 export type BrainSyncState = { ok: boolean; message: string } | undefined;
@@ -261,13 +313,24 @@ export async function syncBrainCatalogAction(_prev: BrainSyncState, formData: Fo
   const slug = String(formData.get("slug") ?? "");
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
-  const result = await draftBrainCatalog(supabase, tenant).catch(() => null);
+  let storage;
+  try {
+    storage = bucketWriter(serviceClient());
+  } catch {
+    storage = undefined; // no secret key configured: products are still added, without photos
+  }
+  const result = await draftBrainCatalog(supabase, tenant, { storage }).catch(() => null);
   if (!result || result.failed) {
     return { ok: false, message: "Couldn't add to your catalog — you need permission to edit products." };
   }
   revalidateCatalog(locale, slug);
+  const photos =
+    result.images.attached > 0
+      ? ` ${result.images.attached} photo${result.images.attached === 1 ? "" : "s"} added.`
+      : "";
+  const photoTrouble = result.images.failed > 0 ? ` ${result.images.failed} photo(s) couldn't be downloaded.` : "";
   if (result.products + result.services === 0) {
-    return { ok: true, message: "Everything the Business Brain found is already here." };
+    return { ok: true, message: `Everything the Business Brain found is already here.${photos}${photoTrouble}` };
   }
   const parts = [
     result.products > 0 ? `${result.products} product${result.products === 1 ? "" : "s"}` : null,
@@ -279,7 +342,9 @@ export async function syncBrainCatalogAction(_prev: BrainSyncState, formData: Fo
       `Added ${parts.join(" and ")} from the Business Brain.` +
       (result.needsPrice > 0
         ? ` ${result.needsPrice} ${result.needsPrice === 1 ? "was" : "were"} priced in another currency — set your price on each (pencil icon) before it can go on sale.`
-        : ""),
+        : "") +
+      photos +
+      photoTrouble,
   };
 }
 

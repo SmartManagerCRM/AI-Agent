@@ -29,6 +29,46 @@ describe("catalog file import — HTML (no AI)", () => {
     ]);
   });
 
+  it("each card keeps its own photo: plain, lazy-loaded, srcset (largest), background; never the page logo", () => {
+    const raw = extractItemsFromHtml(fixture("card-menu.html").toString("utf8"));
+    const photo = Object.fromEntries(raw.map((i) => [i.name, i.imageUrl ?? null]));
+    expect(photo).toMatchObject({
+      Cappuccino: "https://cdn.example.com/menu/cappuccino.jpg",
+      "Fresh Lemonade": "https://cdn.example.com/menu/lemonade.webp",
+      "Classic Hummus": "https://cdn.example.com/menu/hummus-800.jpg",
+      "Crispy Chicken Wings": "https://cdn.example.com/menu/wings.jpg",
+      "Classic Cheeseburger": null,
+    });
+    // ...and the photo survives into what gets added.
+    const { items } = prepareCatalogItems(raw, { tenantCurrency: "SAR", kind: "product", existingNames: new Set() });
+    expect(items.find((i) => i.name === "Cappuccino")?.imageUrl).toBe("https://cdn.example.com/menu/cappuccino.jpg");
+  });
+
+  it("photos by relative path: found through the saved page's address; without one they can't be located", () => {
+    const card = (head: string) =>
+      `<html><head>${head}</head><body><ul><li class="item"><img src="img/latte.jpg" width="300"><h3>Latte</h3><span>SAR 18</span></li></ul></body></html>`;
+    expect(extractItemsFromHtml(card('<link rel="canonical" href="https://cafe.example.com/menu/">'))[0].imageUrl).toBe(
+      "https://cafe.example.com/menu/img/latte.jpg",
+    );
+    expect(extractItemsFromHtml(card(""))[0].imageUrl).toBeNull();
+    // Inline pictures in a saved page work without any address.
+    const inline = `<ul><li class="item"><img src="data:image/png;base64,iVBORw0KGgo="><h3>Latte</h3><span>SAR 18</span></li></ul>`;
+    expect(extractItemsFromHtml(inline)[0].imageUrl).toBe("data:image/png;base64,iVBORw0KGgo=");
+  });
+
+  it("structured data and embedded catalog JSON carry their image too; icons and SVGs never count", () => {
+    const ld = `<script type="application/ld+json">${JSON.stringify({
+      "@type": "Menu",
+      hasMenuSection: [{ "@type": "MenuSection", name: "Coffee", hasMenuItem: [
+        { "@type": "MenuItem", name: "Mocha", image: { "@type": "ImageObject", url: "https://cdn.example.com/mocha.jpg" }, offers: { price: "20", priceCurrency: "SAR" } },
+        { "@type": "MenuItem", name: "Tea", image: "https://cdn.example.com/icons/tea.svg", offers: { price: "8", priceCurrency: "SAR" } },
+      ] }],
+    })}</script>`;
+    const items = extractItemsFromHtml(ld);
+    expect(items.find((i) => i.name === "Mocha")?.imageUrl).toBe("https://cdn.example.com/mocha.jpg");
+    expect(items.find((i) => i.name === "Tea")?.imageUrl).toBeNull();
+  });
+
   it("menu cards without class names: the heading is the name, buttons and the section label are dropped", () => {
     const html = `<section><h2>Desserts</h2><div class="grid">
       <div class="card"><span>Desserts</span><div><h4>Cheesecake</h4><p>Classic baked cheesecake</p></div><div><span>SAR 21.00</span><button>Add to cart</button></div></div>

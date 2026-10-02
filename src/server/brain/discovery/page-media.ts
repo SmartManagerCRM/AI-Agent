@@ -30,7 +30,7 @@ export type ExtractedImage = {
   position: number;
 };
 
-export type ProductCard = { name: string; description: string | null; category: string | null };
+export type ProductCard = { name: string; description: string | null; category: string | null; imageUrl?: string | null };
 
 export type PageMedia = {
   headings: string[];
@@ -146,7 +146,79 @@ export function extractPageMedia($: cheerio.CheerioAPI, base: URL | null): PageM
     }
   });
 
-  return { headings, cards: extractCards($), og, images: [...images.values()], embeddedOfferings: embeddedOfferings.slice(0, 300) };
+  return { headings, cards: extractCards($, base), og, images: [...images.values()], embeddedOfferings: embeddedOfferings.slice(0, 300) };
+}
+
+// ── A product's own picture ─────────────────────────────────────────────
+
+/** Inline images small enough to keep (base64 data URIs in saved pages). */
+const DATA_IMAGE = /^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=\s]+$/i;
+const MAX_DATA_URI = 7_000_000;
+/** Page chrome and placeholders — never a product's photo. */
+const NOT_A_PHOTO = /(sprite|icon|logo|placeholder|spinner|loading|blank|pixel|spacer|avatar|badge|flag)/i;
+
+/**
+ * Turns an image reference found on a product into a URL the server can
+ * download: an absolute http(s) URL (resolved against the page), or a
+ * small inline data URI. SVGs, page chrome and unresolvable relative paths
+ * (a file with no address to resolve against) give null.
+ */
+export function productImageRef(raw: string | undefined | null, base: URL | null): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+  if (value.startsWith("data:")) return value.length <= MAX_DATA_URI && DATA_IMAGE.test(value) ? value.replace(/\s+/g, "") : null;
+  let u: URL;
+  try {
+    u = new URL(value, base ?? undefined);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  if (u.hostname.endsWith(".invalid")) return null; // relative path in a file with no web address
+  if (/\.svg$/i.test(u.pathname) || NOT_A_PHOTO.test(u.pathname)) return null;
+  u.hash = "";
+  return u.toString();
+}
+
+/** The picture inside one product element (img / picture / lazy-load attributes / background image). */
+export function imageInElement($: cheerio.CheerioAPI, el: unknown, base: URL | null): string | null {
+  const node = $(el as never);
+  for (const img of node.find("img, picture source").toArray()) {
+    const i = $(img);
+    if (i.closest("header, footer, nav").length > 0) continue;
+    const width = toInt(i.attr("width"));
+    if (width !== null && width < 48) continue; // icons
+    const raw = [
+      bestFromSrcset(i.attr("srcset") ?? i.attr("data-srcset")),
+      i.attr("data-src"),
+      i.attr("data-lazy-src"),
+      i.attr("data-original"),
+      i.attr("src"),
+    ].find((c) => c && c.trim() && !/^data:image\/(gif|svg)/i.test(c.trim()) && c.trim() !== "#");
+    const ref = productImageRef(raw, base);
+    if (ref) return ref;
+  }
+  for (const styled of [node.toArray()[0], ...node.find("[style*='background']").toArray()]) {
+    const style = styled ? ($(styled as never).attr("style") ?? "") : "";
+    const m = /url\((['"]?)([^'")]+)\1\)/.exec(style);
+    const ref = m ? productImageRef(m[2], base) : null;
+    if (ref) return ref;
+  }
+  return null;
+}
+
+/** An image field of embedded catalog data ("image", "imageUrl", { url }, [..]) — absolute URLs only. */
+export function imageFromJson(obj: Record<string, unknown>): string | null {
+  for (const k of ["image", "imageUrl", "image_url", "imageURL", "photo", "photoUrl", "picture", "thumbnail", "thumbnailUrl", "img"]) {
+    let v: unknown = obj[k];
+    if (Array.isArray(v)) v = v[0];
+    if (v && typeof v === "object") v = (v as Record<string, unknown>).url ?? (v as Record<string, unknown>).src ?? (v as Record<string, unknown>).contentUrl;
+    if (typeof v === "string" && /^https?:\/\//i.test(v.trim())) {
+      const ref = productImageRef(v, null);
+      if (ref) return ref;
+    }
+  }
+  return null;
 }
 
 // ── Image URLs ──────────────────────────────────────────────────────────
@@ -247,6 +319,7 @@ export function offeringsFromEmbeddedJson(root: unknown): ExtractedOffering[] {
         category,
         kind: "product",
         method: "structured_data",
+        imageUrl: imageFromJson(obj),
       });
     }
     const nextCategory = !price && name && Object.values(obj).some((v) => Array.isArray(v) && v.length > 0) ? name : category;
@@ -279,7 +352,7 @@ const CARD = "[class*=item], [class*=product], [class*=dish], [class*=menu-item]
 const CARD_TITLE = "h2, h3, h4, h5, [class*=title], [class*=name], [data-hook*=title], figcaption, strong";
 
 /** Cards with a short title and optional description — never used for prices (those need a written price). */
-export function extractCards($: cheerio.CheerioAPI): ProductCard[] {
+export function extractCards($: cheerio.CheerioAPI, base: URL | null = null): ProductCard[] {
   const clean = (s: string | undefined | null) => (s ?? "").replace(/\s+/g, " ").trim();
   const out: ProductCard[] = [];
   const seen = new Set<string>();
@@ -297,7 +370,12 @@ export function extractCards($: cheerio.CheerioAPI): ProductCard[] {
     seen.add(key);
     const description = clean(card.find("p, [class*=desc]").not(titleEl).first().text()) || null;
     const heading = clean(card.closest("section, ul, div").prevAll("h1, h2, h3").first().text()) || null;
-    out.push({ name, description: description && description !== name ? description.slice(0, 300) : null, category: heading && heading.length <= 60 ? heading : null });
+    out.push({
+      name,
+      description: description && description !== name ? description.slice(0, 300) : null,
+      category: heading && heading.length <= 60 ? heading : null,
+      imageUrl: imageInElement($, el, base),
+    });
   });
   return out;
 }

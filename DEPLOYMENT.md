@@ -276,3 +276,23 @@ install (only the console's pages link the manifest).
   converted: it is added as a draft marked "Price needed · listed as USD 15.00"
   (`products.source_price`). The database refuses to put it on sale (or in a
   manual order) until the owner sets their own price.
+
+## Product photos
+
+- **Database**: `supabase/migrations/20261003120000_product_images.sql` (already
+  applied to production) — `products.image_path` / `image_source_url` and the
+  public-read Storage bucket `catalog-images`. There is no write policy on the
+  bucket: only the server writes, with `SUPABASE_SECRET_KEY` (already required
+  for Business Brain jobs), under the product's own `<tenant_id>/` folder and
+  only after the product update succeeded under the user's own RLS session.
+- **Where photos come from**: the photo next to each item on a menu page
+  (img / lazy-load / srcset / background image / JSON-LD `image` / embedded
+  catalog JSON) — read by the Business Brain and by HTML file imports — or an
+  upload in the product's edit form (JPG/PNG/WebP, ≤ 6 MB).
+- Every photo is downloaded server-side through the SSRF-guarded fetcher,
+  checked by its bytes (no SVG), re-encoded to WebP ≤ 1000 px with `sharp`
+  (metadata stripped) and stored in the bucket; customers' browsers never load
+  images from the source site.
+- An HTML file whose photos use relative paths needs its web address
+  (`<base>`, canonical or og:url link) to find them; otherwise the import says
+  so. PDFs: text only, no photos.

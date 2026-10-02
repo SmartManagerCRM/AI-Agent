@@ -9,7 +9,8 @@ import { startDiscoveryJob } from "@/server/brain/discovery/jobs";
 import { MAX_DIRECT_MENU_URLS } from "@/server/brain/discovery/pipeline";
 import { parseCrawlUrl } from "@/server/brain/url-safety";
 import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
-import { createUserClient } from "@/server/supabase/clients";
+import { bucketWriter } from "@/server/catalog/product-images";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember, requireUser } from "@/server/tenant/context";
 import type { IngestionJobStatus, Json } from "@/types/database";
 
@@ -18,13 +19,23 @@ import type { IngestionJobStatus, Json } from "@/types/database";
  * on the Products & Services / Bookings pages and, when the Agent is live,
  * for customers (unless its price still needs the owner, see draftBrainCatalog).
  */
+/** The photo bucket (service role), or none when the server has no secret key configured. */
+function photoStorage() {
+  try {
+    return bucketWriter(serviceClient());
+  } catch {
+    return undefined;
+  }
+}
+
 async function catalogApprovedFindings(
   supabase: Awaited<ReturnType<typeof createUserClient>>,
   tenant: { id: string; currency: string; default_language: string },
   locale: string,
   slug: string,
 ) {
-  await draftBrainCatalog(supabase, tenant).catch(() => null);
+  // One approval adds one item: a short photo budget keeps the click quick.
+  await draftBrainCatalog(supabase, tenant, { storage: photoStorage(), imageBudgetMs: 8_000 }).catch(() => null);
   revalidatePath(`/${locale}/${slug}/products`);
   revalidatePath(`/${locale}/${slug}/bookings`);
 }

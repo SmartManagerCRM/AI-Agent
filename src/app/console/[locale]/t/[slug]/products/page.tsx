@@ -8,6 +8,7 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
 import { formatMoney } from "@/lib/money";
+import { productImageUrl } from "@/lib/product-image";
 import { setProductStatusAction } from "@/server/catalog/actions";
 import { timed } from "@/server/perf";
 import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
@@ -15,7 +16,7 @@ import { requireTenantMember } from "@/server/tenant/context";
 
 /** 16 rows of the 3-column grid. */
 const PAGE_SIZE = 48;
-const PRODUCT_COLUMNS = "id, name, description, price_minor, status, source, source_price, category_id";
+const PRODUCT_COLUMNS = "id, name, description, price_minor, status, source, source_price, category_id, image_path";
 
 /**
  * One page of this tenant's products, newest first (deleted ones — status
@@ -201,6 +202,7 @@ export default async function ProductsPage({
                   source: product.source,
                   sourcePrice: product.source_price,
                   categoryId: product.category_id,
+                  imageUrl: productImageUrl(product.image_path),
                 }}
                 categories={categoryOptions}
                 exponent={exponent}

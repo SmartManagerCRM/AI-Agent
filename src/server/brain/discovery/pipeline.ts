@@ -33,6 +33,7 @@ import type { PageTopic } from "./source-router";
 import { canonicalizeUrl, crawlWebsite, type CrawledPage, type FetchPage } from "./website";
 import { loadModelConfigs, type SelectedModel } from "@/server/ai/router";
 import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
+import { bucketWriter } from "@/server/catalog/product-images";
 import { safeFetch } from "@/server/brain/safe-fetch";
 import { parseCrawlUrl, UnsafeCrawlTargetError } from "@/server/brain/url-safety";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -293,7 +294,8 @@ class JobRun {
           "conflict_check",
           "success",
           `Added ${added.products} product(s) and ${added.services} service(s) to your catalog — as drafts until you approve them.` +
-            (added.needsPrice > 0 ? ` ${added.needsPrice} were priced in another currency: set your own price on each.` : ""),
+            (added.needsPrice > 0 ? ` ${added.needsPrice} were priced in another currency: set your own price on each.` : "") +
+            (added.images.attached > 0 ? ` ${added.images.attached} photo(s) added.` : ""),
         );
       }
     }
@@ -820,7 +822,9 @@ class JobRun {
       .select("id, currency, default_language")
       .eq("id", this.tenantId)
       .maybeSingle();
-    return tenant ? draftBrainCatalog(this.supabase, tenant) : null;
+    const storage = this.deps.privileged ? bucketWriter(this.deps.privileged) : undefined;
+    // Product photos go through the same SSRF-guarded fetcher as menu images.
+    return tenant ? draftBrainCatalog(this.supabase, tenant, { storage, fetchImage: this.deps.fetchImage ?? this.deps.fetchPage }) : null;
   }
 
   async event(step: string, level: "info" | "success" | "warning" | "error", message: string, data?: Record<string, unknown>) {

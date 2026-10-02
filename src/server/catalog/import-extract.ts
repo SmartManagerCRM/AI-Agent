@@ -26,6 +26,8 @@ export type RawCatalogItem = {
   currency: string | null;
   category: string | null;
   description: string | null;
+  /** The item's picture as found (absolute URL or inline data URI). */
+  imageUrl?: string | null;
 };
 
 export type CatalogItem = {
@@ -40,6 +42,8 @@ export type CatalogItem = {
    * before it can go on sale. Never converted or guessed.
    */
   sourcePrice?: { amount: string | null; currency: string | null } | null;
+  /** The item's picture as found — downloaded and stored after the item is added. */
+  imageUrl?: string | null;
 };
 
 export type PrepareResult = {
@@ -77,14 +81,34 @@ export function htmlToLines(html: string): string[] {
 }
 
 /** Items in an HTML price list: structured data / priced markup first, then the page's lines. */
+/**
+ * The web address an uploaded page came from, so its relative image paths
+ * can be found: `<base href>`, then the canonical / og:url link a saved page
+ * keeps. Without one, relative images can't be located (inline and absolute
+ * ones still are).
+ */
+export function pageAddressOf(html: string): string | null {
+  const $ = cheerio.load(html.slice(0, 200_000));
+  for (const raw of [$("base[href]").attr("href"), $('link[rel="canonical"]').attr("href"), $('meta[property="og:url"]').attr("content")]) {
+    try {
+      const u = raw ? new URL(raw) : null;
+      if (u && (u.protocol === "https:" || u.protocol === "http:")) return u.toString();
+    } catch {
+      // not an absolute address
+    }
+  }
+  return null;
+}
+
 export function extractItemsFromHtml(html: string): RawCatalogItem[] {
-  const page = extractFromHtml(html, "https://import.invalid/");
+  const page = extractFromHtml(html, pageAddressOf(html) ?? "https://import.invalid/");
   const fromMarkup: RawCatalogItem[] = page.offerings.map((o) => ({
     name: o.name,
     amount: o.amount,
     currency: o.currency,
     category: o.category,
     description: o.description,
+    imageUrl: o.imageUrl ?? null,
   }));
   return mergeItems(fromMarkup, extractItemsFromLines(htmlToLines(html)));
 }
@@ -175,6 +199,7 @@ export function prepareCatalogItems(
       category: item.category?.trim().slice(0, 120) || null,
       description: item.description?.trim().slice(0, 2000) || null,
       durationMinutes: duration,
+      imageUrl: item.imageUrl ?? null,
     });
   }
   return out;

@@ -327,6 +327,10 @@ export type Database = {
           brain_fact_key: string | null;
           /** The price as found in another currency — the owner must set their own before it can go live. */
           source_price: { amount: string | null; currency: string | null } | null;
+          /** Photo in the `catalog-images` bucket ("<tenant>/<product>-<hash>.webp"), null when none. */
+          image_path: string | null;
+          /** Where the photo was found (menu page / file); null for uploads. */
+          image_source_url: string | null;
           created_at: string;
           updated_at: string;
         };

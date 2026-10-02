@@ -88,6 +88,14 @@ export function ProductVisual({
   const category = categories.find((c) => c.id === product.categoryId) ?? null;
   const icon = categoryIcon(category?.name);
   const name = text(product.name);
+  if (product.imageUrl) {
+    return (
+      <div className={`relative overflow-hidden bg-slate-100 ${className}`} aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element -- our own storage bucket; already resized WebP */}
+        <img src={product.imageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+      </div>
+    );
+  }
   return (
     <div
       className={`relative flex items-center justify-center overflow-hidden bg-gradient-to-br ${toneFor(product.categoryId ?? product.id)} ${className}`}

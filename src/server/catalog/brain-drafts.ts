@@ -4,6 +4,7 @@ import { parseAmount } from "@/server/agent-public/launch";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 import { addCatalogItems, type CatalogTenant } from "./bulk";
+import { attachProductImages, type ImageAttachResult, type ImageFetcher, type StorageWriter } from "./product-images";
 import { parseDuration, type CatalogItem } from "./import-extract";
 
 /**
@@ -29,6 +30,8 @@ export type BrainCatalogResult = {
   services: number;
   /** Of the products added, how many still need the owner's price (listed in another currency). */
   needsPrice: number;
+  /** Photos found on the analysed pages, stored for Brain products that had none. */
+  images: ImageAttachResult;
   failed: boolean;
 };
 
@@ -51,7 +54,12 @@ export function isGluedDuplicate(name: string, priceKey: string, others: { name:
   );
 }
 
-export async function draftBrainCatalog(supabase: TypedSupabaseClient, tenant: CatalogTenant): Promise<BrainCatalogResult> {
+export async function draftBrainCatalog(
+  supabase: TypedSupabaseClient,
+  tenant: CatalogTenant,
+  /** `storage`: where photos are written (the service-role bucket writer); without it no photos are fetched. */
+  options: { storage?: StorageWriter; imageBudgetMs?: number; fetchImage?: ImageFetcher } = {},
+): Promise<BrainCatalogResult> {
   const [{ data: entries }, { data: products }, { data: services }] = await Promise.all([
     supabase
       .from("business_brain_entries")
@@ -133,10 +141,64 @@ export async function draftBrainCatalog(supabase: TypedSupabaseClient, tenant: C
     addCatalogItems(supabase, tenant, picked.product, { kind: "product", source: "brain", active: isApproved }),
     addCatalogItems(supabase, tenant, picked.service, { kind: "service", source: "brain", active: isApproved }),
   ]);
+  const images = await brainProductImages(supabase, tenant.id, options).catch(() => ({ attached: 0, failed: 0, skipped: 0 }));
   return {
     products: p.ok ? p.added : 0,
     services: s.ok ? s.added : 0,
     needsPrice: p.ok ? picked.product.filter((i) => i.sourcePrice).length : 0,
+    images,
     failed: !p.ok || !s.ok,
   };
+}
+
+/**
+ * Photos for Brain products: the pages the Brain read keep each item's
+ * picture with it (`brain_source_documents.extraction` — offerings and item
+ * cards). A Brain product without a photo gets the one found under its
+ * name; products the owner gave a photo, or deleted, are left alone.
+ */
+async function brainProductImages(
+  supabase: TypedSupabaseClient,
+  tenantId: string,
+  options: { storage?: StorageWriter; imageBudgetMs?: number; fetchImage?: ImageFetcher },
+): Promise<ImageAttachResult> {
+  const none = { attached: 0, failed: 0, skipped: 0 };
+  if (!options.storage) return none;
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .eq("source", "brain")
+    .neq("status", "archived")
+    .is("image_path", null)
+    .limit(500);
+  if (!products || products.length === 0) return none;
+
+  const { data: docs } = await supabase
+    .from("brain_source_documents")
+    .select("extraction")
+    .eq("tenant_id", tenantId)
+    .not("extraction", "is", null)
+    .order("last_processed_at", { ascending: false })
+    .limit(200);
+  const pictures = new Map<string, string>();
+  for (const doc of docs ?? []) {
+    const x = (doc.extraction ?? {}) as { offerings?: { name?: unknown; imageUrl?: unknown }[]; cards?: { name?: unknown; imageUrl?: unknown }[] };
+    for (const item of [...(x.offerings ?? []), ...(x.cards ?? [])]) {
+      if (typeof item?.name !== "string" || typeof item.imageUrl !== "string" || !item.imageUrl) continue;
+      const key = normalizeProductName(item.name);
+      if (key && !pictures.has(key)) pictures.set(key, item.imageUrl);
+    }
+  }
+  const jobs = products.flatMap((p) => {
+    const url = Object.values(p.name ?? {})
+      .map((n) => pictures.get(normalizeProductName(String(n))))
+      .find(Boolean);
+    return url ? [{ productId: p.id, imageUrl: url }] : [];
+  });
+  if (jobs.length === 0) return none;
+  return attachProductImages(supabase, options.storage, tenantId, jobs, {
+    budgetMs: options.imageBudgetMs ?? 45_000,
+    fetcher: options.fetchImage,
+  });
 }

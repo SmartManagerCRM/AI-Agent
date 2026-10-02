@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 
 import type { OpeningHours, WeekdayKey } from "./google-places";
-import { extractPageMedia, type ExtractedImage, type PageMedia } from "./page-media";
+import { extractPageMedia, imageInElement, productImageRef, type ExtractedImage, type PageMedia } from "./page-media";
 
 /**
  * Deterministic website extraction — the "CODE FOR EXTRACTION" half of the
@@ -16,7 +16,7 @@ import { extractPageMedia, type ExtractedImage, type PageMedia } from "./page-me
  * cheerio parses markup without executing scripts, so page content is
  * only ever data here.
  */
-export const EXTRACTOR_VERSION = "extract-v2";
+export const EXTRACTOR_VERSION = "extract-v3";
 
 export type ExtractedOffering = {
   name: string;
@@ -27,6 +27,8 @@ export type ExtractedOffering = {
   category: string | null;
   kind: "product" | "service";
   method: "structured_data" | "deterministic";
+  /** The product's own picture as found (absolute URL or small data URI) — downloaded and stored by the catalog, never shown from the source. */
+  imageUrl?: string | null;
 };
 
 export type ExtractedBusinessSchema = {
@@ -136,9 +138,9 @@ export function extractFromHtml(html: string, pageUrl: string): PageExtraction {
   for (const node of flattenJsonLd(jsonLd)) {
     const types = typeList(node);
     if (types.some((t) => t === "FAQPage")) faqs.push(...faqsFromSchema(node));
-    if (types.some((t) => t === "Menu" || t === "MenuSection")) offerings.push(...offeringsFromMenu(node, null));
+    if (types.some((t) => t === "Menu" || t === "MenuSection")) offerings.push(...offeringsFromMenu(node, null, base));
     if (types.some((t) => t === "MenuItem" || t === "Product" || t === "Service" || t === "Offer")) {
-      const item = offeringFromSchema(node, null);
+      const item = offeringFromSchema(node, null, base);
       if (item) offerings.push(item);
     }
     if (!business && isLocalBusiness(node)) business = businessFromSchema(node);
@@ -163,7 +165,7 @@ export function extractFromHtml(html: string, pageUrl: string): PageExtraction {
   const text = clean($("body").text()).slice(0, MAX_TEXT);
 
   // Priced lines in lists/tables (only when structured data had none — avoids double counting).
-  if (offerings.length === 0) offerings.push(...offeringsFromMarkup($));
+  if (offerings.length === 0) offerings.push(...offeringsFromMarkup($, base));
 
   // Phones written as text (only well-formed international or local-with-prefix numbers).
   for (const match of text.matchAll(PHONE_IN_TEXT)) {
@@ -340,16 +342,16 @@ function faqsFromSchema(node: Node): { question: string; answer: string }[] {
   return out;
 }
 
-function offeringsFromMenu(node: Node, category: string | null): ExtractedOffering[] {
+function offeringsFromMenu(node: Node, category: string | null, base: URL | null): ExtractedOffering[] {
   const out: ExtractedOffering[] = [];
   const sectionName = typeList(node).includes("MenuSection") ? str(node.name) : category;
   for (const key of ["hasMenuSection", "hasMenuItem"]) {
     const children = node[key];
     for (const child of Array.isArray(children) ? children : children ? [children] : []) {
       if (!isNode(child)) continue;
-      if (typeList(child).includes("MenuSection")) out.push(...offeringsFromMenu(child, str(child.name) ?? sectionName));
+      if (typeList(child).includes("MenuSection")) out.push(...offeringsFromMenu(child, str(child.name) ?? sectionName, base));
       else {
-        const item = offeringFromSchema(child, sectionName);
+        const item = offeringFromSchema(child, sectionName, base);
         if (item) out.push(item);
       }
     }
@@ -357,7 +359,7 @@ function offeringsFromMenu(node: Node, category: string | null): ExtractedOfferi
   return out;
 }
 
-function offeringFromSchema(node: Node, category: string | null): ExtractedOffering | null {
+function offeringFromSchema(node: Node, category: string | null, base: URL | null): ExtractedOffering | null {
   const name = str(node.name);
   if (!name) return null;
   const offers = Array.isArray(node.offers) ? node.offers[0] : node.offers;
@@ -381,7 +383,15 @@ function offeringFromSchema(node: Node, category: string | null): ExtractedOffer
     category,
     kind: typeList(node).includes("Service") ? "service" : "product",
     method: "structured_data",
+    imageUrl: imageFromSchema(node.image, base),
   };
+}
+
+/** schema.org `image`: a URL, an ImageObject, or a list of either. */
+function imageFromSchema(value: unknown, base: URL | null): string | null {
+  const first = Array.isArray(value) ? value[0] : value;
+  const raw = typeof first === "string" ? first : isNode(first) ? (str(first.url) ?? str(first.contentUrl)) : null;
+  return productImageRef(raw, base);
 }
 
 // ── Markup (lists / tables / item cards) ─────────────────────────────────
@@ -460,7 +470,7 @@ function textPieces($: cheerio.CheerioAPI, el: unknown): string[] {
     .filter((piece) => piece && !UI_WORDS.test(piece));
 }
 
-function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
+function offeringsFromMarkup($: cheerio.CheerioAPI, base: URL | null): ExtractedOffering[] {
   const selector = "li, tr, dt, [class*=item], [class*=product], [class*=menu], [class*=service], [class*=card], [class*=dish]";
   type Hit = { el: unknown; name: string; description: string | null; price: FoundPrice; heading: string | null };
   const hits: Hit[] = [];
@@ -500,8 +510,22 @@ function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
     hits.push({ el, name, description: description && description.length > 2 ? description : null, price, heading });
   });
   // Keep the innermost element for each priced line (a card and its row both match).
-  return hits
-    .filter((hit) => !$(hit.el as never).find("*").toArray().some((child) => qualified.has(child)))
+  const kept = hits.filter((hit) => !$(hit.el as never).find("*").toArray().some((child) => qualified.has(child)));
+  const keptEls = kept.map((hit) => hit.el);
+  /** The item's picture: in the priced element, or in the card around it as long as that card holds no other item. */
+  const imageFor = (el: unknown): string | null => {
+    let node: unknown = el;
+    for (let depth = 0; depth < 4 && node; depth++) {
+      const holds = keptEls.filter((other) => other === node || $(node as never).find(other as never).length > 0).length;
+      if (holds > 1) return null;
+      const found = imageInElement($, node, base);
+      if (found) return found;
+      const parent = $(node as never).parent();
+      node = parent.length && parent[0].type === "tag" && parent[0].name !== "body" ? parent[0] : null;
+    }
+    return null;
+  };
+  return kept
     .map((hit) => ({
       name: hit.name,
       amount: hit.price.amount,
@@ -510,6 +534,7 @@ function offeringsFromMarkup($: cheerio.CheerioAPI): ExtractedOffering[] {
       category: hit.heading && hit.heading.length <= 60 ? hit.heading : null,
       kind: "product" as const,
       method: "deterministic" as const,
+      imageUrl: imageFor(hit.el),
     }));
 }
 
@@ -596,7 +621,9 @@ function dedupeOfferings(items: ExtractedOffering[]): ExtractedOffering[] {
   const seen = new Map<string, ExtractedOffering>();
   for (const item of items) {
     const key = `${item.name.toLowerCase()}|${item.amount ?? ""}|${item.currency ?? ""}`;
-    if (!seen.has(key)) seen.set(key, item);
+    const first = seen.get(key);
+    if (!first) seen.set(key, item);
+    else if (!first.imageUrl && item.imageUrl) seen.set(key, { ...first, imageUrl: item.imageUrl });
   }
   return [...seen.values()];
 }

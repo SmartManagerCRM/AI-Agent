@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><title>Test Menu</title></head>
 <body>
-<header><h1>Test Restaurant</h1><button class="cart-btn">Cart (0)</button></header>
+<header><img src="https://cdn.example.com/brand/logo.png" width="160" alt="Test Restaurant"><h1>Test Restaurant</h1><button class="cart-btn">Cart (0)</button></header>
 <main>
 <!-- Cards rendered by a script: no whitespace between the name, description and footer tags,
      a category tag on each card and an "Add" button — the layout that produced
@@ -11,10 +11,12 @@
   <h2>Drinks</h2>
   <div class="menu-grid">
     <article class="menu-item">
+      <img class="item-photo" src="https://cdn.example.com/menu/cappuccino.jpg" width="400" height="300" alt="Cappuccino">
       <span class="item-tag">Drinks</span>
       <div class="item-info"><h3 class="item-name">Cappuccino</h3><p class="item-desc">Espresso with steamed milk and foam</p></div> <div class="item-footer"><span class="item-price">SAR 15.00</span> <button class="add-btn">Add</button></div>
     </article>
     <article class="menu-item">
+      <img class="item-photo lazy" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" data-src="https://cdn.example.com/menu/lemonade.webp" alt="">
       <span class="item-tag">Drinks</span>
       <div class="item-info"><h3 class="item-name">Fresh Lemonade</h3><p class="item-desc">Refreshing homemade lemonade</p></div> <div class="item-footer"><span class="item-price">SAR 13.00</span> <button class="add-btn">Add</button></div>
     </article>
@@ -24,10 +26,12 @@
   <h2>Starters</h2>
   <div class="menu-grid">
     <article class="menu-item">
+      <picture><img srcset="https://cdn.example.com/menu/hummus-400.jpg 400w, https://cdn.example.com/menu/hummus-800.jpg 800w" src="https://cdn.example.com/menu/hummus-400.jpg" alt=""></picture>
       <span class="item-tag">Starters</span>
       <div class="item-info"><h3 class="item-name">Classic Hummus</h3><p class="item-desc">Chickpeas, tahini, lemon and olive oil</p></div> <div class="item-footer"><span class="item-price">SAR 18.00</span> <button class="add-btn">Add</button></div>
     </article>
     <article class="menu-item">
+      <div class="item-photo" style="background-image: url('https://cdn.example.com/menu/wings.jpg')"></div>
       <span class="item-tag">Starters</span>
       <div class="item-info"><h3 class="item-name">Crispy Chicken Wings</h3><p class="item-desc">Golden wings with house seasoning</p></div> <div class="item-footer"><span class="item-price">SAR 26.00</span> <button class="add-btn">Add</button></div>
     </article>

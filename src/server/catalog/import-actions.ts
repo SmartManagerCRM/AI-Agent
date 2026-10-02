@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import { createUserClient } from "@/server/supabase/clients";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
 import { addCatalogItems, existingCatalogNames } from "./bulk";
+import { attachProductImages, bucketWriter, type ImageAttachResult } from "./product-images";
 import {
   extractItemsFromHtml,
+  pageAddressOf,
   extractItemsFromLines,
   extractLinesFromPdf,
   prepareCatalogItems,
@@ -29,6 +31,10 @@ export type ImportState =
       added?: string[];
       needsPrice?: number;
       skipped?: { unpriced: number; duplicates: number; unreadable: number };
+      /** Photos found with the items: stored, not downloadable, left for lack of time. */
+      images?: ImageAttachResult;
+      /** The file shows photos by relative path and says nothing about where it came from. */
+      imagesUnreachable?: boolean;
     }
   | undefined;
 
@@ -66,6 +72,7 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
     return { ok: false, message: "That file isn't HTML or PDF — save your price list as a web page (.html) or a PDF." };
 
   let raw: RawCatalogItem[];
+  let imagesUnreachable = false;
   try {
     if (isPdf) {
       const lines = await extractLinesFromPdf(bytes, MAX_PDF_PAGES);
@@ -80,7 +87,9 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
       }
       raw = extractItemsFromLines(lines);
     } else {
-      raw = extractItemsFromHtml(decodeHtml(bytes));
+      const html = decodeHtml(bytes);
+      raw = extractItemsFromHtml(html);
+      imagesUnreachable = !pageAddressOf(html) && /<img\b[^>]*\bsrc=["'](?!https?:|data:)[^"']+/i.test(html);
     }
   } catch {
     return { ok: false, message: "That file couldn't be read — it may be damaged or password-protected." };
@@ -108,6 +117,17 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
 
   const result = await addCatalogItems(supabase, tenant, items, { kind, source: "file_import", active: () => true });
   if (!result.ok) return { ok: false, message: result.message };
+
+  // Each product's photo from the file: downloaded, checked, re-encoded and stored in our own bucket.
+  const jobs = result.inserted.flatMap((i) => (i.imageUrl ? [{ productId: i.id, imageUrl: i.imageUrl }] : []));
+  let images: ImageAttachResult | undefined;
+  if (jobs.length > 0) {
+    try {
+      images = await attachProductImages(supabase, bucketWriter(serviceClient()), tenant.id, jobs, { budgetMs: 40_000 });
+    } catch {
+      images = { attached: 0, failed: jobs.length, skipped: 0 };
+    }
+  }
   revalidatePath(`/${locale}/${slug}/products`);
   revalidatePath(`/${locale}/${slug}/bookings`);
   revalidatePath(`/${locale}/${slug}`);
@@ -117,5 +137,7 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
     added: items.slice(0, 30).map((i) => i.name),
     needsPrice: items.filter((i) => i.sourcePrice).length,
     skipped: prepared.skipped,
+    images,
+    imagesUnreachable: imagesUnreachable && !images?.attached,
   };
 }

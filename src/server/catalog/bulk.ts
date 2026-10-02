@@ -11,6 +11,9 @@ import type { CatalogItem } from "./import-extract";
 
 export type CatalogTenant = { id: string; currency: string; default_language: string };
 
+/** A product just added, with the picture found for it (to download and store). */
+export type InsertedItem = { id: string; imageUrl: string | null };
+
 export type AddOptions = {
   kind: "product" | "service";
   source: "brain" | "file_import";
@@ -41,8 +44,8 @@ export async function addCatalogItems(
   tenant: CatalogTenant,
   items: (CatalogItem & { factKey?: string | null })[],
   options: AddOptions,
-): Promise<{ ok: true; added: number } | { ok: false; message: string }> {
-  if (items.length === 0) return { ok: true, added: 0 };
+): Promise<{ ok: true; added: number; inserted: InsertedItem[] } | { ok: false; message: string }> {
+  if (items.length === 0) return { ok: true, added: 0, inserted: [] };
   const { data: currency } = await supabase
     .from("currencies")
     .select("exponent")
@@ -71,7 +74,7 @@ export async function addCatalogItems(
       const { error } = await supabase.from("bookable_services").insert(rows.slice(i, i + 200));
       if (error) return denied;
     }
-    return { ok: true, added: rows.length };
+    return { ok: true, added: rows.length, inserted: [] };
   }
 
   // Categories: reuse by name (any language), create the missing ones.
@@ -104,9 +107,12 @@ export async function addCatalogItems(
     brain_fact_key: i.factKey ?? null,
     source_price: i.sourcePrice ?? null,
   }));
+  const inserted: InsertedItem[] = [];
   for (let i = 0; i < rows.length; i += 200) {
-    const { error } = await supabase.from("products").insert(rows.slice(i, i + 200));
+    const { data, error } = await supabase.from("products").insert(rows.slice(i, i + 200)).select("id");
     if (error) return denied;
+    // Rows come back in the order they were sent.
+    (data ?? []).forEach((row, j) => inserted.push({ id: row.id, imageUrl: items[i + j]?.imageUrl ?? null }));
   }
-  return { ok: true, added: rows.length };
+  return { ok: true, added: rows.length, inserted };
 }

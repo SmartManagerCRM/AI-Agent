@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 
 import type { AgentExperienceProps } from "@/components/agent-public/agent-experience";
 import { isLocale, LOCALES, type Locale } from "@/i18n/locales";
+import { productImageUrl } from "@/lib/product-image";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import type { PublicTenant } from "@/server/agent-public/tenant";
 import type { PaymentMethod } from "@/server/commerce/cart";
@@ -51,7 +52,7 @@ export async function loadAgentExperience(
     supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
     supabase
       .from("products")
-      .select("id, category_id, name, description, price_minor")
+      .select("id, category_id, name, description, price_minor, image_path")
       .eq("tenant_id", tenant.id)
       .eq("status", "active")
       .order("created_at"),
@@ -122,6 +123,7 @@ export async function loadAgentExperience(
         // Descriptions are display-only: ship just the one this customer will read.
         description: descriptionFor(p.description, locale, tenant.defaultLanguage),
         priceMinor: p.price_minor,
+        imageUrl: productImageUrl(p.image_path),
       })),
       services: (services ?? []).map((s) => ({ id: s.id, name: s.name, durationMinutes: s.duration_minutes, priceMinor: s.price_minor })),
       popularProductIds: [...popularity.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id),

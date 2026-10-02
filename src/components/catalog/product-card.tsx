@@ -22,6 +22,8 @@ export type ProductCardData = {
   source: "manual" | "brain" | "file_import";
   sourcePrice: { amount: string | null; currency: string | null } | null;
   categoryId: string | null;
+  /** Public URL of the stored photo, null when the product has none. */
+  imageUrl: string | null;
 };
 
 const STATUS_STYLE: Record<ProductCardData["status"], string> = {
@@ -59,8 +61,19 @@ export function ProductCard({
 
   return (
     <li className="flex flex-col rounded-lg border border-slate-200 p-3" data-testid="product-card">
-      <div className="mb-2 flex h-24 items-center justify-center rounded-md bg-slate-50 text-slate-300">
-        <Icon path={NAV_ICON_PATHS.products} size={28} />
+      <div className="mb-2 flex h-32 items-center justify-center overflow-hidden rounded-md bg-slate-50 text-slate-300">
+        {product.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- our own storage bucket; already resized to ≤ 1000 px WebP
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            loading="lazy"
+            className="h-full w-full object-cover"
+            data-testid="product-photo"
+          />
+        ) : (
+          <Icon path={NAV_ICON_PATHS.products} size={28} />
+        )}
       </div>
 
       {editing ? (
@@ -118,6 +131,20 @@ export function ProductCard({
               className="rounded-md border border-neutral-300 px-2 py-1.5"
             />
           </label>
+          <label className="flex flex-col gap-1">
+            {product.imageUrl ? "Replace photo" : "Photo"}
+            <input
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="max-w-full text-xs"
+            />
+          </label>
+          {product.imageUrl && (
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" name="removePhoto" /> Remove photo
+            </label>
+          )}
           {state && !state.ok && <p className="text-xs text-red-600">{state.message}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={pending} className="px-3 py-1.5">
