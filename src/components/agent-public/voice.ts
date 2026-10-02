@@ -206,6 +206,27 @@ export function speechChunks(text: string): string[] {
 /** Delivery: unhurried, natural pitch (shifting the pitch of a good voice makes it sound synthetic). */
 export const SPEECH_RATE = 0.97;
 
+/** A language the Agent speaks, for a sentence of speech. */
+export type SpeechLanguage = "en" | "ar" | "fr";
+
+/**
+ * The sentences to speak, in order, each with the language of the part it
+ * came from (an Arabic introduction, then a greeting typed in English).
+ * Shared by the premium voice (the server generates exactly these
+ * sentences) and the device-voice fallback, so both speak the same pieces.
+ */
+export function speechSentences(parts: readonly string[], locale: string): { text: string; language: SpeechLanguage }[] {
+  const out: { text: string; language: SpeechLanguage }[] = [];
+  for (const part of parts) {
+    const text = spokenText(part);
+    if (!text) continue;
+    const detected = replyLanguage(text, locale);
+    const language: SpeechLanguage = detected === "ar" || detected === "fr" ? detected : "en";
+    for (const chunk of speechChunks(text)) out.push({ text: chunk, language });
+  }
+  return out;
+}
+
 /**
  * What to say, sentence by sentence, and with which voice: each part in the
  * language it is written in (an Arabic introduction, then a greeting the

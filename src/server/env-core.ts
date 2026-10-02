@@ -76,6 +76,15 @@ const serverEnvSchema = z.object({
    */
   GOOGLE_PLACES_API_KEY: z.string().min(10).optional(),
   /**
+   * ElevenLabs API key for the Agent's premium voice (spoken greeting and
+   * replies). Server-side only — the browser gets audio from the Agent's own
+   * endpoint, never the key. Optional: without it (or without an active
+   * `voice_profiles` row) the Agent speaks with the customer's device voice.
+   * Which voice and model speak, and their price, are data in
+   * `voice_profiles`, not environment variables.
+   */
+  ELEVENLABS_API_KEY: z.string().min(10).optional(),
+  /**
    * `on` prints `[PERF] <operation>: <ms>` timing lines for the proxy,
    * auth/tenant resolution and the heaviest console queries (see
    * `src/server/perf.ts`). Off unless explicitly set — never logs values,

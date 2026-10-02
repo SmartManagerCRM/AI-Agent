@@ -6,6 +6,7 @@ import { Button } from "@/components/console/button";
 import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { productImageUrl } from "@/lib/product-image";
+import { activeVoiceProfile } from "@/server/voice";
 import { loadGoLive } from "@/server/agent-public/go-live";
 import { publicAgentUrls } from "@/server/agent-public/urls";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
@@ -25,11 +26,13 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
 
-  const [{ data: settings }, { data: stats }, goLive, usage] = await Promise.all([
+  const [{ data: settings }, { data: stats }, goLive, usage, maleVoice, femaleVoice] = await Promise.all([
     supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.rpc("agent_interaction_stats", { p_tenant_id: tenant.id }),
     loadGoLive(supabase, tenant, locale),
     loadSubscriberUsage(supabase, tenant.id),
+    activeVoiceProfile("male"),
+    activeVoiceProfile("female"),
   ]);
   const summary = stats?.[0];
   const agentSettings = settings?.agent ?? { active: false, assistant_name: null, greeting: null, tone: "friendly" };
@@ -115,7 +118,16 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">AI behavior</h2>
-        <AgentSettingsForm tenantId={tenant.id} slug={slug} locale={locale} current={agentSettings} />
+        <AgentSettingsForm
+          tenantId={tenant.id}
+          slug={slug}
+          locale={locale}
+          current={agentSettings}
+          premiumVoices={{
+            male: maleVoice ? (maleVoice.voiceName ?? "Premium") : null,
+            female: femaleVoice ? (femaleVoice.voiceName ?? "Premium") : null,
+          }}
+        />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">

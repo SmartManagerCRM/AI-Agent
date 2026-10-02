@@ -16,6 +16,7 @@ function envPresence() {
     PLATFORM_ROOT_DOMAIN: Boolean(process.env.PLATFORM_ROOT_DOMAIN),
     CONSOLE_URL: Boolean(process.env.CONSOLE_URL),
     AGENT_SUBDOMAIN: Boolean(process.env.AGENT_SUBDOMAIN),
+    ELEVENLABS_API_KEY: Boolean(process.env.ELEVENLABS_API_KEY),
   };
 }
 

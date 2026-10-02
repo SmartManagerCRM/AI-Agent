@@ -5,12 +5,15 @@ import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/console/button";
 import { DEFAULT_VOICE_GENDER, planSpeech, SPEECH_RATE, type VoiceGender } from "@/components/agent-public/voice";
 import { updateAgentSettingsAction } from "@/server/ai/actions";
+import { previewAgentVoiceAction } from "@/server/voice/actions";
 
 type Props = {
   tenantId: string;
   slug: string;
   locale: string;
   current: { active: boolean; assistant_name: string | null; greeting: string | null; tone: string | null; voice?: VoiceGender | null };
+  /** The premium voice set up for each gender (its name), or null where the device voice is used. */
+  premiumVoices: Record<VoiceGender, string | null>;
 };
 
 /** The two Agent voices, with the character each is chosen for. */
@@ -27,16 +30,41 @@ const VOICES: { value: VoiceGender; label: string; description: string }[] = [
   },
 ];
 
-export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
+export function AgentSettingsForm({ tenantId, slug, locale, current, premiumVoices }: Props) {
   const [error, formAction, pending] = useActionState(updateAgentSettingsAction, undefined);
   const [voice, setVoice] = useState<VoiceGender>(current.voice ?? DEFAULT_VOICE_GENDER);
   const [previewNote, setPreviewNote] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const previewAudio = useRef<HTMLAudioElement | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const greetingRef = useRef<HTMLInputElement>(null);
 
   // Speaks the name and greeting as typed, with this device's voice of the chosen gender — what a
   // customer on the same kind of phone or computer hears.
-  const preview = () => {
+  const preview = async () => {
+    previewAudio.current?.pause();
+    if (premiumVoices[voice]) {
+      // Premium voice: generated on the server (and cached), played here.
+      const audio = (previewAudio.current ??= new Audio());
+      setPreviewing(true);
+      setPreviewNote("Generating the premium voice…");
+      const result = await previewAgentVoiceAction({
+        locale,
+        slug,
+        gender: voice,
+        name: nameRef.current?.value ?? "",
+        greeting: greetingRef.current?.value ?? "",
+      }).catch(() => ({ ok: false as const, message: "The premium voice didn't answer — please try again." }));
+      setPreviewing(false);
+      if (!result.ok) {
+        setPreviewNote(result.message);
+        return;
+      }
+      audio.src = `data:audio/mpeg;base64,${result.audio}`;
+      await audio.play().catch(() => {});
+      setPreviewNote(`Playing the premium ${voice} voice${result.voiceName ? ` (“${result.voiceName}”)` : ""}.`);
+      return;
+    }
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       setPreviewNote("This browser can't speak — try Chrome, Safari or Edge.");
       return;
@@ -115,7 +143,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="secondary" onClick={preview}>
+          <Button type="button" variant="secondary" onClick={preview} disabled={previewing}>
             ▶ Preview voice
           </Button>
           {previewNote && (
@@ -124,10 +152,17 @@ export function AgentSettingsForm({ tenantId, slug, locale, current }: Props) {
             </span>
           )}
         </div>
-        <p className="text-xs text-slate-500">
-          Your Agent speaks with each customer&apos;s own phone or computer voice — free, no AI cost. It picks that device&apos;s most
-          natural voice of the gender you choose; a device without one uses its standard voice.
-        </p>
+        {premiumVoices[voice] ? (
+          <p className="text-xs text-slate-500">
+            Premium voice: every customer hears this same natural {voice} voice, on any phone or computer, in English, Arabic and
+            French. Phrases your Agent repeats (like your greeting) are prepared once and reused.
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Your Agent speaks with each customer&apos;s own phone or computer voice — free, no AI cost. It picks that device&apos;s
+            most natural voice of the gender you choose; a device without one uses its standard voice.
+          </p>
+        )}
       </fieldset>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

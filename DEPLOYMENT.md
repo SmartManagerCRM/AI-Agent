@@ -119,6 +119,7 @@ identically across all three Node.js applications:
 | `PUBLIC_URL_SCHEME` | `https` |
 | `PUBLIC_URL_PORT` | leave unset (only needed for a non-default port, e.g. local dev) |
 | `GEMINI_API_KEY` | paid-tier Gemini key (optional — AI features degrade to "not configured" without it) |
+| `ELEVENLABS_API_KEY` | ElevenLabs API key for the Agent's premium voice (optional — without it the Agent speaks with each customer's device voice). Server-side only. |
 | `ANTHROPIC_API_KEY` | optional fallback provider |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | generate once with `openssl rand -base64 32`, reuse the same value everywhere — required correctness insurance for this three-instance setup (§3), even though a shared build artifact makes it unlikely to bite in practice; see `.env.example` |
 | `PORT` | set automatically by hPanel to whatever port it assigns your app — don't override it |
@@ -368,7 +369,28 @@ install (only the console's pages link the manifest).
   device.
 - The landing page's "Ask" bar has a mic: it opens the conversation and
   starts listening in one tap.
-- **Agent voice** (Agent settings → Voice: Male, the default, or Female;
+- **Premium voice (ElevenLabs)** — the production voice engine once
+  `ELEVENLABS_API_KEY` is set on the Hostinger apps (migration
+  `20261004090000_agent_premium_voice.sql`, already applied to production):
+  - Which voice speaks is data: `voice_profiles` (one active row per gender:
+    voice id, model `eleven_flash_v2_5`, voice settings, price per million
+    characters). Starting voices: male "Rick - Conversational AI", female
+    "Sarah - Mature, Reassuring, Confident" — both checked to work on the
+    current ElevenLabs plan (many library voices need the Creator plan).
+    Change a voice by updating its row; no deploy needed.
+  - Flow: Agent text → audio cache (private bucket `agent-voice`, one file per
+    business + voice + language + sentence) → hit: played at once, no cost;
+    miss: ElevenLabs, streamed to the customer while it is stored for next
+    time. The greeting and repeated replies are generated once.
+  - The page asks `POST /api/agent/voice` for sentence n of the greeting or of
+    one of the Agent's own replies (never arbitrary text); the key never
+    leaves the server. Interrupting stops playback at once and nothing more is
+    generated.
+  - Cost goes through the AI usage guard (reserve → settle) and the ledger
+    (`agent_interactions.request_type = 'voice_tts'`, characters in
+    `input_tokens`), so it counts toward each plan's AI limits; at the limit,
+    on a provider error or with no key, the device voice is used instead.
+- **Device voice** (no premium key; Agent settings → Voice: Male, the default, or Female;
   stored as `tenant_settings.agent.voice`, no migration). Spoken with each
   customer's own device voices (free): the most natural voice of the chosen
   gender in the reply's language (Edge "Natural", Apple "Enhanced",

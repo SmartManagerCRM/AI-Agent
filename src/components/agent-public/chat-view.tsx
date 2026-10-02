@@ -35,6 +35,7 @@ type Suggestion = { key: string; label: string; message: string };
 
 /** The greeting bubble's id for Listen / Stop (chat messages are numbered from 1). */
 const GREETING_ID = 0;
+const GREETING_SOURCE = { kind: "greeting" } as const;
 const GREETED_KEY = "agent-greeted:";
 
 function sessionFlag(key: string): boolean {
@@ -85,7 +86,14 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     () => [...products, ...categories, ...services].flatMap((item) => Object.values(item.name)),
     [products, categories, services],
   );
-  const voice = useVoice({ locale: ui.locale, gender: ui.voiceGender, names, onInterim, onFinal });
+  const voice = useVoice({
+    locale: ui.locale,
+    gender: ui.voiceGender,
+    premium: ui.premiumVoice ? { slug: ui.slug, surface: ui.surface } : null,
+    names,
+    onInterim,
+    onFinal,
+  });
   const { speak, start: startListening } = voice;
   const [muted, setMuted] = useVoiceMuted();
 
@@ -112,13 +120,13 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
       started = true;
       setSessionFlag(greetedKey);
     };
-    speak(GREETING_ID, greetingRef.current, { onStart });
+    speak(GREETING_ID, greetingRef.current, { onStart, source: GREETING_SOURCE });
     const atFirstTap = (e: Event) => {
       stopWaiting();
       if (started || sessionFlag(greetedKey)) return;
       // One try per visit; a customer whose first tap is the mic wants to talk, not to be greeted.
       setSessionFlag(greetedKey);
-      if (!(e.target instanceof Element && e.target.closest("[data-voice-mic]"))) speak(GREETING_ID, greetingRef.current, { onStart });
+      if (!(e.target instanceof Element && e.target.closest("[data-voice-mic]"))) speak(GREETING_ID, greetingRef.current, { onStart, source: GREETING_SOURCE });
     };
     const stopWaiting = () => {
       window.removeEventListener("pointerdown", atFirstTap, true);
@@ -136,7 +144,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   useEffect(() => {
     if (!last || last.role !== "assistant" || !previous?.voice || spokenReplies.current.has(last.id)) return;
     spokenReplies.current.add(last.id);
-    if (!muted) speak(last.id, last.text);
+    if (!muted) speak(last.id, last.text, { source: last.serverId ? { kind: "message", id: last.serverId } : undefined });
   }, [last, previous, speak, muted]);
 
   useEffect(() => {
@@ -231,7 +239,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
             {voice.canSpeak && (
               <ListenButton
                 speaking={voice.speakingId === GREETING_ID}
-                toggle={() => (voice.speakingId === GREETING_ID ? voice.stopSpeaking() : voice.speak(GREETING_ID, greetingParts))}
+                toggle={() => (voice.speakingId === GREETING_ID ? voice.stopSpeaking() : voice.speak(GREETING_ID, greetingParts, { source: GREETING_SOURCE }))}
               />
             )}
           </AssistantRow>
@@ -261,7 +269,10 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
                 voice.canSpeak && m.role === "assistant"
                   ? {
                       speaking: voice.speakingId === m.id,
-                      toggle: () => (voice.speakingId === m.id ? voice.stopSpeaking() : voice.speak(m.id, m.text)),
+                      toggle: () =>
+                        voice.speakingId === m.id
+                          ? voice.stopSpeaking()
+                          : voice.speak(m.id, m.text, { source: m.serverId ? { kind: "message", id: m.serverId } : undefined }),
                     }
                   : undefined
               }

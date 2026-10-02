@@ -48,6 +48,8 @@ export type AgentExperienceProps = {
   backgroundUrl: string | null;
   /** The Agent's spoken voice, chosen in Agent settings. */
   voiceGender: VoiceGender;
+  /** Premium (server-generated) voice is set up for this Agent. */
+  premiumVoice: boolean;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
@@ -150,6 +152,7 @@ export function AgentExperience(props: AgentExperienceProps) {
       greeting: props.greeting,
       backgroundUrl: props.backgroundUrl,
       voiceGender: props.voiceGender,
+      premiumVoice: props.premiumVoice,
       categories: props.categories,
       products: props.products,
       services: props.services,

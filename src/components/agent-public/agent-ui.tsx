@@ -42,6 +42,8 @@ export type AgentUi = {
   /** The business's photo behind the whole Agent, if it set one. */
   backgroundUrl: string | null;
   voiceGender: VoiceGender;
+  /** The platform's premium voice speaks for this Agent (device voice only as a fallback). */
+  premiumVoice: boolean;
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];

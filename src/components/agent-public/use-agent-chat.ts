@@ -17,6 +17,8 @@ export type ChatMessage = {
   productIds?: string[];
   /** The customer spoke this message (the transcript is what was sent). */
   voice?: boolean;
+  /** The stored reply's id (assistant messages) — what the premium voice speaks. */
+  serverId?: string;
 };
 
 /**
@@ -76,6 +78,7 @@ export function useAgentChat({
             handledBy: result.handledBy,
             cart: result.cart,
             productIds: result.productIds,
+            serverId: result.messageId,
           },
         ]);
       }

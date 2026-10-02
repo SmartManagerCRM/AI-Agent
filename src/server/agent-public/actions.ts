@@ -33,7 +33,15 @@ const sendMessageSchema = z.object({
 });
 
 export type SendAgentMessageState =
-  | { reply: string; handledBy: "deterministic" | "ai"; message: string; cart?: CartView | null; productIds?: string[] }
+  | {
+      reply: string;
+      handledBy: "deterministic" | "ai";
+      message: string;
+      cart?: CartView | null;
+      productIds?: string[];
+      /** The stored reply's id — the page asks the voice endpoint to speak exactly this message. */
+      messageId?: string;
+    }
   | { error: string }
   | undefined;
 
@@ -104,14 +112,18 @@ export async function sendAgentMessageAction(
     activeTable,
   });
 
-  await supabase.from("conversation_messages").insert({
-    tenant_id: tenant.id,
-    conversation_id: conversation.id,
-    role: "assistant",
-    content: result.reply,
-    handled_by: result.handledBy,
-    modality,
-  });
+  const { data: stored } = await supabase
+    .from("conversation_messages")
+    .insert({
+      tenant_id: tenant.id,
+      conversation_id: conversation.id,
+      role: "assistant",
+      content: result.reply,
+      handled_by: result.handledBy,
+      modality,
+    })
+    .select("id")
+    .single();
   await supabase.from("conversations").update({ last_message_at: new Date().toISOString() }).eq("id", conversation.id);
 
   return {
@@ -120,6 +132,7 @@ export async function sendAgentMessageAction(
     message: parsed.data.message,
     cart: "cart" in result ? (result.cart ?? null) : null,
     productIds: "productIds" in result ? result.productIds : undefined,
+    messageId: stored?.id,
   };
 }
 

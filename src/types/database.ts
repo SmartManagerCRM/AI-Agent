@@ -466,6 +466,25 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
         Relationships: [];
       };
+      voice_profiles: {
+        Row: {
+          id: string;
+          gender: "male" | "female";
+          provider: "elevenlabs";
+          voice_id: string;
+          voice_name: string | null;
+          model: string;
+          price_per_million_chars_usd: number;
+          settings: Record<string, number | boolean>;
+          is_active: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["voice_profiles"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["voice_profiles"]["Row"]>;
+        Relationships: [];
+      };
       agent_interactions: {
         Row: {
           id: string;

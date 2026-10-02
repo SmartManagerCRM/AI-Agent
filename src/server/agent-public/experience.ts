@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers";
 import type { AgentExperienceProps } from "@/components/agent-public/agent-experience";
 import { isLocale, LOCALE_COOKIE, LOCALES, type Locale } from "@/i18n/locales";
 import { DEFAULT_VOICE_GENDER } from "@/components/agent-public/voice";
+import { activeVoiceProfile } from "@/server/voice";
 import { productImageUrl } from "@/lib/product-image";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import type { PublicTenant } from "@/server/agent-public/tenant";
@@ -95,6 +96,8 @@ export async function loadAgentExperience(
   const businessName =
     tenant.businessName[locale] ?? tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
 
+  const voiceGender = settings?.agent?.voice === "female" ? "female" : DEFAULT_VOICE_GENDER;
+
   if (!settings?.agent?.active) {
     return { active: false, locale, businessName, inactiveText: String(messages.inactive ?? "") };
   }
@@ -120,7 +123,8 @@ export async function loadAgentExperience(
       about: localized(aboutEntry?.content, locale, tenant.defaultLanguage, true),
       greeting: settings.agent.greeting ?? null,
       backgroundUrl: productImageUrl(settings.agent.background_path),
-      voiceGender: settings.agent.voice === "female" ? "female" : DEFAULT_VOICE_GENDER,
+      voiceGender,
+      premiumVoice: (await activeVoiceProfile(voiceGender)) !== null,
       categories: (categories ?? []).map((c) => ({ id: c.id, name: c.name })),
       products: (products ?? []).map((p) => ({
         id: p.id,

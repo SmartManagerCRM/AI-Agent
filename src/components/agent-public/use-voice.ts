@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import { pickTranscript, planSpeech, SPEECH_RATE, speechLang, speechVocabulary, voiceErrorKey, type VoiceGender } from "./voice";
+import { PremiumVoicePlayer, type VoiceSource } from "./premium-voice";
+import { pickTranscript, planSpeech, SPEECH_RATE, speechLang, speechSentences, speechVocabulary, voiceErrorKey, type VoiceGender } from "./voice";
 
 /** The parts of the Web Speech API used here (not every TypeScript DOM lib ships them). */
 type RecognitionResult = ArrayLike<{ transcript: string }> & { isFinal: boolean };
@@ -87,6 +88,7 @@ const ALTERNATIVES = 5;
 export function useVoice({
   locale,
   gender,
+  premium,
   names,
   onInterim,
   onFinal,
@@ -94,6 +96,11 @@ export function useVoice({
   locale: string;
   /** The Agent's voice, chosen by the business in Agent settings. */
   gender: VoiceGender;
+  /**
+   * Premium voice (server-generated, e.g. ElevenLabs) for this Agent, when the platform has it set
+   * up: then the device voice is used only if a premium sentence can't be delivered.
+   */
+  premium: { slug: string; surface: "external_agent" | "website_widget" } | null;
   /** This business's own product, category and service names (every language) — what customers are likely to say. */
   names: readonly string[];
   /** The words heard so far (shown in the composer while listening). */
@@ -102,7 +109,28 @@ export function useVoice({
   onFinal: (text: string) => void;
 }) {
   const canListen = useCanListen();
-  const canSpeak = useSyncExternalStore(noSubscription, synthesisSupported, onServer);
+  const deviceCanSpeak = useSyncExternalStore(noSubscription, synthesisSupported, onServer);
+  const hasAudio = useSyncExternalStore(noSubscription, () => typeof Audio !== "undefined", onServer);
+  const canSpeak = premium ? hasAudio : deviceCanSpeak;
+  const playerRef = useRef<PremiumVoicePlayer | null>(null);
+  const playToken = useRef(0);
+  const premiumSlug = premium?.slug;
+  const premiumSurface = premium?.surface;
+  useEffect(() => {
+    if (!premiumSlug || !premiumSurface) return;
+    const player = new PremiumVoicePlayer({ slug: premiumSlug, surface: premiumSurface });
+    playerRef.current = player;
+    // Phones only play sound after a tap: the customer's first tap unlocks the Agent's voice.
+    const unlock = () => player.unlock();
+    window.addEventListener("pointerdown", unlock, { capture: true, once: true });
+    window.addEventListener("keydown", unlock, { capture: true, once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock, true);
+      window.removeEventListener("keydown", unlock, true);
+      player.stop();
+      playerRef.current = null;
+    };
+  }, [premiumSlug, premiumSurface]);
   const [listening, setListening] = useState(false);
   const [speakingId, setSpeakingId] = useState<number | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -128,6 +156,8 @@ export function useVoice({
   const lang = speechLang(locale, typeof navigator === "undefined" ? [] : (navigator.languages ?? []));
 
   const stopSpeaking = useCallback(() => {
+    playToken.current++;
+    playerRef.current?.stop();
     if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
     setSpeakingId(null);
   }, []);
@@ -139,9 +169,9 @@ export function useVoice({
    * `onStart` fires once the browser actually starts speaking — browsers
    * refuse to speak before the customer's first tap on the page.
    */
-  const speak = useCallback(
+  const deviceSpeak = useCallback(
     (id: number, reply: string | string[], options?: { onStart?: () => void }) => {
-      if (!canSpeak) return false;
+      if (!deviceCanSpeak) return false;
       const synth = window.speechSynthesis;
       const plan = planSpeech(Array.isArray(reply) ? reply : [reply], {
         locale,
@@ -168,7 +198,37 @@ export function useVoice({
       for (const u of utterances) synth.speak(u);
       return true;
     },
-    [canSpeak, locale, gender],
+    [deviceCanSpeak, locale, gender],
+  );
+
+  /**
+   * Speaks a reply (or the greeting). With premium voice and a `source` the
+   * server can speak (the greeting, a stored reply), the premium voice says
+   * it; if a sentence can't be delivered, the device voice says the rest.
+   * Otherwise the device voice says it all.
+   */
+  const speak = useCallback(
+    (id: number, reply: string | string[], options?: { onStart?: () => void; source?: VoiceSource }) => {
+      const player = playerRef.current;
+      if (!player || !options?.source) return deviceSpeak(id, reply, options);
+      const token = ++playToken.current;
+      if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      setSpeakingId(id);
+      const parts = Array.isArray(reply) ? reply : [reply];
+      void player.play(options.source, locale, options.onStart).then((outcome) => {
+        if (token !== playToken.current) return; // replaced or stopped meanwhile
+        // The browser refused sound before a tap: nothing is said now (the greeting retries at the first tap).
+        if (outcome.status === "failed" && !outcome.blocked) {
+          const rest = speechSentences(parts, locale)
+            .slice(outcome.spoken)
+            .map((s) => s.text);
+          if (rest.length > 0 && deviceSpeak(id, rest, { onStart: outcome.spoken === 0 ? options.onStart : undefined })) return;
+        }
+        setSpeakingId((current) => (current === id ? null : current));
+      });
+      return true;
+    },
+    [deviceSpeak, locale],
   );
 
   const finish = useCallback(() => {
@@ -183,8 +243,9 @@ export function useVoice({
     const Ctor = recognitionCtor();
     if (!Ctor || recognitionRef.current) return;
     stopSpeaking();
+    playerRef.current?.unlock();
     // iOS only lets a page speak after a tap: an empty utterance now unlocks the spoken reply later.
-    if (canSpeak) {
+    if (deviceCanSpeak) {
       const unlock = new SpeechSynthesisUtterance(" ");
       unlock.volume = 0;
       window.speechSynthesis.speak(unlock);
@@ -226,7 +287,7 @@ export function useVoice({
       recognitionRef.current = null;
       setErrorKey("voice.failed");
     }
-  }, [canSpeak, finish, lang, stopSpeaking]);
+  }, [deviceCanSpeak, finish, lang, stopSpeaking]);
 
   const stop = useCallback(() => recognitionRef.current?.stop(), []);
 
