@@ -334,6 +334,12 @@ install (only the console's pages link the manifest).
   also has Listen / Stop. No audio is sent to an AI model, so voice costs
   exactly what typing costs. Spoken turns are stored with
   `conversation_messages.modality = 'voice'`.
+- Recognition asks the browser for its top 5 guesses and sends the one
+  naming the most of the business's own products/categories/services and
+  ordering words ("add", "cart", "أضف", "panier"…); the browser's first
+  guess wins ties. Arabic listens in the customer's own dialect (e.g.
+  ar-EG); English and French always use one standard accent (en-US,
+  fr-FR), whatever other variants the phone lists.
 - **Nothing to configure**: no migration, no environment variables. The
   `Permissions-Policy` header allows the microphone for the app's own pages
   only (`microphone=(self)`), and the widget embed's iframe asks for it

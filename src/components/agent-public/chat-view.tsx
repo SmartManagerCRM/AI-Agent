@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAgentT } from "./agent-i18n";
 
 import type { CartView } from "@/server/commerce/cart";
@@ -61,7 +61,12 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     },
     [chat],
   );
-  const voice = useVoice({ locale: ui.locale, onInterim, onFinal });
+  // What customers are likely to say: this business's own names, in every language they're written in.
+  const names = useMemo(
+    () => [...products, ...categories, ...services].flatMap((item) => Object.values(item.name)),
+    [products, categories, services],
+  );
+  const voice = useVoice({ locale: ui.locale, names, onInterim, onFinal });
   const { speak } = voice;
 
   // A spoken question gets a spoken answer (read by the browser — no AI cost).

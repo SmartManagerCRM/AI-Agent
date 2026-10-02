@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
-import { pickVoice, replyLanguage, speechLang, spokenText, voiceErrorKey } from "./voice";
+import { pickTranscript, pickVoice, replyLanguage, speechLang, speechVocabulary, spokenText, voiceErrorKey } from "./voice";
 
 /** The parts of the Web Speech API used here (not every TypeScript DOM lib ships them). */
-type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
+type RecognitionResult = ArrayLike<{ transcript: string }> & { isFinal: boolean };
 type Recognition = {
   lang: string;
   continuous: boolean;
@@ -40,12 +40,18 @@ const onServer = () => false;
  * No audio leaves the page for an AI model, so a spoken message costs the
  * same as a typed one. Unsupported browsers simply don't offer the mic.
  */
+/** How many guesses to ask the recognizer for (free: they come from the same recognition). */
+const ALTERNATIVES = 5;
+
 export function useVoice({
   locale,
+  names,
   onInterim,
   onFinal,
 }: {
   locale: string;
+  /** This business's own product, category and service names (every language) — what customers are likely to say. */
+  names: readonly string[];
   /** The words heard so far (shown in the composer while listening). */
   onInterim: (text: string) => void;
   /** The finished transcript — sent as the customer's message. */
@@ -68,6 +74,12 @@ export function useVoice({
   useEffect(() => {
     if (synthesisSupported()) window.speechSynthesis.getVoices();
   }, []);
+
+  const vocabulary = useMemo(() => speechVocabulary(names), [names]);
+  const vocabularyRef = useRef(vocabulary);
+  useEffect(() => {
+    vocabularyRef.current = vocabulary;
+  }, [vocabulary]);
 
   const lang = speechLang(locale, typeof navigator === "undefined" ? [] : (navigator.languages ?? []));
 
@@ -125,13 +137,16 @@ export function useVoice({
     recognition.lang = lang;
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    recognition.maxAlternatives = ALTERNATIVES;
     recognition.onresult = (e) => {
       let text = "";
       let final = true;
       for (let i = 0; i < e.results.length; i++) {
-        text += e.results[i][0].transcript;
-        if (!e.results[i].isFinal) final = false;
+        const result = e.results[i];
+        // Words still being heard show the recognizer's first guess; a finished phrase takes the guess that fits the menu best.
+        const guesses = Array.from({ length: result.isFinal ? result.length : Math.min(result.length, 1) }, (_, k) => result[k].transcript);
+        text += result.isFinal ? pickTranscript(guesses, vocabularyRef.current) : (guesses[0] ?? "");
+        if (!result.isFinal) final = false;
       }
       transcriptRef.current = text;
       callbacks.current.onInterim(text);
