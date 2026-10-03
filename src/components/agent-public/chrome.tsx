@@ -136,9 +136,21 @@ export function CartButton({ tone = "light" }: { tone?: "light" | "dark" }) {
   );
 }
 
-/** Business identity mark: no logo field exists, so the business's own initial on the brand surface. */
+/** Business identity mark: the business's own logo, or its initial on the brand surface when it has none. */
 export function BusinessMark({ size = 40, tone = "dark" }: { size?: number; tone?: "light" | "dark" }) {
-  const { businessName } = useAgentUi();
+  const { businessName, logoUrl } = useAgentUi();
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- our own storage bucket; already resized WebP
+      <img
+        src={logoUrl}
+        alt=""
+        data-testid="agent-business-logo"
+        className="shrink-0 rounded-2xl bg-white object-contain p-1 ring-1 ring-white/25"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"

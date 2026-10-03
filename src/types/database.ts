@@ -103,6 +103,8 @@ export type Database = {
           contact_email: string | null;
           contact_phone: string | null;
           website_url: string | null;
+          /** Storage path (catalog-images bucket) of the business's logo, uploaded in Settings. */
+          logo_path: string | null;
           deployment_mode: "website_widget" | "external_agent" | "both";
           created_at: string;
           updated_at: string;

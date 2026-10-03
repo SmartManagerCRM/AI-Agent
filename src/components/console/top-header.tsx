@@ -11,7 +11,7 @@ import type { Locale } from "@/i18n/locales";
 
 type Props = {
   locale: Locale;
-  workspace: { slug: string; name: string };
+  workspace: { slug: string; name: string; logoUrl?: string | null };
   otherWorkspaces: { slug: string; name: string }[];
   userName: string;
   roleLabel: string;

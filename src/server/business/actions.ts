@@ -1,12 +1,15 @@
 "use server";
 
+import { createHash } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
 import { slugify } from "@/lib/slugify";
-import { createUserClient } from "@/server/supabase/clients";
+import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -150,4 +153,60 @@ export async function setDeploymentModeAction(formData: FormData): Promise<void>
   const supabase = await createUserClient();
   await supabase.from("tenants").update({ deployment_mode: parsed.data.deploymentMode }).eq("id", parsed.data.tenantId);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
+}
+
+const logoSchema = z.object({ locale: z.string(), slug: z.string().min(1) });
+const MAX_LOGO_BYTES = 3_000_000;
+/** Plenty for a sidebar or Agent header mark, even on high-density screens. */
+const LOGO_EDGE = 512;
+
+export type BusinessLogoState = { ok: boolean; message: string } | undefined;
+
+/**
+ * Settings → Logo: the business's own logo, shown next to its name in the
+ * console and on the customer Agent. The picture is re-encoded on the
+ * server (WebP, transparency kept) before it is stored; the change itself
+ * runs under the owner's own session (RLS `settings.write`), so someone
+ * without that permission changes nothing and the file is removed.
+ */
+export async function updateBusinessLogoAction(_prev: BusinessLogoState, formData: FormData): Promise<BusinessLogoState> {
+  const parsed = logoSchema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
+  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const remove = formData.get("remove") === "on";
+  const file = formData.get("logo");
+  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: "Choose your logo first." };
+  if (file instanceof File && file.size > MAX_LOGO_BYTES) return { ok: false, message: "That logo is larger than 3 MB. Choose a smaller file." };
+
+  let storage;
+  try {
+    storage = bucketWriter(serviceClient());
+  } catch {
+    return { ok: false, message: "Logos can't be stored on this server yet (storage isn't configured)." };
+  }
+  const previous = tenant.logo_path ?? null;
+
+  let path: string | null = null;
+  if (!remove && file instanceof File) {
+    const image = await normalizeImage(new Uint8Array(await file.arrayBuffer()), { maxEdge: LOGO_EDGE }).catch(() => null);
+    if (!image) return { ok: false, message: "That logo couldn't be used. Upload a PNG, JPG or WebP image at least 32 pixels wide." };
+    const hash = createHash("sha256").update(image.data).digest("hex").slice(0, 16);
+    path = `${tenant.id}/logo-${hash}.webp`;
+    if (path !== previous && !(await storage.upload(path, image.data, image.contentType))) {
+      return { ok: false, message: "The logo couldn't be saved — please try again." };
+    }
+  }
+
+  const supabase = await createUserClient();
+  const { data: updated, error } = await supabase.from("tenants").update({ logo_path: path }).eq("id", tenant.id).select("id");
+  if (error || !updated || updated.length === 0) {
+    if (path && path !== previous) await storage.remove([path]);
+    return {
+      ok: false,
+      message: error ? "The logo couldn't be saved — please try again." : "Only the business owner or an admin can change the logo.",
+    };
+  }
+  if (previous && previous !== path) await storage.remove([previous]);
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}`, "layout");
+  return { ok: true, message: path ? "Logo saved — it now shows in your console and on your Agent." : "Logo removed." };
 }

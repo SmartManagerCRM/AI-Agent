@@ -369,6 +369,21 @@ install (only the console's pages link the manifest).
   device.
 - The landing page's "Ask" bar has a mic: it opens the conversation and
   starts listening in one tap.
+- **Business logo** — Settings → Logo (owner/admin, `settings.write`): PNG,
+  JPG or WebP up to 3 MB, re-encoded to WebP (≤ 512 px, transparency kept)
+  in the `catalog-images` bucket as `<tenant_id>/logo-<hash>.webp`; path in
+  `tenants.logo_path` (migration `20261004130000_business_logo.sql`,
+  applied). Shown beside the business name in the console sidebar and
+  header, and on the customer Agent's landing page; without a logo the
+  business's initial is shown as before.
+- **Sidebar selection** — in both the subscriber console and Super Admin,
+  only the current page's link is selected (the most specific match; a
+  sub-page keeps its section selected). The Super Admin role badge no
+  longer uses the "selected" green.
+- **Desktop Agent layout** — beside the docked chat, the landing page's
+  greeting bubble shrinks with the column and product rows wrap into a grid
+  (phones and tablets still swipe them sideways), so nothing is cut off at
+  the edge next to the chat.
 - **Premium voice (ElevenLabs)** — the production voice engine once
   `ELEVENLABS_API_KEY` is set on the Hostinger apps (migration
   `20261004090000_agent_premium_voice.sql`, already applied to production):

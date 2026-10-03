@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { MobileMenuButton, MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/mobile-sidebar";
 import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icons";
+import { PlatformNav } from "@/components/console/platform-nav";
 import { NotificationCenter, SoundToggle } from "@/components/notifications/notification-center";
 import { PlatformAccountMenu } from "@/components/platform/account-menu";
 import { PlatformSearchForm } from "@/components/platform/search-form";
@@ -92,32 +93,11 @@ export default async function PlatformLayout({
                 <p className="text-xs text-slate-400">AI Agent</p>
               </div>
             </div>
-            <div className="mb-6 flex items-center gap-1.5 rounded-lg bg-emerald-600/15 px-3 py-2 text-xs font-medium text-emerald-400">
+            <div className="mb-6 flex items-center gap-1.5 rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-medium text-amber-300">
               <Icon path={NAV_ICON_PATHS.crown} size={14} />
               Super Admin
             </div>
-            <nav className="flex flex-col gap-4 text-sm">
-              {groups.map((group) => (
-                <div key={group.label}>
-                  <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    {group.label}
-                  </p>
-                  <div className="flex flex-col gap-0.5">
-                    {group.items.map((item) => (
-                      <Link
-                        key={item.key}
-                        href={item.href}
-                        prefetch={false}
-                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white"
-                      >
-                        <Icon path={NAV_ICON_PATHS[item.key]} size={18} />
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </nav>
+            <PlatformNav groups={groups} />
           </div>
           <div className="flex flex-col gap-1 border-t border-slate-800 pt-4 text-sm">
             <Link

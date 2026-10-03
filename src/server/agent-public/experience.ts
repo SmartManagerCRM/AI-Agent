@@ -75,7 +75,7 @@ export async function loadAgentExperience(
       .eq("is_default", true)
       .eq("is_active", true)
       .maybeSingle(),
-    supabase.from("tenants").select("contact_phone, contact_email, city").eq("id", tenant.id).maybeSingle(),
+    supabase.from("tenants").select("contact_phone, contact_email, city, logo_path").eq("id", tenant.id).maybeSingle(),
     supabase
       .from("bookable_services")
       .select("id, name, duration_minutes, price_minor")
@@ -123,6 +123,7 @@ export async function loadAgentExperience(
       about: localized(aboutEntry?.content, locale, tenant.defaultLanguage, true),
       greeting: settings.agent.greeting ?? null,
       backgroundUrl: productImageUrl(settings.agent.background_path),
+      logoUrl: productImageUrl(contact?.logo_path),
       voiceGender,
       premiumVoice: (await activeVoiceProfile(voiceGender)) !== null,
       categories: (categories ?? []).map((c) => ({ id: c.id, name: c.name })),

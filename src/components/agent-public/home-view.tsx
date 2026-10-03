@@ -134,7 +134,7 @@ export function HomeView() {
             priority
             className="w-[44%] max-w-[220px] shrink-0 [mask-image:linear-gradient(to_bottom,black_78%,transparent_97%)] lg:max-w-[280px]"
           />
-          <div className="motion-safe:animate-agent-rise mb-4 min-w-0 flex-1 rounded-3xl rounded-es-md bg-white/10 p-4 sm:max-w-sm sm:flex-none lg:max-w-md lg:p-5 ring-1 ring-white/20 backdrop-blur-md [animation-delay:120ms]">
+          <div className="motion-safe:animate-agent-rise mb-4 min-w-0 flex-1 rounded-3xl rounded-es-md bg-white/10 p-4 sm:max-w-sm sm:flex-initial lg:max-w-md lg:p-5 ring-1 ring-white/20 backdrop-blur-md [animation-delay:120ms]">
             <p className="text-sm text-white/85">{t("home.hi")} 👋</p>
             <p className="mt-0.5 text-[1.35rem] leading-tight font-extrabold tracking-tight break-words sm:text-2xl">
               {t("home.iam", { name: aiName })}
@@ -310,9 +310,14 @@ export function HomeView() {
   );
 }
 
+/**
+ * A row of products: swiped sideways on phones and tablets; on desktop,
+ * where the chat sits beside the page, the cards wrap into a grid so none
+ * is left half-hidden at the edge next to the chat.
+ */
 function Rail({ children }: { children: React.ReactNode }) {
   return (
-    <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pt-1 pb-3 [scrollbar-width:none] sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:-mx-10 lg:scroll-px-10 lg:px-10 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pt-1 pb-3 [scrollbar-width:none] sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:grid lg:snap-none lg:grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] lg:overflow-visible lg:px-0 [&::-webkit-scrollbar]:hidden">
       {children}
     </div>
   );

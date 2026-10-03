@@ -17,6 +17,7 @@ import { publicAgentUrls } from "@/server/agent-public/urls";
 import { endImpersonationAction } from "@/server/platform/impersonation-actions";
 import { timed } from "@/server/perf";
 import { notificationLabels } from "@/server/notifications/labels";
+import { productImageUrl } from "@/lib/product-image";
 import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
@@ -109,6 +110,7 @@ export default async function TenantLayout({
   ];
 
   const businessName = tenant.business_name[locale] ?? tenant.slug;
+  const logoUrl = productImageUrl(tenant.logo_path);
   const userName = profile?.full_name ?? profile?.email ?? user?.email ?? "";
   const otherWorkspaces = memberships
     .filter((m) => m.slug !== slug)
@@ -164,9 +166,14 @@ export default async function TenantLayout({
           <MobileSidebarFrame>
             <div>
               <div className="mb-6 flex items-center gap-2 px-1">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-                  {businessName.charAt(0).toUpperCase()}
-                </span>
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the business's own logo from Storage
+                  <img src={logoUrl} alt="" data-testid="sidebar-logo" className="h-9 w-9 shrink-0 rounded-lg bg-white object-contain p-0.5" />
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
+                    {businessName.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{businessName}</p>
                   <p className="text-xs text-slate-400">SmartManager AI Agent</p>
@@ -214,7 +221,7 @@ export default async function TenantLayout({
           <div className="flex min-w-0 flex-1 flex-col">
             <TopHeader
               locale={locale as Locale}
-              workspace={{ slug, name: businessName }}
+              workspace={{ slug, name: businessName, logoUrl }}
               otherWorkspaces={otherWorkspaces}
               userName={userName}
               roleLabel={roleLabel}

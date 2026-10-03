@@ -5,7 +5,14 @@ import { useState } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 
-type Workspace = { slug: string; name: string };
+type Workspace = { slug: string; name: string; logoUrl?: string | null };
+
+/** The business's logo beside its name, when it has one. */
+function WorkspaceLogo({ url }: { url?: string | null }) {
+  if (!url) return null;
+  // eslint-disable-next-line @next/next/no-img-element -- the business's own logo from Storage
+  return <img src={url} alt="" className="h-6 w-6 shrink-0 rounded-md object-contain" />;
+}
 
 export function WorkspaceSwitcher({
   locale,
@@ -21,6 +28,7 @@ export function WorkspaceSwitcher({
   if (others.length === 0) {
     return (
       <span className="flex min-w-0 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-900">
+        <WorkspaceLogo url={current.logoUrl} />
         <span className="truncate">{current.name}</span>
       </span>
     );
@@ -33,6 +41,7 @@ export function WorkspaceSwitcher({
         onClick={() => setOpen((value) => !value)}
         className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-slate-50"
       >
+        <WorkspaceLogo url={current.logoUrl} />
         <span className="truncate">{current.name}</span>
         <Icon path={NAV_ICON_PATHS.chevronDown} size={16} className="shrink-0 text-slate-400" />
       </button>

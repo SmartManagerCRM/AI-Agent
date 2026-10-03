@@ -46,6 +46,8 @@ export type AgentExperienceProps = {
   greeting: string | null;
   /** Public URL of the business's background photo (Agent settings), if any. */
   backgroundUrl: string | null;
+  /** Public URL of the business's logo (console Settings), if any. */
+  logoUrl: string | null;
   /** The Agent's spoken voice, chosen in Agent settings. */
   voiceGender: VoiceGender;
   /** Premium (server-generated) voice is set up for this Agent. */
@@ -151,6 +153,7 @@ export function AgentExperience(props: AgentExperienceProps) {
       about: props.about,
       greeting: props.greeting,
       backgroundUrl: props.backgroundUrl,
+      logoUrl: props.logoUrl,
       voiceGender: props.voiceGender,
       premiumVoice: props.premiumVoice,
       categories: props.categories,

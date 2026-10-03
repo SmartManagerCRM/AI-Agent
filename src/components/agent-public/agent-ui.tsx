@@ -41,6 +41,8 @@ export type AgentUi = {
   greeting: string | null;
   /** The business's photo behind the whole Agent, if it set one. */
   backgroundUrl: string | null;
+  /** The business's own logo, if it uploaded one. */
+  logoUrl: string | null;
   voiceGender: VoiceGender;
   /** The platform's premium voice speaks for this Agent (device voice only as a fallback). */
   premiumVoice: boolean;
@@ -194,7 +196,7 @@ export function ProductCard({ product, variant = "grid" }: { product: AgentProdu
   const description = text(product.description);
   const inCart = commerce.cart?.items.find((i) => i.productId === product.id);
   const isPopular = popularIds.includes(product.id);
-  const width = variant === "grid" ? "w-full" : variant === "rail" ? "w-44 shrink-0" : "w-40 shrink-0";
+  const width = variant === "grid" ? "w-full" : variant === "rail" ? "w-44 shrink-0 lg:w-auto" : "w-40 shrink-0";
 
   return (
     <article
