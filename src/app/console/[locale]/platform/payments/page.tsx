@@ -5,6 +5,8 @@ import { formatMoney } from "@/lib/money";
 import { getRecentPayments, getRevenueSummary } from "@/server/platform/revenue";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   succeeded: "bg-emerald-50 text-emerald-700",
@@ -36,6 +38,8 @@ export default async function PaymentsPage({
     : "all";
 
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.payments");
+  const tAll = await getTranslations();
   const [summary, payments] = await Promise.all([
     getRevenueSummary(supabase),
     getRecentPayments(supabase, status === "all" ? undefined : status),
@@ -50,25 +54,24 @@ export default async function PaymentsPage({
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Payments &amp; Revenue</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
         <a
           href="/api/super-admin/export/payments"
           className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
-          Export CSV
+          {t("export")}
         </a>
       </div>
       <p className="-mt-4 text-sm text-slate-500">
-        The platform&apos;s own subscription revenue from its subscriber businesses — not a tenant&apos;s own
-        end-customer sales.
+        {t("subtitle")}
       </p>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile
           icon="billing"
           accent="emerald"
-          label="Total revenue"
+          label={t("total")}
           value={money(summary.totalRevenueMinor, summary.currency)}
           trend={null}
           href={`/${locale}/super-admin/payments?status=succeeded`}
@@ -76,29 +79,29 @@ export default async function PaymentsPage({
         <KpiTile
           icon="analytics"
           accent="blue"
-          label="MRR estimate"
+          label={t("mrr")}
           value={money(summary.mrrMinor, summary.currency)}
           trend={null}
           href={`/${locale}/super-admin/subscribers?status=active`}
         />
-        <KpiTile icon="check" accent="orange" label="Succeeded" value={String(summary.succeededCount)} trend={null} href={`/${locale}/super-admin/payments?status=succeeded`} />
-        <KpiTile icon="alert" accent="purple" label="Failed" value={String(summary.failedCount)} trend={null} href={`/${locale}/super-admin/payments?status=failed`} />
+        <KpiTile icon="check" accent="orange" label={t("succeeded")} value={String(summary.succeededCount)} trend={null} href={`/${locale}/super-admin/payments?status=succeeded`} />
+        <KpiTile icon="alert" accent="purple" label={t("failed")} value={String(summary.failedCount)} trend={null} href={`/${locale}/super-admin/payments?status=failed`} />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-900">Transactions</h2>
+          <h2 className="text-sm font-semibold text-slate-900">{t("transactions")}</h2>
           <div className="flex gap-1">
             {STATUS_FILTERS.map((f) => (
               <Link
                 key={f}
                 href={f === "all" ? `/${locale}/super-admin/payments` : `/${locale}/super-admin/payments?status=${f}`}
                 prefetch={false}
-                className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
+                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                   status === f ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {f}
+                {f === "all" ? t("filter.all") : statusLabel(tAll, f)}
               </Link>
             ))}
           </div>
@@ -109,11 +112,11 @@ export default async function PaymentsPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Business</th>
-                  <th className="py-2 text-start font-medium">Plan</th>
-                  <th className="py-2 text-start font-medium">Amount</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Date</th>
+                  <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.amount")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.date")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,9 +139,9 @@ export default async function PaymentsPage({
                     <td className="py-2 text-slate-600">{formatMoney(p.amountMinor, p.currency, exponent, locale)}</td>
                     <td className="py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[p.status]}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[p.status]}`}
                       >
-                        {p.status}
+                        {statusLabel(tAll, p.status)}
                       </span>
                       {p.status === "failed" && p.failureReason && (
                         <p className="mt-0.5 text-xs text-slate-400">{p.failureReason}</p>
@@ -151,7 +154,7 @@ export default async function PaymentsPage({
             </table>
           </div>
         ) : (
-          <EmptyState title="No transactions" description="Subscription payments will show up here as they happen." />
+          <EmptyState title={t("empty")} description={t("emptyDescription")} />
         )}
       </section>
     </div>

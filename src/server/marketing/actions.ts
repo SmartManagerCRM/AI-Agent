@@ -1,5 +1,6 @@
 "use server";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,7 +14,7 @@ const createCouponSchema = z.object({
     .trim()
     .min(2)
     .max(40)
-    .regex(/^[A-Za-z0-9-]+$/, "Use letters, numbers and hyphens only."),
+    .regex(/^[A-Za-z0-9-]+$/, "@marketing.codeChars"),
   description: z.string().trim().max(200).optional().or(z.literal("")),
   discountType: z.enum(["percentage", "fixed"]),
   discountValue: z.coerce.number().positive(),
@@ -45,14 +46,15 @@ export async function createCouponAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   const discountValue =
     parsed.data.discountType === "percentage"
       ? Math.round(parsed.data.discountValue * 100)
       : Math.round(parsed.data.discountValue * 10 ** parsed.data.currencyExponent);
   if (parsed.data.discountType === "percentage" && discountValue > 10000) {
-    return "VALIDATION_ERROR: a percentage discount can't exceed 100%.";
+    return t("marketing.over100");
   }
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
@@ -72,8 +74,8 @@ export async function createCouponAction(
     created_by: user?.id ?? null,
   });
   if (error) {
-    if (error.code === "23505") return "VALIDATION_ERROR: a coupon with that code already exists.";
-    return "VALIDATION_ERROR: could not create that coupon — please try again.";
+    if (error.code === "23505") return t("marketing.codeExists");
+    return t("marketing.failed");
   }
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/marketing`);

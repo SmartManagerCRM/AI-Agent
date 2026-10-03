@@ -4,6 +4,8 @@ import { formatMoney } from "@/lib/money";
 import { getDeepAnalytics } from "@/server/platform/deep-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const COLORS: Record<string, string> = {
   active: "#10b981",
@@ -17,6 +19,8 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
   const { locale } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.analytics");
+  const tAll = await getTranslations();
   const analytics = await getDeepAnalytics(supabase);
 
   const { data: currencyRow } = analytics.arpuCurrency
@@ -25,25 +29,24 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
   const exponent = currencyRow?.exponent ?? 2;
 
   const segments = analytics.subscriptionsByStatus.map((s) => ({
-    label: s.status.replace("_", " "),
+    label: statusLabel(tAll, s.status),
     count: s.count,
     color: COLORS[s.status] ?? "#94a3b8",
   }));
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
       <p className="-mt-4 text-sm text-slate-500">
-        Churn, retention and per-business revenue — the platform&apos;s own Dashboard covers growth and composition;
-        this page covers what that one doesn&apos;t.
+        {t("subtitle")}
       </p>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <KpiTile icon="alert" accent="purple" label="Churn rate" value={`${analytics.churnRatePct}%`} trend={null} href={`/${locale}/super-admin/subscribers?status=canceled`} />
+        <KpiTile icon="alert" accent="purple" label={t("churn")} value={`${analytics.churnRatePct}%`} trend={null} href={`/${locale}/super-admin/subscribers?status=canceled`} />
         <KpiTile
           icon="check"
           accent="emerald"
-          label="Retention rate"
+          label={t("retention")}
           value={`${analytics.retentionRatePct}%`}
           trend={null}
           href={`/${locale}/super-admin/subscribers?status=active`}
@@ -51,7 +54,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
         <KpiTile
           icon="billing"
           accent="orange"
-          label="Revenue per business (mo.)"
+          label={t("arpu")}
           value={
             analytics.arpuCurrency ? formatMoney(analytics.arpuMinor, analytics.arpuCurrency, exponent, locale) : "—"
           }
@@ -61,11 +64,11 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Subscriptions by status</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("byStatus")}</h2>
         {segments.length > 0 ? (
-          <DonutChart segments={segments} centerLabel="Total" />
+          <DonutChart segments={segments} centerLabel={t("total")} />
         ) : (
-          <p className="py-6 text-center text-sm text-slate-400">No subscriptions yet.</p>
+          <p className="py-6 text-center text-sm text-slate-400">{t("none")}</p>
         )}
       </section>
     </div>

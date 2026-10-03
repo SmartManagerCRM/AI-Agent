@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useRef, useState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -21,27 +22,17 @@ type Props = {
 };
 
 /** One greeting per language the Agent speaks; the customer hears the one for the language they pick. */
-const GREETING_LANGUAGES: { value: Locale; label: string; dir: "ltr" | "rtl"; hi: (name: string) => string; fallback: string }[] = [
-  { value: "en", label: "English", dir: "ltr", hi: (n) => `Hi! I'm ${n}.`, fallback: "How can I help you today?" },
-  { value: "ar", label: "العربية (Arabic)", dir: "rtl", hi: (n) => `أهلاً! أنا ${n}.`, fallback: "كيف يمكنني مساعدتك اليوم؟" },
-  { value: "fr", label: "Français (French)", dir: "ltr", hi: (n) => `Bonjour ! Je suis ${n}.`, fallback: "Comment puis-je vous aider aujourd'hui ?" },
+const GREETING_LANGUAGES: { value: Locale; native: string; dir: "ltr" | "rtl"; hi: (name: string) => string; fallback: string }[] = [
+  { value: "en", native: "English", dir: "ltr", hi: (n) => `Hi! I'm ${n}.`, fallback: "How can I help you today?" },
+  { value: "ar", native: "العربية", dir: "rtl", hi: (n) => `أهلاً! أنا ${n}.`, fallback: "كيف يمكنني مساعدتك اليوم؟" },
+  { value: "fr", native: "Français", dir: "ltr", hi: (n) => `Bonjour ! Je suis ${n}.`, fallback: "Comment puis-je vous aider aujourd'hui ?" },
 ];
 
 /** The two Agent voices, with the character each is chosen for. */
-const VOICES: { value: VoiceGender; label: string; description: string }[] = [
-  {
-    value: "male",
-    label: "Male",
-    description: "Around 28–35. Warm, confident and professional — friendly but calm, short clear sentences.",
-  },
-  {
-    value: "female",
-    label: "Female",
-    description: "The same personality: warm, intelligent and approachable — natural, calm delivery, never robotic.",
-  },
-];
+const VOICES: VoiceGender[] = ["male", "female"];
 
 export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, premiumVoices }: Props) {
+const t = useTranslations("console.agentSettings");
   const [error, formAction, pending] = useActionState(updateAgentSettingsAction, undefined);
   const [voice, setVoice] = useState<VoiceGender>(current.voice ?? DEFAULT_VOICE_GENDER);
   const [previewNote, setPreviewNote] = useState<string | null>(null);
@@ -54,6 +45,8 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
     () => GREETING_LANGUAGES.find((l) => greetings[l.value])?.value ?? "en",
   );
   const lang = GREETING_LANGUAGES.find((l) => l.value === previewLang) ?? GREETING_LANGUAGES[0];
+  // The language's own name, and — when the console is in another language — its name in that language too.
+  const languageLabel = (l: (typeof GREETING_LANGUAGES)[number]) => (l.value === locale ? l.native : `${l.native} (${t(`lang.${l.value}`)})`);
 
   // Speaks the name and greeting as typed, with this device's voice of the chosen gender — what a
   // customer on the same kind of phone or computer hears.
@@ -63,7 +56,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
       // Premium voice: generated on the server (and cached), played here.
       const audio = (previewAudio.current ??= new Audio());
       setPreviewing(true);
-      setPreviewNote("Generating the premium voice…");
+      setPreviewNote(t("generating"));
       const result = await previewAgentVoiceAction({
         locale,
         slug,
@@ -71,7 +64,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
         name: nameRef.current?.value ?? "",
         greeting: greetingRefs.current[previewLang]?.value ?? "",
         language: previewLang,
-      }).catch(() => ({ ok: false as const, message: "The premium voice didn't answer — please try again." }));
+      }).catch(() => ({ ok: false as const, message: t("noAnswer") }));
       setPreviewing(false);
       if (!result.ok) {
         setPreviewNote(result.message);
@@ -79,19 +72,19 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
       }
       audio.src = `data:audio/mpeg;base64,${result.audio}`;
       await audio.play().catch(() => {});
-      setPreviewNote(`Playing the premium ${voice} voice${result.voiceName ? ` (“${result.voiceName}”)` : ""}.`);
+      setPreviewNote(t("playingPremium", { gender: t(voice), name: result.voiceName ? ` (“${result.voiceName}”)` : "" }));
       return;
     }
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setPreviewNote("This browser can't speak — try Chrome, Safari or Edge.");
+      setPreviewNote(t("cantSpeak"));
       return;
     }
     const synth = window.speechSynthesis;
-    const name = nameRef.current?.value.trim() || "your assistant";
+    const name = nameRef.current?.value.trim() || t("yourAssistant");
     const greeting = greetingRefs.current[previewLang]?.value.trim() || lang.fallback;
     const plan = planSpeech([lang.hi(name), greeting], { locale: previewLang, gender: voice, voices: synth.getVoices(), browserLanguages: navigator.languages });
     if (plan.length === 0) {
-      setPreviewNote("This device has no voice for that language.");
+      setPreviewNote(t("noVoice"));
       return;
     }
     synth.cancel();
@@ -103,7 +96,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
       synth.speak(u);
     }
     const used = plan[plan.length - 1].voice?.name;
-    setPreviewNote(used ? `Playing on this device with “${used}”.` : "Playing with this device's default voice.");
+    setPreviewNote(used ? t("playingDevice", { name: used }) : t("playingDefault"));
   };
 
   return (
@@ -112,7 +105,7 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="locale" value={locale} />
       <label className="flex flex-col gap-1 text-sm">
-        Assistant name
+        {t("assistantName")}
         <input
           ref={nameRef}
           name="assistantName"
@@ -122,10 +115,10 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
         />
       </label>
       <fieldset className="flex flex-col gap-2 text-sm" data-testid="agent-greetings">
-        <legend className="mb-1">Greeting</legend>
+        <legend className="mb-1">{t("greeting")}</legend>
         {GREETING_LANGUAGES.map((l) => (
           <label key={l.value} className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-600">{l.label}</span>
+            <span className="text-xs font-medium text-slate-600">{languageLabel(l)}</span>
             <input
               ref={(el) => {
                 greetingRefs.current[l.value] = el;
@@ -142,40 +135,39 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
           </label>
         ))}
         <span className="text-xs text-slate-500">
-          Shown on your Agent&apos;s page and in the chat, and spoken when a customer opens it — in the language the customer
-          picks, every time they change it. A language left empty uses the greeting shown in grey.
+          {t("greetingHint")}
         </span>
       </fieldset>
       <label className="flex flex-col gap-1 text-sm">
-        Tone
+        {t("toneLabel")}
         <select name="tone" defaultValue={current.tone ?? "friendly"} className="rounded-md border border-neutral-300 px-3 py-2">
-          <option value="friendly">Friendly</option>
-          <option value="formal">Formal</option>
-          <option value="playful">Playful</option>
+          <option value="friendly">{t("tone.friendly")}</option>
+          <option value="formal">{t("tone.formal")}</option>
+          <option value="playful">{t("tone.playful")}</option>
         </select>
       </label>
 
       <fieldset className="flex flex-col gap-2 text-sm" data-testid="agent-voice">
-        <legend className="mb-1">Voice</legend>
+        <legend className="mb-1">{t("voiceLabel")}</legend>
         <div className="grid grid-cols-2 gap-2">
           {VOICES.map((v) => (
             <label
-              key={v.value}
+              key={v}
               className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 transition ${
-                voice === v.value ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500" : "border-neutral-300 hover:bg-slate-50"
+                voice === v ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500" : "border-neutral-300 hover:bg-slate-50"
               }`}
             >
               <span className="flex items-center gap-2 font-medium text-slate-900">
-                <input type="radio" name="voice" value={v.value} checked={voice === v.value} onChange={() => setVoice(v.value)} className="accent-emerald-600" />
-                {v.label}
+                <input type="radio" name="voice" value={v} checked={voice === v} onChange={() => setVoice(v)} className="accent-emerald-600" />
+                {t(v)}
               </span>
-              <span className="text-xs leading-snug text-slate-500">{v.description}</span>
+              <span className="text-xs leading-snug text-slate-500">{t(`${v}Description`)}</span>
             </label>
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="secondary" onClick={preview} disabled={previewing}>
-            ▶ Preview voice ({lang.label.split(" ")[0]})
+            {t("preview", { language: lang.native })}
           </Button>
           {previewNote && (
             <span className="text-xs text-slate-500" role="status">
@@ -185,20 +177,18 @@ export function AgentSettingsForm({ tenantId, slug, locale, current, greetings, 
         </div>
         {premiumVoices[voice] ? (
           <p className="text-xs text-slate-500">
-            Premium voice: every customer hears this same natural {voice} voice, on any phone or computer, in English, Arabic and
-            French. Phrases your Agent repeats (like your greeting) are prepared once and reused.
+            {t("premiumNote", { gender: t(voice) })}
           </p>
         ) : (
           <p className="text-xs text-slate-500">
-            Your Agent speaks with each customer&apos;s own phone or computer voice — free, no AI cost. It picks that device&apos;s
-            most natural voice of the gender you choose; a device without one uses its standard voice.
+            {t("deviceNote")}
           </p>
         )}
       </fieldset>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        Save
+        {t("save")}
       </Button>
     </form>
   );

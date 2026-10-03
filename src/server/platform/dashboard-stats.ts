@@ -228,12 +228,13 @@ export async function getPlatformGrowthSeries(
 
 export type CompositionSegment = { label: string; count: number; color: string };
 
-export async function getSubscribersByPlan(supabase: TypedSupabaseClient): Promise<CompositionSegment[]> {
+/** Names are given in `locale` (English when a plan or type has no name in it). */
+export async function getSubscribersByPlan(supabase: TypedSupabaseClient, locale = "en"): Promise<CompositionSegment[]> {
   const [{ data: subscriptions }, { data: plans }] = await Promise.all([
     supabase.from("subscriptions").select("plan_key").eq("status", "active"),
     supabase.from("subscription_plans").select("key, name"),
   ]);
-  const nameByKey = new Map((plans ?? []).map((p) => [p.key, p.name.en ?? p.key]));
+  const nameByKey = new Map((plans ?? []).map((p) => [p.key, p.name[locale] ?? p.name.en ?? p.key]));
   const counts = new Map<string, number>();
   for (const s of subscriptions ?? []) counts.set(s.plan_key, (counts.get(s.plan_key) ?? 0) + 1);
   return Array.from(counts, ([key, count], i) => ({
@@ -243,12 +244,12 @@ export async function getSubscribersByPlan(supabase: TypedSupabaseClient): Promi
   })).sort((a, b) => b.count - a.count);
 }
 
-export async function getTopBusinessTypes(supabase: TypedSupabaseClient): Promise<CompositionSegment[]> {
+export async function getTopBusinessTypes(supabase: TypedSupabaseClient, locale = "en"): Promise<CompositionSegment[]> {
   const [{ data: tenants }, { data: types }] = await Promise.all([
     supabase.from("tenants").select("business_type_key"),
     supabase.from("business_types").select("key, name"),
   ]);
-  const nameByKey = new Map((types ?? []).map((t) => [t.key, t.name.en ?? t.key]));
+  const nameByKey = new Map((types ?? []).map((t) => [t.key, t.name[locale] ?? t.name.en ?? t.key]));
   const counts = new Map<string, number>();
   for (const t of tenants ?? []) counts.set(t.business_type_key, (counts.get(t.business_type_key) ?? 0) + 1);
   return Array.from(counts, ([key, count], i) => ({
@@ -288,7 +289,7 @@ export type RecentSubscriberRow = {
   currency: string;
 };
 
-export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit = 8): Promise<RecentSubscriberRow[]> {
+export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit = 8, locale = "en"): Promise<RecentSubscriberRow[]> {
   const { data: ownerRole } = await supabase
     .from("roles")
     .select("id")
@@ -331,8 +332,8 @@ export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit 
   const tenantById = new Map((tenants ?? []).map((t) => [t.id, t]));
   const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
   const subByTenant = new Map((subscriptions ?? []).map((s) => [s.tenant_id, s]));
-  const planNameByKey = new Map((plans ?? []).map((p) => [p.key, p.name.en ?? p.key]));
-  const typeNameByKey = new Map((businessTypes ?? []).map((t) => [t.key, t.name.en ?? t.key]));
+  const planNameByKey = new Map((plans ?? []).map((p) => [p.key, p.name[locale] ?? p.name.en ?? p.key]));
+  const typeNameByKey = new Map((businessTypes ?? []).map((t) => [t.key, t.name[locale] ?? t.name.en ?? t.key]));
   const revenueByTenant = new Map<string, number>();
   for (const p of payments ?? [])
     revenueByTenant.set(p.tenant_id, (revenueByTenant.get(p.tenant_id) ?? 0) + p.amount_minor);
@@ -348,7 +349,7 @@ export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit 
         name: profile?.full_name ?? profile?.email ?? "—",
         email: profile?.email ?? null,
         tenantId: tenant.id,
-        businessName: tenant.business_name.en ?? tenant.slug,
+        businessName: tenant.business_name[locale] ?? tenant.business_name.en ?? tenant.slug,
         businessTypeLabel: typeNameByKey.get(tenant.business_type_key) ?? tenant.business_type_key,
         slug: tenant.slug,
         planLabel: subscription ? (planNameByKey.get(subscription.plan_key) ?? subscription.plan_key) : null,
@@ -394,7 +395,16 @@ export async function getRecentActivity(supabase: TypedSupabaseClient, limit = 1
   }));
 }
 
-export type PlatformAlert = { id: string; message: string; severity: "warning" | "critical"; at: string; href: string };
+/** `kind` + `values` word the alert in the Super Admin's language (messages: platform.alerts.*); `message` is its English text. */
+export type PlatformAlert = {
+  id: string;
+  kind: "paymentFailed" | "suspended" | "budgetHit" | "budgetNear" | "anomaly";
+  values: Record<string, string | number>;
+  message: string;
+  severity: "warning" | "critical";
+  at: string;
+  href: string;
+};
 
 /**
  * Real, derivable alert conditions only — failed payments in the last 24h
@@ -420,6 +430,8 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
 
   const alerts: PlatformAlert[] = (failedPayments ?? []).map((p) => ({
     id: `payment-${p.id}`,
+    kind: "paymentFailed",
+    values: {},
     message: "A subscription payment failed in the last 24 hours.",
     severity: "warning",
     at: p.created_at,
@@ -428,6 +440,8 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
   for (const tenant of suspended ?? []) {
     alerts.push({
       id: `suspended-${tenant.id}`,
+      kind: "suspended",
+      values: { business: tenant.business_name.en ?? tenant.slug },
       message: `${tenant.business_name.en ?? tenant.slug} is suspended.`,
       severity: "critical",
       at: new Date().toISOString(),
@@ -437,6 +451,8 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
   for (const guard of costGuardAlerts) {
     alerts.push({
       id: `cost-guard-${guard.tenantId}`,
+      kind: guard.severity === "critical" ? "budgetHit" : "budgetNear",
+      values: { business: guard.businessName, spent: guard.spentUsd.toFixed(2), budget: guard.budgetUsd.toFixed(2) },
       message:
         guard.severity === "critical"
           ? `${guard.businessName} has hit its AI budget ($${guard.spentUsd.toFixed(2)} of $${guard.budgetUsd.toFixed(2)}) — AI replies are paused for the rest of the month.`
@@ -449,6 +465,8 @@ export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<
   for (const anomaly of anomalyAlerts) {
     alerts.push({
       id: `anomaly-${anomaly.tenantId}`,
+      kind: "anomaly",
+      values: { business: anomaly.businessName, count: anomaly.todayCount, usual: anomaly.baselineDailyAvg },
       message: `${anomaly.businessName} has ${anomaly.todayCount} conversations in the last 24h, well above its usual ~${anomaly.baselineDailyAvg}/day — worth a look.`,
       severity: "warning",
       at: new Date().toISOString(),

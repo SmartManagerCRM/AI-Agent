@@ -17,7 +17,8 @@ export type DashboardStats = {
   productsCount: number;
   trends: { sales: Trend; orders: Trend; customers: Trend; avgOrderValue: Trend };
   salesSeries: { date: string; totalMinor: number }[];
-  ordersByStatusGroup: { label: string; count: number; color: string }[];
+  /** `key` is the status group / payment provider (pages word it in the user's language); `label` is its English name. */
+  ordersByStatusGroup: { key: string; label: string; count: number; color: string }[];
   recentOrders: {
     id: string;
     orderNumber: number;
@@ -114,6 +115,7 @@ export async function getTenantDashboardStats(
     groupCounts[group] = (groupCounts[group] ?? 0) + Number(count);
   }
   const ordersByStatusGroup = (["pending", "active", "completed", "cancelled"] as const).map((group) => ({
+    key: group,
     label: group.charAt(0).toUpperCase() + group.slice(1),
     count: groupCounts[group],
     color: ORDER_STATUS_GROUP_COLOR[group],

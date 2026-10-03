@@ -21,9 +21,10 @@ export type TenantAnalytics = {
   avgOrderValueMinor: number;
   trends: { sales: Trend; orders: Trend; avgOrderValue: Trend };
   salesSeries: { date: string; count: number }[];
-  ordersByStatusGroup: { label: string; count: number; color: string }[];
+  /** `key` is the status group / payment provider (pages word it in the user's language); `label` is its English name. */
+  ordersByStatusGroup: { key: string; label: string; count: number; color: string }[];
   topProducts: { name: string; quantity: number; revenueMinor: number }[];
-  paymentMethodBreakdown: { label: string; count: number; color: string }[];
+  paymentMethodBreakdown: { key: string; label: string; count: number; color: string }[];
   /** Real conversion funnel for this window — each stage counted from its own table, never derived from the next. */
   funnel: { conversationsStarted: number; cartsStarted: number; ordersPlaced: number; ordersSettled: number };
 };
@@ -87,6 +88,7 @@ export async function getTenantAnalytics(
     groupCounts[group] = (groupCounts[group] ?? 0) + Number(count);
   }
   const ordersByStatusGroup = (["pending", "active", "completed", "cancelled"] as const).map((group) => ({
+    key: group,
     label: group.charAt(0).toUpperCase() + group.slice(1),
     count: groupCounts[group],
     color: ORDER_STATUS_GROUP_COLOR[group],
@@ -100,6 +102,7 @@ export async function getTenantAnalytics(
 
   const paymentMethodBreakdown = Object.entries(a?.payment_methods ?? {})
     .map(([provider, count]) => ({
+      key: provider,
       label: provider === "cash" ? "Cash / in-person" : provider.charAt(0).toUpperCase() + provider.slice(1),
       count: Number(count),
       color: PAYMENT_METHOD_COLOR[provider] ?? "#f59e0b",

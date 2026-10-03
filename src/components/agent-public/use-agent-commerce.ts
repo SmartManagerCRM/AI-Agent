@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import type { AgentErrorCode } from "@/lib/agent-errors";
 import {
   addProductToCartAction,
   placeStructuredOrderAction,
@@ -41,7 +42,7 @@ export function useAgentCommerce({
   activeTableId: string | null;
 }) {
   const [cart, setCart] = useState<CartView | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AgentErrorCode | null>(null);
   const [orderResult, setOrderResult] = useState<Extract<PlaceStructuredOrderResult, { ok: true }> | null>(null);
   const [lastAdded, setLastAdded] = useState<{ product: AgentProduct; crossSell: AgentProduct | null; at: number } | null>(
     null,

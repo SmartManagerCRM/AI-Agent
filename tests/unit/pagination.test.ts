@@ -1,5 +1,8 @@
 import type { ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// Rendered outside a request: the labels come from a stub translator (the links are what is checked here).
+vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 
 import { Pagination, parsePage } from "@/components/console/pagination";
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones }: Props) {
+const t = useTranslations("console.profileForm");
   // A value typed by hand earlier ("UTC+1") isn't a time zone: it stays selectable until a city is chosen.
   const known = timeZones.some((z) => z.value === current.timezone);
   const [error, formAction, pending] = useActionState(updateBusinessProfileAction, undefined);
@@ -33,7 +35,7 @@ export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones
       <input type="hidden" name="locale" value={locale} />
 
       <label className="flex flex-col gap-1 text-sm">
-        Contact email
+        {t("email")}
         <input
           type="email"
           name="contactEmail"
@@ -43,7 +45,7 @@ export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Contact phone
+        {t("phone")}
         <input
           name="contactPhone"
           defaultValue={current.contact_phone ?? ""}
@@ -52,7 +54,7 @@ export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Website
+        {t("website")}
         <input
           type="url"
           name="websiteUrl"
@@ -63,36 +65,36 @@ export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Time zone
+        {t("timezone")}
         <select name="timezone" required defaultValue={current.timezone} className="rounded-md border border-neutral-300 px-3 py-2" data-testid="timezone-select">
-          {!known && <option value={current.timezone}>{current.timezone} — please choose your city</option>}
+          {!known && <option value={current.timezone}>{t("chooseCity", { zone: current.timezone })}</option>}
           {timeZones.map((z) => (
             <option key={z.value} value={z.value}>
               {z.label}
             </option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">Used for opening hours, bookings, memberships and reports.</span>
+        <span className="text-xs text-slate-500">{t("tzHint")}</span>
         {!known && (
           <span className="text-xs font-medium text-amber-700">
-            “{current.timezone}” isn&apos;t a time zone name — choose your city (for example Africa/Tunis) so times are always right.
+            {t("tzInvalid", { zone: current.timezone })}
           </span>
         )}
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Country
+        {t("country")}
         <input name="country" defaultValue={current.country ?? ""} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        City
+        {t("city")}
         <input name="city" defaultValue={current.city ?? ""} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        Save
+        {t("save")}
       </Button>
     </form>
   );

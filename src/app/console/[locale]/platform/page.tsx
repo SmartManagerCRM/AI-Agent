@@ -24,14 +24,11 @@ import { getSystemHealth, overallHealth } from "@/server/platform/health";
 import { getPlatformAgentStats } from "@/server/platform/stats";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { RichMsg } from "@/components/i18n/msg";
+import { auditActionLabel, statusLabel } from "@/lib/i18n-labels";
 
-const METRICS: { key: GrowthMetric; label: string }[] = [
-  { key: "subscribers", label: "Subscribers" },
-  { key: "businesses", label: "Businesses" },
-  { key: "revenue", label: "Revenue" },
-  { key: "conversations", label: "Conversations" },
-];
-const RANGE_LABEL: Record<GrowthRangeDays, string> = { 30: "30 days", 90: "90 days", 365: "12 months" };
+const METRICS: GrowthMetric[] = ["subscribers", "businesses", "revenue", "conversations"];
 const HEALTH_DOT: Record<string, string> = {
   operational: "bg-emerald-500",
   degraded: "bg-amber-500",
@@ -68,6 +65,8 @@ export default async function SuperAdminDashboard({
 
   const user = await currentUser();
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.overview");
+  const tAll = await getTranslations();
 
   const [
     { data: profile },
@@ -86,10 +85,10 @@ export default async function SuperAdminDashboard({
       : Promise.resolve({ data: null }),
     getPlatformKpis(supabase),
     getPlatformGrowthSeries(supabase, metric, rangeDays),
-    getSubscribersByPlan(supabase),
-    getTopBusinessTypes(supabase),
+    getSubscribersByPlan(supabase, locale),
+    getTopBusinessTypes(supabase, locale),
     getGeographicDistribution(supabase),
-    getRecentSubscribers(supabase),
+    getRecentSubscribers(supabase, 8, locale),
     getRecentActivity(supabase),
     getPlatformAgentStats(supabase, 30),
     getSystemHealth(supabase),
@@ -98,19 +97,19 @@ export default async function SuperAdminDashboard({
     ? await supabase.from("currencies").select("exponent").eq("code", kpis.monthlyRevenueCurrency).maybeSingle()
     : { data: null };
   const revenueExponent = currencyRow?.exponent ?? 2;
-  const firstName = profile?.full_name?.split(" ")[0] ?? "Super Admin";
+  const firstName = profile?.full_name?.split(" ")[0] ?? tAll("platform.shell.superAdmin");
   const status = overallHealth(health);
 
   const baseHref = `/${locale}/super-admin`;
   const metricTabs: Tab[] = METRICS.map((m) => ({
-    key: m.key,
-    label: m.label,
-    href: `${baseHref}?metric=${m.key}&range=${rangeDays}`,
-    active: metric === m.key,
+    key: m,
+    label: t(`metric.${m}`),
+    href: `${baseHref}?metric=${m}&range=${rangeDays}`,
+    active: metric === m,
   }));
   const rangeTabs: Tab[] = GROWTH_RANGES.map((r) => ({
     key: String(r),
-    label: RANGE_LABEL[r],
+    label: t(`range.${r}`),
     href: `${baseHref}?metric=${metric}&range=${r}`,
     active: rangeDays === r,
   }));
@@ -121,19 +120,19 @@ export default async function SuperAdminDashboard({
         <div className="flex items-center gap-4">
           <Image src="/brand/logo-mark.png" alt="" width={56} height={56} className="hidden rounded-xl sm:block" />
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Welcome back, {firstName}! 👋</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">{t("welcome", { name: firstName })}</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Here&apos;s what&apos;s happening with your SmartManager AI Agent platform.
+              {t("subtitle")}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5">
           <span className={`h-2 w-2 shrink-0 rounded-full ${HEALTH_DOT[status]}`} />
           <p className="text-sm text-slate-700">
-            Platform is <span className="font-medium capitalize">{status}</span>
+            <RichMsg id="platform.overview.platformIs" values={{ status: t(`health.${status}`), b: (c) => <span className="font-medium">{c}</span> }} />
             {kpis.monthlyRevenueTrend &&
               kpis.monthlyRevenueTrend.direction === "up" &&
-              ` — revenue up ${kpis.monthlyRevenueTrend.pct}% this month`}
+              t("revenueUp", { pct: kpis.monthlyRevenueTrend.pct })}
           </p>
         </div>
       </div>
@@ -142,7 +141,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="customers"
           accent="emerald"
-          label="Total Subscribers"
+          label={t("kpi.subscribers")}
           value={String(kpis.totalSubscribers)}
           trend={kpis.totalSubscribersTrend}
           href={`/${locale}/super-admin/subscribers`}
@@ -150,7 +149,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="building"
           accent="blue"
-          label="Total Businesses"
+          label={t("kpi.businesses")}
           value={String(kpis.totalBusinesses)}
           trend={kpis.totalBusinessesTrend}
           href={`/${locale}/super-admin/businesses`}
@@ -158,7 +157,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="agent"
           accent="emerald"
-          label="AI Agents Active"
+          label={t("kpi.agents")}
           value={String(kpis.activeAgents)}
           trend={null}
           href={`/${locale}/super-admin/ai-agents`}
@@ -166,7 +165,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="billing"
           accent="orange"
-          label="Monthly Revenue"
+          label={t("kpi.revenue")}
           value={
             kpis.monthlyRevenueCurrency
               ? formatMoney(kpis.monthlyRevenueMinor, kpis.monthlyRevenueCurrency, revenueExponent, locale)
@@ -178,7 +177,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="conversations"
           accent="blue"
-          label="Total Conversations"
+          label={t("kpi.conversations")}
           value={String(kpis.totalConversations)}
           trend={kpis.totalConversationsTrend}
           href={`/${locale}/super-admin/usage`}
@@ -186,7 +185,7 @@ export default async function SuperAdminDashboard({
         <KpiTile
           icon="marketing"
           accent="purple"
-          label="Active Subscriptions"
+          label={t("kpi.subscriptions")}
           value={String(kpis.activeSubscriptions)}
           trend={kpis.activeSubscriptionsTrend}
           href={`/${locale}/super-admin/subscribers?status=active`}
@@ -198,7 +197,7 @@ export default async function SuperAdminDashboard({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-slate-900">
               <Link href={`/${locale}/super-admin/analytics`} prefetch={false} className="hover:underline">
-                Platform Growth
+                {t("growth")}
               </Link>
             </h2>
             <Tabs tabs={rangeTabs} />
@@ -208,7 +207,7 @@ export default async function SuperAdminDashboard({
             {growthSeries.some((p) => p.count > 0) ? (
               <LineChart
                 data={growthSeries}
-                label={METRICS.find((m) => m.key === metric)?.label ?? ""}
+                label={t(`metric.${metric}`)}
                 format={
                   metric === "revenue"
                     ? {
@@ -221,22 +220,22 @@ export default async function SuperAdminDashboard({
                 }
               />
             ) : (
-              <p className="py-10 text-center text-sm text-slate-400">No {metric} activity in this period yet.</p>
+              <p className="py-10 text-center text-sm text-slate-400">{t("noActivity", { metric: t(`metric.${metric}`) })}</p>
             )}
           </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">Subscribers by Plan</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("byPlan")}</h2>
             <Link href={`/${locale}/super-admin/plans`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              View →
+              {t("view")}
             </Link>
           </div>
           {subscribersByPlan.length > 0 ? (
-            <DonutChart segments={subscribersByPlan} centerLabel="Total" />
+            <DonutChart segments={subscribersByPlan} centerLabel={t("total")} />
           ) : (
-            <p className="py-6 text-center text-sm text-slate-400">No active subscriptions yet.</p>
+            <p className="py-6 text-center text-sm text-slate-400">{t("noSubscriptions")}</p>
           )}
         </section>
       </div>
@@ -244,9 +243,9 @@ export default async function SuperAdminDashboard({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">Top Business Types</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("topTypes")}</h2>
             <Link href={`/${locale}/super-admin/businesses`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              View →
+              {t("view")}
             </Link>
           </div>
           {topBusinessTypes.length > 0 ? (
@@ -270,15 +269,15 @@ export default async function SuperAdminDashboard({
               })}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-slate-400">No businesses yet.</p>
+            <p className="py-6 text-center text-sm text-slate-400">{t("noBusinesses")}</p>
           )}
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">Geographic Distribution</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("geo")}</h2>
             <Link href={`/${locale}/super-admin/businesses`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              View →
+              {t("view")}
             </Link>
           </div>
           {geographic.length > 0 ? (
@@ -299,28 +298,28 @@ export default async function SuperAdminDashboard({
               })}
             </ul>
           ) : (
-            <p className="py-6 text-center text-sm text-slate-400">No country data recorded yet.</p>
+            <p className="py-6 text-center text-sm text-slate-400">{t("noGeo")}</p>
           )}
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">AI Usage (30d)</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("aiUsage")}</h2>
             <Link href={`/${locale}/super-admin/usage`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              View →
+              {t("view")}
             </Link>
           </div>
           <dl className="flex flex-col gap-3 text-sm">
             <div className="flex items-baseline justify-between">
-              <dt className="text-slate-500">Interactions</dt>
+              <dt className="text-slate-500">{t("interactions")}</dt>
               <dd className="text-lg font-semibold text-slate-900">{aiUsage.total}</dd>
             </div>
             <div className="flex items-baseline justify-between">
-              <dt className="text-slate-500">Handled without AI</dt>
+              <dt className="text-slate-500">{t("withoutAi")}</dt>
               <dd className="text-lg font-semibold text-slate-900">{aiUsage.deterministicPct}%</dd>
             </div>
             <div className="flex items-baseline justify-between">
-              <dt className="text-slate-500">Total AI cost</dt>
+              <dt className="text-slate-500">{t("aiCost")}</dt>
               <dd className="text-lg font-semibold text-slate-900">${aiUsage.totalCostUsd.toFixed(4)}</dd>
             </div>
           </dl>
@@ -330,13 +329,13 @@ export default async function SuperAdminDashboard({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-900">Recent Subscribers</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("recentSubscribers")}</h2>
             <Link
               href={`/${locale}/super-admin/subscribers`}
               prefetch={false}
               className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
             >
-              View all
+              {t("viewAll")}
             </Link>
           </div>
           {recentSubscribers.length > 0 ? (
@@ -344,10 +343,10 @@ export default async function SuperAdminDashboard({
               <table className="w-full text-start text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-500">
-                    <th className="py-2 text-start font-medium">Subscriber</th>
-                    <th className="py-2 text-start font-medium">Business</th>
-                    <th className="py-2 text-start font-medium">Plan</th>
-                    <th className="py-2 text-start font-medium">Status</th>
+                    <th className="py-2 text-start font-medium">{t("col.subscriber")}</th>
+                    <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                    <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                    <th className="py-2 text-start font-medium">{t("col.status")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -358,7 +357,7 @@ export default async function SuperAdminDashboard({
                       <td className="py-2 text-slate-600">{s.planLabel ?? "—"}</td>
                       <td className="py-2">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                             s.status === "active"
                               ? "bg-emerald-50 text-emerald-700"
                               : s.status === "trialing"
@@ -370,7 +369,7 @@ export default async function SuperAdminDashboard({
                                     : "bg-slate-100 text-slate-500"
                           }`}
                         >
-                          {s.status.replace("_", " ")}
+                          {statusLabel(tAll, s.status)}
                         </span>
                       </td>
                     </tr>
@@ -380,17 +379,17 @@ export default async function SuperAdminDashboard({
             </div>
           ) : (
             <EmptyState
-              title="No subscribers yet"
-              description="They'll appear here once the first business signs up."
+              title={t("noSubscribers")}
+              description={t("noSubscribersDescription")}
             />
           )}
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">Recent Platform Activity</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t("recentActivity")}</h2>
             <Link href={`/${locale}/super-admin/audit-logs`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              View →
+              {t("view")}
             </Link>
           </div>
           {recentActivity.length > 0 ? (
@@ -407,10 +406,8 @@ export default async function SuperAdminDashboard({
                     </span>
                     <div className="min-w-0">
                       <p className="text-slate-700">
-                        <span className="font-medium capitalize text-slate-900">
-                          {event.action.replace(/[._]/g, " ")}
-                        </span>
-                        {event.actorName && <span className="text-slate-500"> by {event.actorName}</span>}
+                        <span className="font-medium text-slate-900">{auditActionLabel(tAll, event.action)}</span>
+                        {event.actorName && <span className="text-slate-500">{tAll("common.byActor", { name: event.actorName })}</span>}
                       </p>
                       <p className="text-xs text-slate-400">{new Date(event.at).toLocaleString(locale)}</p>
                     </div>
@@ -420,8 +417,8 @@ export default async function SuperAdminDashboard({
             </ul>
           ) : (
             <EmptyState
-              title="No activity yet"
-              description="Sensitive platform actions will show up here as they happen."
+              title={t("noActivityTitle")}
+              description={t("noActivityDescription")}
             />
           )}
         </section>
@@ -429,13 +426,13 @@ export default async function SuperAdminDashboard({
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Quick Actions</h2>
+          <h2 className="text-sm font-semibold text-slate-900">{t("quickActions")}</h2>
           <Link
             href={`/${locale}/super-admin/system-health`}
             prefetch={false}
             className="text-xs font-medium text-emerald-600 hover:text-emerald-700"
           >
-            View System Health →
+            {t("viewHealth")}
           </Link>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -444,21 +441,21 @@ export default async function SuperAdminDashboard({
             prefetch={false}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500"
           >
-            Configure AI Model
+            {t("configureModel")}
           </Link>
           <Link
             href={`/${locale}/super-admin/admins`}
             prefetch={false}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Add Admin
+            {t("addAdmin")}
           </Link>
           <Link
             href={`/${locale}/super-admin/audit-logs`}
             prefetch={false}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Open Audit Logs
+            {t("openAudit")}
           </Link>
         </div>
       </section>

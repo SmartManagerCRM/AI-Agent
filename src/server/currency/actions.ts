@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 import { convertMinor, crossRate, loadUsdRates } from "./rates";
 
@@ -45,11 +46,12 @@ export type CurrencyPreview =
   | { ok: false; message: string };
 
 export async function previewCurrencySwitchAction(raw: { locale: string; slug: string; currency: string }): Promise<CurrencyPreview> {
+  const t = await actionT(raw.locale);
   const parsed = input.safeParse(raw);
-  if (!parsed.success) return { ok: false, message: "Choose a currency from the list." };
+  if (!parsed.success) return { ok: false, message: t("currency.choose") };
   const to = parsed.data.currency.toUpperCase();
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
-  if (to === tenant.currency) return { ok: false, message: `Your business already uses ${to}.` };
+  if (to === tenant.currency) return { ok: false, message: t("currency.already", { code: to }) };
   const supabase = await createUserClient();
 
   const [{ data: currencies }, usd, { data: products }, { count: services }, { count: coupons }, { data: settings }, { data: payment }] =
@@ -70,12 +72,12 @@ export async function previewCurrencySwitchAction(raw: { locale: string; slug: s
     ]);
   const fromExp = currencies?.find((c) => c.code === tenant.currency)?.exponent;
   const toExp = currencies?.find((c) => c.code === to)?.exponent;
-  if (fromExp === undefined || toExp === undefined) return { ok: false, message: `${to} isn't a supported currency.` };
+  if (fromExp === undefined || toExp === undefined) return { ok: false, message: t("currency.unsupported", { code: to }) };
   if (!usd) {
-    return { ok: false, message: "Live exchange rates are unavailable right now — please try again in a few minutes." };
+    return { ok: false, message: t("currency.ratesDown") };
   }
   const rate = crossRate(usd.rates, tenant.currency, to);
-  if (!rate) return { ok: false, message: `There's no live exchange rate between ${tenant.currency} and ${to}.` };
+  if (!rate) return { ok: false, message: t("currency.noRate", { from: tenant.currency, to }) };
 
   const priced = (products ?? []).filter((p) => !p.source_price);
   const label = (n: Record<string, string>) => n[parsed.data.locale] ?? Object.values(n)[0] ?? "";
@@ -107,12 +109,13 @@ export async function previewCurrencySwitchAction(raw: { locale: string; slug: s
 export type CurrencySwitchResult = { ok: true; message: string } | { ok: false; message: string };
 
 export async function switchCurrencyAction(raw: { locale: string; slug: string; currency: string }): Promise<CurrencySwitchResult> {
+  const t = await actionT(raw.locale);
   const parsed = input.safeParse(raw);
-  if (!parsed.success) return { ok: false, message: "Choose a currency from the list." };
+  if (!parsed.success) return { ok: false, message: t("currency.choose") };
   const to = parsed.data.currency.toUpperCase();
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const usd = await loadUsdRates();
-  if (!usd) return { ok: false, message: "Live exchange rates are unavailable right now — nothing was changed. Please try again shortly." };
+  if (!usd) return { ok: false, message: t("currency.ratesDownNothing") };
 
   // Only the currencies the platform supports go into the saved snapshot.
   const { data: supported } = await (await createUserClient()).from("currencies").select("code");
@@ -128,9 +131,9 @@ export async function switchCurrencyAction(raw: { locale: string; slug: string; 
     p_rates_as_of: usd.asOf,
   });
   if (error) {
-    if (error.code === "42501") return { ok: false, message: "Only the business owner or an admin can change the currency." };
-    if (/no exchange rate/.test(error.message)) return { ok: false, message: `There's no live exchange rate for ${to} right now — nothing was changed.` };
-    return { ok: false, message: "The currency couldn't be changed — nothing was changed. Please try again." };
+    if (error.code === "42501") return { ok: false, message: t("currency.noPermission") };
+    if (/no exchange rate/.test(error.message)) return { ok: false, message: t("currency.noRateNothing", { code: to }) };
+    return { ok: false, message: t("currency.failed") };
   }
   const result = data as { products?: number; services?: number; priced_from_listing?: number } | null;
   // Every console page shows amounts in the business currency.
@@ -138,7 +141,7 @@ export async function switchCurrencyAction(raw: { locale: string; slug: string; 
   return {
     ok: true,
     message:
-      `Your business now uses ${to}. ${result?.products ?? 0} product price(s) and ${result?.services ?? 0} service price(s) were converted.` +
-      ((result?.priced_from_listing ?? 0) > 0 ? ` ${result?.priced_from_listing} draft(s) got the price listed in ${to}.` : ""),
+      t("currency.done", { code: to, products: result?.products ?? 0, services: result?.services ?? 0 }) +
+      ((result?.priced_from_listing ?? 0) > 0 ? t("currency.listed", { n: result?.priced_from_listing ?? 0, code: to }) : ""),
   };
 }

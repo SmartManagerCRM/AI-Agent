@@ -8,6 +8,8 @@ import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { getTenantCustomers } from "@/server/tenant/customers";
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
 
 const PAGE_SIZE = 50;
 
@@ -30,6 +32,7 @@ export default async function CustomersPage({
   const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.customers");
 
   const [summary, { data: currency }] = await Promise.all([
     getTenantCustomers(supabase, tenant.id, { search: q, page, pageSize: PAGE_SIZE }),
@@ -46,16 +49,16 @@ export default async function CustomersPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-        <SearchInput placeholder="Search by name, phone or email..." defaultValue={q} />
+        <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.customers.customers" /></h1>
+        <SearchInput placeholder={t("searchPlaceholder")} defaultValue={q} />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4" data-testid="add-customer">
-        <h2 className="text-sm font-semibold text-slate-900">Add a customer</h2>
+        <h2 className="text-sm font-semibold text-slate-900"><Msg id="console.customers.addACustomer" /></h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Walk-ins, regulars, people who call — save them here. Customers who order through your AI Agent appear automatically.
+          <Msg id="console.customers.walkInsRegularsPeopleWho" />
         </p>
-        <Disclosure summary="New customer" initiallyOpen={totalCustomers === 0}>
+        <Disclosure summary={t("newCustomer")} initiallyOpen={totalCustomers === 0}>
           <CustomerForm locale={locale} slug={slug} initial={NEW_CUSTOMER} />
         </Disclosure>
       </section>
@@ -64,17 +67,17 @@ export default async function CustomersPage({
         <KpiTile
           icon="customers"
           accent="emerald"
-          label="Total customers"
+          label={t("totalCustomers")}
           value={String(totalCustomers)}
           trend={null}
           href={`/${locale}/${slug}/customers#customers`}
         />
-        <KpiTile icon="orders" accent="blue" label="Repeat customers" value={String(repeatCustomers)} trend={null} href={`/${locale}/${slug}/customers#customers`} />
-        <KpiTile icon="billing" accent="purple" label="Total spent" value={money(totalSpentMinor)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
+        <KpiTile icon="orders" accent="blue" label={t("repeatCustomers")} value={String(repeatCustomers)} trend={null} href={`/${locale}/${slug}/customers#customers`} />
+        <KpiTile icon="billing" accent="purple" label={t("totalSpent")} value={money(totalSpentMinor)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
         <KpiTile
           icon="analytics"
           accent="orange"
-          label="Avg. spend / customer"
+          label={t("avgSpend")}
           value={money(totalCustomers > 0 ? Math.round(totalSpentMinor / totalCustomers) : 0)}
           trend={null}
           href={`/${locale}/${slug}/analytics`}
@@ -87,13 +90,13 @@ export default async function CustomersPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="px-4 py-2 text-start font-medium">Customer</th>
-                  <th className="px-4 py-2 text-start font-medium">Contact</th>
-                  <th className="px-4 py-2 text-start font-medium">Orders</th>
-                  <th className="px-4 py-2 text-start font-medium">Total spent</th>
-                  <th className="px-4 py-2 text-start font-medium">Last order</th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.customers.customer" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.customers.contact" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.customers.orders" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.customers.totalSpent" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.customers.lastOrder" /></th>
                   <th className="px-4 py-2 text-end font-medium">
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only"><Msg id="console.customers.actions" /></span>
                   </th>
                 </tr>
               </thead>
@@ -123,13 +126,13 @@ export default async function CustomersPage({
         ) : (
           <div className="p-4">
             <EmptyState
-              title={totalCustomers === 0 ? "No customers yet" : "No customers match your search"}
+              title={totalCustomers === 0 ? t("emptyTitle") : t("noMatchTitle")}
               description={
                 totalCustomers === 0
-                  ? "Add your first customer above — customers who order through your AI Agent also appear here automatically."
-                  : "Try a different search term."
+                  ? t("emptyDescription")
+                  : t("tryDifferentSearch")
               }
-              actionLabel={totalCustomers === 0 ? "Set up your Agent" : undefined}
+              actionLabel={totalCustomers === 0 ? t("setUpAgent") : undefined}
               actionHref={totalCustomers === 0 ? `/${locale}/${slug}/agent` : undefined}
             />
           </div>

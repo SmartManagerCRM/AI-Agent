@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -17,6 +18,7 @@ export function BusinessLogoForm({
   businessName: string;
   currentUrl: string | null;
 }) {
+const t = useTranslations("console.logoForm");
   const [state, formAction, pending] = useActionState(updateBusinessLogoAction, undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const shown = preview ?? currentUrl;
@@ -39,8 +41,7 @@ export function BusinessLogoForm({
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm text-slate-600">
         <p>
-          Your logo appears next to your business name in this console and on your customer Agent. PNG, JPG or WebP, up to 3 MB; a
-          square logo with a transparent background looks best.
+          {t("hint")}
         </p>
         <input
           type="file"
@@ -51,15 +52,15 @@ export function BusinessLogoForm({
             setPreview(file ? URL.createObjectURL(file) : null);
           }}
           className="text-sm file:me-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-          aria-label="Logo"
+          aria-label={t("label")}
         />
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : currentUrl ? "Replace logo" : "Upload logo"}
+            {pending ? t("saving") : currentUrl ? t("replace") : t("upload")}
           </Button>
           {currentUrl && (
             <Button type="submit" variant="secondary" name="remove" value="on" disabled={pending}>
-              Remove
+              {t("remove")}
             </Button>
           )}
         </div>

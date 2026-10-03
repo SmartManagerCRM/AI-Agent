@@ -51,7 +51,8 @@ export type BusinessDetail = {
 };
 
 /** Everything a Super Admin needs to support/troubleshoot one business (spec §21 "Business 360") — read-only, every number real. */
-export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: string): Promise<BusinessDetail | null> {
+/** Names come in `locale` where the business / plan / type has one, else English. */
+export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: string, locale = "en"): Promise<BusinessDetail | null> {
   const { data: tenant } = await supabase
     .from("tenants")
     .select(
@@ -125,7 +126,7 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
       .select("name")
       .eq("key", subscription.plan_key)
       .maybeSingle();
-    planLabel = planRow?.name.en ?? subscription.plan_key;
+    planLabel = planRow?.name[locale] ?? planRow?.name.en ?? subscription.plan_key;
   }
 
   let owner: { name: string; email: string | null } | null = null;
@@ -161,8 +162,8 @@ export async function getBusinessDetail(supabase: TypedSupabaseClient, slug: str
     tenant: {
       id: tenant.id,
       slug: tenant.slug,
-      businessName: tenant.business_name.en ?? tenant.slug,
-      businessTypeLabel: businessType?.name.en ?? tenant.business_type_key,
+      businessName: tenant.business_name[locale] ?? tenant.business_name.en ?? tenant.slug,
+      businessTypeLabel: businessType?.name[locale] ?? businessType?.name.en ?? tenant.business_type_key,
       status: tenant.status,
       country: tenant.country,
       city: tenant.city,

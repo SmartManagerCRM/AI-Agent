@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { Icon, type NavIconKey, NAV_ICON_PATHS } from "@/components/console/icons";
+import { Msg } from "@/components/i18n/msg";
 import type { Trend } from "@/server/tenant/dashboard-stats";
 
 const ICON_BG: Record<string, string> = {
@@ -17,7 +19,7 @@ export function KpiTile({
   label,
   value,
   trend,
-  trendLabel = "vs prior 30 days",
+  trendLabel = <Msg id="console.kpi.vsPriorDays" values={{ days: 30 }} />,
   href,
 }: {
   icon: NavIconKey;
@@ -26,7 +28,7 @@ export function KpiTile({
   value: string;
   trend: Trend;
   /** Text after the percentage — defaults to the Dashboard's fixed 30-day comparison. */
-  trendLabel?: string;
+  trendLabel?: ReactNode;
   /** The page this figure comes from — the whole card links there. */
   href?: string;
 }) {

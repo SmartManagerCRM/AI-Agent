@@ -1,10 +1,12 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+export function CopyButton({ value, label }: { value: string; label?: string }) {
+  const t = useTranslations("common");
   const [copied, setCopied] = useState(false);
 
   return (
@@ -22,7 +24,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
       className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
     >
       <Icon path={copied ? NAV_ICON_PATHS.check : NAV_ICON_PATHS.copy} size={14} />
-      {copied ? "Copied" : label}
+      {copied ? t("copied") : (label ?? t("copy"))}
     </button>
   );
 }

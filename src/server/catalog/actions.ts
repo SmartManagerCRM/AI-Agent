@@ -7,6 +7,7 @@ import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
 import { bucketWriter, storeProductImage } from "@/server/catalog/product-images";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 const createBranchSchema = z.object({
   tenantId: z.uuid(),
@@ -29,7 +30,7 @@ export async function createBranchAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -44,7 +45,7 @@ export async function createBranchAction(
     phone: parsed.data.phone || null,
     is_default: parsed.data.isDefault === "on",
   });
-  if (error) return "VALIDATION_ERROR: could not create that branch — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("catalog.branchFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/branches`);
 }
@@ -66,14 +67,14 @@ export async function createCategoryAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("categories")
     .insert({ tenant_id: parsed.data.tenantId, name: { [parsed.data.locale]: parsed.data.name } });
-  if (error) return "VALIDATION_ERROR: could not create that category — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("catalog.categoryFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
@@ -103,7 +104,7 @@ export async function createProductAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -116,7 +117,7 @@ export async function createProductAction(
     price_minor: priceMinor,
     status: parsed.data.status,
   });
-  if (error) return "VALIDATION_ERROR: could not create that product — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("catalog.productFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
@@ -200,6 +201,7 @@ export type ProductEditState = { ok: boolean; message: string } | undefined;
  * sale.
  */
 export async function updateProductAction(_prev: ProductEditState, formData: FormData): Promise<ProductEditState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = updateProductSchema.safeParse({
     productId: formData.get("productId"),
     name: formData.get("name"),
@@ -209,7 +211,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the fields." };
+  if (!parsed.success) return { ok: false, message: t("checkFields") };
   const { locale, slug } = parsed.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
@@ -223,7 +225,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
       .maybeSingle(),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
   ]);
-  if (!product) return { ok: false, message: "That product no longer exists — reload the page." };
+  if (!product) return { ok: false, message: t("catalog.productGone") };
 
   const exponent = currency?.exponent ?? 2;
   const shownKey = (text: Record<string, string>) => (locale in text ? locale : (Object.keys(text)[0] ?? locale));
@@ -244,12 +246,12 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
     })
     .eq("tenant_id", tenant.id)
     .eq("id", parsed.data.productId);
-  if (error) return { ok: false, message: "Couldn't save — you need permission to edit products." };
+  if (error) return { ok: false, message: t("catalog.noPermission") };
 
   const photo = savedPhoto(formData.get("photo"));
   if (photo === "too_large") {
     revalidateCatalog(locale, slug);
-    return { ok: false, message: "Saved — but that photo is larger than 6 MB. Choose a smaller one." };
+    return { ok: false, message: t("catalog.photoTooLarge") };
   }
   if (photo || formData.get("removePhoto") === "on") {
     let storage;
@@ -257,7 +259,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
       storage = bucketWriter(serviceClient());
     } catch {
       revalidateCatalog(locale, slug);
-      return { ok: false, message: "Saved — but photos can't be stored on this server yet (storage isn't configured)." };
+      return { ok: false, message: t("catalog.photoNoStorage") };
     }
     if (photo) {
       const stored = await storeProductImage(
@@ -270,7 +272,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
       ).catch(() => false);
       if (!stored) {
         revalidateCatalog(locale, slug);
-        return { ok: false, message: "Saved — but that photo couldn't be used. Upload a JPG, PNG or WebP picture." };
+        return { ok: false, message: t("catalog.photoUnusable") };
       }
     } else {
       const { data: current } = await supabase
@@ -289,7 +291,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
     }
   }
   revalidateCatalog(locale, slug);
-  return { ok: true, message: "Saved." };
+  return { ok: true, message: t("saved") };
 }
 
 const MAX_PHOTO_BYTES = 6_000_000;
@@ -311,6 +313,7 @@ export type BrainSyncState = { ok: boolean; message: string } | undefined;
 export async function syncBrainCatalogAction(_prev: BrainSyncState, formData: FormData): Promise<BrainSyncState> {
   const locale = String(formData.get("locale") ?? "");
   const slug = String(formData.get("slug") ?? "");
+  const t = await actionT(locale);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   let storage;
@@ -321,28 +324,23 @@ export async function syncBrainCatalogAction(_prev: BrainSyncState, formData: Fo
   }
   const result = await draftBrainCatalog(supabase, tenant, { storage }).catch(() => null);
   if (!result || result.failed) {
-    return { ok: false, message: "Couldn't add to your catalog — you need permission to edit products." };
+    return { ok: false, message: t("catalog.addNoPermission") };
   }
   revalidateCatalog(locale, slug);
-  const photos =
-    result.images.attached > 0
-      ? ` ${result.images.attached} photo${result.images.attached === 1 ? "" : "s"} added.`
-      : "";
-  const photoTrouble = result.images.failed > 0 ? ` ${result.images.failed} photo(s) couldn't be downloaded.` : "";
+  const photos = result.images.attached > 0 ? t("catalog.photos", { n: result.images.attached }) : "";
+  const photoTrouble = result.images.failed > 0 ? t("catalog.photoTrouble", { n: result.images.failed }) : "";
   if (result.products + result.services === 0) {
-    return { ok: true, message: `Everything the Business Brain found is already here.${photos}${photoTrouble}` };
+    return { ok: true, message: `${t("catalog.allHere")}${photos}${photoTrouble}` };
   }
-  const parts = [
-    result.products > 0 ? `${result.products} product${result.products === 1 ? "" : "s"}` : null,
-    result.services > 0 ? `${result.services} service${result.services === 1 ? "" : "s"}` : null,
-  ].filter(Boolean);
   return {
     ok: true,
     message:
-      `Added ${parts.join(" and ")} from the Business Brain.` +
-      (result.needsPrice > 0
-        ? ` ${result.needsPrice} ${result.needsPrice === 1 ? "was" : "were"} priced in another currency — set your price on each (pencil icon) before it can go on sale.`
-        : "") +
+      t("catalog.added", {
+        products: result.products,
+        services: result.services,
+        both: result.products > 0 && result.services > 0 ? "yes" : "no",
+      }) +
+      (result.needsPrice > 0 ? t("catalog.needsPrice", { n: result.needsPrice }) : "") +
       photos +
       photoTrouble,
   };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
@@ -40,6 +41,9 @@ export function ServiceRow({
   locale: string;
   slug: string;
 }) {
+  const t = useTranslations("console.serviceRow");
+  const tCommon = useTranslations("common");
+  const tFields = useTranslations("console.serviceFields");
   const [state, formAction, pending] = useActionState(updateServiceAction, undefined);
   // Open with the result current at that moment; a newer successful save closes the form.
   const [opened, setOpened] = useState<{ at: ServiceEditState } | null>(null);
@@ -73,10 +77,10 @@ export function ServiceRow({
           />
         </div>
         <Button type="submit" disabled={pending} className="px-3 py-1.5">
-          {pending ? "Saving…" : "Save"}
+          {pending ? tCommon("saving") : tCommon("save")}
         </Button>
         <Button type="button" variant="secondary" className="px-3 py-1.5" onClick={() => setOpened(null)}>
-          Cancel
+          {tCommon("cancel")}
         </Button>
         {state && !state.ok && <p className="basis-full text-xs text-red-600">{state.message}</p>}
       </form>
@@ -89,25 +93,25 @@ export function ServiceRow({
       data-testid="service-row"
     >
       <span className="text-slate-900">
-        <strong className="font-medium">{service.name}</strong> — {service.durationMinutes !== null ? `${service.durationMinutes} min` : "no fixed length"}
-        {service.customerSetsEnd && " · customer sets time out"}
-        {service.priceLabel && ` · ${service.priceLabel}${service.priceUnit === "hour" ? " / hour" : service.priceUnit === "person" ? " / person" : ""}`}
-        {service.capacity > 1 && ` · ${service.capacity} at a time`}
+        <strong className="font-medium">{service.name}</strong> — {service.durationMinutes !== null ? t("minutes", { n: service.durationMinutes }) : tFields("noFixedLength")}
+        {service.customerSetsEnd && t("customerSetsEnd")}
+        {service.priceLabel && ` · ${service.priceLabel}${service.priceUnit === "hour" ? t("perHour") : service.priceUnit === "person" ? t("perPerson") : ""}`}
+        {service.capacity > 1 && t("atATime", { n: service.capacity })}
         <span
           className={`ms-2 rounded-full px-2 py-0.5 text-xs font-medium ${service.onlineBooking ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"}`}
         >
-          {service.onlineBooking ? "On Agent" : "Console only"}
+          {service.onlineBooking ? t("onAgent") : t("consoleOnly")}
         </span>
         {service.onlineBooking && (
           <span
             className={`ms-2 rounded-full px-2 py-0.5 text-xs font-medium ${service.requiresApproval ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}
           >
-            {service.requiresApproval ? "You confirm each request" : "Confirmed automatically"}
+            {service.requiresApproval ? t("approval") : t("automatic")}
           </span>
         )}
         {service.source !== "manual" && (
           <span className="ms-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-            {service.source === "brain" ? "From Business Brain" : "Imported"}
+            {service.source === "brain" ? t("fromBrain") : t("imported")}
           </span>
         )}
         <span
@@ -115,24 +119,24 @@ export function ServiceRow({
             service.isActive ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
           }`}
         >
-          {service.isActive ? "Active" : "Inactive"}
+          {service.isActive ? tCommon("active") : tCommon("inactive")}
         </span>
       </span>
       <span className="flex shrink-0 items-center gap-1">
-        <IconButton icon="edit" label="Edit" onClick={() => setOpened({ at: state })} />
+        <IconButton icon="edit" label={tCommon("edit")} onClick={() => setOpened({ at: state })} />
         <ActionIconForm action={setServiceActiveAction} fields={{ ...fields, value: String(!service.isActive) }}>
           {service.isActive ? (
-            <IconButton type="submit" icon="pause" label="Suspend — stop taking bookings" tone="amber" />
+            <IconButton type="submit" icon="pause" label={t("suspend")} tone="amber" />
           ) : (
-            <IconButton type="submit" icon="play" label="Activate — take bookings" tone="emerald" />
+            <IconButton type="submit" icon="play" label={t("activate")} tone="emerald" />
           )}
         </ActionIconForm>
         <ActionIconForm
           action={deleteServiceAction}
           fields={fields}
-          confirm={`Delete “${service.name}”? It will be removed from your services and your Agent. Past bookings are kept.`}
+          confirm={t("deleteConfirm", { name: service.name })}
         >
-          <IconButton type="submit" icon="trash" label="Delete" tone="red" />
+          <IconButton type="submit" icon="trash" label={tCommon("delete")} tone="red" />
         </ActionIconForm>
       </span>
     </div>

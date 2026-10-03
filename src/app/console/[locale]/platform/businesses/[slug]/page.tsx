@@ -13,6 +13,9 @@ import { loadPlatformUsage } from "@/server/platform/usage";
 import { USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { auditActionLabel, statusLabel } from "@/lib/i18n-labels";
 
 const TABS = ["overview", "brain", "agent", "usage", "orders", "billing", "activity"] as const;
 type TabKey = (typeof TABS)[number];
@@ -41,7 +44,9 @@ export default async function BusinessDetailPage({
   const tab = parseTab(tabParam);
 
   const supabase = await createUserClient();
-  const detail = await getBusinessDetail(supabase, slug);
+  const t = await getTranslations("platform.business360");
+  const tAll = await getTranslations();
+  const detail = await getBusinessDetail(supabase, slug, locale);
   if (!detail) notFound();
 
   const { data: activeGrant } = await supabase
@@ -65,15 +70,12 @@ export default async function BusinessDetailPage({
   const usage = tab === "usage" ? ((await loadPlatformUsage(supabase, detail.tenant.id))[0] ?? null) : null;
 
   const baseHref = `/${locale}/super-admin/businesses/${slug}`;
-  const tabs: Tab[] = [
-    { key: "overview", label: "Overview" },
-    { key: "brain", label: "Business Brain" },
-    { key: "agent", label: "Agent" },
-    { key: "usage", label: "Usage Limits" },
-    { key: "orders", label: "Orders" },
-    { key: "billing", label: "Subscription & Payments" },
-    { key: "activity", label: "Activity" },
-  ].map((t) => ({ ...t, href: t.key === "overview" ? baseHref : `${baseHref}?tab=${t.key}`, active: tab === t.key }));
+  const tabs: Tab[] = TABS.map((key) => ({
+    key,
+    label: t(`tab.${key}`),
+    href: key === "overview" ? baseHref : `${baseHref}?tab=${key}`,
+    active: tab === key,
+  }));
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
@@ -87,16 +89,16 @@ export default async function BusinessDetailPage({
         </div>
         <div className="flex items-center gap-3">
           <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLE[detail.tenant.status]}`}
+            className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[detail.tenant.status]}`}
           >
-            {detail.tenant.status}
+            {statusLabel(tAll, detail.tenant.status)}
           </span>
           <Link
             href={`/${locale}/super-admin/subscribers/${slug}`}
             prefetch={false}
             className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
           >
-            Edit subscriber
+            {t("editSubscriber")}
           </Link>
           {activeGrant ? (
             <div className="flex items-center gap-2">
@@ -105,13 +107,13 @@ export default async function BusinessDetailPage({
                 prefetch={false}
                 className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
               >
-                Continue in console
+                {t("continue")}
               </Link>
               <form action={endImpersonationAction}>
                 <input type="hidden" name="locale" value={locale} />
                 <input type="hidden" name="slug" value={slug} />
                 <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
-                  End access
+                  {t("endAccess")}
                 </button>
               </form>
             </div>
@@ -124,7 +126,7 @@ export default async function BusinessDetailPage({
                 type="submit"
                 className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
               >
-                Enter as support
+                {t("enter")}
               </button>
             </form>
           )}
@@ -136,11 +138,11 @@ export default async function BusinessDetailPage({
       {tab === "overview" && (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <KpiTile icon="orders" accent="emerald" label="Orders" value={String(detail.ordersCount)} trend={null} href={`${baseHref}?tab=orders`} />
+            <KpiTile icon="orders" accent="emerald" label={t("orders")} value={String(detail.ordersCount)} trend={null} href={`${baseHref}?tab=orders`} />
             <KpiTile
               icon="conversations"
               accent="blue"
-              label="Conversations"
+              label={t("conversations")}
               value={String(detail.conversationsCount)}
               trend={null}
           href={`${baseHref}?tab=agent`}
@@ -148,15 +150,15 @@ export default async function BusinessDetailPage({
             <KpiTile
               icon="agent"
               accent="emerald"
-              label="Agent"
-              value={detail.agent.active ? "Active" : "Inactive"}
+              label={t("agent")}
+              value={detail.agent.active ? t("active") : t("inactive")}
               trend={null}
           href={`${baseHref}?tab=agent`}
         />
             <KpiTile
               icon="billing"
               accent="orange"
-              label="Total paid"
+              label={t("totalPaid")}
               value={money(detail.paymentSummary.totalPaidMinor, detail.paymentSummary.currency)}
               trend={null}
           href={`${baseHref}?tab=billing`}
@@ -164,25 +166,25 @@ export default async function BusinessDetailPage({
           </div>
 
           <section className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Business profile</h2>
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("profile")}</h2>
             <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-              <dt className="text-slate-500">Owner</dt>
+              <dt className="text-slate-500">{t("owner")}</dt>
               <dd className="text-slate-900">
                 {detail.owner ? `${detail.owner.name}${detail.owner.email ? ` (${detail.owner.email})` : ""}` : "—"}
               </dd>
-              <dt className="text-slate-500">Contact</dt>
+              <dt className="text-slate-500">{t("contact")}</dt>
               <dd className="text-slate-900">{detail.tenant.contactEmail ?? detail.tenant.contactPhone ?? "—"}</dd>
-              <dt className="text-slate-500">Website</dt>
+              <dt className="text-slate-500">{t("website")}</dt>
               <dd className="text-slate-900">{detail.tenant.websiteUrl ?? "—"}</dd>
-              <dt className="text-slate-500">City</dt>
+              <dt className="text-slate-500">{t("city")}</dt>
               <dd className="text-slate-900">{detail.tenant.city ?? "—"}</dd>
-              <dt className="text-slate-500">Timezone</dt>
+              <dt className="text-slate-500">{t("timezone")}</dt>
               <dd className="text-slate-900">{detail.tenant.timezone}</dd>
-              <dt className="text-slate-500">Currency</dt>
+              <dt className="text-slate-500">{t("currency")}</dt>
               <dd className="text-slate-900">{detail.tenant.currency}</dd>
-              <dt className="text-slate-500">Deployment mode</dt>
-              <dd className="capitalize text-slate-900">{detail.tenant.deploymentMode.replace(/_/g, " ")}</dd>
-              <dt className="text-slate-500">Created</dt>
+              <dt className="text-slate-500">{t("deployment")}</dt>
+              <dd className="text-slate-900">{t.has(`mode.${detail.tenant.deploymentMode}`) ? t(`mode.${detail.tenant.deploymentMode}`) : detail.tenant.deploymentMode}</dd>
+              <dt className="text-slate-500">{t("created")}</dt>
               <dd className="text-slate-900">{new Date(detail.tenant.createdAt).toLocaleDateString(locale)}</dd>
             </dl>
           </section>
@@ -195,7 +197,7 @@ export default async function BusinessDetailPage({
             <KpiTile
               icon="branches"
               accent="emerald"
-              label="Sources"
+              label={t("sources")}
               value={String(detail.brain.sourceCount)}
               trend={null}
           href={`${baseHref}?tab=brain`}
@@ -203,7 +205,7 @@ export default async function BusinessDetailPage({
             <KpiTile
               icon="billing"
               accent="orange"
-              label="Pending review"
+              label={t("pending")}
               value={String(detail.brain.pendingReview)}
               trend={null}
           href={`${baseHref}?tab=brain`}
@@ -211,7 +213,7 @@ export default async function BusinessDetailPage({
             <KpiTile
               icon="orders"
               accent="blue"
-              label="Approved entries"
+              label={t("approved")}
               value={String(detail.brain.approvedEntries)}
               trend={null}
           href={`${baseHref}?tab=brain`}
@@ -219,7 +221,7 @@ export default async function BusinessDetailPage({
             <KpiTile
               icon="alert"
               accent="purple"
-              label="Open conflicts"
+              label={t("conflicts")}
               value={String(detail.brain.openConflicts)}
               trend={null}
           href={`${baseHref}?tab=brain`}
@@ -227,8 +229,8 @@ export default async function BusinessDetailPage({
           </div>
           {detail.brain.sourceCount === 0 && detail.brain.approvedEntries === 0 && (
             <EmptyState
-              title="No Business Brain data yet"
-              description="This business hasn't added a source or knowledge entry."
+              title={t("noBrain")}
+              description={t("noBrainDescription")}
             />
           )}
         </div>
@@ -239,15 +241,15 @@ export default async function BusinessDetailPage({
           <KpiTile
             icon="agent"
             accent="emerald"
-            label="Status"
-            value={detail.agent.active ? "Active" : "Inactive"}
+            label={t("status")}
+            value={detail.agent.active ? t("active") : t("inactive")}
             trend={null}
           href={`/${locale}/super-admin/subscribers/${slug}`}
         />
           <KpiTile
             icon="conversations"
             accent="blue"
-            label="Interactions (30d)"
+            label={t("interactions")}
             value={String(detail.agent.interactions30d)}
             trend={null}
           href={`${baseHref}?tab=agent`}
@@ -255,7 +257,7 @@ export default async function BusinessDetailPage({
           <KpiTile
             icon="analytics"
             accent="purple"
-            label="Handled without AI"
+            label={t("withoutAi")}
             value={`${detail.agent.deterministicPct}%`}
             trend={null}
           href={`${baseHref}?tab=agent`}
@@ -263,7 +265,7 @@ export default async function BusinessDetailPage({
           <KpiTile
             icon="billing"
             accent="orange"
-            label="AI cost (30d)"
+            label={t("aiCost30")}
             value={`$${detail.agent.costUsd30d.toFixed(4)}`}
             trend={null}
           href={`${baseHref}?tab=usage`}
@@ -273,28 +275,26 @@ export default async function BusinessDetailPage({
 
       {tab === "agent" && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">AI Cost Guard</h2>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">{t("costGuard")}</h2>
           <p className="mb-3 text-xs text-slate-500">
             {detail.costGuard.budgetUsd !== null
-              ? `Spent $${detail.costGuard.spentUsd.toFixed(2)} of $${detail.costGuard.budgetUsd.toFixed(2)} this calendar month${
-                  detail.costGuard.exceeded
-                    ? " — budget reached, the Agent is falling back to deterministic replies only."
-                    : "."
+              ? `${t("spentOf", { spent: detail.costGuard.spentUsd.toFixed(2), budget: detail.costGuard.budgetUsd.toFixed(2) })}${
+                  detail.costGuard.exceeded ? t("reached") : "."
                 }`
-              : `Spent $${detail.costGuard.spentUsd.toFixed(2)} this calendar month — no budget set, no cap.`}
+              : t("spentNoBudget", { spent: detail.costGuard.spentUsd.toFixed(2) })}
           </p>
           <form action={setTenantAiBudgetAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="tenantId" value={detail.tenant.id} />
             <input type="hidden" name="slug" value={slug} />
             <input type="hidden" name="locale" value={locale} />
             <label className="flex flex-col gap-1 text-sm">
-              Override budget (USD / month)
+              {t("overrideBudget")}
               <input
                 name="budgetUsd"
                 type="number"
                 step="0.01"
                 min="0"
-                placeholder="Use platform default"
+                placeholder={t("usePlatform")}
                 defaultValue={detail.costGuard.tenantOverrideUsd ?? undefined}
                 className="w-40 rounded-md border border-neutral-300 px-3 py-2"
               />
@@ -303,7 +303,7 @@ export default async function BusinessDetailPage({
               type="submit"
               className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
             >
-              Save
+              {t("save")}
             </button>
           </form>
         </section>
@@ -315,8 +315,8 @@ export default async function BusinessDetailPage({
         ) : (
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <EmptyState
-              title="No subscription"
-              description="Usage limits apply once this business has a subscription."
+              title={t("noSubscription")}
+              description={t("usageNoSub")}
             />
           </section>
         ))}
@@ -329,10 +329,10 @@ export default async function BusinessDetailPage({
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-500">
                     <th className="py-2 text-start font-medium">#</th>
-                    <th className="py-2 text-start font-medium">Customer</th>
-                    <th className="py-2 text-start font-medium">Total</th>
-                    <th className="py-2 text-start font-medium">Status</th>
-                    <th className="py-2 text-start font-medium">Date</th>
+                    <th className="py-2 text-start font-medium">{t("customer")}</th>
+                    <th className="py-2 text-start font-medium">{t("total")}</th>
+                    <th className="py-2 text-start font-medium">{t("status")}</th>
+                    <th className="py-2 text-start font-medium">{t("date")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,7 +341,7 @@ export default async function BusinessDetailPage({
                       <td className="py-2 font-medium text-slate-900">#{o.orderNumber}</td>
                       <td className="py-2 text-slate-600">{o.customerName ?? "—"}</td>
                       <td className="py-2 text-slate-600">{money(o.totalMinor)}</td>
-                      <td className="py-2 capitalize text-slate-600">{o.status.replace(/_/g, " ")}</td>
+                      <td className="py-2 text-slate-600">{statusLabel(tAll, o.status)}</td>
                       <td className="py-2 text-slate-500">{new Date(o.createdAt).toLocaleDateString(locale)}</td>
                     </tr>
                   ))}
@@ -349,7 +349,7 @@ export default async function BusinessDetailPage({
               </table>
             </div>
           ) : (
-            <EmptyState title="No orders yet" description="Orders this business receives will show up here." />
+            <EmptyState title={t("noOrders")} description={t("noOrdersDescription")} />
           )}
         </section>
       )}
@@ -358,13 +358,13 @@ export default async function BusinessDetailPage({
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           {detail.subscription ? (
             <dl className="grid grid-cols-2 gap-y-2 text-sm">
-              <dt className="text-slate-500">Plan</dt>
+              <dt className="text-slate-500">{t("plan")}</dt>
               <dd className="text-slate-900">{detail.subscription.planLabel}</dd>
-              <dt className="text-slate-500">Status</dt>
-              <dd className="capitalize text-slate-900">{detail.subscription.status?.replace("_", " ")}</dd>
+              <dt className="text-slate-500">{t("status")}</dt>
+              <dd className="text-slate-900">{statusLabel(tAll, detail.subscription.status)}</dd>
               {detail.subscription.trialEndsAt && (
                 <>
-                  <dt className="text-slate-500">Trial ends</dt>
+                  <dt className="text-slate-500">{t("trialEnds")}</dt>
                   <dd className="text-slate-900">
                     {new Date(detail.subscription.trialEndsAt).toLocaleDateString(locale)}
                   </dd>
@@ -372,19 +372,19 @@ export default async function BusinessDetailPage({
               )}
               {detail.subscription.currentPeriodEnd && (
                 <>
-                  <dt className="text-slate-500">Renews / expires</dt>
+                  <dt className="text-slate-500">{t("renews")}</dt>
                   <dd className="text-slate-900">
                     {new Date(detail.subscription.currentPeriodEnd).toLocaleDateString(locale)}
                   </dd>
                 </>
               )}
-              <dt className="text-slate-500">Total paid</dt>
+              <dt className="text-slate-500">{t("totalPaid")}</dt>
               <dd className="text-slate-900">
                 {money(detail.paymentSummary.totalPaidMinor, detail.paymentSummary.currency)}
               </dd>
             </dl>
           ) : (
-            <EmptyState title="No subscription" description="This business hasn't subscribed to a plan yet." />
+            <EmptyState title={t("noSubscription")} description={t("noPlanDescription")} />
           )}
         </section>
       )}
@@ -396,15 +396,15 @@ export default async function BusinessDetailPage({
               {detail.recentActivity.map((event) => (
                 <li key={event.id} className="text-sm">
                   <p className="text-slate-700">
-                    <span className="font-medium capitalize text-slate-900">{event.action.replace(/[._]/g, " ")}</span>
-                    {event.actorName && <span className="text-slate-500"> by {event.actorName}</span>}
+                    <span className="font-medium text-slate-900">{auditActionLabel(tAll, event.action)}</span>
+                    {event.actorName && <span className="text-slate-500">{tAll("common.byActor", { name: event.actorName })}</span>}
                   </p>
                   <p className="text-xs text-slate-400">{new Date(event.at).toLocaleString(locale)}</p>
                 </li>
               ))}
             </ul>
           ) : (
-            <EmptyState title="No activity yet" description="Actions on this business will show up here." />
+            <EmptyState title={t("noActivity")} description={t("noActivityDescription")} />
           )}
         </section>
       )}
@@ -416,6 +416,8 @@ const usd = (v: number | null, digits = 2) => (v === null ? "—" : `$${v.toFixe
 
 /** Super Admin only: this period's conversation and AI-cost usage, plan defaults vs overrides. */
 function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow; locale: string; slug: string }) {
+  const t = useTranslations("platform.business360");
+  const tAll = useTranslations();
   const date = (iso: string | null) =>
     iso ? new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" }) : "—";
   const aiRemaining = usage.aiCostLimit !== null ? Math.max(0, usage.aiCostLimit - usage.aiCostUsed) : null;
@@ -424,77 +426,79 @@ function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">Usage Limits</h2>
+        <h2 className="text-sm font-semibold text-slate-900">{t("u.title")}</h2>
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${USAGE_STATE_STYLE[usage.usageState]}`}>
-          {usage.usageState.replace(/_/g, " ")}
+          {tAll.has(`platform.usageState.${usage.usageState}`) ? tAll(`platform.usageState.${usage.usageState}`) : usage.usageState.replace(/_/g, " ")}
         </span>
       </div>
       {usage.isTrial ? (
         <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-          Free trial — it ends on {date(usage.periodEnd)}, after {usage.conversationLimit?.toLocaleString(locale) ?? "∞"}{" "}
-          conversations, or once its {usd(usage.aiCostLimit)} AI allowance is used, whichever comes first
-          {usage.trialEnded && ` (ended: ${usage.trialEndReason?.replace(/_/g, " ")})`}. Trial limits are set on Usage &amp;
-          AI Cost; the overrides below apply to paid billing periods.
+          {t("u.trial", {
+            date: date(usage.periodEnd),
+            limit: usage.conversationLimit?.toLocaleString(locale) ?? "∞",
+            allowance: usd(usage.aiCostLimit),
+            ended: usage.trialEnded ? t("u.ended", { reason: usage.trialEndReason?.replace(/_/g, " ") ?? "" }) : "",
+          })}
         </p>
       ) : (
         !usage.isPaid && (
           <p className="rounded-md bg-blue-50 p-3 text-xs text-blue-800">
-            Not on a paid billing period ({usage.status}). The paid-plan limits below apply only while the subscription
-            is active and paid.
+            {t("u.notPaid", { status: statusLabel(tAll, usage.status) })}
           </p>
         )
       )}
 
       <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <dt className="text-slate-500">Plan</dt>
-        <dd className="capitalize text-slate-900">{usage.planKey}</dd>
-        <dt className="text-slate-500">{usage.isTrial ? "Trial period" : "Billing period"}</dt>
+        <dt className="text-slate-500">{t("u.plan")}</dt>
+        <dd className="text-slate-900">{tAll.has(`common.plan.${usage.planKey}`) ? tAll(`common.plan.${usage.planKey}`) : usage.planKey}</dd>
+        <dt className="text-slate-500">{usage.isTrial ? t("u.trialPeriod") : t("u.billingPeriod")}</dt>
         <dd className="text-slate-900">
           {date(usage.periodStart)} → {date(usage.periodEnd)}
-          {!usage.isTrial && ` (resets ${date(usage.periodEnd)})`}
+          {!usage.isTrial && t("u.resets", { date: date(usage.periodEnd) })}
         </dd>
-        <dt className="text-slate-500">Conversations</dt>
+        <dt className="text-slate-500">{t("u.conversations")}</dt>
         <dd className="text-slate-900">
           {usage.conversationsUsed.toLocaleString(locale)} /{" "}
-          {usage.conversationLimit?.toLocaleString(locale) ?? "no limit"}
+          {usage.conversationLimit?.toLocaleString(locale) ?? t("u.noLimit")}
           {usage.conversationPercent !== null && ` (${usage.conversationPercent}%)`}
-          {convRemaining !== null && ` · ${convRemaining.toLocaleString(locale)} remaining`}
+          {convRemaining !== null && t("u.remaining", { n: convRemaining.toLocaleString(locale) })}
         </dd>
         {usage.graceUntil && (
           <>
-            <dt className="text-slate-500">Grace period until</dt>
+            <dt className="text-slate-500">{t("u.graceUntil")}</dt>
             <dd className="text-slate-900">{new Date(usage.graceUntil).toLocaleString(locale)}</dd>
           </>
         )}
-        <dt className="text-slate-500">{usage.isTrial ? "AI cost (against the trial allowance)" : "AI cost (counted against the cap)"}</dt>
+        <dt className="text-slate-500">{usage.isTrial ? t("u.aiTrial") : t("u.aiCap")}</dt>
         <dd className="text-slate-900">
           {usd(usage.aiCostUsed, 4)} / {usd(usage.aiCostLimit)}
           {usage.aiCostPercent !== null && ` (${usage.aiCostPercent}%)`}
-          {aiRemaining !== null && ` · ${usd(aiRemaining, 4)} remaining`}
-          {usage.aiCostReserved > 0 && ` · ${usd(usage.aiCostReserved, 4)} in flight`}
+          {aiRemaining !== null && t("u.remaining", { n: usd(aiRemaining, 4) })}
+          {usage.aiCostReserved > 0 && t("u.inFlight", { n: usd(usage.aiCostReserved, 4) })}
         </dd>
-        <dt className="text-slate-500">Agent AI cost this period (all calls)</dt>
+        <dt className="text-slate-500">{t("u.agentAll")}</dt>
         <dd className="text-slate-900">
-          {usd(usage.agentAiCost, 4)} · {usage.agentAiResponses.toLocaleString(locale)} AI responses
+          {t("u.responses", { cost: usd(usage.agentAiCost, 4), n: usage.agentAiResponses.toLocaleString(locale) })}
         </dd>
-        <dt className="text-slate-500">Premium voice this period (ElevenLabs — not part of the AI cost cap)</dt>
+        <dt className="text-slate-500">{t("u.voice")}</dt>
         <dd className="text-slate-900">
-          {usd(usage.agentVoiceCost, 4)} · {usage.agentVoiceClips.toLocaleString(locale)} clips generated ·{" "}
-          {usage.agentVoiceCharacters.toLocaleString(locale)} characters
+          {t("u.voiceValue", { cost: usd(usage.agentVoiceCost, 4), clips: usage.agentVoiceClips.toLocaleString(locale), chars: usage.agentVoiceCharacters.toLocaleString(locale) })}
         </dd>
-        <dt className="text-slate-500">Business Brain AI cost (tracked separately)</dt>
+        <dt className="text-slate-500">{t("u.brain")}</dt>
         <dd className="text-slate-900">
-          {usd(usage.brainAiCost, 4)} this period · {usd(usage.brainAiCostTotal, 4)} all time
+          {t("u.brainValue", { period: usd(usage.brainAiCost, 4), total: usd(usage.brainAiCostTotal, 4) })}
         </dd>
       </dl>
 
       <div className="border-t border-slate-100 pt-4">
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Limits</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-500">{t("u.limits")}</p>
         <p className="mb-3 text-xs text-slate-500">
-          Plan defaults: {usage.conversationLimitDefault?.toLocaleString(locale) ?? "no limit"} conversations,{" "}
-          {usd(usage.aiCostLimitDefault)} AI cost. Effective:{" "}
-          {usage.conversationLimit?.toLocaleString(locale) ?? "no limit"} conversations, {usd(usage.aiCostLimit)} AI
-          cost. Leave a field empty to use the plan default.
+          {t("u.limitsNote", {
+            defConv: usage.conversationLimitDefault?.toLocaleString(locale) ?? t("u.noLimit"),
+            defAi: usd(usage.aiCostLimitDefault),
+            conv: usage.conversationLimit?.toLocaleString(locale) ?? t("u.noLimit"),
+            ai: usd(usage.aiCostLimit),
+          })}
         </p>
         <SubscriberUsageOverridesForm
           locale={locale}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations as useCommonTranslations } from "next-intl";
+
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
@@ -7,6 +9,7 @@ import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { LOCALES, LOCALE_NATIVE_NAMES, type Locale } from "@/i18n/locales";
 
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
+  const tCommon = useCommonTranslations("common");
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -29,7 +32,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
       </button>
       {open && (
         <>
-          <button type="button" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} aria-label="Close menu" />
+          <button type="button" className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} aria-label={tCommon("closeMenu")} />
           <div className="absolute end-0 z-20 mt-2 w-36 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             {LOCALES.map((target) => (
               <a

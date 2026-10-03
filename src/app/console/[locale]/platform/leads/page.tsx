@@ -4,6 +4,9 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { getPlatformLeads } from "@/server/platform/leads-overview";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { RichMsg } from "@/components/i18n/msg";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   new: "bg-blue-50 text-blue-700",
@@ -24,6 +27,8 @@ export default async function PlatformLeadsPage({
   const { status: statusParam } = await searchParams;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.leads");
+  const tAll = await getTranslations();
   const leads = await getPlatformLeads(supabase);
 
   const newCount = leads.filter((l) => l.status === "new").length;
@@ -34,19 +39,19 @@ export default async function PlatformLeadsPage({
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(leads.length)} trend={null} href={base} />
-        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} href={`${base}?status=new`} />
-        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} href={`${base}?status=qualified`} />
+        <KpiTile icon="customers" accent="emerald" label={t("total")} value={String(leads.length)} trend={null} href={base} />
+        <KpiTile icon="bell" accent="blue" label={t("new")} value={String(newCount)} trend={null} href={`${base}?status=new`} />
+        <KpiTile icon="check" accent="orange" label={t("qualified")} value={String(qualifiedCount)} trend={null} href={`${base}?status=qualified`} />
       </div>
 
       {statusFilter && (
         <p className="text-sm text-slate-600">
-          Showing <span className="font-medium capitalize">{statusFilter}</span> leads ·{" "}
+          <RichMsg id="platform.leads.showing" values={{ status: statusLabel(tAll, statusFilter), b: (c) => <span className="font-medium">{c}</span> }} />{" "}
           <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
-            Show all
+            {t("showAll")}
           </Link>
         </p>
       )}
@@ -57,11 +62,11 @@ export default async function PlatformLeadsPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Business</th>
-                  <th className="py-2 text-start font-medium">Contact</th>
-                  <th className="py-2 text-start font-medium">Message</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Received</th>
+                  <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.contact")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.message")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.received")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -80,9 +85,9 @@ export default async function PlatformLeadsPage({
                     <td className="max-w-xs py-2 text-slate-600">{lead.message}</td>
                     <td className="py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[lead.status]}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[lead.status]}`}
                       >
-                        {lead.status}
+                        {statusLabel(tAll, lead.status)}
                       </span>
                     </td>
                     <td className="py-2 text-slate-500">{new Date(lead.createdAt).toLocaleDateString(locale)}</td>
@@ -93,8 +98,8 @@ export default async function PlatformLeadsPage({
           </div>
         ) : (
           <EmptyState
-            title={statusFilter ? "No leads with this status" : "No leads yet"}
-            description={statusFilter ? "Try another filter." : "Leads captured by any business's Agent will show up here."}
+            title={statusFilter ? t("noStatus") : t("empty")}
+            description={statusFilter ? t("tryAnother") : t("emptyDescription")}
           />
         )}
       </section>

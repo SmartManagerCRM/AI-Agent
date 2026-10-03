@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function CreateProductForm({ tenantId, slug, locale, categories, currencyExponent }: Props) {
+  const t = useTranslations("console.catalogForms");
   const [error, formAction, pending] = useActionState(createProductAction, undefined);
 
   return (
@@ -25,11 +27,11 @@ export function CreateProductForm({ tenantId, slug, locale, categories, currency
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="currencyExponent" value={currencyExponent} />
       <label className="flex flex-col gap-1 text-sm">
-        Name
+        {t("name")}
         <input name="name" required maxLength={160} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        Category
+        {t("category")}
         <select name="categoryId" className="rounded-md border border-neutral-300 px-3 py-2">
           <option value="">—</option>
           {categories.map((category) => (
@@ -40,7 +42,7 @@ export function CreateProductForm({ tenantId, slug, locale, categories, currency
         </select>
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        Price
+        {t("price")}
         <input
           name="priceMajor"
           type="number"
@@ -51,15 +53,15 @@ export function CreateProductForm({ tenantId, slug, locale, categories, currency
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
-        Status
+        {t("status")}
         <select name="status" className="rounded-md border border-neutral-300 px-3 py-2">
-          <option value="draft">Draft</option>
-          <option value="active">Active</option>
+          <option value="draft">{t("draft")}</option>
+          <option value="active">{t("active")}</option>
         </select>
       </label>
       {error && <p className="basis-full text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending}>
-        Add product
+        {t("addProduct")}
       </Button>
     </form>
   );

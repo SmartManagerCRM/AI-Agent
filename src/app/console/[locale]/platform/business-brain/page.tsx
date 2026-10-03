@@ -5,12 +5,16 @@ import { getBusinessBrainOverview } from "@/server/platform/business-brain-overv
 import { getIngestionEconomics } from "@/server/platform/ingestion-economics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 /** Super Admin Master Spec — Business Brain platform module: cross-tenant knowledge health, flags conflicts needing attention. */
 export default async function BusinessBrainOverviewPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.brainOverview");
+  const tAll = await getTranslations();
+  const jobStatus = (s: string) => (tAll.has(`console.brain.jobStatus.${s}`) ? tAll(`console.brain.jobStatus.${s}`) : s.replace(/_/g, " "));
   const [rows, economics] = await Promise.all([getBusinessBrainOverview(supabase), getIngestionEconomics(supabase)]);
   const usd = (n: number) => `$${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
 
@@ -21,16 +25,16 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Business Brain</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="branches" accent="emerald" label="Total sources" value={String(totalSources)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
-        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(totalPending)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
-        <KpiTile icon="alert" accent="purple" label="Open conflicts" value={String(totalConflicts)} trend={null} href={`/${locale}/super-admin/business-brain#needs-attention`} />
+        <KpiTile icon="branches" accent="emerald" label={t("kpi.sources")} value={String(totalSources)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
+        <KpiTile icon="billing" accent="orange" label={t("kpi.pending")} value={String(totalPending)} trend={null} href={`/${locale}/super-admin/business-brain#every-business`} />
+        <KpiTile icon="alert" accent="purple" label={t("kpi.conflicts")} value={String(totalConflicts)} trend={null} href={`/${locale}/super-admin/business-brain#needs-attention`} />
         <KpiTile
           icon="building"
           accent="blue"
-          label="Businesses with conflicts"
+          label={t("kpi.withConflicts")}
           value={String(withConflicts.length)}
           trend={null}
           href={`/${locale}/super-admin/business-brain#needs-attention`}
@@ -39,17 +43,17 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-900">Business Discovery — last 30 days</h2>
-          <p className="text-xs text-slate-500">Google costs are list-price estimates; AI costs use configured model pricing.</p>
+          <h2 className="text-sm font-semibold text-slate-900">{t("discovery")}</h2>
+          <p className="text-xs text-slate-500">{t("costNote")}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
           {[
-            ["Analyses", String(economics.jobs), "recent-analyses"],
-            ["Google calls", `${economics.googleCalls} · ${usd(economics.googleCostUsd)}`, "by-business"],
-            ["AI calls", `${economics.aiCalls}${economics.aiFailedCalls ? ` (${economics.aiFailedCalls} failed)` : ""}`, "by-model"],
-            ["AI tokens", `${economics.aiInputTokens.toLocaleString()} in · ${economics.aiOutputTokens.toLocaleString()} out`, "by-model"],
-            ["AI cost", usd(economics.aiCostUsd), "by-business"],
-            ["Avg / analysis", usd(economics.avgCostPerJobUsd), "recent-analyses"],
+            [t("e.analyses"), String(economics.jobs), "recent-analyses"],
+            [t("e.googleCalls"), `${economics.googleCalls} · ${usd(economics.googleCostUsd)}`, "by-business"],
+            [t("e.aiCalls"), `${economics.aiCalls}${economics.aiFailedCalls ? t("e.failed", { n: economics.aiFailedCalls }) : ""}`, "by-model"],
+            [t("e.aiTokens"), t("e.tokens", { in: economics.aiInputTokens.toLocaleString(locale), out: economics.aiOutputTokens.toLocaleString(locale) }), "by-model"],
+            [t("e.aiCost"), usd(economics.aiCostUsd), "by-business"],
+            [t("e.avg"), usd(economics.avgCostPerJobUsd), "recent-analyses"],
           ].map(([label, value, anchor]) => (
             <Link
               key={label}
@@ -64,9 +68,9 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
         </div>
         <p className="mt-2 text-xs text-slate-500">
           {Object.entries(economics.byStatus)
-            .map(([status, n]) => `${n} ${status.replace(/_/g, " ")}`)
-            .join(" · ") || "No analyses yet."}
-          {economics.jobs > 0 && ` · avg per business ${usd(economics.avgCostPerBusinessUsd)}`}
+            .map(([status, n]) => `${n} ${jobStatus(status)}`)
+            .join(" · ") || t("noAnalyses")}
+          {economics.jobs > 0 && t("avgPerBusiness", { cost: usd(economics.avgCostPerBusinessUsd) })}
         </p>
 
         {economics.alerts.length > 0 && (
@@ -76,10 +80,10 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
                 key={i}
                 className={`rounded-md px-3 py-1.5 text-xs ${alert.severity === "critical" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}
               >
-                <span className="font-medium">{alert.slug}</span> — {alert.message}
+                <span className="font-medium">{alert.slug}</span> — {t(`alert.${alert.kind}`, alert.values)}
                 {alert.jobId && (
                   <Link href={`/${locale}/super-admin/business-brain/jobs/${alert.jobId}`} prefetch={false} className="ms-1 underline">
-                    view
+                    {t("view")}
                   </Link>
                 )}
               </li>
@@ -89,15 +93,15 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <div id="by-model" className="scroll-mt-20 overflow-x-auto">
-            <p className="mb-1 text-xs font-medium text-slate-700">By model</p>
+            <p className="mb-1 text-xs font-medium text-slate-700">{t("byModel")}</p>
             <table className="w-full text-start text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-1.5 text-start font-medium">Model</th>
-                  <th className="py-1.5 text-start font-medium">Calls</th>
-                  <th className="py-1.5 text-start font-medium">Tokens in/out</th>
-                  <th className="py-1.5 text-start font-medium">Avg latency</th>
-                  <th className="py-1.5 text-start font-medium">Cost</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.model")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.calls")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.tokens")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.latency")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.cost")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,19 +110,19 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
                     <td className="py-1.5 text-slate-900">{m.model}</td>
                     <td className="py-1.5 text-slate-600">
                       {m.calls}
-                      {m.failed ? ` (${m.failed} failed)` : ""}
+                      {m.failed ? t("e.failed", { n: m.failed }) : ""}
                     </td>
                     <td className="py-1.5 text-slate-600">
-                      {m.inputTokens.toLocaleString()} / {m.outputTokens.toLocaleString()}
+                      {m.inputTokens.toLocaleString(locale)} / {m.outputTokens.toLocaleString(locale)}
                     </td>
-                    <td className="py-1.5 text-slate-600">{m.avgLatencyMs} ms</td>
+                    <td className="py-1.5 text-slate-600">{t("ms", { n: m.avgLatencyMs })}</td>
                     <td className="py-1.5 text-slate-600">{usd(m.costUsd)}</td>
                   </tr>
                 ))}
                 {economics.byModel.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-2 text-slate-500">
-                      No AI calls — every analysis so far was handled by rules.
+                      {t("noAi")}
                     </td>
                   </tr>
                 )}
@@ -126,33 +130,33 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
             </table>
             {economics.byPurpose.length > 0 && (
               <p className="mt-2 text-xs text-slate-500">
-                By purpose: {economics.byPurpose.map((p) => `${p.purpose.replace("extract:", "")} ${p.calls} (${usd(p.costUsd)})`).join(" · ")}
+                {t("byPurpose", { list: economics.byPurpose.map((p) => `${p.purpose.replace("extract:", "")} ${p.calls} (${usd(p.costUsd)})`).join(" · ") })}
               </p>
             )}
           </div>
           <div id="by-business" className="scroll-mt-20 overflow-x-auto">
-            <p className="mb-1 text-xs font-medium text-slate-700">By business</p>
+            <p className="mb-1 text-xs font-medium text-slate-700">{t("byBusiness")}</p>
             <table className="w-full text-start text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-1.5 text-start font-medium">Business</th>
-                  <th className="py-1.5 text-start font-medium">Analyses</th>
-                  <th className="py-1.5 text-start font-medium">Google</th>
-                  <th className="py-1.5 text-start font-medium">AI</th>
-                  <th className="py-1.5 text-start font-medium">Total</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.analyses")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.google")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.ai")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.total")}</th>
                 </tr>
               </thead>
               <tbody>
-                {economics.byTenant.slice(0, 15).map((t) => (
-                  <tr key={t.tenantId} className="border-b border-slate-100 last:border-0">
-                    <td className="py-1.5 text-slate-900">{t.businessName}</td>
+                {economics.byTenant.slice(0, 15).map((row) => (
+                  <tr key={row.tenantId} className="border-b border-slate-100 last:border-0">
+                    <td className="py-1.5 text-slate-900">{row.businessName}</td>
                     <td className="py-1.5 text-slate-600">
-                      {t.jobs}
-                      {t.failedJobs ? ` (${t.failedJobs} failed)` : ""}
+                      {row.jobs}
+                      {row.failedJobs ? t("e.failed", { n: row.failedJobs }) : ""}
                     </td>
-                    <td className="py-1.5 text-slate-600">{usd(t.googleCostUsd)}</td>
-                    <td className="py-1.5 text-slate-600">{usd(t.aiCostUsd)}</td>
-                    <td className="py-1.5 font-medium text-slate-900">{usd(t.totalUsd)}</td>
+                    <td className="py-1.5 text-slate-600">{usd(row.googleCostUsd)}</td>
+                    <td className="py-1.5 text-slate-600">{usd(row.aiCostUsd)}</td>
+                    <td className="py-1.5 font-medium text-slate-900">{usd(row.totalUsd)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -162,17 +166,17 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
 
         {economics.recentJobs.length > 0 && (
           <div id="recent-analyses" className="mt-4 scroll-mt-20 overflow-x-auto">
-            <p className="mb-1 text-xs font-medium text-slate-700">Recent analyses</p>
+            <p className="mb-1 text-xs font-medium text-slate-700">{t("recent")}</p>
             <table className="w-full text-start text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-1.5 text-start font-medium">When</th>
-                  <th className="py-1.5 text-start font-medium">Business</th>
-                  <th className="py-1.5 text-start font-medium">Status</th>
-                  <th className="py-1.5 text-start font-medium">Pages</th>
-                  <th className="py-1.5 text-start font-medium">Facts / conflicts</th>
-                  <th className="py-1.5 text-start font-medium">Google / AI calls</th>
-                  <th className="py-1.5 text-start font-medium">Cost / budget</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.when")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.pages")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.facts")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.calls2")}</th>
+                  <th className="py-1.5 text-start font-medium">{t("col.budget")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -184,7 +188,7 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
                       </Link>
                     </td>
                     <td className="py-1.5 text-slate-900">{j.businessName}</td>
-                    <td className="py-1.5 capitalize text-slate-600">{j.status.replace(/_/g, " ")}</td>
+                    <td className="py-1.5 text-slate-600">{jobStatus(j.status)}</td>
                     <td className="py-1.5 text-slate-600">{j.pages}</td>
                     <td className="py-1.5 text-slate-600">
                       {j.facts} / {j.conflicts}
@@ -204,17 +208,17 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
       </section>
 
       <section id="needs-attention" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Needs attention (open conflicts)</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("attention")}</h2>
         {withConflicts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Business</th>
-                  <th className="py-2 text-start font-medium">Sources</th>
-                  <th className="py-2 text-start font-medium">Pending review</th>
-                  <th className="py-2 text-start font-medium">Approved entries</th>
-                  <th className="py-2 text-start font-medium">Open conflicts</th>
+                  <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.sources")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.pending")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.approved")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.conflicts")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,23 +244,23 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
           </div>
         ) : (
           <EmptyState
-            title="No open conflicts"
-            description="Every business's Business Brain is conflict-free right now."
+            title={t("noConflicts")}
+            description={t("noConflictsDescription")}
           />
         )}
       </section>
 
       <section id="every-business" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Every business</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("every")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-start text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 text-start font-medium">Business</th>
-                <th className="py-2 text-start font-medium">Sources</th>
-                <th className="py-2 text-start font-medium">Pending review</th>
-                <th className="py-2 text-start font-medium">Approved entries</th>
-                <th className="py-2 text-start font-medium">Open conflicts</th>
+                <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                <th className="py-2 text-start font-medium">{t("col.sources")}</th>
+                <th className="py-2 text-start font-medium">{t("col.pending")}</th>
+                <th className="py-2 text-start font-medium">{t("col.approved")}</th>
+                <th className="py-2 text-start font-medium">{t("col.conflicts")}</th>
               </tr>
             </thead>
             <tbody>

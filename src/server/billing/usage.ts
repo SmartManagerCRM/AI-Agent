@@ -70,35 +70,66 @@ export function parseSubscriberUsage(raw: unknown): SubscriberUsage | null {
   };
 }
 
-export const AI_LIMITED_MESSAGE =
-  "AI service is temporarily limited for this billing period. Upgrade your plan or wait until your next billing period.";
-export const CONVERSATION_LIMIT_MESSAGE =
-  "You've reached your monthly customer conversation limit. Upgrade your plan to continue AI service, or wait until your next billing period.";
+/** The notices' wording in English (messages: console.usage.* — the console passes its own `t` for the user's language). */
+const USAGE_TEXT_EN = {
+  aiLimited:
+    "AI service is temporarily limited for this billing period. Upgrade your plan or wait until your next billing period.",
+  conversationLimit:
+    "You've reached your monthly customer conversation limit. Upgrade your plan to continue AI service, or wait until your next billing period.",
+  trialEnded: "Your free trial has ended. Subscribe to a plan to bring your Agent back online.",
+  whyConversations: "You've used all {limit} trial conversations.",
+  whyConversationsNoLimit: "You've used all your trial conversations.",
+  whyUsage: "You've used the trial's AI usage allowance.",
+  whyExpired: "The trial period is over.",
+  trialEndedTitle: "Free trial ended",
+  trialWarningTitle: "You've used {level}% of your trial conversations",
+  trialEndsOn: "The trial ends on {date}",
+  trialEnds: "The trial ends",
+  trialWarningBody:
+    "{ends} or after {limit} customer conversations, whichever comes first. Subscribe to a plan to keep your Agent running.",
+  resets: "Your usage resets on {date}.",
+  limitTitle: "Conversation limit reached",
+  graceUntil: " AI replies continue until {date} (grace period).",
+  warningTitle: "You've used {level}% of your monthly conversations",
+  warningBody: "Upgrade your plan before you reach the limit to keep AI replies running.",
+  aiLimitedTitle: "AI service limited",
+} as const;
+type UsageKey = keyof typeof USAGE_TEXT_EN;
+export type UsageT = (key: UsageKey, values?: Record<string, string | number>) => string;
+const english: UsageT = (key, values = {}) =>
+  USAGE_TEXT_EN[key].replace(/\{(\w+)\}/g, (_, name: string) => String(values[name] ?? ""));
 
-export const TRIAL_ENDED_MESSAGE = "Your free trial has ended. Subscribe to a plan to bring your Agent back online.";
+export const AI_LIMITED_MESSAGE = USAGE_TEXT_EN.aiLimited;
+export const CONVERSATION_LIMIT_MESSAGE = USAGE_TEXT_EN.conversationLimit;
+export const TRIAL_ENDED_MESSAGE = USAGE_TEXT_EN.trialEnded;
 
 export type UsageNotice = { tone: "info" | "warning" | "danger"; title: string; body: string };
 
 /** The free trial's notices: its conversation warnings, and why it ended. Never AI cost details. */
-function trialNotices(usage: SubscriberUsage, formatDate: (iso: string) => string): UsageNotice[] {
+function trialNotices(
+  usage: SubscriberUsage,
+  formatDate: (iso: string) => string,
+  t: UsageT,
+  formatNumber: (n: number) => string,
+): UsageNotice[] {
   if (usage.trialEnded) {
     const why =
       usage.trialEndReason === "conversation_limit"
         ? usage.conversationLimit !== null
-          ? `You've used all ${usage.conversationLimit.toLocaleString("en")} trial conversations.`
-          : "You've used all your trial conversations."
+          ? t("whyConversations", { limit: formatNumber(usage.conversationLimit) })
+          : t("whyConversationsNoLimit")
         : usage.trialEndReason === "usage_limit"
-          ? "You've used the trial's AI usage allowance."
-          : "The trial period is over.";
-    return [{ tone: "danger", title: "Free trial ended", body: `${why} ${TRIAL_ENDED_MESSAGE}` }];
+          ? t("whyUsage")
+          : t("whyExpired");
+    return [{ tone: "danger", title: t("trialEndedTitle"), body: `${why} ${t("trialEnded")}` }];
   }
   if (usage.warningLevel > 0 && usage.conversationLimit !== null) {
-    const ends = usage.trialEndsAt ? ` The trial ends on ${formatDate(usage.trialEndsAt)}` : " The trial ends";
+    const ends = usage.trialEndsAt ? t("trialEndsOn", { date: formatDate(usage.trialEndsAt) }) : t("trialEnds");
     return [
       {
         tone: usage.warningLevel >= 95 ? "danger" : "warning",
-        title: `You've used ${usage.warningLevel}% of your trial conversations`,
-        body: `${ends.trim()} or after ${usage.conversationLimit.toLocaleString("en")} customer conversations, whichever comes first. Subscribe to a plan to keep your Agent running.`,
+        title: t("trialWarningTitle", { level: usage.warningLevel }),
+        body: t("trialWarningBody", { ends, limit: formatNumber(usage.conversationLimit) }),
       },
     ];
   }
@@ -106,32 +137,37 @@ function trialNotices(usage: SubscriberUsage, formatDate: (iso: string) => strin
 }
 
 /** The subscriber console's usage notices (warnings at the configured levels, the grace period, the limit). */
-export function usageNotices(usage: SubscriberUsage, formatDate: (iso: string) => string): UsageNotice[] {
-  if (usage.isTrial) return trialNotices(usage, formatDate);
+export function usageNotices(
+  usage: SubscriberUsage,
+  formatDate: (iso: string) => string,
+  t: UsageT = english,
+  formatNumber: (n: number) => string = (n) => n.toLocaleString("en"),
+): UsageNotice[] {
+  if (usage.isTrial) return trialNotices(usage, formatDate, t, formatNumber);
   const notices: UsageNotice[] = [];
-  const resets = usage.periodEnd ? `Your usage resets on ${formatDate(usage.periodEnd)}.` : "";
+  const resets = usage.periodEnd ? t("resets", { date: formatDate(usage.periodEnd) }) : "";
   if (usage.conversationState === "blocked") {
     notices.push({
       tone: "danger",
-      title: "Conversation limit reached",
-      body: `${CONVERSATION_LIMIT_MESSAGE} ${resets}`.trim(),
+      title: t("limitTitle"),
+      body: `${t("conversationLimit")} ${resets}`.trim(),
     });
   } else if (usage.conversationState === "grace") {
-    const until = usage.graceUntil ? ` AI replies continue until ${formatDate(usage.graceUntil)} (grace period).` : "";
+    const until = usage.graceUntil ? t("graceUntil", { date: formatDate(usage.graceUntil) }) : "";
     notices.push({
       tone: "danger",
-      title: "Conversation limit reached",
-      body: `${CONVERSATION_LIMIT_MESSAGE}${until} ${resets}`.trim(),
+      title: t("limitTitle"),
+      body: `${t("conversationLimit")}${until} ${resets}`.trim(),
     });
   } else if (usage.warningLevel > 0) {
     notices.push({
       tone: usage.warningLevel >= 95 ? "danger" : "warning",
-      title: `You've used ${usage.warningLevel}% of your monthly conversations`,
-      body: `Upgrade your plan before you reach the limit to keep AI replies running. ${resets}`.trim(),
+      title: t("warningTitle", { level: usage.warningLevel }),
+      body: `${t("warningBody")} ${resets}`.trim(),
     });
   }
   if (usage.aiLimited) {
-    notices.push({ tone: "danger", title: "AI service limited", body: `${AI_LIMITED_MESSAGE} ${resets}`.trim() });
+    notices.push({ tone: "danger", title: t("aiLimitedTitle"), body: `${t("aiLimited")} ${resets}`.trim() });
   }
   return notices;
 }

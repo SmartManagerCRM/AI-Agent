@@ -13,6 +13,7 @@ import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 const createBusinessSchema = z.object({
   businessName: z.string().trim().min(2).max(120),
@@ -56,7 +57,7 @@ export async function createBusinessAction(
     currency: formData.get("currency"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   const supabase = await createUserClient();
   const slug = await generateUniqueSlug(supabase, parsed.data.businessName);
@@ -68,7 +69,7 @@ export async function createBusinessAction(
     p_default_language: parsed.data.defaultLanguage,
     p_currency: parsed.data.currency,
   });
-  if (error) return "VALIDATION_ERROR: could not create the business — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("business.createFailed");
 
   redirect(`/${parsed.data.locale}/${slug}`);
 }
@@ -108,12 +109,12 @@ export async function updateBusinessProfileAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   // Only a real time zone name (an unchanged old value may stay until the owner picks one).
   if (!isValidTimeZone(parsed.data.timezone) && parsed.data.timezone !== tenant.timezone) {
-    return "VALIDATION_ERROR: choose your time zone from the list.";
+    return (await actionT(parsed.data.locale))("business.chooseTimezone");
   }
   const supabase = await createUserClient();
   const { error } = await supabase
@@ -127,7 +128,7 @@ export async function updateBusinessProfileAction(
       city: parsed.data.city || null,
     })
     .eq("id", parsed.data.tenantId);
-  if (error) return "VALIDATION_ERROR: could not save the business profile — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("business.profileFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/settings`);
 }
@@ -175,30 +176,31 @@ export type BusinessLogoState = { ok: boolean; message: string } | undefined;
  * without that permission changes nothing and the file is removed.
  */
 export async function updateBusinessLogoAction(_prev: BusinessLogoState, formData: FormData): Promise<BusinessLogoState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = logoSchema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
-  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const remove = formData.get("remove") === "on";
   const file = formData.get("logo");
-  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: "Choose your logo first." };
-  if (file instanceof File && file.size > MAX_LOGO_BYTES) return { ok: false, message: "That logo is larger than 3 MB. Choose a smaller file." };
+  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: t("business.chooseLogo") };
+  if (file instanceof File && file.size > MAX_LOGO_BYTES) return { ok: false, message: t("business.logoTooLarge") };
 
   let storage;
   try {
     storage = bucketWriter(serviceClient());
   } catch {
-    return { ok: false, message: "Logos can't be stored on this server yet (storage isn't configured)." };
+    return { ok: false, message: t("business.logoNoStorage") };
   }
   const previous = tenant.logo_path ?? null;
 
   let path: string | null = null;
   if (!remove && file instanceof File) {
     const image = await normalizeImage(new Uint8Array(await file.arrayBuffer()), { maxEdge: LOGO_EDGE }).catch(() => null);
-    if (!image) return { ok: false, message: "That logo couldn't be used. Upload a PNG, JPG or WebP image at least 32 pixels wide." };
+    if (!image) return { ok: false, message: t("business.logoUnusable") };
     const hash = createHash("sha256").update(image.data).digest("hex").slice(0, 16);
     path = `${tenant.id}/logo-${hash}.webp`;
     if (path !== previous && !(await storage.upload(path, image.data, image.contentType))) {
-      return { ok: false, message: "The logo couldn't be saved — please try again." };
+      return { ok: false, message: t("business.logoSaveFailed") };
     }
   }
 
@@ -208,10 +210,10 @@ export async function updateBusinessLogoAction(_prev: BusinessLogoState, formDat
     if (path && path !== previous) await storage.remove([path]);
     return {
       ok: false,
-      message: error ? "The logo couldn't be saved — please try again." : "Only the business owner or an admin can change the logo.",
+      message: error ? t("business.logoSaveFailed") : t("business.logoNoPermission"),
     };
   }
   if (previous && previous !== path) await storage.remove([previous]);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}`, "layout");
-  return { ok: true, message: path ? "Logo saved — it now shows in your console and on your Agent." : "Logo removed." };
+  return { ok: true, message: path ? t("business.logoSaved") : t("business.logoRemoved") };
 }

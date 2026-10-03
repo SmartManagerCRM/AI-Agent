@@ -2,7 +2,8 @@ import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
-export type SearchResult = { id: string; title: string; subtitle: string; href: string };
+/** `orderNumber` is set on order results so the page can word "Order #…" in the Super Admin's language. */
+export type SearchResult = { id: string; title: string; subtitle: string; href: string; orderNumber?: number };
 export type SearchResults = { businesses: SearchResult[]; subscribers: SearchResult[]; orders: SearchResult[] };
 
 /**
@@ -69,6 +70,7 @@ export async function searchPlatform(supabase: TypedSupabaseClient, query: strin
   const orderResults: SearchResult[] = (orders ?? []).map((o) => ({
     id: o.id,
     title: `Order #${o.order_number}`,
+    orderNumber: o.order_number,
     subtitle: o.customer_name ?? "",
     href: slugByTenant.has(o.tenant_id)
       ? `/super-admin/businesses/${slugByTenant.get(o.tenant_id)}?tab=orders`

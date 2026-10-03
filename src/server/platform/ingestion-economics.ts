@@ -25,7 +25,15 @@ export type IngestionEconomics = {
   byModel: { model: string; provider: string; calls: number; failed: number; inputTokens: number; outputTokens: number; costUsd: number; avgLatencyMs: number }[];
   byPurpose: { purpose: string; calls: number; costUsd: number }[];
   byTenant: { tenantId: string; slug: string; businessName: string; jobs: number; googleCostUsd: number; aiCostUsd: number; totalUsd: number; failedJobs: number }[];
-  alerts: { jobId: string; slug: string; message: string; severity: "warning" | "critical" }[];
+  /** `kind` + `values` word the alert in the Super Admin's language (platform.brainOverview.alert.*); `message` is the English text. */
+  alerts: {
+    jobId: string;
+    slug: string;
+    kind: "overBudget" | "overAverage" | "manyRecent" | "manyFailed";
+    values: Record<string, string | number>;
+    message: string;
+    severity: "warning" | "critical";
+  }[];
   recentJobs: {
     id: string;
     slug: string;
@@ -125,16 +133,16 @@ export async function getIngestionEconomics(supabase: TypedSupabaseClient, days 
     const cost = Number(j.google_cost_usd) + Number(j.ai_cost_usd);
     const { slug } = nameOf(j.tenant_id);
     if (cost > Number(j.budget_usd) * 1.1) {
-      alerts.push({ jobId: j.id, slug, severity: "critical", message: `Cost $${cost.toFixed(4)} exceeded its $${Number(j.budget_usd).toFixed(2)} budget.` });
+      alerts.push({ jobId: j.id, slug, severity: "critical", kind: "overBudget", values: { cost: cost.toFixed(4), budget: Number(j.budget_usd).toFixed(2) }, message: `Cost $${cost.toFixed(4)} exceeded its $${Number(j.budget_usd).toFixed(2)} budget.` });
     } else if (jobCount >= 5 && avgPerJob > 0 && cost > avgPerJob * 3) {
-      alerts.push({ jobId: j.id, slug, severity: "warning", message: `Cost $${cost.toFixed(4)} is over 3× the average job ($${avgPerJob.toFixed(4)}).` });
+      alerts.push({ jobId: j.id, slug, severity: "warning", kind: "overAverage", values: { cost: cost.toFixed(4), average: avgPerJob.toFixed(4) }, message: `Cost $${cost.toFixed(4)} is over 3× the average job ($${avgPerJob.toFixed(4)}).` });
     }
   }
   for (const [tenantId, agg] of tenantAgg) {
     const recent = (jobs ?? []).filter((j) => j.tenant_id === tenantId && Date.now() - new Date(j.created_at).getTime() < DAY).length;
-    if (recent >= 6) alerts.push({ jobId: "", slug: nameOf(tenantId).slug, severity: "warning", message: `${recent} analyses in the last 24 hours.` });
+    if (recent >= 6) alerts.push({ jobId: "", slug: nameOf(tenantId).slug, severity: "warning", kind: "manyRecent", values: { n: recent }, message: `${recent} analyses in the last 24 hours.` });
     if (agg.jobs >= 3 && agg.failed / agg.jobs >= 0.5) {
-      alerts.push({ jobId: "", slug: nameOf(tenantId).slug, severity: "warning", message: `${agg.failed} of ${agg.jobs} analyses failed.` });
+      alerts.push({ jobId: "", slug: nameOf(tenantId).slug, severity: "warning", kind: "manyFailed", values: { failed: agg.failed, total: agg.jobs }, message: `${agg.failed} of ${agg.jobs} analyses failed.` });
     }
   }
 

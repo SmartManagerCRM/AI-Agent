@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -29,12 +30,13 @@ function useMobileSidebar() {
 
 export function MobileMenuButton() {
   const { setOpen } = useMobileSidebar();
+  const t = useTranslations("common");
   return (
     <button
       type="button"
       onClick={() => setOpen(true)}
       className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 lg:hidden"
-      aria-label="Open menu"
+      aria-label={t("openMenu")}
     >
       <Icon path={NAV_ICON_PATHS.menu} size={20} />
     </button>
@@ -57,6 +59,7 @@ function readSavedScroll(key: string): number | null {
  */
 export function MobileSidebarFrame({ name, children }: { name: "tenant" | "platform"; children: ReactNode }) {
   const { open, setOpen } = useMobileSidebar();
+  const t = useTranslations("common");
   const storageKey = `${name}-sidebar-scroll`;
   const asideRef = useRef<HTMLElement>(null);
   const scrollTop = useRef<number | null>(null);
@@ -114,7 +117,7 @@ export function MobileSidebarFrame({ name, children }: { name: "tenant" | "platf
           type="button"
           onClick={() => setOpen(false)}
           className="absolute end-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
-          aria-label="Close menu"
+          aria-label={t("closeMenu")}
         >
           <Icon path={NAV_ICON_PATHS.close} size={18} />
         </button>

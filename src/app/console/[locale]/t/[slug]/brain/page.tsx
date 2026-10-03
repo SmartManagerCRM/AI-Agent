@@ -15,12 +15,19 @@ import {
   resolveBrainConflictAction,
   toggleSourceActiveAction,
 } from "@/server/brain/actions";
+import { jobReasonLabel } from "@/lib/i18n-labels";
 import { loadGoLive } from "@/server/agent-public/go-live";
 import { placesConfigured } from "@/server/brain/discovery/google-places";
 import { loadReadiness } from "@/server/brain/discovery/pipeline";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+
+type T = { (key: string, values?: Record<string, string | number>): string; has(key: string): boolean };
+/** A value from one of the Brain's lists (source, status …) in the user's language; unknown values stay readable. */
+const label = (t: T, group: string, value: string) => (t.has(`${group}.${value}`) ? t(`${group}.${value}`) : value.replace(/_/g, " "));
 
 const CONFIDENCE_STYLE: Record<string, string> = {
   high: "bg-emerald-50 text-emerald-700",
@@ -54,14 +61,6 @@ const JOB_STATUS_STYLE: Record<string, string> = {
   paused: "bg-amber-50 text-amber-700",
   cancelled: "bg-slate-100 text-slate-500",
 };
-const SOURCE_LABEL: Record<string, string> = {
-  google_business: "Google Maps listing",
-  website: "Website",
-  online_menu: "Menu source",
-  online_ordering: "Online ordering",
-  image: "Menu image",
-  manual: "You",
-};
 
 export default async function BusinessBrainPage({
   params,
@@ -74,6 +73,8 @@ export default async function BusinessBrainPage({
   const page = parsePage((await searchParams).page);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.brain");
+  const tAll = await getTranslations();
 
   const countEntries = () =>
     supabase.from("business_brain_entries").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
@@ -146,10 +147,9 @@ export default async function BusinessBrainPage({
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Business Brain</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          What your AI Agent knows about {tenant.business_name[locale] ?? tenant.slug} — from your website, documents,
-          or entered by hand. Nothing from an outside source becomes active knowledge until you review and approve it.
+          {t("intro", { business: tenant.business_name[locale] ?? tenant.slug })}
         </p>
       </div>
 
@@ -172,13 +172,13 @@ export default async function BusinessBrainPage({
       <GoLivePanel state={goLive} slug={slug} locale={locale} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="branches" accent="emerald" label="Sources" value={String((sources ?? []).length)} trend={null} href={`/${locale}/${slug}/brain#sources`} />
-        <KpiTile icon="billing" accent="orange" label="Pending review" value={String(pendingCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
-        <KpiTile icon="orders" accent="blue" label="Approved entries" value={String(approvedCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
+        <KpiTile icon="branches" accent="emerald" label={t("kpi.sources")} value={String((sources ?? []).length)} trend={null} href={`/${locale}/${slug}/brain#sources`} />
+        <KpiTile icon="billing" accent="orange" label={t("kpi.pending")} value={String(pendingCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
+        <KpiTile icon="orders" accent="blue" label={t("kpi.approved")} value={String(approvedCount ?? 0)} trend={null} href={`/${locale}/${slug}/brain#knowledge`} />
         <KpiTile
           icon="conversations"
           accent="purple"
-          label="Open conflicts"
+          label={t("kpi.conflicts")}
           value={String((conflicts ?? []).length)}
           trend={null}
           href={`/${locale}/${slug}/brain#conflicts`}
@@ -187,14 +187,14 @@ export default async function BusinessBrainPage({
 
       {(conflicts ?? []).length > 0 && (
         <section id="conflicts" className="scroll-mt-20 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-amber-900">Conflicts to resolve</h2>
+          <h2 className="mb-3 text-sm font-semibold text-amber-900">{t("conflictsTitle")}</h2>
           <ul className="flex flex-col gap-3">
             {(conflicts ?? []).map((conflict) => (
               <li key={conflict.id} className="rounded-lg border border-amber-200 bg-white px-4 py-3 text-sm">
                 <p className="font-medium text-slate-900">
-                  {conflictTitle(conflict.entry_type, conflict.entry_key, conflict.conflicting_values[0]?.value)}
+                  {conflictTitle(t, conflict.entry_type, conflict.entry_key, conflict.conflicting_values[0]?.value)}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">Two sources disagree. Pick which one is correct:</p>
+                <p className="mt-1 text-xs text-slate-500">{t("conflictHint")}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {conflict.conflicting_values.map((value, index) => (
                     <form key={index} action={value.entry_id ? approveBrainEntryAction : resolveBrainConflictAction}>
@@ -213,7 +213,7 @@ export default async function BusinessBrainPage({
                         className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-start text-xs hover:bg-slate-50"
                       >
                         <span className="block font-medium text-slate-900">
-                          {SOURCE_LABEL[value.source_type] ?? value.source_type.replace("_", " ")}
+                          {label(t, "source", value.source_type)}
                           {typeof value.confidence_score === "number" && (
                             <span className="font-normal text-slate-500"> · {value.confidence_score}%</span>
                           )}
@@ -238,7 +238,7 @@ export default async function BusinessBrainPage({
       />
 
       <section id="sources" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Sources</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("sources")}</h2>
         {(sources ?? []).length > 0 ? (
           <ul className="mt-3 flex flex-col gap-2">
             {(sources ?? []).map((source) => (
@@ -248,16 +248,16 @@ export default async function BusinessBrainPage({
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium text-slate-900">
-                    {SOURCE_LABEL[source.source_type] ?? source.source_type.replace("_", " ")}
+                    {label(t, "source", source.source_type)}
                     {source.url && <span className="font-normal text-slate-500"> · {source.url}</span>}
                   </p>
                   <p className="text-slate-500">
-                    <span className="capitalize">{source.processing_status.replace("_", " ")}</span>
+                    <span>{label(t, "processing", source.processing_status)}</span>
                     {source.source_type === "website" && source.items_processed
-                      ? ` · ${source.items_processed} pages`
+                      ? t("pages", { count: source.items_processed })
                       : ""}
                     {source.last_scanned_at
-                      ? ` · checked ${new Date(source.last_scanned_at).toLocaleDateString(locale)}`
+                      ? t("checked", { date: new Date(source.last_scanned_at).toLocaleDateString(locale) })
                       : ""}
                     {source.error_message ? ` · ${source.error_message}` : ""}
                   </p>
@@ -272,7 +272,7 @@ export default async function BusinessBrainPage({
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="locale" value={locale} />
                       <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                        Rescan
+                        {t("rescan")}
                       </button>
                     </form>
                     <form action={toggleSourceActiveAction}>
@@ -281,7 +281,7 @@ export default async function BusinessBrainPage({
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="locale" value={locale} />
                       <button type="submit" className="text-xs font-medium text-slate-600 hover:underline">
-                        {source.is_active ? "Disable" : "Enable"}
+                        {source.is_active ? t("disable") : t("enable")}
                       </button>
                     </form>
                   </div>
@@ -292,32 +292,31 @@ export default async function BusinessBrainPage({
         ) : (
           <div className="mt-3">
             <EmptyState
-              title="No sources yet"
-              description="Analyze your Google Maps listing or website above, or add knowledge by hand below."
+              title={t("noSources")}
+              description={t("noSourcesDescription")}
             />
           </div>
         )}
         <p className="mt-3 text-xs text-slate-400">
-          Google Maps and your website are read today; PDF menus, images and social pages are planned as additional
-          source types — every one lands here the same way for you to review.
+          {t("sourcesNote")}
         </p>
         {(jobs ?? []).length > 0 && (
           <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="mb-2 text-xs font-medium text-slate-700">Recent analyses</p>
+            <p className="mb-2 text-xs font-medium text-slate-700">{t("recentAnalyses")}</p>
             <ul className="flex flex-col gap-1 text-xs text-slate-600">
               {(jobs ?? []).map((job) => (
                 <li key={job.id} className="flex flex-wrap items-center gap-2">
                   <span
-                    className={`rounded-full px-2 py-0.5 font-medium capitalize ${JOB_STATUS_STYLE[job.status] ?? "bg-blue-50 text-blue-700"}`}
+                    className={`rounded-full px-2 py-0.5 font-medium ${JOB_STATUS_STYLE[job.status] ?? "bg-blue-50 text-blue-700"}`}
                   >
-                    {job.status.replace(/_/g, " ")}
+                    {label(t, "jobStatus", job.status)}
                   </span>
                   <span>{new Date(job.created_at).toLocaleString(locale)}</span>
                   <span>
-                    · {job.pages_processed} page(s) · {job.facts_proposed} new fact(s)
-                    {job.conflicts_detected ? ` · ${job.conflicts_detected} conflict(s)` : ""}
+                    {t("jobSummary", { pages: job.pages_processed, facts: job.facts_proposed })}
+                    {job.conflicts_detected ? t("jobConflicts", { n: job.conflicts_detected }) : ""}
                   </span>
-                  {job.status_reason && <span className="text-slate-500">· {job.status_reason}</span>}
+                  {job.status_reason && <span className="text-slate-500">· {jobReasonLabel(tAll, job.status_reason, tAll("common.jobReason.failed"))}</span>}
                 </li>
               ))}
             </ul>
@@ -326,12 +325,12 @@ export default async function BusinessBrainPage({
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Add knowledge manually</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("addManually")}</h2>
         <CreateEntryForm tenantId={tenant.id} slug={slug} locale={locale} />
       </section>
 
       <section id="knowledge" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Knowledge entries</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("entries")}</h2>
         {(entries ?? []).length > 0 ? (
           <ul className="flex flex-col gap-3">
             {(entries ?? []).map((entry) => (
@@ -339,23 +338,22 @@ export default async function BusinessBrainPage({
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium capitalize text-slate-900">{entry.entry_type.replace("_", " ")}</p>
+                      <p className="font-medium text-slate-900">{label(t, "entryType", entry.entry_type)}</p>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[entry.status] ?? "bg-slate-100 text-slate-500"}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[entry.status] ?? "bg-slate-100 text-slate-500"}`}
                       >
-                        {entry.status.replace("_", " ")}
+                        {label(t, "entryStatus", entry.status)}
                       </span>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${CONFIDENCE_STYLE[entry.confidence] ?? "bg-slate-100 text-slate-500"}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${CONFIDENCE_STYLE[entry.confidence] ?? "bg-slate-100 text-slate-500"}`}
                       >
-                        {entry.confidence} confidence
+                        {label(t, "confidence", entry.confidence)}
                       </span>
                     </div>
                     <p className="mt-1.5 whitespace-pre-wrap text-slate-600">{previewContent(entry.content)}</p>
                     <p className="mt-1.5 text-xs text-slate-400">
-                      v{entry.version} · from {entry.source_type.replace("_", " ")}
-                      {entry.last_verified_at &&
-                        ` · verified ${new Date(entry.last_verified_at).toLocaleDateString(locale)}`}
+                      {t("entryMeta", { version: entry.version, source: label(t, "source", entry.source_type) })}
+                      {entry.last_verified_at && t("verified", { date: new Date(entry.last_verified_at).toLocaleDateString(locale) })}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
@@ -366,7 +364,7 @@ export default async function BusinessBrainPage({
                           <input type="hidden" name="slug" value={slug} />
                           <input type="hidden" name="locale" value={locale} />
                           <Button type="submit" variant="secondary" className="px-2 py-1 text-xs text-emerald-700">
-                            Approve
+                            {t("approve")}
                           </Button>
                         </form>
                         <form action={rejectBrainEntryAction}>
@@ -374,7 +372,7 @@ export default async function BusinessBrainPage({
                           <input type="hidden" name="slug" value={slug} />
                           <input type="hidden" name="locale" value={locale} />
                           <Button type="submit" variant="danger" className="px-2 py-1 text-xs">
-                            Reject
+                            {t("reject")}
                           </Button>
                         </form>
                       </>
@@ -385,7 +383,7 @@ export default async function BusinessBrainPage({
                         <input type="hidden" name="slug" value={slug} />
                         <input type="hidden" name="locale" value={locale} />
                         <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
-                          Archive
+                          {t("archive")}
                         </button>
                       </form>
                     )}
@@ -396,8 +394,8 @@ export default async function BusinessBrainPage({
           </ul>
         ) : (
           <EmptyState
-            title="No knowledge yet"
-            description="Add a website or an entry above and SmartManager AI Agent will build your Business Brain."
+            title={t("noKnowledge")}
+            description={t("noKnowledgeDescription")}
           />
         )}
         {((listedCount ?? 0) > PAGE_SIZE || page > 1) && (
@@ -434,13 +432,14 @@ type MenuMetrics = {
 
 /** Menu source analysis at a glance (spec: images detected/processed, products, categories, prices, descriptions, methods). */
 function MenuSourceSummary({ metrics: m }: { metrics: MenuMetrics }) {
+  const t = useTranslations("console.brain");
   const figures: [string, number | undefined][] = [
-    ["Images detected", m.images_detected],
-    ["Menu images processed", m.images_processed],
-    ["Products detected", m.products],
-    ["Categories", m.categories],
-    ["Prices", m.prices],
-    ["Descriptions", m.descriptions],
+    [t("menu.imagesDetected"), m.images_detected],
+    [t("menu.imagesProcessed"), m.images_processed],
+    [t("menu.products"), m.products],
+    [t("menu.categories"), m.categories],
+    [t("menu.prices"), m.prices],
+    [t("menu.descriptions"), m.descriptions],
   ];
   const check = (on: boolean | undefined, label: string) => (
     <span className={on ? "text-emerald-700" : "text-slate-400"}>
@@ -450,7 +449,7 @@ function MenuSourceSummary({ metrics: m }: { metrics: MenuMetrics }) {
   return (
     <div className="mt-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
       <p className="font-medium text-slate-800">
-        ✓ Direct link analyzed{m.kind ? ` · ${m.kind.replace(/_/g, " ").toLowerCase()}` : ""}
+        {t("menu.analyzed")}{m.kind ? ` · ${m.kind.replace(/_/g, " ").toLowerCase()}` : ""}
       </p>
       <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
         {figures.map(([label, value]) => (
@@ -461,46 +460,38 @@ function MenuSourceSummary({ metrics: m }: { metrics: MenuMetrics }) {
         ))}
       </dl>
       <p className="mt-2 flex flex-wrap gap-3">
-        Extraction: {check(m.extraction?.html, "HTML")} {check(m.extraction?.ocr, "OCR")}{" "}
-        {check(m.extraction?.vision, "Vision")}
-        {m.images_unchanged ? <span>· {m.images_unchanged} image(s) unchanged, skipped</span> : null}
-        {m.images_failed ? <span className="text-amber-700">· {m.images_failed} image(s) not readable</span> : null}
+        {t("menu.extraction")} {check(m.extraction?.html, "HTML")} {check(m.extraction?.ocr, "OCR")}{" "}
+        {check(m.extraction?.vision, t("menu.vision"))}
+        {m.images_unchanged ? <span>{t("menu.unchanged", { n: m.images_unchanged })}</span> : null}
+        {m.images_failed ? <span className="text-amber-700">{t("menu.unreadable", { n: m.images_failed })}</span> : null}
       </p>
       {(m.related_pages?.length ?? 0) > 0 && (
-        <p className="mt-1">Related pages read: {m.related_pages!.map((r) => new URL(r.url).pathname).join(", ")}</p>
+        <p className="mt-1">{t("menu.related", { list: m.related_pages!.map((r) => new URL(r.url).pathname).join(", ") })}</p>
       )}
       {(m.ordering ?? []).map((o) => (
         <p key={o.url} className={`mt-1 ${o.status === "read" ? "" : "text-amber-700"}`}>
-          Online ordering: {o.url} — {o.status === "read" ? "read" : `not read (${o.reason})`}
+          {t("menu.ordering", { url: o.url, result: o.status === "read" ? t("menu.read") : t("menu.notRead", { reason: o.reason ?? "" }) })}
         </p>
       ))}
       <a
         href="#review-products"
         className="mt-2 inline-block rounded-md bg-emerald-600 px-3 py-1.5 font-medium text-white hover:bg-emerald-500"
       >
-        Review products
+        {t("menu.reviewProducts")}
       </a>
     </div>
   );
 }
 
-const FACT_TITLE: Record<string, string> = {
-  "hours.regular": "Opening hours",
-  "hours.note": "Opening hours note",
-  "identity.operational_status": "Open / closed status",
-  "contact.phone": "Phone number",
-  "location.address": "Address",
-};
-
-function conflictTitle(entryType: string, entryKey: string, sample?: unknown): string {
-  if (FACT_TITLE[entryKey]) return FACT_TITLE[entryKey];
+function conflictTitle(t: T, entryType: string, entryKey: string, sample?: unknown): string {
+  const factKey = `factTitle.${entryKey.replace(".", "_")}`;
+  if (t.has(factKey)) return t(factKey);
   const productName = (sample as { normalized?: { name?: unknown } } | undefined)?.normalized?.name;
-  if (entryKey.startsWith("offering:") && typeof productName === "string") return `${productName} — price`;
-  const type = entryType.replace(/_/g, " ");
-  const label = type.charAt(0).toUpperCase() + type.slice(1);
-  if (entryKey.startsWith("offering:")) return `${label} — price`;
-  if (/^[a-z_]+\.[a-z_]+$/.test(entryKey)) return `${label} — ${entryKey.split(".")[1].replace(/_/g, " ")}`;
-  return `${label} — ${entryKey}`;
+  if (entryKey.startsWith("offering:") && typeof productName === "string") return t("conflict.price", { name: productName });
+  const type = label(t, "entryType", entryType);
+  if (entryKey.startsWith("offering:")) return t("conflict.price", { name: type });
+  if (/^[a-z_]+\.[a-z_]+$/.test(entryKey)) return t("conflict.field", { label: type, field: entryKey.split(".")[1].replace(/_/g, " ") });
+  return t("conflict.field", { label: type, field: entryKey });
 }
 
 function previewContent(content: unknown): string {

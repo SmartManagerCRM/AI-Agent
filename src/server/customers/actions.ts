@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 
 export type CustomerFormState = { ok: boolean; message: string } | undefined;
 
@@ -18,13 +19,13 @@ const customerSchema = z
     locale: z.string(),
     slug: z.string().min(1),
     customerId: z.uuid().optional(),
-    name: z.string().trim().min(1, "Enter the customer's name.").max(120),
+    name: z.string().trim().min(1, "@customers.enterName").max(120),
     phone: z.string().trim().max(40).optional(),
-    email: z.email("That email doesn't look right.").max(200).optional(),
-    birthday: z.iso.date("Check the birthday.").optional(),
+    email: z.email("@customers.badEmail").max(200).optional(),
+    birthday: z.iso.date("@customers.badBirthday").optional(),
     notes: z.string().trim().max(1000).optional(),
   })
-  .refine((c) => !c.phone || /\d{4,}/.test(c.phone.replace(/\D/g, "")), { message: "Check the phone number." });
+  .refine((c) => !c.phone || /\d{4,}/.test(c.phone.replace(/\D/g, "")), { message: "@customers.badPhone" });
 
 /**
  * Customers → Add customer (or Edit, with customerId). Saved under the
@@ -32,6 +33,7 @@ const customerSchema = z
  * business's customers can, and only for this business.
  */
 export async function saveCustomerAction(_prev: CustomerFormState, formData: FormData): Promise<CustomerFormState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = customerSchema.safeParse({
     locale: formData.get("locale"),
     slug: formData.get("slug"),
@@ -42,7 +44,7 @@ export async function saveCustomerAction(_prev: CustomerFormState, formData: For
     birthday: optional(formData, "birthday"),
     notes: optional(formData, "notes"),
   });
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the customer's details." };
+  if (!parsed.success) return { ok: false, message: issueMessage(t, parsed.error.issues, "customers.checkDetails") };
   const { locale, slug, customerId, ...c } = parsed.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
@@ -54,16 +56,14 @@ export async function saveCustomerAction(_prev: CustomerFormState, formData: For
     if (error.code === "23505") {
       return {
         ok: false,
-        message: error.message.includes("email")
-          ? "A customer with this email is already saved — search for them instead."
-          : "A customer with this phone number is already saved — search for them instead.",
+        message: error.message.includes("email") ? t("customers.emailTaken") : t("customers.phoneTaken"),
       };
     }
-    return { ok: false, message: error.code === "42501" ? "You need permission to manage customers." : "Couldn't save the customer — please try again." };
+    return { ok: false, message: error.code === "42501" ? t("customers.noPermission") : t("customers.saveFailed") };
   }
-  if (customerId && (data ?? []).length === 0) return { ok: false, message: "You need permission to manage customers." };
+  if (customerId && (data ?? []).length === 0) return { ok: false, message: t("customers.noPermission") };
   revalidatePath(`/${locale}/${slug}/customers`);
-  return { ok: true, message: customerId ? "Customer saved." : `${c.name} added to your customers.` };
+  return { ok: true, message: customerId ? t("customers.saved") : t("customers.added", { name: c.name }) };
 }
 
 const deleteSchema = z.object({ locale: z.string(), slug: z.string().min(1), customerId: z.uuid() });

@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { LOCALES } from "@/i18n/locales";
+import type { AgentErrorCode } from "@/lib/agent-errors";
 
 import { runAgentGateway } from "@/server/ai";
 import { AGENT_MODALITY_TEXT, AGENT_MODALITY_VOICE } from "@/server/ai/channel";
@@ -42,7 +43,7 @@ export type SendAgentMessageState =
       /** The stored reply's id — the page asks the voice endpoint to speak exactly this message. */
       messageId?: string;
     }
-  | { error: string }
+  | { error: AgentErrorCode }
   | undefined;
 
 /**
@@ -64,13 +65,13 @@ export async function sendAgentMessageAction(
     modality: formData.get("modality") ?? undefined,
     locale: formData.get("locale") ?? undefined,
   });
-  if (!parsed.success) return { error: "Enter a message." };
+  if (!parsed.success) return { error: "messageEmpty" };
 
   const isWidget = parsed.data.surface === "website_widget";
   const tenant = await (isWidget ? resolveWidgetTenant(parsed.data.slug) : resolvePublicTenant(parsed.data.slug));
   if (!tenant) {
     agentLog("resolve", { business_slug: parsed.data.slug, surface: parsed.data.surface, resolved: false });
-    return { error: "This Agent is not available right now." };
+    return { error: "unavailable" };
   }
   // Tenant identity comes only from the published deployment behind this slug — never a session, a default or the client.
   agentLog("resolve", { business_slug: tenant.slug, tenant_id: tenant.id, deployment: "published", surface: parsed.data.surface, resolved: true });
@@ -83,7 +84,7 @@ export async function sendAgentMessageAction(
   });
 
   if (isRateLimited(conversation.id, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_MESSAGES)) {
-    return { error: "You're sending messages a little fast — please wait a moment and try again." };
+    return { error: "chatTooFast" };
   }
 
   // The customer switched language: the conversation (and so every reply) follows.

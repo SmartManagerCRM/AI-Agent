@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 /** `?page=` → a 1-based page number; anything missing or invalid is page 1. */
 export function parsePage(value: string | undefined): number {
@@ -25,6 +26,7 @@ export function Pagination({
   pageSize: number;
   total: number;
 }) {
+  const t = useTranslations("common");
   if (total <= pageSize && page === 1) return null;
 
   const href = (target: number) => {
@@ -44,21 +46,19 @@ export function Pagination({
 
   return (
     <nav
-      aria-label="Pagination"
+      aria-label={t("pagination")}
       className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500"
     >
-      <span>
-        {from}–{to} of {total}
-      </span>
+      <span>{t("pageRange", { from, to, total })}</span>
       <div className="flex gap-2">
         {page > 1 && (
           <Link href={href(previous)} prefetch={false} className={linkClass}>
-            Previous
+            {t("previous")}
           </Link>
         )}
         {page * pageSize < total && (
           <Link href={href(page + 1)} prefetch={false} className={linkClass}>
-            Next
+            {t("next")}
           </Link>
         )}
       </div>

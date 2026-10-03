@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { type AgentErrorCode, orderErrorCode } from "@/lib/agent-errors";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { isRateLimited } from "@/server/shared/rate-limit";
@@ -41,7 +42,7 @@ import { serviceClient } from "@/server/supabase/clients";
  * (`getOrCreateConversation`).
  */
 
-type ActionResult = { ok: true; cart: CartView } | { ok: false; error: string };
+type ActionResult = { ok: true; cart: CartView } | { ok: false; error: AgentErrorCode };
 type Surface = "external_agent" | "website_widget";
 
 // Cheap DB writes, not an AI call — a much looser bound than the chat's
@@ -87,7 +88,7 @@ async function loadContext(slug: string, surface: Surface = "external_agent") {
 
 export async function getCartViewAction(slug: string, surface: Surface = "external_agent"): Promise<ActionResult> {
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
+  if (!ctx) return { ok: false, error: "unavailable" };
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
   return { ok: true, cart };
 }
@@ -100,13 +101,13 @@ export async function addProductToCartAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = addSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid product or quantity." };
+  if (!parsed.success) return { ok: false, error: "invalidInput" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   // Re-validated against the live, tenant-scoped catalog — never trusted
@@ -119,7 +120,7 @@ export async function addProductToCartAction(
     .eq("tenant_id", ctx.tenant.id)
     .eq("status", "active")
     .maybeSingle();
-  if (!product) return { ok: false, error: "That product is not available." };
+  if (!product) return { ok: false, error: "productUnavailable" };
 
   await addToCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.productId, parsed.data.quantity);
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
@@ -134,13 +135,13 @@ export async function updateCartItemQuantityAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = quantitySchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid quantity." };
+  if (!parsed.success) return { ok: false, error: "invalidInput" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   await setCartItemQuantity(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.productId, parsed.data.quantity);
@@ -160,23 +161,23 @@ export async function setFulfillmentTypeAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = fulfillmentSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid fulfillment type." };
+  if (!parsed.success) return { ok: false, error: "invalidInput" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (!ctx.fulfillmentTypes.includes(parsed.data.fulfillmentType)) {
-    return { ok: false, error: `${parsed.data.fulfillmentType} is not available for this business.` };
+    return { ok: false, error: "fulfillmentUnavailable" };
   }
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   let branchId: string | null = null;
   let tableId: string | null = null;
   if (parsed.data.fulfillmentType === "dine_in") {
     const table = parsed.data.tableId ? await findActiveTable(ctx.supabase, ctx.tenant.id, parsed.data.tableId) : null;
-    if (!table) return { ok: false, error: "This table's QR code isn't recognized — please rescan it." };
+    if (!table) return { ok: false, error: "tableUnknown" };
     branchId = table.branchId;
     tableId = table.id;
   } else if (parsed.data.fulfillmentType === "pickup") {
@@ -202,16 +203,16 @@ export async function setPaymentMethodAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = paymentMethodSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid payment method." };
+  if (!parsed.success) return { ok: false, error: "invalidInput" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (!ctx.paymentMethods.includes(parsed.data.paymentMethod)) {
-    return { ok: false, error: `${parsed.data.paymentMethod.replace(/_/g, " ")} is not available for this business.` };
+    return { ok: false, error: "paymentUnavailable" };
   }
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   await setPaymentMethod(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.paymentMethod);
@@ -227,13 +228,13 @@ export async function setCouponCodeAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = couponSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid code." };
+  if (!parsed.success) return { ok: false, error: "invalidCode" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   // Stored as entered, not validated here — the cart's own live view below
@@ -257,13 +258,13 @@ export async function setCustomerDetailsAction(
   surface: Surface = "external_agent",
 ): Promise<ActionResult> {
   const parsed = detailsSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Check the details you entered." };
+  if (!parsed.success) return { ok: false, error: "checkDetails" };
 
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   await setCustomerDetails(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data);
@@ -280,21 +281,21 @@ export type PlaceStructuredOrderResult =
       discountMinor: number;
       checkoutUrl: string | null;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: AgentErrorCode };
 
 export async function placeStructuredOrderAction(
   slug: string,
   surface: Surface = "external_agent",
 ): Promise<PlaceStructuredOrderResult> {
   const ctx = await loadContext(slug, surface);
-  if (!ctx) return { ok: false, error: "This Agent is not available right now." };
-  if (!ctx.orderingEnabled) return { ok: false, error: "Ordering isn't available yet for this business." };
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
   if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
-    return { ok: false, error: "Too many requests — please slow down." };
+    return { ok: false, error: "rateLimited" };
   }
 
   const result = await placeOrder(ctx.supabase, ctx.tenant.id, ctx.cart.id);
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) return { ok: false, error: orderErrorCode(result.error) };
 
   const payment = await initiatePayment(ctx.supabase, ctx.tenant.id, result.orderId);
   return {

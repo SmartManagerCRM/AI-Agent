@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { createPlanAction, updatePlanAction } from "@/server/platform/plan-actions";
@@ -22,6 +23,7 @@ type Props = {
 
 /** Same form for create and edit — `plan` present means edit (key becomes read-only, action switches). */
 export function PlanForm({ locale, currencies, plan }: Props) {
+const t = useTranslations("platform.planForm");
   const [error, formAction, pending] = useActionState(plan ? updatePlanAction : createPlanAction, undefined);
 
   return (
@@ -29,7 +31,7 @@ export function PlanForm({ locale, currencies, plan }: Props) {
       <input type="hidden" name="locale" value={locale} />
 
       <label className="flex flex-col gap-1 text-sm">
-        Key
+        {t("key")}
         {plan ? (
           <>
             <input
@@ -43,14 +45,14 @@ export function PlanForm({ locale, currencies, plan }: Props) {
           <input
             name="key"
             required
-            placeholder="e.g. business"
+            placeholder={t("keyPlaceholder")}
             className="w-28 rounded-md border border-neutral-300 px-3 py-2"
           />
         )}
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Name ({locale})
+        {t("name", { lang: locale.toUpperCase() })}
         <input
           name="name"
           required
@@ -61,7 +63,7 @@ export function PlanForm({ locale, currencies, plan }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Price
+        {t("price")}
         <input
           name="priceMajor"
           type="number"
@@ -74,7 +76,7 @@ export function PlanForm({ locale, currencies, plan }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Currency
+        {t("currency")}
         <select
           name="currency"
           defaultValue={plan?.currency ?? "USD"}
@@ -89,19 +91,19 @@ export function PlanForm({ locale, currencies, plan }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Interval
+        {t("interval")}
         <select
           name="billingInterval"
           defaultValue={plan?.billingInterval ?? "month"}
           className="rounded-md border border-neutral-300 px-3 py-2"
         >
-          <option value="month">Monthly</option>
-          <option value="year">Yearly</option>
+          <option value="month">{t("monthly")}</option>
+          <option value="year">{t("yearly")}</option>
         </select>
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Trial days
+        {t("trialDays")}
         <input
           name="trialDays"
           type="number"
@@ -114,7 +116,7 @@ export function PlanForm({ locale, currencies, plan }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Sort order
+        {t("sortOrder")}
         <input
           name="sortOrder"
           type="number"
@@ -131,7 +133,7 @@ export function PlanForm({ locale, currencies, plan }: Props) {
         disabled={pending}
         className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        {plan ? "Save" : "Add plan"}
+        {plan ? t("save") : t("add")}
       </button>
       {error && <p className="w-full text-sm text-red-600">{error}</p>}
     </form>

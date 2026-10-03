@@ -3,6 +3,9 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { setLeadStatusAction } from "@/server/leads/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   new: "bg-blue-50 text-blue-700",
@@ -22,6 +25,8 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.leads");
+  const tAll = await getTranslations();
 
   const { data: leads } = await supabase
     .from("leads")
@@ -36,12 +41,12 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
+      <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.leads.leads" /></h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label="Total leads" value={String(all.length)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
-        <KpiTile icon="bell" accent="blue" label="New" value={String(newCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
-        <KpiTile icon="check" accent="orange" label="Qualified" value={String(qualifiedCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="customers" accent="emerald" label={t("totalLeads")} value={String(all.length)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="bell" accent="blue" label={t("new")} value={String(newCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="check" accent="orange" label={t("qualified")} value={String(qualifiedCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
       </div>
 
       <div id="leads" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white">
@@ -50,11 +55,11 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="px-4 py-2 text-start font-medium">Contact</th>
-                  <th className="px-4 py-2 text-start font-medium">Message</th>
-                  <th className="px-4 py-2 text-start font-medium">Status</th>
-                  <th className="px-4 py-2 text-start font-medium">Received</th>
-                  <th className="px-4 py-2 text-start font-medium">Actions</th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.leads.contact" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.leads.message" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.leads.status" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.leads.received" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.leads.actions" /></th>
                 </tr>
               </thead>
               <tbody>
@@ -69,9 +74,9 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
                       <td className="max-w-xs px-4 py-3 text-slate-600">{lead.message}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[lead.status]}`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[lead.status]}`}
                         >
-                          {lead.status}
+                          {statusLabel(tAll, lead.status)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-slate-500">
@@ -86,9 +91,9 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
                             <input type="hidden" name="slug" value={slug} />
                             <button
                               type="submit"
-                              className="text-xs font-medium capitalize text-emerald-600 hover:underline"
+                              className="text-xs font-medium text-emerald-600 hover:underline"
                             >
-                              Mark {next}
+                              {t("markAs", { status: statusLabel(tAll, next) })}
                             </button>
                           </form>
                         )}
@@ -102,8 +107,8 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
         ) : (
           <div className="p-4">
             <EmptyState
-              title="No leads yet"
-              description="Leads the Agent captures — a custom request, a consultation ask, anything needing follow-up — will show up here."
+              title={t("emptyTitle")}
+              description={t("emptyDescription")}
             />
           </div>
         )}

@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { decideBookingAction } from "@/server/booking/actions";
 
 /** Confirm / Decline for a booking request from the Agent. */
 export function DecideBooking({ bookingId, locale, slug, compact = false }: { bookingId: string; locale: string; slug: string; compact?: boolean }) {
+  const t = useTranslations("console.bookingRequest");
   const [state, formAction, pending] = useActionState(decideBookingAction, undefined);
   const size = compact ? "px-2.5 py-1 text-xs" : "px-3.5 py-2 text-sm";
   return (
@@ -20,7 +22,7 @@ export function DecideBooking({ bookingId, locale, slug, compact = false }: { bo
         disabled={pending}
         className={`${size} rounded-lg bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50`}
       >
-        Confirm
+        {t("confirm")}
       </button>
       <button
         type="submit"
@@ -28,11 +30,11 @@ export function DecideBooking({ bookingId, locale, slug, compact = false }: { bo
         value="decline"
         disabled={pending}
         onClick={(e) => {
-          if (!window.confirm("Decline this request? The customer is told, politely, that the time is fully booked.")) e.preventDefault();
+          if (!window.confirm(t("declineConfirm"))) e.preventDefault();
         }}
         className={`${size} rounded-lg font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50 disabled:opacity-50`}
       >
-        Decline
+        {t("decline")}
       </button>
       {state && <span role="status" className={`text-xs ${state.ok ? "text-emerald-700" : "text-red-600"}`}>{state.message}</span>}
     </form>

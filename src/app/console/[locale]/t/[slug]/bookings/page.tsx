@@ -14,6 +14,7 @@ import { cancelBookingAction, completeBookingAction } from "@/server/booking/act
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { businessToday, resolveTimeZone } from "@/lib/timezone";
+import { getTranslations } from "next-intl/server";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -21,13 +22,6 @@ const STATUS_STYLE: Record<string, string> = {
   declined: "bg-rose-50 text-rose-700",
   completed: "bg-blue-50 text-blue-700",
   canceled: "bg-slate-100 text-slate-500",
-};
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Awaiting you",
-  confirmed: "Confirmed",
-  declined: "Declined",
-  completed: "Completed",
-  canceled: "Canceled",
 };
 
 type BookingLine = {
@@ -56,6 +50,7 @@ export default async function BookingsPage({
   const page = parsePage((await searchParams).page);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.bookings");
 
   const now = new Date().toISOString();
   // Counts are exact (counted in Postgres), and the list is paged — every booking is reachable.
@@ -121,17 +116,17 @@ export default async function BookingsPage({
     });
     return {
       href: whatsappLink(number, text),
-      label: b.status === "declined" ? "Send the apology on WhatsApp" : "Send the booking confirmation on WhatsApp",
+      label: b.status === "declined" ? t("waApology") : t("waConfirmation"),
     };
   };
   const since = (iso: string) => {
     const minutes = Math.max(0, Math.round((new Date(now).getTime() - new Date(iso).getTime()) / 60000));
-    return minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.round(minutes / 60)} h ago` : day(iso);
+    return minutes < 1 ? t("justNow") : minutes < 60 ? t("minAgo", { n: minutes }) : minutes < 1440 ? t("hAgo", { n: Math.round(minutes / 60) }) : day(iso);
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Bookings</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       {(requests ?? []).length > 0 && (
         <section id="requests" className="scroll-mt-20 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-4" data-testid="booking-requests">
@@ -140,9 +135,9 @@ export default async function BookingsPage({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
             </span>
-            Booking requests waiting for you ({(requests ?? []).length})
+            {t("requestsTitle", { count: (requests ?? []).length })}
           </h2>
-          <p className="mt-0.5 text-xs text-amber-800">The customer is waiting on your Agent — confirm or decline and they see your answer within seconds.</p>
+          <p className="mt-0.5 text-xs text-amber-800">{t("requestsHint")}</p>
           <ul className="mt-3 flex flex-col gap-2">
             {(requests ?? []).map((r) => {
               const wa = whatsapp(r);
@@ -159,7 +154,7 @@ export default async function BookingsPage({
                       {r.ends_at ? `–${clock(r.ends_at)}` : ""}
                     </p>
                     <p className="text-slate-600">
-                      {r.customer_name ?? "—"} · {r.party_size === 1 ? "1 person" : `${r.party_size} people`}
+                      {r.customer_name ?? "—"} · {t("people", { count: r.party_size })}
                       {r.customer_phone && (
                         <span className="ms-1 text-slate-500" dir="ltr">
                           · {r.customer_phone}
@@ -167,7 +162,7 @@ export default async function BookingsPage({
                       )}
                     </p>
                     {r.notes && <p className="text-xs text-slate-500">“{r.notes}”</p>}
-                    <p className="text-xs text-slate-400">Requested {since(r.created_at)}</p>
+                    <p className="text-xs text-slate-400">{t("requested", { when: since(r.created_at) })}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <DecideBooking bookingId={r.id} locale={locale} slug={slug} />
@@ -184,16 +179,16 @@ export default async function BookingsPage({
         <KpiTile
           icon="branches"
           accent="emerald"
-          label="Services"
+          label={t("services")}
           value={String(services.length)}
           trend={null}
           href={`/${locale}/${slug}/bookings#services`}
         />
-        <KpiTile icon="orders" accent="blue" label="Upcoming bookings" value={String(upcomingBookings ?? 0)} trend={null} href={`/${locale}/${slug}/bookings#bookings`} />
+        <KpiTile icon="orders" accent="blue" label={t("upcoming")} value={String(upcomingBookings ?? 0)} trend={null} href={`/${locale}/${slug}/bookings#bookings`} />
         <KpiTile
           icon="audit"
           accent="purple"
-          label="Total bookings"
+          label={t("total")}
           value={String(totalBookings ?? 0)}
           trend={null}
           href={`/${locale}/${slug}/bookings#bookings`}
@@ -201,12 +196,12 @@ export default async function BookingsPage({
       </div>
 
       <section id="services" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Bookable services</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("bookableServices")}</h2>
         <div className="mb-4">
           <CreateServiceForm tenantId={tenant.id} slug={slug} locale={locale} currencyExponent={exponent} />
         </div>
         <details className="mb-4 rounded-md border border-slate-100 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-slate-700">Add services from a file (HTML or PDF)</summary>
+          <summary className="cursor-pointer text-sm font-medium text-slate-700">{t("addFromFile")}</summary>
           <div className="mt-3">
             <FileImportForm slug={slug} locale={locale} defaultKind="service" />
           </div>
@@ -240,7 +235,7 @@ export default async function BookingsPage({
           ))}
           {services.length === 0 && (
             <p className="py-2 text-center text-sm text-slate-400">
-              Add a service above to let the Agent take bookings.
+              {t("noServices")}
             </p>
           )}
         </div>
@@ -248,8 +243,8 @@ export default async function BookingsPage({
 
       {services.some((s) => s.is_active) && (
         <section id="new-booking" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">New booking</h2>
-          <p className="mb-3 text-xs text-slate-500">Book a customer in by phone or at the counter. Opening hours and each service&apos;s capacity are checked.</p>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">{t("newBooking")}</h2>
+          <p className="mb-3 text-xs text-slate-500">{t("newBookingHint")}</p>
           <NewBookingForm
             locale={locale}
             slug={slug}
@@ -268,21 +263,21 @@ export default async function BookingsPage({
       )}
 
       <section id="bookings" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Bookings</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("title")}</h2>
         {(bookings ?? []).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Service</th>
-                  <th className="py-2 text-start font-medium">Customer</th>
-                  <th className="py-2 text-start font-medium">Date</th>
-                  <th className="py-2 text-start font-medium">Time in</th>
-                  <th className="py-2 text-start font-medium">Time out</th>
-                  <th className="py-2 text-start font-medium">People</th>
-                  <th className="py-2 text-start font-medium">From</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("col.service")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.customer")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.date")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.timeIn")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.timeOut")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.people")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.from")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -301,11 +296,11 @@ export default async function BookingsPage({
                     <td className="py-2 text-slate-600">{b.ends_at ? clock(b.ends_at) : "—"}</td>
                     <td className="py-2 text-slate-600">{b.party_size}</td>
                     <td className="py-2 text-xs text-slate-500">
-                      {b.source === "console" ? "Console" : b.source === "agent_form" ? "Agent booking form" : "Agent chat"}
+                      {t(b.source === "console" ? "source.console" : b.source === "agent_form" ? "source.agent_form" : "source.agent_chat")}
                     </td>
                     <td className="py-2">
                       <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}>
-                        {STATUS_LABEL[b.status] ?? b.status}
+                        {t.has(`status.${b.status}`) ? t(`status.${b.status}`) : b.status}
                       </span>
                     </td>
                     <td className="py-2">
@@ -318,7 +313,7 @@ export default async function BookingsPage({
                           <input type="hidden" name="locale" value={locale} />
                           <input type="hidden" name="slug" value={slug} />
                           <button type="submit" className="me-3 text-xs font-medium text-emerald-700 hover:underline">
-                            Completed
+                            {t("markCompleted")}
                           </button>
                         </form>
                       )}
@@ -328,7 +323,7 @@ export default async function BookingsPage({
                           <input type="hidden" name="locale" value={locale} />
                           <input type="hidden" name="slug" value={slug} />
                           <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
-                            Cancel
+                            {t("cancel")}
                           </button>
                         </form>
                       )}
@@ -341,7 +336,7 @@ export default async function BookingsPage({
             </table>
           </div>
         ) : (
-          <EmptyState title="No bookings yet" description="Bookings the Agent takes will show up here." />
+          <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
         )}
         <Pagination basePath={`/${locale}/${slug}/bookings`} params={{}} page={page} pageSize={PAGE_SIZE} total={totalBookings ?? 0} />
       </section>

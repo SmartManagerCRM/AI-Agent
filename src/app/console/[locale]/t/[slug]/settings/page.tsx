@@ -7,11 +7,13 @@ import { productImageUrl } from "@/lib/product-image";
 import { timeZoneOptions } from "@/lib/timezone";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 export default async function SettingsPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.settings");
 
   const [{ data: settings }, { data: currency }, { data: paymentConfig }] = await Promise.all([
     supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
@@ -21,12 +23,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       <AlertDeviceSettings />
 
       <section id="logo" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Logo</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("logo")}</h2>
         <BusinessLogoForm
           slug={slug}
           locale={locale}
@@ -36,7 +38,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Business profile</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("profile")}</h2>
         <BusinessProfileForm
           tenantId={tenant.id}
           slug={slug}
@@ -54,7 +56,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Ordering &amp; checkout</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("checkout")}</h2>
         <CheckoutSettingsForm
           tenantId={tenant.id}
           slug={slug}
@@ -75,7 +77,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
 
       {paymentConfig && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Payment methods</h2>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("payments")}</h2>
           <PaymentSettingsForm
             tenantId={tenant.id}
             slug={slug}

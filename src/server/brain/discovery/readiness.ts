@@ -39,7 +39,8 @@ export type CatalogCounts = {
   catalogProducts: number;
 };
 
-export type Readiness = { score: number; areas: ReadinessArea[]; nextSteps: string[]; catalog: CatalogCounts };
+/** `nextSteps` in English (logs, tests); `nextStepAreas` is the same list for the console to word in the user's language. */
+export type Readiness = { score: number; areas: ReadinessArea[]; nextSteps: string[]; nextStepAreas: Pick<ReadinessArea, "key" | "state">[]; catalog: CatalogCounts };
 
 const WEIGHTS: Record<ReadinessArea["key"], number> = {
   identity: 5,
@@ -147,10 +148,11 @@ export function computeReadiness(input: {
     missingPrice: [...products.values()].filter((p) => !p.priced).length,
     catalogProducts: input.activeProducts,
   };
-  const nextSteps = areas
+  const nextStepAreas = areas
     .filter((a) => a.state !== "confirmed")
     .sort((a, b) => (a.state === "conflict" ? -1 : 0) - (b.state === "conflict" ? -1 : 0) || b.weight - a.weight)
     .slice(0, 4)
-    .map((a) => (a.state === "conflict" ? `Choose the correct ${AREA_NAME[a.key]} — your sources disagree.` : a.state === "found" ? `Review the ${AREA_NAME[a.key]} we found.` : NEXT_STEP[a.key]));
-  return { score, areas, nextSteps, catalog };
+    .map((a) => ({ key: a.key, state: a.state }));
+  const nextSteps = nextStepAreas.map((a) => (a.state === "conflict" ? `Choose the correct ${AREA_NAME[a.key]} — your sources disagree.` : a.state === "found" ? `Review the ${AREA_NAME[a.key]} we found.` : NEXT_STEP[a.key]));
+  return { score, areas, nextSteps, nextStepAreas, catalog };
 }

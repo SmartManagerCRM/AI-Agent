@@ -1,5 +1,7 @@
 "use server";
 
+import { legacyEventI18n } from "@/lib/brain-events";
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -75,7 +77,30 @@ const discoverySchema = z.object({
 export type DiscoveryStartState = { error?: string; jobId?: string } | undefined;
 
 /** "Analyze my business": Google Maps listing and/or website (either may be missing) → background ingestion job. */
+/** Fixed English messages from the link checkers and the job starter → actions.brain.* in the owner's language. */
+const KNOWN_ERRORS: Record<string, string> = {
+  "Enter a valid http(s) URL.": "url.invalid",
+  "Only http/https URLs can be crawled.": "url.protocol",
+  "URLs with embedded credentials are not allowed.": "url.credentials",
+  "That hostname cannot be crawled.": "url.host",
+  "That address cannot be crawled.": "url.host",
+  "That hostname could not be resolved.": "url.resolve",
+  "Paste your Google Maps link or Place ID.": "maps.empty",
+  "That search is too long.": "maps.tooLong",
+  "That doesn't look like a Google Maps link.": "maps.notMaps",
+  "Use an https link.": "maps.https",
+  "Only Google Maps links are supported here.": "maps.onlyMaps",
+  "That link type can't be resolved through the Places API. Use Share → Copy link in Google Maps, or search your business name.": "maps.unresolvable",
+  "Couldn't find a business in that link. Open your business in Google Maps and use Share → Copy link.": "maps.noBusiness",
+  "An analysis is already running.": "job.running",
+  "Daily analysis limit reached — try again tomorrow.": "job.daily",
+  "Could not start the analysis.": "job.failed",
+};
+
 export async function startDiscoveryAction(_prev: DiscoveryStartState, formData: FormData): Promise<DiscoveryStartState> {
+  const t = await actionT(formData.get("locale"));
+  const known = (message: string | undefined, fallbackKey: string) =>
+    message && KNOWN_ERRORS[message] ? t(`brain.${KNOWN_ERRORS[message]}`) : t(fallbackKey);
   const parsed = discoverySchema.safeParse({
     slug: formData.get("slug"),
     locale: formData.get("locale"),
@@ -83,31 +108,31 @@ export async function startDiscoveryAction(_prev: DiscoveryStartState, formData:
     websiteUrl: formData.get("websiteUrl") || undefined,
     menuUrls: formData.get("menuUrls") || undefined,
   });
-  if (!parsed.success) return { error: "Check the links you entered." };
+  if (!parsed.success) return { error: t("brain.checkLinks") };
   const { mapsInput, websiteUrl } = parsed.data;
   const menuUrls = (parsed.data.menuUrls ?? "")
     .split(/[\s,]+/)
     .map((u) => u.trim())
     .filter(Boolean);
-  if (menuUrls.length > MAX_DIRECT_MENU_URLS) return { error: `Add up to ${MAX_DIRECT_MENU_URLS} menu links.` };
+  if (menuUrls.length > MAX_DIRECT_MENU_URLS) return { error: t("brain.maxMenus", { n: MAX_DIRECT_MENU_URLS }) };
   for (const link of menuUrls) {
     try {
       parseCrawlUrl(/^https?:\/\//i.test(link) ? link : `https://${link}`);
     } catch (error) {
-      return { error: `${link}: ${error instanceof Error ? error.message : "not a valid link"}` };
+      return { error: t("brain.badLink", { link, reason: known(error instanceof Error ? error.message : undefined, "brain.url.invalid") }) };
     }
   }
-  if (!mapsInput && !websiteUrl && menuUrls.length === 0) return { error: "Add your Google Maps link, your website, or a menu link." };
+  if (!mapsInput && !websiteUrl && menuUrls.length === 0) return { error: t("brain.needInput") };
   if (websiteUrl) {
     try {
       parseCrawlUrl(/^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`);
     } catch (error) {
-      return { error: error instanceof Error ? error.message : "Enter a valid website address." };
+      return { error: known(error instanceof Error ? error.message : undefined, "brain.badWebsite") };
     }
   }
   if (mapsInput && parsePlaceInput(mapsInput).kind === "unsupported") {
     const parsedPlace = parsePlaceInput(mapsInput);
-    return { error: parsedPlace.kind === "unsupported" ? parsedPlace.reason : "Check the Google Maps link." };
+    return { error: known(parsedPlace.kind === "unsupported" ? parsedPlace.reason : undefined, "brain.checkMaps") };
   }
 
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
@@ -121,7 +146,7 @@ export async function startDiscoveryAction(_prev: DiscoveryStartState, formData:
     trigger: (count ?? 0) === 0 ? "onboarding" : "manual",
   });
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
-  return result.ok ? { jobId: result.jobId } : { error: result.error, jobId: result.jobId };
+  return result.ok ? { jobId: result.jobId } : { error: known(result.error, "brain.job.failed"), jobId: result.jobId };
 }
 
 const jobRefSchema = z.object({ jobId: z.uuid(), slug: z.string().min(1), locale: z.string() });
@@ -146,7 +171,8 @@ export type DiscoveryProgress = {
   pagesProcessed: number;
   factsProposed: number;
   conflictsDetected: number;
-  events: { at: string; level: string; message: string }[];
+  /** `i18n` (when present) words the event in the owner's language: console.discovery.event.<key>. */
+  events: { at: string; level: string; message: string; i18n: { key: string; values?: Record<string, string | number> } | null }[];
 };
 
 /** Polled by the progress panel while a job runs. RLS-scoped: only the caller's own business's job is readable. */
@@ -163,7 +189,7 @@ export async function getDiscoveryProgressAction(locale: string, slug: string, j
       .maybeSingle(),
     supabase
       .from("brain_ingestion_events")
-      .select("at, level, message")
+      .select("at, level, message, data")
       .eq("job_id", jobId)
       .eq("tenant_id", tenant.id)
       .order("id", { ascending: false })
@@ -176,7 +202,18 @@ export async function getDiscoveryProgressAction(locale: string, slug: string, j
     pagesProcessed: job.pages_processed,
     factsProposed: job.facts_proposed,
     conflictsDetected: job.conflicts_detected,
-    events: (events ?? []).reverse(),
+    events: (events ?? []).reverse().map((e) => {
+      const i18n = (e.data as { i18n?: { key?: unknown; values?: unknown } } | null)?.i18n;
+      return {
+        at: e.at,
+        level: e.level,
+        message: e.message,
+        i18n:
+          i18n && typeof i18n.key === "string"
+            ? { key: i18n.key, values: (i18n.values ?? undefined) as Record<string, string | number> | undefined }
+            : legacyEventI18n(e.message),
+      };
+    }),
   };
 }
 
@@ -189,7 +226,7 @@ const confirmFactSchema = z.object({
   amount: z
     .string()
     .trim()
-    .regex(/^\d{1,9}([.,]\d{1,3})?$/, "Enter a price like 18 or 18.50.")
+    .regex(/^\d{1,9}([.,]\d{1,3})?$/, "@brain.price")
     .optional(),
 });
 
@@ -375,7 +412,7 @@ const createEntrySchema = z.object({
     .trim()
     .min(1)
     .max(80)
-    .regex(/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/, "Use lowercase letters, numbers and hyphens."),
+    .regex(/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/, "@brain.keyChars"),
   text: z.string().trim().min(1).max(4000),
   locale: z.string(),
   slug: z.string().min(1),
@@ -394,7 +431,8 @@ export async function createBrainEntryAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -406,7 +444,7 @@ export async function createBrainEntryAction(
     p_source: "manual",
     p_source_id: null,
   });
-  if (error) return "VALIDATION_ERROR: could not save that entry — please try again.";
+  if (error) return t("brain.entryFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/brain`);
 }

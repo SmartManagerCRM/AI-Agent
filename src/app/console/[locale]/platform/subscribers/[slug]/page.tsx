@@ -10,6 +10,7 @@ import { loadVoiceAccount } from "@/server/platform/voice-account";
 import { USAGE_STATE_STYLE } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 /** ISO timestamp → "YYYY-MM-DDTHH:mm" in UTC for a datetime-local input ("" when none). */
 const utcInput = (iso: string | null | undefined) => (iso ? new Date(iso).toISOString().slice(0, 16) : "");
@@ -23,6 +24,8 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
   const { locale, slug } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.subscriber");
+  const tAll = await getTranslations();
 
   const { data: tenant } = await supabase
     .from("tenants")
@@ -98,9 +101,9 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
             prefetch={false}
             className="text-xs font-medium text-emerald-700 hover:underline"
           >
-            ← Subscribers
+            {t("back")}
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">Edit subscriber: {businessName}</h1>
+          <h1 className="mt-1 text-2xl font-semibold text-slate-900">{t("title", { name: businessName })}</h1>
           <p className="mt-1 text-sm text-slate-500">
             /{tenant.slug}
             {owner?.email && ` · ${owner.email}`}
@@ -109,7 +112,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
         <div className="flex items-center gap-2">
           {usage && (
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${USAGE_STATE_STYLE[usage.usageState]}`}>
-              {usage.usageState.replace(/_/g, " ")}
+              {tAll.has(`platform.usageState.${usage.usageState}`) ? tAll(`platform.usageState.${usage.usageState}`) : usage.usageState.replace(/_/g, " ")}
             </span>
           )}
           <Link
@@ -117,16 +120,16 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
             prefetch={false}
             className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
-            Business 360
+            {t("business360")}
           </Link>
         </div>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Business &amp; owner</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("businessOwner")}</h2>
         <BusinessEditForm
           locale={locale}
-          businessTypes={(businessTypes ?? []).map((t) => ({ value: t.key, label: t.name.en ?? t.key }))}
+          businessTypes={(businessTypes ?? []).map((t) => ({ value: t.key, label: t.name[locale] ?? t.name.en ?? t.key }))}
           languages={languages}
           values={{
             tenantId: tenant.id,
@@ -151,13 +154,13 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Subscription</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("subscription")}</h2>
         {subscription ? (
           <SubscriptionEditForm
             locale={locale}
             plans={(plans ?? []).map((p) => ({
               value: p.key,
-              label: `${p.name.en ?? p.key}${p.is_active ? "" : " (inactive)"}`,
+              label: `${p.name[locale] ?? p.name.en ?? p.key}${p.is_active ? "" : t("inactive")}`,
             }))}
             values={{
               tenantId: tenant.id,
@@ -171,7 +174,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
           />
         ) : (
           <p className="text-sm text-slate-500">
-            This business has no subscription yet (it gets one when it goes live).
+            {t("noSubscription")}
           </p>
         )}
       </section>
@@ -179,7 +182,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
       {usage && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
-            Costs this {usage.isTrial ? "trial" : "billing period"}
+            {usage.isTrial ? t("costsTrial") : t("costsPeriod")}
           </h2>
           <AiAndVoiceCosts usage={usage} account={voiceAccount} locale={locale} />
         </section>
@@ -187,16 +190,20 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
 
       {subscription && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">Usage thresholds (this subscriber only)</h2>
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">{t("thresholds")}</h2>
           <p className="mb-3 text-xs text-slate-500">
-            {plan?.name.en ?? subscription.plan_key} plan defaults:{" "}
-            {planConversationLimit?.toLocaleString(locale) ?? "no limit"} conversations
-            {planAiCostLimit !== null ? ` and a $${planAiCostLimit.toFixed(2)} AI cost cap` : ""} per billing period.
-            Leave a field empty to use the plan default; Reset to Plan Defaults clears both.
+            {t("planDefaults", {
+              plan: plan?.name[locale] ?? plan?.name.en ?? subscription.plan_key,
+              conversations: planConversationLimit?.toLocaleString(locale) ?? t("noLimit"),
+              cap: planAiCostLimit !== null ? t("cap", { amount: planAiCostLimit.toFixed(2) }) : "",
+            })}
             {usage &&
-              ` Now: ${usage.conversationsUsed.toLocaleString(locale)} conversations and $${usage.aiCostUsed.toFixed(4)} AI Agent cost this ${usage.isTrial ? "trial" : "period"} (premium voice is not part of the cap).`}
-            {subscription.status === "trialing" &&
-              " While trialing, the trial limits (Usage & AI Cost) apply; these take effect once the subscription is paid."}
+              t("now", {
+                conversations: usage.conversationsUsed.toLocaleString(locale),
+                cost: usage.aiCostUsed.toFixed(4),
+                period: usage.isTrial ? t("periodTrial") : t("periodBilling"),
+              })}
+            {subscription.status === "trialing" && t("trialing")}
           </p>
           <SubscriberUsageOverridesForm
             locale={locale}

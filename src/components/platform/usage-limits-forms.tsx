@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import {
@@ -15,7 +16,7 @@ const button =
 function Result({ message }: { message: string | undefined }) {
   if (!message) return null;
   const isError = message.startsWith("VALIDATION_ERROR");
-  return <p className={`w-full text-sm ${isError ? "text-red-600" : "text-emerald-700"}`}>{message}</p>;
+  return <p className={`w-full text-sm ${isError ? "text-red-600" : "text-emerald-700"}`}>{message.replace(/^VALIDATION_ERROR: /, "")}</p>;
 }
 
 /** Plan defaults: conversation limit, AI cost cap and grace period (Super Admin only). Subscriber overrides are untouched. */
@@ -32,37 +33,38 @@ export function PlanUsageLimitsForm({
   aiCostLimitUsd: number | null;
   gracePeriodHours: number;
 }) {
+const t = useTranslations("platform.usageForms");
   const [message, formAction, pending] = useActionState(setPlanUsageLimitsAction, undefined);
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="planKey" value={planKey} />
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Conversations / period
+        {t("conversations")}
         <input
           name="conversationLimit"
           type="number"
           min="1"
           step="1"
-          placeholder="No limit"
+          placeholder={t("noLimit")}
           defaultValue={conversationLimit ?? ""}
           className={`w-32 ${input}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        AI cost cap (USD) / period
+        {t("aiCap")}
         <input
           name="aiCostLimitUsd"
           type="number"
           min="0"
           step="0.01"
-          placeholder="No cap"
+          placeholder={t("noCap")}
           defaultValue={aiCostLimitUsd ?? ""}
           className={`w-32 ${input}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Grace period (hours)
+        {t("grace")}
         <input
           name="gracePeriodHours"
           type="number"
@@ -75,7 +77,7 @@ export function PlanUsageLimitsForm({
         />
       </label>
       <button type="submit" disabled={pending} className={button}>
-        {pending ? "Saving…" : "Save limits"}
+        {pending ? t("saving") : t("saveLimits")}
       </button>
       <Result message={message} />
     </form>
@@ -100,6 +102,7 @@ export function SubscriberUsageOverridesForm({
   conversationLimitDefault: number | null;
   aiCostLimitDefault: number | null;
 }) {
+const t = useTranslations("platform.usageForms");
   const [message, formAction, pending] = useActionState(setSubscriberUsageOverridesAction, undefined);
   const hasOverride = conversationLimitOverride !== null || aiCostLimitOverride !== null;
   return (
@@ -108,31 +111,31 @@ export function SubscriberUsageOverridesForm({
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="slug" value={slug} />
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Conversation limit override
+        {t("convOverride")}
         <input
           name="conversationLimit"
           type="number"
           min="1"
           step="1"
-          placeholder={conversationLimitDefault !== null ? `Plan: ${conversationLimitDefault}` : "Plan: no limit"}
+          placeholder={conversationLimitDefault !== null ? t("planValue", { value: conversationLimitDefault }) : t("planNoLimit")}
           defaultValue={conversationLimitOverride ?? ""}
           className={`w-40 ${input}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        AI cost cap override (USD)
+        {t("aiOverride")}
         <input
           name="aiCostLimitUsd"
           type="number"
           min="0"
           step="0.01"
-          placeholder={aiCostLimitDefault !== null ? `Plan: $${aiCostLimitDefault}` : "Plan: no cap"}
+          placeholder={aiCostLimitDefault !== null ? t("planValue", { value: `$${aiCostLimitDefault}` }) : t("planNoCap")}
           defaultValue={aiCostLimitOverride ?? ""}
           className={`w-40 ${input}`}
         />
       </label>
       <button type="submit" name="intent" value="save" disabled={pending} className={button}>
-        Save Overrides
+        {t("saveOverrides")}
       </button>
       <button
         type="submit"
@@ -141,7 +144,7 @@ export function SubscriberUsageOverridesForm({
         disabled={pending || !hasOverride}
         className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
       >
-        Reset to Plan Defaults
+        {t("reset")}
       </button>
       <Result message={message} />
     </form>
@@ -161,12 +164,13 @@ export function UsageSettingsForm({
   trialConversationLimit: number | null;
   trialAiCostLimitUsd: number | null;
 }) {
+const t = useTranslations("platform.usageForms");
   const [message, formAction, pending] = useActionState(updateUsageSettingsAction, undefined);
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="locale" value={locale} />
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Conversation warning levels (%)
+        {t("warnLevels")}
         <input
           name="conversationWarningPercents"
           required
@@ -175,7 +179,7 @@ export function UsageSettingsForm({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        AI cost warning at (%)
+        {t("aiWarn")}
         <input
           name="aiCostWarningPercent"
           type="number"
@@ -188,31 +192,31 @@ export function UsageSettingsForm({
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Trial conversations
+        {t("trialConversations")}
         <input
           name="trialConversationLimit"
           type="number"
           min="1"
           step="1"
-          placeholder="No limit"
+          placeholder={t("noLimit")}
           defaultValue={trialConversationLimit ?? ""}
           className={`w-32 ${input}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs text-slate-600">
-        Trial AI allowance (USD)
+        {t("trialAi")}
         <input
           name="trialAiCostLimitUsd"
           type="number"
           min="0"
           step="0.01"
-          placeholder="No cap"
+          placeholder={t("noCap")}
           defaultValue={trialAiCostLimitUsd ?? ""}
           className={`w-32 ${input}`}
         />
       </label>
       <button type="submit" disabled={pending} className={button}>
-        {pending ? "Saving…" : "Save settings"}
+        {pending ? t("saving") : t("saveSettings")}
       </button>
       <Result message={message} />
     </form>

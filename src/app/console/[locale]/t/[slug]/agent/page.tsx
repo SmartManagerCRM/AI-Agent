@@ -14,18 +14,15 @@ import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { setDeploymentModeAction } from "@/server/business/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 const DEPLOYMENT_MODES = ["external_agent", "website_widget", "both"] as const;
-const DEPLOYMENT_MODE_LABELS: Record<(typeof DEPLOYMENT_MODES)[number], string> = {
-  external_agent: "Standalone link only",
-  website_widget: "Website widget only",
-  both: "Both",
-};
 
 export default async function AgentPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.agentPage");
 
   const [{ data: settings }, { data: stats }, goLive, usage, maleVoice, femaleVoice] = await Promise.all([
     supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
@@ -43,7 +40,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Agent</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <LiveBadge status={goLive.status} />
       </div>
 
@@ -51,7 +48,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
         <KpiTile
           icon="conversations"
           accent="emerald"
-          label="Interactions (30d)"
+          label={t("interactions")}
           value={String(summary?.total_interactions ?? 0)}
           trend={null}
           href={`/${locale}/${slug}/conversations`}
@@ -59,7 +56,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
         <KpiTile
           icon="analytics"
           accent="blue"
-          label="Handled without AI"
+          label={t("withoutAi")}
           value={`${summary?.deterministic_pct ?? 0}%`}
           trend={null}
           href={`/${locale}/${slug}/analytics`}
@@ -67,7 +64,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
         <KpiTile
           icon="customers"
           accent="purple"
-          label={usage?.isTrial ? "Customer conversations (trial)" : "Customer conversations (this period)"}
+          label={usage?.isTrial ? t("convTrial") : t("convPeriod")}
           value={
             usage
               ? usage.conversationLimit !== null
@@ -81,7 +78,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-900">Where is your Agent reachable?</h2>
+        <h2 className="mb-2 text-sm font-semibold text-slate-900">{t("reachable")}</h2>
         <form action={setDeploymentModeAction} className="flex items-center gap-2">
           <input type="hidden" name="tenantId" value={tenant.id} />
           <input type="hidden" name="locale" value={locale} />
@@ -93,12 +90,12 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
           >
             {DEPLOYMENT_MODES.map((mode) => (
               <option key={mode} value={mode}>
-                {DEPLOYMENT_MODE_LABELS[mode]}
+                {t(`mode.${mode}`)}
               </option>
             ))}
           </select>
           <Button type="submit" className="text-xs">
-            Save
+            {t("save")}
           </Button>
         </form>
       </section>
@@ -108,8 +105,8 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
 
       {(tenant.deployment_mode === "website_widget" || tenant.deployment_mode === "both") && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Add to your website</h2>
-          <p className="mt-1 text-xs text-slate-500">Paste this once, right before the closing {"</body>"} tag of your site.</p>
+          <h2 className="text-sm font-semibold text-slate-900">{t("addToWebsite")}</h2>
+          <p className="mt-1 text-xs text-slate-500">{t("embedHint", { tag: "</body>" })}</p>
           <div className="mt-3 flex items-start gap-2">
             <pre className="flex-1 overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100">{embedSnippet}</pre>
             <CopyButton value={embedSnippet} />
@@ -118,7 +115,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
       )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">AI behavior</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("behavior")}</h2>
         <AgentSettingsForm
           tenantId={tenant.id}
           slug={slug}
@@ -126,19 +123,19 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
           current={agentSettings}
           greetings={savedGreetings(agentSettings)}
           premiumVoices={{
-            male: maleVoice ? (maleVoice.voiceName ?? "Premium") : null,
-            female: femaleVoice ? (femaleVoice.voiceName ?? "Premium") : null,
+            male: maleVoice ? (maleVoice.voiceName ?? t("premium")) : null,
+            female: femaleVoice ? (femaleVoice.voiceName ?? t("premium")) : null,
           }}
         />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Background photo</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("background")}</h2>
         <AgentBackgroundForm slug={slug} locale={locale} currentUrl={productImageUrl(agentSettings.background_path)} />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Try it</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("tryIt")}</h2>
         <AgentTestPanel tenantId={tenant.id} currency={tenant.currency} slug={slug} locale={locale} />
       </section>
     </div>

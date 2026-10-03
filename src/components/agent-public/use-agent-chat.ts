@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 
+import type { AgentErrorCode } from "@/lib/agent-errors";
 import { sendAgentMessageAction } from "@/server/agent-public/actions";
 import type { CartView } from "@/server/commerce/cart";
 
@@ -42,7 +43,7 @@ export function useAgentChat({
   onCart: (cart: CartView | null) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AgentErrorCode | null>(null);
   const [pending, startTransition] = useTransition();
   const nextId = useRef(1);
 

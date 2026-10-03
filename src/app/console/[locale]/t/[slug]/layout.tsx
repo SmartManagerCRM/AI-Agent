@@ -31,6 +31,8 @@ export default async function TenantLayout({
   const { locale, slug } = await params;
   const { tenant, membership, impersonating } = await requireTenantMember(locale, slug);
   const t = await getTranslations("console");
+  const tShell = await getTranslations("console.shell");
+  const tCommon = await getTranslations("common");
   const user = await currentUser();
   const supabase = await createUserClient();
   // Still waiting for the business: orders received but not yet completed, and bookings not yet fulfilled
@@ -95,14 +97,13 @@ export default async function TenantLayout({
       : null;
 
   const [{ count: openOrders }, { count: openBookings }, { count: bookingRequests }] = await waitingCounts;
-  const plural = (n: number, one: string, other: string) => `${n} ${n === 1 ? one : other}`;
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
     {
       key: "orders",
       href: `/${locale}/${slug}/orders`,
       label: t("nav.orders"),
-      count: { value: openOrders ?? 0, title: `${plural(openOrders ?? 0, "order", "orders")} received, not yet completed` },
+      count: { value: openOrders ?? 0, title: tShell("openOrders", { count: openOrders ?? 0 }) },
     },
     { key: "products", href: `/${locale}/${slug}/products`, label: t("nav.products") },
     { key: "branches", href: `/${locale}/${slug}/branches`, label: t("nav.branches") },
@@ -120,8 +121,8 @@ export default async function TenantLayout({
         value: openBookings ?? 0,
         urgent: (bookingRequests ?? 0) > 0,
         title: [
-          bookingRequests ? `${plural(bookingRequests, "request", "requests")} waiting for your answer` : null,
-          `${plural((openBookings ?? 0) - (bookingRequests ?? 0), "confirmed booking", "confirmed bookings")} not yet completed`,
+          bookingRequests ? tShell("bookingRequests", { count: bookingRequests }) : null,
+          tShell("confirmedBookings", { count: (openBookings ?? 0) - (bookingRequests ?? 0) }),
         ]
           .filter(Boolean)
           .join(" · "),
@@ -146,8 +147,10 @@ export default async function TenantLayout({
   const daysRemaining =
     subscription?.status === "trialing" && subscription.trial_ends_at ? daysUntil(subscription.trial_ends_at) : null;
   const roleLabel = membership
-    ? membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "Super Admin";
+    ? tCommon.has(`role.${membership.role_key}`)
+      ? tCommon(`role.${membership.role_key}`)
+      : membership.role_key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : tCommon("role.super_admin");
 
   const alertLabels = await notificationLabels("orders");
 
@@ -163,10 +166,7 @@ export default async function TenantLayout({
       <div className="flex min-h-screen flex-col">
         {impersonating && (
           <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">
-            <span>
-              You&apos;re viewing <strong>{businessName}</strong>&apos;s console as Super Admin — actions you take here
-              are real.
-            </span>
+            <span>{tShell.rich("impersonating", { business: businessName, strong: (c) => <strong>{c}</strong> })}</span>
             <form action={endImpersonationAction}>
               <input type="hidden" name="locale" value={locale} />
               <input type="hidden" name="slug" value={slug} />
@@ -174,7 +174,7 @@ export default async function TenantLayout({
                 type="submit"
                 className="rounded-md bg-amber-950/10 px-3 py-1 text-xs font-semibold hover:bg-amber-950/20"
               >
-                Exit
+                {tShell("exit")}
               </button>
             </form>
           </div>
@@ -209,15 +209,15 @@ export default async function TenantLayout({
               {/* Deployment status (Go live), not Brain readiness. */}
               <div className="mb-4 flex items-center justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs" data-testid="sidebar-live-status">
                 <span className={`font-semibold ${isLive ? "text-emerald-400" : deploymentStatus === "paused" ? "text-amber-300" : "text-slate-300"}`}>
-                  {isLive ? "● LIVE" : deploymentStatus === "paused" ? "○ PAUSED" : "○ NOT LIVE"}
+                  {isLive ? tShell("live") : deploymentStatus === "paused" ? tShell("paused") : tShell("notLive")}
                 </span>
                 {isLive ? (
                   <a href={publicAgentUrls().agent(tenant.slug)} target="_blank" rel="noopener noreferrer" className="font-medium text-emerald-300 hover:underline">
-                    Open Agent
+                    {tShell("openAgent")}
                   </a>
                 ) : (
                   <a href={`/${locale}/${slug}/brain#go-live`} className="rounded-md bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500">
-                    Go Live
+                    {tShell("goLive")}
                   </a>
                 )}
               </div>

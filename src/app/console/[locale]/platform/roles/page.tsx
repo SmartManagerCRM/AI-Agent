@@ -1,6 +1,7 @@
 import { toggleRolePermissionAction } from "@/server/platform/rbac-actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Super Admin Master Spec, Phase 5 — granular per-permission RBAC. Shows
@@ -15,6 +16,12 @@ export default async function RolesPage({ params }: { params: Promise<{ locale: 
   const { locale } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.roles");
+  const tc = await getTranslations("common");
+  const permissionText = (key: string, fallback: string | null) => {
+    const k = `permission.${key.replace(/\./g, "__")}`;
+    return tc.has(k) ? tc(k) : (fallback ?? undefined);
+  };
 
   const [{ data: roles }, { data: permissions }, { data: grants }] = await Promise.all([
     supabase.from("roles").select("id, key, name").is("tenant_id", null).order("key"),
@@ -33,22 +40,21 @@ export default async function RolesPage({ params }: { params: Promise<{ locale: 
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Roles &amp; Permissions</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          What each system role can do, across every business on the platform. These 3 roles are shared by every tenant
-          — toggling a permission here changes it everywhere at once, not just for one business.
+          {t("subtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {orderedRoles.map((role) => (
           <section key={role.id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="text-sm font-semibold text-slate-900">{role.name[locale] ?? role.name.en ?? role.key}</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{role.name[locale] ?? (tc.has(`role.${role.key}`) ? tc(`role.${role.key}`) : (role.name.en ?? role.key))}</h2>
             <p className="mb-3 font-mono text-xs text-slate-400">{role.key}</p>
             <div className="flex flex-col gap-3">
               {modules.map((mod) => (
                 <div key={mod}>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{mod}</p>
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{tc.has(`permissionModule.${mod}`) ? tc(`permissionModule.${mod}`) : mod}</p>
                   <div className="flex flex-col gap-1">
                     {allPermissions
                       .filter((p) => p.module === mod)
@@ -64,7 +70,7 @@ export default async function RolesPage({ params }: { params: Promise<{ locale: 
                             <input type="hidden" name="permissionKey" value={permission.key} />
                             <input type="hidden" name="grant" value={(!granted).toString()} />
                             <input type="hidden" name="locale" value={locale} />
-                            <span className="text-slate-600" title={permission.description ?? undefined}>
+                            <span className="text-slate-600" title={permissionText(permission.key, permission.description)}>
                               {permission.key}
                             </span>
                             <button
@@ -75,7 +81,7 @@ export default async function RolesPage({ params }: { params: Promise<{ locale: 
                                   : "bg-slate-100 text-slate-500 hover:bg-slate-200"
                               }`}
                             >
-                              {granted ? "On" : "Off"}
+                              {granted ? t("on") : t("off")}
                             </button>
                           </form>
                         );

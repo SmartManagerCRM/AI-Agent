@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 
 import { InstallAppButton, ServiceWorkerManager, type PwaLabels } from "@/components/pwa/pwa-shell";
 import { isLocale } from "@/i18n/locales";
@@ -38,11 +39,14 @@ export default async function ConsoleLayout({
     updateAvailable: t("updateAvailable"),
     refresh: t("refresh"),
   };
+  // The console's and Super Admin's own strings, for client components (the Agent's are not sent here).
+  const { agent: _agent, ...messages } = (await getMessages()) as Record<string, unknown>;
+  void _agent;
   return (
-    <>
+    <NextIntlClientProvider locale={isLocale(locale) ? locale : "en"} messages={messages as Parameters<typeof NextIntlClientProvider>[0]["messages"]}>
       {children}
       <ServiceWorkerManager labels={labels} />
       <InstallAppButton labels={labels} />
-    </>
+    </NextIntlClientProvider>
   );
 }

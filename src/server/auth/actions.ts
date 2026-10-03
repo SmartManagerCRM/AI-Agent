@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { isLocale } from "@/i18n/locales";
+import { actionT } from "@/server/i18n/action-messages";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { createUserClient } from "@/server/supabase/clients";
 
@@ -42,9 +43,10 @@ export async function signInAction(_prevState: string | undefined, formData: For
     locale: formData.get("locale"),
     redirectTo: formData.get("redirectTo") ?? undefined,
   });
-  if (!parsed.success) return "VALIDATION_ERROR: enter a valid email and password.";
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("auth.signInInvalid");
   if (isRateLimited(`signin:${parsed.data.email.toLowerCase()}`, AUTH_RATE_LIMIT_WINDOW_MS, AUTH_RATE_LIMIT_MAX_ATTEMPTS)) {
-    return "AUTH_ERROR: too many attempts — please wait a few minutes and try again.";
+    return t("auth.tooMany");
   }
 
   const supabase = await createUserClient();
@@ -52,7 +54,7 @@ export async function signInAction(_prevState: string | undefined, formData: For
     email: parsed.data.email,
     password: parsed.data.password,
   });
-  if (error) return "AUTH_ERROR: incorrect email or password.";
+  if (error) return t("auth.incorrect");
   redirect(safeRedirectTarget(parsed.data.locale, parsed.data.redirectTo));
 }
 
@@ -63,9 +65,10 @@ export async function signUpAction(_prevState: string | undefined, formData: For
     locale: formData.get("locale"),
     redirectTo: formData.get("redirectTo") ?? undefined,
   });
-  if (!parsed.success) return "VALIDATION_ERROR: enter a valid email and an 8+ character password.";
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("auth.signUpInvalid");
   if (isRateLimited(`signup:${parsed.data.email.toLowerCase()}`, AUTH_RATE_LIMIT_WINDOW_MS, AUTH_RATE_LIMIT_MAX_ATTEMPTS)) {
-    return "AUTH_ERROR: too many attempts — please wait a few minutes and try again.";
+    return t("auth.tooMany");
   }
 
   const supabase = await createUserClient();
@@ -73,7 +76,11 @@ export async function signUpAction(_prevState: string | undefined, formData: For
     email: parsed.data.email,
     password: parsed.data.password,
   });
-  if (error) return `AUTH_ERROR: ${error.message}`;
+  if (error) {
+    if (error.code === "user_already_exists" || /already registered/i.test(error.message)) return t("auth.alreadyRegistered");
+    if (error.code === "weak_password" || /password/i.test(error.message)) return t("auth.weakPassword");
+    return t("auth.signUpFailed");
+  }
   redirect(safeRedirectTarget(parsed.data.locale, parsed.data.redirectTo));
 }
 

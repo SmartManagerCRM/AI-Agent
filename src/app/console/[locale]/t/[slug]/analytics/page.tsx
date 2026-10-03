@@ -9,8 +9,8 @@ import { formatMoney } from "@/lib/money";
 import { ANALYTICS_RANGES, getTenantAnalytics, type AnalyticsRangeDays } from "@/server/tenant/analytics-stats";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
-
-const RANGE_LABEL: Record<AnalyticsRangeDays, string> = { 7: "7 days", 30: "30 days", 90: "90 days" };
+import { getTranslations } from "next-intl/server";
+import { Msg } from "@/components/i18n/msg";
 
 function parseRange(value: string | undefined): AnalyticsRangeDays {
   const parsed = Number(value);
@@ -29,6 +29,10 @@ export default async function AnalyticsPage({
   const rangeDays = parseRange(rangeParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.analytics");
+  const tAll = await getTranslations();
+  const trendLabel = <Msg id="console.kpi.vsPriorDays" values={{ days: rangeDays }} />;
+  const named = (group: string) => (key: string, fallback: string) => (tAll.has(`${group}.${key}`) ? tAll(`${group}.${key}`) : fallback);
 
   const [analytics, { data: currencyRow }] = await Promise.all([
     getTenantAnalytics(supabase, tenant.id, locale, rangeDays),
@@ -40,7 +44,7 @@ export default async function AnalyticsPage({
   const baseHref = `/${locale}/${slug}/analytics`;
   const tabs: Tab[] = ANALYTICS_RANGES.map((days) => ({
     key: String(days),
-    label: RANGE_LABEL[days],
+    label: t("range", { days }),
     href: days === 30 ? baseHref : `${baseHref}?range=${days}`,
     active: rangeDays === days,
   }));
@@ -48,15 +52,15 @@ export default async function AnalyticsPage({
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Analytics</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <Tabs tabs={tabs} />
       </div>
 
       {analytics.ordersCount === 0 && analytics.funnel.conversationsStarted === 0 ? (
         <EmptyState
-          title="No activity in this period"
-          description="Sales, orders, and customer conversations will appear here once your Agent starts taking orders."
-          actionLabel="Set up your Agent"
+          title={t("emptyTitle")}
+          description={t("emptyDescription")}
+          actionLabel={t("setUpAgent")}
           actionHref={`/${locale}/${slug}/agent`}
         />
       ) : (
@@ -65,34 +69,34 @@ export default async function AnalyticsPage({
             <KpiTile
               icon="analytics"
               accent="emerald"
-              label="Sales"
+              label={t("sales")}
               value={money(analytics.totalSalesMinor)}
               trend={analytics.trends.sales}
-              trendLabel={`vs prior ${rangeDays} days`}
+              trendLabel={trendLabel}
           href={`/${locale}/${slug}/orders?status=completed`}
         />
             <KpiTile
               icon="orders"
               accent="blue"
-              label="Orders"
+              label={t("orders")}
               value={String(analytics.ordersCount)}
               trend={analytics.trends.orders}
-              trendLabel={`vs prior ${rangeDays} days`}
+              trendLabel={trendLabel}
           href={`/${locale}/${slug}/orders`}
         />
             <KpiTile
               icon="billing"
               accent="purple"
-              label="Avg. order value"
+              label={t("aov")}
               value={money(analytics.avgOrderValueMinor)}
               trend={analytics.trends.avgOrderValue}
-              trendLabel={`vs prior ${rangeDays} days`}
+              trendLabel={trendLabel}
           href={`/${locale}/${slug}/orders`}
         />
             <KpiTile
               icon="conversations"
               accent="orange"
-              label="Customer conversations"
+              label={t("conversations")}
               value={String(analytics.funnel.conversationsStarted)}
               trend={null}
               href={`/${locale}/${slug}/conversations`}
@@ -102,16 +106,16 @@ export default async function AnalyticsPage({
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">
               <Link href={`/${locale}/${slug}/conversations`} prefetch={false} className="hover:underline">
-                Customer funnel
+                {t("funnelTitle")}
               </Link>
             </h2>
             <div className="flex flex-col gap-2">
               {(
                 [
-                  { label: "Conversations started", value: analytics.funnel.conversationsStarted },
-                  { label: "Added something to cart", value: analytics.funnel.cartsStarted },
-                  { label: "Orders placed", value: analytics.funnel.ordersPlaced },
-                  { label: "Orders paid / settled", value: analytics.funnel.ordersSettled },
+                  { label: t("funnel.started"), value: analytics.funnel.conversationsStarted },
+                  { label: t("funnel.cart"), value: analytics.funnel.cartsStarted },
+                  { label: t("funnel.placed"), value: analytics.funnel.ordersPlaced },
+                  { label: t("funnel.settled"), value: analytics.funnel.ordersSettled },
                 ] as const
               ).map((stage, i, all) => {
                 const base = all[0].value || 1;
@@ -140,17 +144,17 @@ export default async function AnalyticsPage({
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">
               <Link href={`/${locale}/${slug}/orders?status=completed`} prefetch={false} className="hover:underline">
-                Sales over time
+                {t("salesOverTime")}
               </Link>
             </h2>
             {analytics.totalSalesMinor > 0 ? (
               <LineChart
                 data={analytics.salesSeries}
-                label="Sales"
+                label={t("sales")}
                 format={{ kind: "currency", currency: tenant.currency, exponent, locale }}
               />
             ) : (
-              <p className="text-sm text-slate-500">No sales recorded in this period yet.</p>
+              <p className="text-sm text-slate-500">{t("noSales")}</p>
             )}
           </section>
 
@@ -158,26 +162,26 @@ export default async function AnalyticsPage({
             <section className="rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-semibold text-slate-900">
                 <Link href={`/${locale}/${slug}/orders`} prefetch={false} className="hover:underline">
-                  Orders by status
+                  {t("ordersByStatus")}
                 </Link>
               </h2>
               {analytics.ordersCount > 0 ? (
-                <DonutChart segments={analytics.ordersByStatusGroup} centerLabel="Orders" />
+                <DonutChart segments={analytics.ordersByStatusGroup.map((s) => ({ ...s, label: named("common.orderGroup")(s.key, s.label) }))} centerLabel={t("orders")} />
               ) : (
-                <p className="text-sm text-slate-500">No orders in this period yet.</p>
+                <p className="text-sm text-slate-500">{t("noOrders")}</p>
               )}
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-white p-4">
               <h2 className="mb-3 text-sm font-semibold text-slate-900">
                 <Link href={`/${locale}/${slug}/orders`} prefetch={false} className="hover:underline">
-                  How customers paid
+                  {t("howPaid")}
                 </Link>
               </h2>
               {analytics.paymentMethodBreakdown.length > 0 ? (
-                <DonutChart segments={analytics.paymentMethodBreakdown} centerLabel="Orders" />
+                <DonutChart segments={analytics.paymentMethodBreakdown.map((s) => ({ ...s, label: named("common.paymentProvider")(s.key, s.label) }))} centerLabel={t("orders")} />
               ) : (
-                <p className="text-sm text-slate-500">No paid or in-progress orders in this period yet.</p>
+                <p className="text-sm text-slate-500">{t("noPaid")}</p>
               )}
             </section>
           </div>
@@ -185,7 +189,7 @@ export default async function AnalyticsPage({
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <h2 className="mb-3 text-sm font-semibold text-slate-900">
               <Link href={`/${locale}/${slug}/products`} prefetch={false} className="hover:underline">
-                Top products
+                {t("topProducts")}
               </Link>
             </h2>
             {analytics.topProducts.length > 0 ? (
@@ -193,9 +197,9 @@ export default async function AnalyticsPage({
                 <table className="w-full text-start text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500">
-                      <th className="py-2 text-start font-medium">Product</th>
-                      <th className="py-2 text-start font-medium">Quantity sold</th>
-                      <th className="py-2 text-start font-medium">Revenue</th>
+                      <th className="py-2 text-start font-medium">{t("product")}</th>
+                      <th className="py-2 text-start font-medium">{t("quantity")}</th>
+                      <th className="py-2 text-start font-medium">{t("revenue")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -210,7 +214,7 @@ export default async function AnalyticsPage({
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No product sales in this period yet.</p>
+              <p className="text-sm text-slate-500">{t("noProductSales")}</p>
             )}
           </section>
         </>

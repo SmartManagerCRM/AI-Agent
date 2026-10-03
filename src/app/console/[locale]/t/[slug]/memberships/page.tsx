@@ -6,7 +6,8 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { EnrolForm, MemberActions, PlanRow, type PlanSummary } from "@/components/memberships/membership-ui";
 import { NEW_PLAN, PlanForm, type PlanFormValues } from "@/components/memberships/plan-form";
-import { EXPIRING_DAYS, memberState, periodLabel, type MemberState } from "@/lib/membership-state";
+import { EXPIRING_DAYS, memberState, type MemberState } from "@/lib/membership-state";
+import { getTranslations } from "next-intl/server";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -24,27 +25,8 @@ const STATE_STYLE: Record<MemberState, string> = {
   paused: "bg-slate-100 text-slate-600",
   cancelled: "bg-slate-100 text-slate-400",
 };
-const STATE_LABEL: Record<MemberState, string> = {
-  active: "Active",
-  expiring: "Renews soon",
-  grace: "Overdue (grace)",
-  expired: "Expired",
-  trial: "Trial",
-  upcoming: "Starts later",
-  paused: "Frozen",
-  cancelled: "Cancelled",
-};
-
-const FILTERS = {
-  current: "Current",
-  expiring: `Renew within ${EXPIRING_DAYS} days`,
-  expired: "Overdue & expired",
-  unpaid: "Unpaid",
-  paused: "Frozen",
-  cancelled: "Cancelled",
-  all: "All",
-} as const;
-type Filter = keyof typeof FILTERS;
+const FILTERS = ["current", "expiring", "expired", "unpaid", "paused", "cancelled", "all"] as const;
+type Filter = (typeof FILTERS)[number];
 
 function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -63,10 +45,11 @@ export default async function MembershipsPage({
   const { locale, slug } = await params;
   const sp = await searchParams;
   const page = parsePage(sp.page);
-  const filter: Filter = sp.filter && sp.filter in FILTERS ? (sp.filter as Filter) : "current";
+  const filter: Filter = FILTERS.find((f) => f === sp.filter) ?? "current";
   const q = (sp.q ?? "").trim().slice(0, 80);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.memberships");
   const today = businessToday(tenant.timezone);
   const monthStart = `${today.slice(0, 8)}01`;
 
@@ -124,7 +107,7 @@ export default async function MembershipsPage({
     kind: p.kind,
     priceLabel: money(p.price_minor, p.currency),
     joiningFeeLabel: p.joining_fee_minor > 0 ? money(p.joining_fee_minor, p.currency) : null,
-    periodLabel: periodLabel(p.billing_period, p.period_count),
+    periodLabel: t("period", { period: p.billing_period, count: p.period_count }),
     noExpiry: p.billing_period === "none",
     free: p.price_minor === 0 && p.joining_fee_minor === 0,
     trialDays: p.trial_days,
@@ -177,57 +160,57 @@ export default async function MembershipsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Memberships</h1>
-        <p className="mt-1 text-sm text-slate-500">Loyalty clubs and paid subscriptions (gym, classes, car wash …) for your customers — plans, members, renewals, payments and check-ins.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t("subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="membership" accent="emerald" label="Current members" value={String(activeCount ?? 0)} trend={null} href={href({ filter: "current", q: "" })} />
-        <KpiTile icon="bell" accent="orange" label={`Renew within ${EXPIRING_DAYS} days`} value={String(expiringCount ?? 0)} trend={null} href={href({ filter: "expiring", q: "" })} />
-        <KpiTile icon="billing" accent="purple" label="Unpaid" value={String(unpaidCount ?? 0)} trend={null} href={href({ filter: "unpaid", q: "" })} />
-        <KpiTile icon="analytics" accent="blue" label={`Collected this month · ${visitsToday ?? 0} check-ins today`} value={money(revenue, tenant.currency)} trend={null} trendLabel="" href={href({ filter: "all", q: "" })} />
+        <KpiTile icon="membership" accent="emerald" label={t("currentMembers")} value={String(activeCount ?? 0)} trend={null} href={href({ filter: "current", q: "" })} />
+        <KpiTile icon="bell" accent="orange" label={t("filter.expiring", { days: EXPIRING_DAYS })} value={String(expiringCount ?? 0)} trend={null} href={href({ filter: "expiring", q: "" })} />
+        <KpiTile icon="billing" accent="purple" label={t("filter.unpaid")} value={String(unpaidCount ?? 0)} trend={null} href={href({ filter: "unpaid", q: "" })} />
+        <KpiTile icon="analytics" accent="blue" label={t("collected", { count: visitsToday ?? 0 })} value={money(revenue, tenant.currency)} trend={null} trendLabel="" href={href({ filter: "all", q: "" })} />
       </div>
 
       <section id="plans" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Plans</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("plans")}</h2>
         <div className="flex flex-col gap-2">
           {allPlans.map((p, i) => (
             <PlanRow key={p.id} plan={summaries[i]} form={formValues(p)} locale={locale} slug={slug} currency={p.currency} exponent={exponents.get(p.currency) ?? 2} services={serviceOptions} />
           ))}
-          {allPlans.length === 0 && <p className="py-2 text-sm text-slate-400">No plans yet — create your first one below.</p>}
+          {allPlans.length === 0 && <p className="py-2 text-sm text-slate-400">{t("noPlans")}</p>}
         </div>
-        <Disclosure summary="New plan" initiallyOpen={allPlans.length === 0}>
+        <Disclosure summary={t("newPlan")} initiallyOpen={allPlans.length === 0}>
           <PlanForm locale={locale} slug={slug} currency={tenant.currency} exponent={exponent} services={serviceOptions} initial={NEW_PLAN} />
         </Disclosure>
       </section>
 
       {summaries.some((p) => p.isActive) && (
         <section id="add-member" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Add member</h2>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("addMember")}</h2>
           <EnrolForm locale={locale} slug={slug} today={today} plans={summaries.filter((p) => p.isActive)} />
         </section>
       )}
 
       <section id="members" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-900">Members</h2>
+          <h2 className="text-sm font-semibold text-slate-900">{t("members")}</h2>
           <form action={base} className="flex items-center gap-2">
             {filter !== "current" && <input type="hidden" name="filter" value={filter} />}
-            <input name="q" defaultValue={q} placeholder="Name, phone, email or member #" className="w-56 rounded-md border border-slate-200 px-3 py-1.5 text-sm" />
+            <input name="q" defaultValue={q} placeholder={t("searchPlaceholder")} className="w-56 rounded-md border border-slate-200 px-3 py-1.5 text-sm" />
             <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white">
-              Search
+              {t("search")}
             </button>
           </form>
         </div>
         <div className="mb-3 flex flex-wrap gap-1.5">
-          {(Object.keys(FILTERS) as Filter[]).map((f) => (
+          {FILTERS.map((f) => (
             <Link
               key={f}
               href={href({ filter: f })}
               prefetch={false}
               className={`rounded-full px-3 py-1 text-xs font-medium ${f === filter ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
             >
-              {FILTERS[f]}
+              {t(`filter.${f}`, { days: EXPIRING_DAYS })}
             </Link>
           ))}
         </div>
@@ -237,15 +220,15 @@ export default async function MembershipsPage({
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="py-2 text-start font-medium">#</th>
-                  <th className="py-2 text-start font-medium">Member</th>
-                  <th className="py-2 text-start font-medium">Plan</th>
-                  <th className="py-2 text-start font-medium">Started</th>
-                  <th className="py-2 text-start font-medium">Renewal date</th>
-                  <th className="py-2 text-start font-medium">Price</th>
-                  <th className="py-2 text-start font-medium">Payment</th>
-                  <th className="py-2 text-start font-medium">Visits</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("col.member")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.started")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.renewal")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.price")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.payment")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.visits")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -264,17 +247,17 @@ export default async function MembershipsPage({
                       <td className="py-2 text-slate-600">{plan ? name(plan) : "—"}</td>
                       <td className="whitespace-nowrap py-2 text-slate-600">{fmtDate(m.start_date)}</td>
                       <td className="whitespace-nowrap py-2 text-slate-600">
-                        {m.end_date ? fmtDate(m.end_date) : "No expiry"}
-                        {m.end_date && <span className="block text-xs text-slate-400">{m.auto_renew ? "auto-renew" : "manual renewal"}</span>}
+                        {m.end_date ? fmtDate(m.end_date) : t("noExpiry")}
+                        {m.end_date && <span className="block text-xs text-slate-400">{m.auto_renew ? t("autoRenew") : t("manualRenewal")}</span>}
                       </td>
-                      <td className="whitespace-nowrap py-2 text-slate-600">{m.price_minor ? money(m.price_minor, m.currency) : "Free"}</td>
-                      <td className="py-2 text-xs capitalize text-slate-600">{m.payment_status}</td>
+                      <td className="whitespace-nowrap py-2 text-slate-600">{m.price_minor ? money(m.price_minor, m.currency) : t("free")}</td>
+                      <td className="py-2 text-xs text-slate-600">{t.has(`payment.${m.payment_status}`) ? t(`payment.${m.payment_status}`) : m.payment_status}</td>
                       <td className="py-2 text-slate-600">
                         {m.visits_used}
                         {plan?.visits_per_period ? ` / ${plan.visits_per_period}` : ""}
                       </td>
                       <td className="py-2">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATE_STYLE[state]}`}>{STATE_LABEL[state]}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATE_STYLE[state]}`}>{t(`state.${state}`)}</span>
                       </td>
                       <td className="py-2">
                         <MemberActions
@@ -295,7 +278,7 @@ export default async function MembershipsPage({
             </table>
           </div>
         ) : (
-          <EmptyState title={q || filter !== "current" ? "No members match" : "No members yet"} description="Members you add show up here with their renewal date, payments and visits." />
+          <EmptyState title={q || filter !== "current" ? t("noMatch") : t("empty")} description={t("emptyDescription")} />
         )}
         <Pagination basePath={base} params={{ ...(filter !== "current" ? { filter } : {}), ...(q ? { q } : {}) }} page={page} pageSize={PAGE_SIZE} total={membersResult.count ?? 0} />
       </section>

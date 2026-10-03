@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -17,6 +18,7 @@ type Checkout = {
 type Props = { tenantId: string; slug: string; locale: string; currencyExponent: number; current: Checkout };
 
 export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent, current }: Props) {
+const t = useTranslations("console.checkoutForm");
   const [error, formAction, pending] = useActionState(updateCheckoutSettingsAction, undefined);
   const step = 1 / 10 ** currencyExponent;
 
@@ -29,26 +31,26 @@ export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent,
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="orderingEnabled" defaultChecked={current.ordering_enabled} />
-        Ordering enabled
+        {t("ordering")}
       </label>
 
       <div className="flex gap-4">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="pickup" defaultChecked={current.fulfillment_types.includes("pickup")} />
-          Pickup
+          {t("pickup")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="delivery" defaultChecked={current.fulfillment_types.includes("delivery")} />
-          Delivery
+          {t("delivery")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="dineIn" defaultChecked={current.fulfillment_types.includes("dine_in")} />
-          Dine-in (tables)
+          {t("dineIn")}
         </label>
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        Delivery fee
+        {t("deliveryFee")}
         <input
           name="deliveryFeeMajor"
           type="number"
@@ -60,7 +62,7 @@ export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent,
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Minimum order
+        {t("minimumOrder")}
         <input
           name="minimumOrderMajor"
           type="number"
@@ -72,7 +74,7 @@ export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent,
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Tax rate (%)
+        {t("taxRate")}
         <input
           name="taxRatePercent"
           type="number"
@@ -86,12 +88,12 @@ export function CheckoutSettingsForm({ tenantId, slug, locale, currencyExponent,
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="taxIncluded" defaultChecked={current.tax_included} />
-        Prices already include tax
+        {t("taxIncluded")}
       </label>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        Save
+        {t("save")}
       </Button>
     </form>
   );

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { consoleOrigin } from "@/lib/hosts";
 import { serverEnv } from "@/server/env";
 import { createUserClient } from "@/server/supabase/clients";
+import { actionT } from "@/server/i18n/action-messages";
 import { requireTenantMember, requireUser } from "@/server/tenant/context";
 
 /**
@@ -50,7 +51,8 @@ export async function inviteStaffAction(_prevState: InviteStaffState, formData: 
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return { error: "Enter a valid email and choose a role." };
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return { error: t("staff.invalidInput") };
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -59,7 +61,9 @@ export async function inviteStaffAction(_prevState: InviteStaffState, formData: 
     p_email: parsed.data.email,
     p_role_key: parsed.data.roleKey,
   });
-  if (error || !data?.[0]) return { error: error?.message ?? "Could not create the invite." };
+  if (error || !data?.[0]) {
+    return { error: error?.code === "42501" ? t("staff.noPermission") : error?.message.startsWith("VALIDATION_ERROR") ? t("staff.invalidInput") : t("staff.inviteFailed") };
+  }
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
   return { inviteLink: consoleUrl(`/${parsed.data.locale}/invite/${data[0].token}`), email: parsed.data.email };
@@ -131,15 +135,19 @@ export type AcceptInviteState = string | undefined;
 
 /** The invite-accept page's only action — the signed-in visitor redeems their own token. */
 export async function acceptInviteAction(_prevState: AcceptInviteState, formData: FormData): Promise<AcceptInviteState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = acceptSchema.safeParse({ token: formData.get("token"), locale: formData.get("locale") });
-  if (!parsed.success) return "Invalid invite link.";
+  if (!parsed.success) return t("staff.invalidLink");
 
   await requireUser(parsed.data.locale);
   const supabase = await createUserClient();
   const { data: tenantId, error } = await supabase.rpc("accept_staff_invite", { p_token: parsed.data.token });
-  if (error || !tenantId) return error?.message.replace(/^[A-Z_]+: /, "") ?? "Could not accept this invite.";
+  if (error || !tenantId) {
+    const m = error?.message ?? "";
+    return m.startsWith("NOT_FOUND") ? t("staff.expired") : m.includes("different email") ? t("staff.otherEmail") : t("staff.acceptFailed");
+  }
 
   const { data: tenant } = await supabase.from("tenants").select("slug").eq("id", tenantId).maybeSingle();
-  if (!tenant) return "Joined, but could not find the business to redirect to.";
+  if (!tenant) return t("staff.noBusiness");
   redirect(`/${parsed.data.locale}/${tenant.slug}`);
 }

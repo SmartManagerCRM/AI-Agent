@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 type Props = {
   locale: string;
@@ -26,17 +27,19 @@ type Props = {
  * empty state, not a fabricated trial.
  */
 export function TrialCard({ locale, slug, subscription, daysRemaining, conversationCount, usage }: Props) {
+  const t = useTranslations("console.trial");
+  const tc = useTranslations("common");
   if (!subscription) {
     return (
       <div className="rounded-xl bg-slate-800 p-4 text-sm">
-        <p className="font-medium text-white">No active plan</p>
-        <p className="mt-1 text-slate-400">Start a subscription to unlock billing and usage tracking.</p>
+        <p className="font-medium text-white">{t("noPlan")}</p>
+        <p className="mt-1 text-slate-400">{t("noPlanText")}</p>
         <Link
           href={`/${locale}/${slug}/billing`}
           prefetch={false}
           className="mt-3 block rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-emerald-500"
         >
-          View plans
+          {t("viewPlans")}
         </Link>
       </div>
     );
@@ -47,23 +50,25 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
   return (
     <div className="rounded-xl bg-slate-800 p-4 text-sm">
       <div className="flex items-center justify-between">
-        <p className="font-medium capitalize text-white">{subscription.planKey}</p>
+        <p className="font-medium capitalize text-white">{tc.has(`plan.${subscription.planKey}`) ? tc(`plan.${subscription.planKey}`) : subscription.planKey}</p>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
             subscription.status === "active" ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"
           }`}
         >
-          {subscription.status.replace("_", " ")}
+          {tc.has(`subscriptionStatus.${subscription.status}`) ? tc(`subscriptionStatus.${subscription.status}`) : subscription.status.replace("_", " ")}
         </span>
       </div>
-      {isTrialing && !usage?.trialEnded && <p className="mt-2 text-slate-300">{daysRemaining} days remaining</p>}
+      {isTrialing && !usage?.trialEnded && <p className="mt-2 text-slate-300">{t("daysRemaining", { count: daysRemaining ?? 0 })}</p>}
       {usage ? (
         <>
           <p
             className={`mt-1 ${usage.limited || usage.warningLevel >= 95 ? "text-red-300" : usage.warningLevel > 0 ? "text-amber-300" : "text-slate-400"}`}
           >
-            {usage.used.toLocaleString(locale)} / {usage.limit.toLocaleString(locale)} conversations
-            {subscription.status === "trialing" ? " in trial" : " this period"}
+            {t(subscription.status === "trialing" ? "conversationsInTrial" : "conversationsThisPeriod", {
+              used: usage.used.toLocaleString(locale),
+              limit: usage.limit.toLocaleString(locale),
+            })}
           </p>
           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
             <div
@@ -72,15 +77,15 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
             />
           </div>
           {usage.trialEnded ? (
-            <p className="mt-2 text-xs text-red-300">Free trial ended — see Billing.</p>
+            <p className="mt-2 text-xs text-red-300">{t("trialEnded")}</p>
           ) : usage.limited ? (
-            <p className="mt-2 text-xs text-red-300">AI service is limited — see Billing.</p>
+            <p className="mt-2 text-xs text-red-300">{t("aiLimited")}</p>
           ) : (
-            usage.inGrace && <p className="mt-2 text-xs text-amber-300">Conversation limit reached — grace period.</p>
+            usage.inGrace && <p className="mt-2 text-xs text-amber-300">{t("grace")}</p>
           )}
         </>
       ) : (
-        <p className="mt-1 text-slate-400">{conversationCount} conversations so far</p>
+        <p className="mt-1 text-slate-400">{t("soFar", { count: conversationCount })}</p>
       )}
       {isTrialing && !usage && (
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700">
@@ -95,7 +100,7 @@ export function TrialCard({ locale, slug, subscription, daysRemaining, conversat
         prefetch={false}
         className="mt-3 block rounded-lg bg-emerald-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-emerald-500"
       >
-        {subscription.status === "trialing" ? "Upgrade now" : "Manage billing"}
+        {subscription.status === "trialing" ? t("upgrade") : t("manage")}
       </Link>
     </div>
   );

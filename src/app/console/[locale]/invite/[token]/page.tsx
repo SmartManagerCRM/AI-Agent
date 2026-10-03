@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { getTranslations } from "next-intl/server";
+
 import { AcceptInviteForm } from "@/components/staff/accept-invite-form";
 import { CredentialsForm } from "@/components/auth/credentials-form";
 import { signInAction, signUpAction } from "@/server/auth/actions";
@@ -7,6 +9,10 @@ import { serviceClient } from "@/server/supabase/clients";
 import { currentUser } from "@/server/tenant/context";
 
 export const dynamic = "force-dynamic";
+
+function roleLabel(t: { (key: string): string; has(key: string): boolean }, key: string): string {
+  return t.has(`role.${key}`) ? t(`role.${key}`) : key.replace(/_/g, " ");
+}
 
 /**
  * Invite acceptance (spec §98 Phase 8). The invite row itself is looked up
@@ -18,6 +24,9 @@ export const dynamic = "force-dynamic";
  */
 export default async function InviteAcceptPage({ params }: { params: Promise<{ locale: string; token: string }> }) {
   const { locale, token } = await params;
+  const t = await getTranslations({ locale, namespace: "invite" });
+  const tc = await getTranslations({ locale, namespace: "common" });
+  const ta = await getTranslations({ locale, namespace: "auth" });
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
   const supabase = serviceClient();
@@ -31,23 +40,23 @@ export default async function InviteAcceptPage({ params }: { params: Promise<{ l
   if (!invite || !isValid) {
     return (
       <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-2 px-6 text-center">
-        <h1 className="text-xl font-semibold">Invite not available</h1>
-        <p className="text-sm text-neutral-500">This invite link is invalid, has already been used, or has expired.</p>
+        <h1 className="text-xl font-semibold">{t("unavailableTitle")}</h1>
+        <p className="text-sm text-neutral-500">{t("unavailableBody")}</p>
       </main>
     );
   }
 
   const { data: tenant } = await supabase.from("tenants").select("business_name").eq("id", invite.tenant_id).maybeSingle();
-  const businessName = tenant ? (tenant.business_name[locale] ?? Object.values(tenant.business_name)[0]) : "this business";
+  const businessName = tenant ? (tenant.business_name[locale] ?? Object.values(tenant.business_name)[0]) : t("thisBusiness");
   const user = await currentUser();
   const redirectTo = `/${locale}/invite/${token}`;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-6 px-6 text-center">
       <div>
-        <h1 className="text-xl font-semibold">You&apos;re invited to join {businessName}</h1>
+        <h1 className="text-xl font-semibold">{t("title", { business: businessName })}</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          as <span className="capitalize">{invite.role_key.replace("_", " ")}</span> ({invite.email})
+          {t("asRole", { role: roleLabel(tc, invite.role_key), email: invite.email })}
         </p>
       </div>
 
@@ -55,22 +64,22 @@ export default async function InviteAcceptPage({ params }: { params: Promise<{ l
         <AcceptInviteForm token={token} locale={locale} />
       ) : (
         <div className="flex w-full flex-col gap-4">
-          <p className="text-sm text-neutral-500">Sign in or create an account with {invite.email} to accept.</p>
+          <p className="text-sm text-neutral-500">{t("signInTo", { email: invite.email })}</p>
           <CredentialsForm
             action={signInAction}
             locale={locale}
             redirectTo={redirectTo}
-            emailLabel="Email"
-            passwordLabel="Password"
-            submitLabel="Sign in & accept"
+            emailLabel={ta("email")}
+            passwordLabel={ta("password")}
+            submitLabel={t("signInAccept")}
           />
           <CredentialsForm
             action={signUpAction}
             locale={locale}
             redirectTo={redirectTo}
-            emailLabel="Email"
-            passwordLabel="Password"
-            submitLabel="Create account & accept"
+            emailLabel={ta("email")}
+            passwordLabel={ta("password")}
+            submitLabel={t("signUpAccept")}
           />
         </div>
       )}

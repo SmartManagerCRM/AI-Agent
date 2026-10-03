@@ -1,5 +1,6 @@
 "use server";
 
+import { actionT } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -44,7 +45,8 @@ export async function updatePaymentSettingsAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return "VALIDATION_ERROR: check the form fields.";
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -63,7 +65,7 @@ export async function updatePaymentSettingsAction(
   if (parsed.data.tapSecretKey) patch.tap_secret_key = parsed.data.tapSecretKey;
 
   const { error } = await supabase.from("tenant_payment_config").update(patch).eq("tenant_id", parsed.data.tenantId);
-  if (error) return "VALIDATION_ERROR: could not save payment settings — please try again.";
+  if (error) return t("checkout.paymentsFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/settings`);
 }

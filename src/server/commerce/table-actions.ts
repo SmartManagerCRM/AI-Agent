@@ -1,5 +1,6 @@
 "use server";
 
+import { actionT } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -26,7 +27,8 @@ export async function createTableAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -38,8 +40,8 @@ export async function createTableAction(
   });
   if (error) {
     return error.code === "23505"
-      ? "VALIDATION_ERROR: that branch already has a table with this label."
-      : "VALIDATION_ERROR: could not create that table — please try again.";
+      ? t("checkout.tableExists")
+      : t("checkout.tableFailed");
   }
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/tables`);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { useActionState } from "react";
 
 import { EMPTY_SERVICE, ServiceFields } from "@/components/console/service-fields";
@@ -10,6 +12,8 @@ type Props = { tenantId: string; slug: string; locale: string; currencyExponent:
 export function CreateServiceForm({ tenantId, slug, locale, currencyExponent }: Props) {
   const [error, formAction, pending] = useActionState(createServiceAction, undefined);
 
+  const tCommon = useTranslations("common");
+  const tShell = useTranslations("console.shell");
   return (
     <form action={formAction} className="flex flex-col gap-3" data-testid="create-service-form">
       <input type="hidden" name="tenantId" value={tenantId} />
@@ -23,7 +27,7 @@ export function CreateServiceForm({ tenantId, slug, locale, currencyExponent }: 
           disabled={pending}
           className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {pending ? "Adding…" : "Add service"}
+          {pending ? tCommon("adding") : tShell("addService")}
         </button>
       </div>
     </form>

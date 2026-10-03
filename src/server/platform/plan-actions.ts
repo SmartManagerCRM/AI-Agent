@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -23,7 +24,7 @@ const planKeySchema = z
   .toLowerCase()
   .min(2)
   .max(40)
-  .regex(/^[a-z][a-z0-9_-]*$/, "lowercase letters, numbers, - or _, starting with a letter");
+  .regex(/^[a-z][a-z0-9_-]*$/, "@platform.keyFormat");
 
 const createPlanSchema = z.object({
   key: planKeySchema,
@@ -55,7 +56,8 @@ export async function createPlanAction(
     sortOrder: formData.get("sortOrder"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -73,8 +75,8 @@ export async function createPlanAction(
   });
   if (error) {
     return error.code === "23505"
-      ? "VALIDATION_ERROR: a plan with that key already exists."
-      : "VALIDATION_ERROR: could not create that plan — please try again.";
+      ? t("platform.planExists")
+      : t("platform.planCreateFailed");
   }
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
@@ -105,7 +107,8 @@ export async function updatePlanAction(
     sortOrder: formData.get("sortOrder"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -136,7 +139,7 @@ export async function updatePlanAction(
       sort_order: parsed.data.sortOrder,
     })
     .eq("key", parsed.data.key);
-  if (error) return "VALIDATION_ERROR: could not save that plan — please try again.";
+  if (error) return t("platform.planFailed");
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
 }

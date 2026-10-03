@@ -3,12 +3,14 @@ import { CreateAnnouncementForm } from "@/components/platform/create-announcemen
 import { setAnnouncementActiveAction } from "@/server/platform/announcement-actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 /** Super Admin Master Spec — Announcements: a real, Super-Admin-authored broadcast shown in every tenant console while active. */
 export default async function AnnouncementsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.announcements");
 
   const { data: announcements } = await supabase
     .from("platform_announcements")
@@ -18,18 +20,18 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Announcements</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
       <p className="-mt-4 text-sm text-slate-500">
-        Shown as a banner in every business&apos;s console while active — nothing here is emailed or pushed.
+        {t("subtitle")}
       </p>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Post an announcement</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("post")}</h2>
         <CreateAnnouncementForm locale={locale} />
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">All announcements</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("all")}</h2>
         {(announcements ?? []).length > 0 ? (
           <div className="flex flex-col gap-2">
             {(announcements ?? []).map((a) => (
@@ -40,7 +42,7 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
                 <div className="min-w-0">
                   <p className="text-slate-900">{a.message}</p>
                   <p className="text-xs text-slate-400">
-                    {a.severity} · {new Date(a.created_at).toLocaleString(locale)}
+                    {t.has(`severity.${a.severity}`) ? t(`severity.${a.severity}`) : a.severity} · {new Date(a.created_at).toLocaleString(locale)}
                   </p>
                 </div>
                 <form action={setAnnouncementActiveAction}>
@@ -48,14 +50,14 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
                   <input type="hidden" name="value" value={(!a.is_active).toString()} />
                   <input type="hidden" name="locale" value={locale} />
                   <button type="submit" className="shrink-0 text-xs font-medium text-emerald-600 hover:underline">
-                    {a.is_active ? "Active" : "Inactive"}
+                    {a.is_active ? t("active") : t("inactive")}
                   </button>
                 </form>
               </div>
             ))}
           </div>
         ) : (
-          <EmptyState title="No announcements yet" description="Post one above to broadcast it to every business." />
+          <EmptyState title={t("empty")} description={t("emptyDescription")} />
         )}
       </section>
     </div>

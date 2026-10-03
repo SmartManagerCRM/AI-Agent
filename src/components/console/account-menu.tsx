@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations as useCommonTranslations } from "next-intl";
+
 import Link from "next/link";
 import { useState } from "react";
 
@@ -17,6 +19,7 @@ type Props = {
 };
 
 export function AccountMenu({ locale, name, roleLabel, initial, isSuperAdmin, superAdminLabel, signOutLabel }: Props) {
+  const tCommon = useCommonTranslations("common");
   const [open, setOpen] = useState(false);
 
   return (
@@ -41,7 +44,7 @@ export function AccountMenu({ locale, name, roleLabel, initial, isSuperAdmin, su
             type="button"
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
-            aria-label="Close menu"
+            aria-label={tCommon("closeMenu")}
           />
           <div className="absolute end-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             <div className="border-b border-slate-100 px-3 py-2">

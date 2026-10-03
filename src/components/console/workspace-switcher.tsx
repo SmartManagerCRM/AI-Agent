@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations as useCommonTranslations } from "next-intl";
+
 import Link from "next/link";
 import { useState } from "react";
 
@@ -23,6 +25,7 @@ export function WorkspaceSwitcher({
   current: Workspace;
   others: Workspace[];
 }) {
+  const tCommon = useCommonTranslations("common");
   const [open, setOpen] = useState(false);
 
   if (others.length === 0) {
@@ -51,7 +54,7 @@ export function WorkspaceSwitcher({
             type="button"
             className="fixed inset-0 z-10 cursor-default"
             onClick={() => setOpen(false)}
-            aria-label="Close menu"
+            aria-label={tCommon("closeMenu")}
           />
           <div className="absolute start-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             {[current, ...others].map((workspace) => (

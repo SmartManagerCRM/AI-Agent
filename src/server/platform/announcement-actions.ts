@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -21,14 +22,15 @@ export async function createAnnouncementAction(
     severity: formData.get("severity"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   const user = await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("platform_announcements")
     .insert({ message: parsed.data.message, severity: parsed.data.severity, created_by: user.id });
-  if (error) return "VALIDATION_ERROR: could not post that announcement — please try again.";
+  if (error) return t("platform.announcementFailed");
 
   revalidatePath(`/${parsed.data.locale}/super-admin/announcements`);
 }

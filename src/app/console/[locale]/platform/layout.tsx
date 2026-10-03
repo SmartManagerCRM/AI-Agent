@@ -14,6 +14,9 @@ import { getPlatformAlerts } from "@/server/platform/dashboard-stats";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { LocaleSwitcher } from "@/components/console/locale-switcher";
+import { isLocale } from "@/i18n/locales";
 
 type NavItem = { key: NavIconKey; href: string; label: string; count?: { value: number; title: string } };
 type NavGroup = { label: string; items: NavItem[] };
@@ -29,6 +32,7 @@ export default async function PlatformLayout({
   await requireSuperAdmin(locale);
   const user = await currentUser();
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.shell");
 
   const [{ data: profile }, alerts, { data: unchecked }] = await timed(
     "layout.superAdmin",
@@ -42,45 +46,45 @@ export default async function PlatformLayout({
     ]),
   );
   const uncheckedCount = (unchecked ?? []).length;
-  const name = profile?.full_name ?? profile?.email ?? user?.email ?? "Super Admin";
+  const name = profile?.full_name ?? profile?.email ?? user?.email ?? t("superAdmin");
 
   const groups: NavGroup[] = [
     {
-      label: "Platform Management",
+      label: t("group.management"),
       items: [
-        { key: "dashboard", href: `/${locale}/super-admin`, label: "Dashboard" },
+        { key: "dashboard", href: `/${locale}/super-admin`, label: t("nav.dashboard") },
         {
           key: "customers",
           href: `/${locale}/super-admin/subscribers`,
-          label: "Subscribers",
-          count: { value: uncheckedCount, title: `${uncheckedCount} new subscriber${uncheckedCount === 1 ? "" : "s"} not yet checked` },
+          label: t("nav.subscribers"),
+          count: { value: uncheckedCount, title: t("unchecked", { count: uncheckedCount }) },
         },
-        { key: "building", href: `/${locale}/super-admin/businesses`, label: "Businesses" },
-        { key: "bell", href: `/${locale}/super-admin/leads`, label: "Leads" },
-        { key: "sparkle", href: `/${locale}/super-admin/analytics`, label: "Analytics" },
-        { key: "pulse", href: `/${locale}/super-admin/system-health`, label: "System Health" },
+        { key: "building", href: `/${locale}/super-admin/businesses`, label: t("nav.businesses") },
+        { key: "bell", href: `/${locale}/super-admin/leads`, label: t("nav.leads") },
+        { key: "sparkle", href: `/${locale}/super-admin/analytics`, label: t("nav.analytics") },
+        { key: "pulse", href: `/${locale}/super-admin/system-health`, label: t("nav.health") },
       ],
     },
     {
-      label: "Content & Configuration",
+      label: t("group.content"),
       items: [
-        { key: "billing", href: `/${locale}/super-admin/plans`, label: "Subscriptions & Plans" },
-        { key: "pulse", href: `/${locale}/super-admin/usage`, label: "Usage & AI Cost" },
-        { key: "analytics", href: `/${locale}/super-admin/payments`, label: "Payments & Revenue" },
-        { key: "agent", href: `/${locale}/super-admin/ai-agents`, label: "AI Agents" },
-        { key: "branches", href: `/${locale}/super-admin/business-brain`, label: "Business Brain" },
-        { key: "models", href: `/${locale}/super-admin/models`, label: "AI Models" },
-        { key: "copy", href: `/${locale}/super-admin/integrations`, label: "Integrations" },
-        { key: "settings", href: `/${locale}/super-admin/settings`, label: "Platform Settings" },
+        { key: "billing", href: `/${locale}/super-admin/plans`, label: t("nav.plans") },
+        { key: "pulse", href: `/${locale}/super-admin/usage`, label: t("nav.usage") },
+        { key: "analytics", href: `/${locale}/super-admin/payments`, label: t("nav.payments") },
+        { key: "agent", href: `/${locale}/super-admin/ai-agents`, label: t("nav.agents") },
+        { key: "branches", href: `/${locale}/super-admin/business-brain`, label: t("nav.brain") },
+        { key: "models", href: `/${locale}/super-admin/models`, label: t("nav.models") },
+        { key: "copy", href: `/${locale}/super-admin/integrations`, label: t("nav.integrations") },
+        { key: "settings", href: `/${locale}/super-admin/settings`, label: t("nav.settings") },
       ],
     },
     {
-      label: "Access & Security",
+      label: t("group.access"),
       items: [
-        { key: "shield", href: `/${locale}/super-admin/admins`, label: "Admin Users" },
-        { key: "staff", href: `/${locale}/super-admin/roles`, label: "Roles & Permissions" },
-        { key: "audit", href: `/${locale}/super-admin/audit-logs`, label: "Audit Logs" },
-        { key: "bell", href: `/${locale}/super-admin/announcements`, label: "Announcements" },
+        { key: "shield", href: `/${locale}/super-admin/admins`, label: t("nav.admins") },
+        { key: "staff", href: `/${locale}/super-admin/roles`, label: t("nav.roles") },
+        { key: "audit", href: `/${locale}/super-admin/audit-logs`, label: t("nav.audit") },
+        { key: "bell", href: `/${locale}/super-admin/announcements`, label: t("nav.announcements") },
       ],
     },
   ];
@@ -103,7 +107,7 @@ export default async function PlatformLayout({
             </div>
             <div className="mb-6 flex items-center gap-1.5 rounded-lg border border-amber-400/30 px-3 py-2 text-xs font-medium text-amber-300">
               <Icon path={NAV_ICON_PATHS.crown} size={14} />
-              Super Admin
+              {t("superAdmin")}
             </div>
             <PlatformNav groups={groups} />
           </div>
@@ -113,7 +117,7 @@ export default async function PlatformLayout({
               prefetch={false}
               className="rounded-lg px-3 py-2 text-slate-300 hover:bg-slate-800 hover:text-white"
             >
-              Back to console
+              {t("backToConsole")}
             </Link>
             <form action={signOutAction}>
               <input type="hidden" name="locale" value={locale} />
@@ -121,7 +125,7 @@ export default async function PlatformLayout({
                 type="submit"
                 className="w-full rounded-lg px-3 py-2 text-start text-slate-400 hover:bg-slate-800 hover:text-white"
               >
-                Sign out
+                {t("signOut")}
               </button>
             </form>
           </div>
@@ -135,6 +139,7 @@ export default async function PlatformLayout({
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <SoundToggle />
+              <LocaleSwitcher locale={isLocale(locale) ? locale : "en"} />
               <PlatformAccountMenu locale={locale} name={name} alerts={alerts} />
             </div>
           </header>

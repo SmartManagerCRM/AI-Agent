@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -39,7 +40,8 @@ export async function setPlanUsageLimitsAction(
     gracePeriodHours: formData.get("gracePeriodHours"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return `VALIDATION_ERROR: ${issueMessage(t, parsed.error.issues, "checkFields")}`;
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -49,11 +51,11 @@ export async function setPlanUsageLimitsAction(
     p_ai_cost_limit: parsed.data.aiCostLimitUsd,
     p_grace_period_hours: parsed.data.gracePeriodHours,
   });
-  if (error) return "VALIDATION_ERROR: could not save the plan limits — please try again.";
+  if (error) return `VALIDATION_ERROR: ${t("platform.planLimitsFailed")}`;
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
   revalidatePath(`/${parsed.data.locale}/super-admin/usage`);
-  return "Saved.";
+  return t("saved");
 }
 
 const overridesSchema = z.object({
@@ -78,7 +80,8 @@ export async function setSubscriberUsageOverridesAction(
     aiCostLimitUsd: formData.get("aiCostLimitUsd"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return `VALIDATION_ERROR: ${issueMessage(t, parsed.error.issues, "checkFields")}`;
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -88,7 +91,7 @@ export async function setSubscriberUsageOverridesAction(
     p_conversation_limit: reset ? null : parsed.data.conversationLimit,
     p_ai_cost_limit: reset ? null : parsed.data.aiCostLimitUsd,
   });
-  if (error) return "VALIDATION_ERROR: could not save the overrides — please try again.";
+  if (error) return `VALIDATION_ERROR: ${t("platform.overridesFailed")}`;
 
   revalidatePath(`/${parsed.data.locale}/super-admin/businesses/${parsed.data.slug}`);
   revalidatePath(`/${parsed.data.locale}/super-admin/subscribers/${parsed.data.slug}`);
@@ -115,7 +118,8 @@ export async function updateUsageSettingsAction(
     trialAiCostLimitUsd: formData.get("trialAiCostLimitUsd"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return `VALIDATION_ERROR: ${issueMessage(t, parsed.error.issues, "checkFields")}`;
   const percents = [...new Set(parsed.data.conversationWarningPercents.split(",").map((s) => Number(s.trim())))].sort(
     (a, b) => a - b,
   );
@@ -124,7 +128,7 @@ export async function updateUsageSettingsAction(
     percents.length > 5 ||
     percents.some((p) => !Number.isInteger(p) || p <= 0 || p >= 100)
   ) {
-    return "VALIDATION_ERROR: warning levels must be 1–5 whole percentages between 1 and 99, e.g. 70, 85, 95.";
+    return `VALIDATION_ERROR: ${t("platform.warningLevels")}`;
   }
 
   await requireSuperAdmin(parsed.data.locale);
@@ -139,8 +143,8 @@ export async function updateUsageSettingsAction(
       trial_ai_cost_limit_usd: parsed.data.trialAiCostLimitUsd,
     })
     .eq("id", true);
-  if (error) return "VALIDATION_ERROR: could not save the thresholds — please try again.";
+  if (error) return `VALIDATION_ERROR: ${t("platform.thresholdsFailed")}`;
 
   revalidatePath(`/${parsed.data.locale}/super-admin/usage`);
-  return "Saved.";
+  return t("saved");
 }

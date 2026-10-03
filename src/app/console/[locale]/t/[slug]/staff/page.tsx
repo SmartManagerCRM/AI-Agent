@@ -4,6 +4,8 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { revokeInviteAction, setMemberStatusAction, updateMemberRoleAction } from "@/server/staff/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const ASSIGNABLE_ROLES = ["business_admin", "staff"] as const;
 
@@ -11,6 +13,9 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.staff");
+  const tAll = await getTranslations();
+  const roleName = (key: string) => (tAll.has(`common.role.${key}`) ? tAll(`common.role.${key}`) : key.replace("_", " "));
 
   const [{ data: members }, { data: roles }, { data: invites }] = await Promise.all([
     supabase
@@ -37,22 +42,22 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Staff</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       <div className="grid grid-cols-3 gap-4">
         <KpiTile
           icon="staff"
           accent="emerald"
-          label="Team members"
+          label={t("teamMembers")}
           value={String((members ?? []).length)}
           trend={null}
           href={`/${locale}/${slug}/staff#team`}
         />
-        <KpiTile icon="conversations" accent="blue" label="Active" value={String(activeCount)} trend={null} href={`/${locale}/${slug}/staff#team`} />
+        <KpiTile icon="conversations" accent="blue" label={t("active")} value={String(activeCount)} trend={null} href={`/${locale}/${slug}/staff#team`} />
         <KpiTile
           icon="billing"
           accent="orange"
-          label="Pending invites"
+          label={t("pendingInvites")}
           value={String((invites ?? []).length)}
           trend={null}
           href={`/${locale}/${slug}/staff#${(invites ?? []).length > 0 ? "invites" : "invite"}`}
@@ -60,22 +65,22 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
       </div>
 
       <section id="invite" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Invite someone</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("invite")}</h2>
         <InviteStaffForm tenantId={tenant.id} locale={locale} slug={slug} />
       </section>
 
       <section id="team" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Team</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("team")}</h2>
         {(members ?? []).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Name</th>
-                  <th className="py-2 text-start font-medium">Email</th>
-                  <th className="py-2 text-start font-medium">Role</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("name")}</th>
+                  <th className="py-2 text-start font-medium">{t("email")}</th>
+                  <th className="py-2 text-start font-medium">{t("role")}</th>
+                  <th className="py-2 text-start font-medium">{t("status")}</th>
+                  <th className="py-2 text-start font-medium">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -87,16 +92,16 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                     <tr key={member.id} className="border-b border-slate-100 last:border-0">
                       <td className="py-2 font-medium text-slate-900">{profile?.full_name ?? "—"}</td>
                       <td className="py-2 text-slate-600">{profile?.email ?? "—"}</td>
-                      <td className="py-2 capitalize text-slate-600">{(role?.key ?? "").replace("_", " ")}</td>
+                      <td className="py-2 text-slate-600">{roleName(role?.key ?? "")}</td>
                       <td className="py-2">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                             member.status === "active"
                               ? "bg-emerald-50 text-emerald-700"
                               : "bg-slate-100 text-slate-500"
                           }`}
                         >
-                          {member.status}
+                          {statusLabel(tAll, member.status)}
                         </span>
                       </td>
                       <td className="py-2">
@@ -113,12 +118,12 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                               >
                                 {ASSIGNABLE_ROLES.map((key) => (
                                   <option key={key} value={key}>
-                                    {key.replace("_", " ")}
+                                    {roleName(key)}
                                   </option>
                                 ))}
                               </select>
                               <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                                Change
+                                {t("change")}
                               </button>
                             </form>
                             <form action={setMemberStatusAction}>
@@ -131,7 +136,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                               <input type="hidden" name="locale" value={locale} />
                               <input type="hidden" name="slug" value={slug} />
                               <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
-                                {member.status === "active" ? "Disable" : "Re-enable"}
+                                {member.status === "active" ? t("disable") : t("reenable")}
                               </button>
                             </form>
                           </div>
@@ -144,28 +149,28 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
             </table>
           </div>
         ) : (
-          <EmptyState title="No team members yet" description="You're the only one here so far." />
+          <EmptyState title={t("emptyTitle")} description={t("emptyDescription")} />
         )}
       </section>
 
       {(invites ?? []).length > 0 && (
         <section id="invites" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">Pending invites</h2>
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("pendingInvites")}</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Email</th>
-                  <th className="py-2 text-start font-medium">Role</th>
-                  <th className="py-2 text-start font-medium">Expires</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("email")}</th>
+                  <th className="py-2 text-start font-medium">{t("role")}</th>
+                  <th className="py-2 text-start font-medium">{t("expires")}</th>
+                  <th className="py-2 text-start font-medium">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {(invites ?? []).map((invite) => (
                   <tr key={invite.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-2 text-slate-900">{invite.email}</td>
-                    <td className="py-2 capitalize text-slate-600">{invite.role_key.replace("_", " ")}</td>
+                    <td className="py-2 text-slate-600">{roleName(invite.role_key)}</td>
                     <td className="py-2 text-slate-600">{new Date(invite.expires_at).toLocaleDateString(locale)}</td>
                     <td className="py-2">
                       <form action={revokeInviteAction}>
@@ -173,7 +178,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                         <input type="hidden" name="locale" value={locale} />
                         <input type="hidden" name="slug" value={slug} />
                         <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
-                          Revoke
+                          {t("revoke")}
                         </button>
                       </form>
                     </td>

@@ -3,6 +3,8 @@ import { SearchInput } from "@/components/console/search-input";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { auditActionLabel } from "@/lib/i18n-labels";
 
 const ENTITIES = ["all", "tenant", "order", "subscription", "payment", "ai_model_config", "platform_admin"] as const;
 
@@ -17,6 +19,8 @@ export default async function AuditLogsPage({
   const { entity: entityFilter, q } = await searchParams;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const tr = await getTranslations("platform.auditLogs");
+  const tAll = await getTranslations();
 
   let query = supabase
     .from("audit_logs")
@@ -37,13 +41,13 @@ export default async function AuditLogsPage({
       ? supabase.from("profiles").select("id, full_name, email").in("id", actorIds)
       : Promise.resolve({ data: [] }),
   ]);
-  const tenantById = new Map((tenants ?? []).map((t) => [t.id, t.business_name.en ?? t.slug]));
+  const tenantById = new Map((tenants ?? []).map((t) => [t.id, t.business_name[locale] ?? t.business_name.en ?? t.slug]));
   const actorById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email ?? "—"]));
 
   const baseHref = `/${locale}/super-admin/audit-logs`;
   const tabs: Tab[] = ENTITIES.map((entity) => ({
     key: entity,
-    label: entity === "all" ? "All" : entity.replace(/_/g, " "),
+    label: tr(`entity.${entity}`),
     href: entity === "all" ? baseHref : `${baseHref}?entity=${entity}`,
     active: (entityFilter ?? "all") === entity,
   }));
@@ -51,8 +55,8 @@ export default async function AuditLogsPage({
   return (
     <div className="flex max-w-5xl flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Audit Logs</h1>
-        <SearchInput placeholder="Search by action…" defaultValue={q} />
+        <h1 className="text-2xl font-semibold text-slate-900">{tr("title")}</h1>
+        <SearchInput placeholder={tr("search")} defaultValue={q} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">
@@ -64,11 +68,11 @@ export default async function AuditLogsPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="px-4 py-2 text-start font-medium">When</th>
-                  <th className="px-4 py-2 text-start font-medium">Admin</th>
-                  <th className="px-4 py-2 text-start font-medium">Action</th>
-                  <th className="px-4 py-2 text-start font-medium">Entity</th>
-                  <th className="px-4 py-2 text-start font-medium">Business</th>
+                  <th className="px-4 py-2 text-start font-medium">{tr("col.when")}</th>
+                  <th className="px-4 py-2 text-start font-medium">{tr("col.admin")}</th>
+                  <th className="px-4 py-2 text-start font-medium">{tr("col.action")}</th>
+                  <th className="px-4 py-2 text-start font-medium">{tr("col.entity")}</th>
+                  <th className="px-4 py-2 text-start font-medium">{tr("col.business")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -78,12 +82,12 @@ export default async function AuditLogsPage({
                       {new Date(entry.at).toLocaleString(locale)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      {entry.actor_id ? (actorById.get(entry.actor_id) ?? "—") : "System"}
+                      {entry.actor_id ? (actorById.get(entry.actor_id) ?? "—") : tr("system")}
                     </td>
-                    <td className="px-4 py-3 font-medium capitalize text-slate-900">
-                      {entry.action.replace(/[._]/g, " ")}
+                    <td className="px-4 py-3 font-medium text-slate-900">{auditActionLabel(tAll, entry.action)}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {tr.has(`entity.${entry.entity}`) ? tr(`entity.${entry.entity}`) : entry.entity.replace(/_/g, " ")}
                     </td>
-                    <td className="px-4 py-3 capitalize text-slate-600">{entry.entity.replace(/_/g, " ")}</td>
                     <td className="px-4 py-3 text-slate-600">
                       {entry.tenant_id ? (tenantById.get(entry.tenant_id) ?? "—") : "—"}
                     </td>
@@ -95,8 +99,8 @@ export default async function AuditLogsPage({
         ) : (
           <div className="p-4">
             <EmptyState
-              title="Nothing recorded yet"
-              description="Sensitive Super Admin and business actions will show up here."
+              title={tr("empty")}
+              description={tr("emptyDescription")}
             />
           </div>
         )}

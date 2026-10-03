@@ -276,7 +276,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
 
           {chat.error && (
             <p role="alert" className="ms-11 rounded-2xl bg-red-50 px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-100">
-              {chat.error}
+              {t(`errors.${chat.error}`)}
             </p>
           )}
           <div ref={endRef} />

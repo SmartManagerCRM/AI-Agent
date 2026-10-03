@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -10,6 +11,7 @@ import { updateAgentBackgroundAction } from "@/server/ai/actions";
  * customer Agent (landing page under a dark wash, other screens softly).
  */
 export function AgentBackgroundForm({ slug, locale, currentUrl }: { slug: string; locale: string; currentUrl: string | null }) {
+const t = useTranslations("console.agentBackground");
   const [state, formAction, pending] = useActionState(updateAgentBackgroundAction, undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const shown = preview ?? currentUrl;
@@ -23,19 +25,18 @@ export function AgentBackgroundForm({ slug, locale, currentUrl }: { slug: string
         <div
           className="relative flex h-44 w-24 shrink-0 items-end overflow-hidden rounded-2xl bg-slate-100 bg-cover bg-center ring-1 ring-slate-200"
           style={shown ? { backgroundImage: `url("${encodeURI(shown)}")` } : undefined}
-          aria-label={shown ? "Current background photo" : "No background photo yet"}
+          aria-label={shown ? t("current") : t("none")}
           role="img"
         >
           {shown ? (
-            <span className="w-full bg-gradient-to-t from-black/70 to-transparent px-2 pt-6 pb-2 text-[10px] font-semibold text-white">Your Agent</span>
+            <span className="w-full bg-gradient-to-t from-black/70 to-transparent px-2 pt-6 pb-2 text-[10px] font-semibold text-white">{t("yourAgent")}</span>
           ) : (
-            <span className="w-full px-2 pb-3 text-center text-[11px] text-slate-400">No photo</span>
+            <span className="w-full px-2 pb-3 text-center text-[11px] text-slate-400">{t("noPhoto")}</span>
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm text-slate-600">
           <p>
-            A photo of your place, shown behind your whole Agent — like the customers&apos; first look through your door. JPG, PNG or
-            WebP, up to 6 MB; a tall or wide photo of your interior works best.
+            {t("hint")}
           </p>
           <input
             type="file"
@@ -46,15 +47,15 @@ export function AgentBackgroundForm({ slug, locale, currentUrl }: { slug: string
               setPreview(file ? URL.createObjectURL(file) : null);
             }}
             className="text-sm file:me-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200"
-            aria-label="Background photo"
+            aria-label={t("label")}
           />
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : currentUrl ? "Replace background photo" : "Add background photo"}
+              {pending ? t("saving") : currentUrl ? t("replace") : t("add")}
             </Button>
             {currentUrl && (
               <Button type="submit" variant="secondary" name="remove" value="on" disabled={pending}>
-                Remove
+                {t("remove")}
               </Button>
             )}
           </div>

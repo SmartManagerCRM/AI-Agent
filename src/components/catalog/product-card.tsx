@@ -1,6 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
+
+import { statusLabel } from "@/lib/i18n-labels";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
 import { Button } from "@/components/console/button";
@@ -47,6 +50,9 @@ export function ProductCard({
   locale: string;
   slug: string;
 }) {
+  const t = useTranslations("console.productCard");
+  const tCommon = useTranslations("common");
+  const tAll = useTranslations();
   const needsPrice = product.sourcePrice !== null;
   const [state, formAction, pending] = useActionState(updateProductAction, undefined);
   // Open with the result current at that moment; a newer successful save closes the form.
@@ -82,7 +88,7 @@ export function ProductCard({
           <input type="hidden" name="locale" value={locale} />
           <input type="hidden" name="slug" value={slug} />
           <label className="flex flex-col gap-1">
-            Name
+            {t("name")}
             <input
               name="name"
               required
@@ -93,7 +99,7 @@ export function ProductCard({
           </label>
           <div className="flex gap-2">
             <label className="flex flex-1 flex-col gap-1">
-              Price
+              {t("price")}
               <input
                 name="priceMajor"
                 type="number"
@@ -101,12 +107,12 @@ export function ProductCard({
                 min={0}
                 step={1 / 10 ** exponent}
                 defaultValue={needsPrice ? "" : (product.priceMinor / 10 ** exponent).toFixed(exponent)}
-                placeholder={found ? `found: ${found}` : undefined}
+                placeholder={found ? t("found", { price: found }) : undefined}
                 className="w-full rounded-md border border-neutral-300 px-2 py-1.5"
               />
             </label>
             <label className="flex flex-1 flex-col gap-1">
-              Category
+              {t("category")}
               <select
                 name="categoryId"
                 defaultValue={product.categoryId ?? ""}
@@ -122,7 +128,7 @@ export function ProductCard({
             </label>
           </div>
           <label className="flex flex-col gap-1">
-            Description
+            {t("description")}
             <textarea
               name="description"
               rows={2}
@@ -132,7 +138,7 @@ export function ProductCard({
             />
           </label>
           <label className="flex flex-col gap-1">
-            {product.imageUrl ? "Replace photo" : "Photo"}
+            {product.imageUrl ? t("replacePhoto") : t("photo")}
             <input
               name="photo"
               type="file"
@@ -142,16 +148,16 @@ export function ProductCard({
           </label>
           {product.imageUrl && (
             <label className="flex items-center gap-2 text-xs text-slate-600">
-              <input type="checkbox" name="removePhoto" /> Remove photo
+              <input type="checkbox" name="removePhoto" /> {t("removePhoto")}
             </label>
           )}
           {state && !state.ok && <p className="text-xs text-red-600">{state.message}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={pending} className="px-3 py-1.5">
-              {pending ? "Saving…" : "Save"}
+              {pending ? tCommon("saving") : tCommon("save")}
             </Button>
             <Button type="button" variant="secondary" className="px-3 py-1.5" onClick={() => setOpened(null)}>
-              Cancel
+              {tCommon("cancel")}
             </Button>
           </div>
         </form>
@@ -162,7 +168,7 @@ export function ProductCard({
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
             {needsPrice ? (
               <span className="text-xs font-medium text-amber-700" data-testid="needs-price">
-                Price needed{found ? ` · listed as ${found}` : ""}
+                {t("priceNeeded")}{found ? t("listedAs", { price: found }) : ""}
               </span>
             ) : (
               <span className="text-slate-500">{product.priceLabel}</span>
@@ -170,11 +176,11 @@ export function ProductCard({
             <span className="flex items-center gap-1.5">
               {product.source !== "manual" && (
                 <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
-                  {product.source === "brain" ? "From Business Brain" : "Imported"}
+                  {product.source === "brain" ? t("fromBrain") : t("imported")}
                 </span>
               )}
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[product.status]}`}>
-                {product.status}
+              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[product.status]}`}>
+                {statusLabel(tAll, product.status)}
               </span>
             </span>
           </div>
@@ -185,13 +191,13 @@ export function ProductCard({
         <div className="mt-auto flex items-center justify-end gap-1 border-t border-slate-100 pt-2" data-testid="product-actions">
           <IconButton
             icon="edit"
-            label={needsPrice ? "Edit — set your price" : "Edit"}
+            label={needsPrice ? t("editSetPrice") : tCommon("edit")}
             tone={needsPrice ? "amber" : "slate"}
             onClick={() => setOpened({ at: state })}
           />
           {onSale ? (
             <ActionIconForm action={setProductStatusAction} fields={{ ...fields, status: "suspended" }}>
-              <IconButton type="submit" icon="pause" label="Suspend — take off sale" tone="amber" />
+              <IconButton type="submit" icon="pause" label={t("suspend")} tone="amber" />
             </ActionIconForm>
           ) : (
             <ActionIconForm action={setProductStatusAction} fields={{ ...fields, status: "active" }}>
@@ -200,10 +206,10 @@ export function ProductCard({
                 icon="play"
                 label={
                   needsPrice
-                    ? "Set your price first to put this on sale"
+                    ? t("setPriceFirst")
                     : product.status === "suspended"
-                      ? "Resume — put back on sale"
-                      : "Activate — put on sale"
+                      ? t("resume")
+                      : t("activate")
                 }
                 tone="emerald"
                 disabled={needsPrice}
@@ -213,9 +219,9 @@ export function ProductCard({
           <ActionIconForm
             action={deleteProductAction}
             fields={fields}
-            confirm={`Delete “${product.name}”? It will be removed from your catalog and your Agent.`}
+            confirm={t("deleteConfirm", { name: product.name })}
           >
-            <IconButton type="submit" icon="trash" label="Delete" tone="red" />
+            <IconButton type="submit" icon="trash" label={tCommon("delete")} tone="red" />
           </ActionIconForm>
         </div>
       )}

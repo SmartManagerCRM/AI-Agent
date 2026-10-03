@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { acceptInviteAction } from "@/server/staff/actions";
@@ -7,6 +8,7 @@ import { acceptInviteAction } from "@/server/staff/actions";
 type Props = { token: string; locale: string };
 
 export function AcceptInviteForm({ token, locale }: Props) {
+  const t = useTranslations("invite");
   const [error, formAction, pending] = useActionState(acceptInviteAction, undefined);
 
   return (
@@ -18,7 +20,7 @@ export function AcceptInviteForm({ token, locale }: Props) {
         disabled={pending}
         className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
       >
-        Accept invite
+        {t("accept")}
       </button>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </form>

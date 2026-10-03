@@ -100,7 +100,7 @@ export async function runIngestionJob(supabase: TypedSupabaseClient, jobId: stri
     await run.execute();
   } catch (error) {
     if (error instanceof Cancelled) {
-      await run.event("cancelled", "warning", "Analysis cancelled.");
+      await run.event("cancelled", "warning", "Analysis cancelled.", null, { key: "cancelled" });
       return;
     }
     const message = error instanceof Error ? error.message.slice(0, 300) : "Unexpected error.";
@@ -132,10 +132,10 @@ class JobRun {
 
   async execute() {
     await this.setStatus("discovering", { started_at: this.now().toISOString() });
-    await this.event("discovering", "info", "Analysis started.");
+    await this.event("discovering", "info", "Analysis started.", null, { key: "started" });
 
     const { data: purged } = await this.supabase.rpc("purge_expired_brain_facts", { p_tenant_id: this.tenantId });
-    if (purged) await this.event("discovering", "info", `Removed ${purged} expired, unconfirmed suggestion(s).`);
+    if (purged) await this.event("discovering", "info", `Removed ${purged} expired, unconfirmed suggestion(s).`, null, { key: "purged", values: { n: purged } });
 
     const { data: tenant } = await this.supabase
       .from("tenants")
@@ -189,11 +189,11 @@ class JobRun {
     let website = websiteTask ? await websiteTask : null;
     const discoveredWebsite = !websiteRoot ? (google?.place.website ?? tenant.website_url ?? null) : null;
     if (!websiteTask && discoveredWebsite) {
-      await this.event("discovering", "info", `Found the website ${discoveredWebsite}.`);
+      await this.event("discovering", "info", `Found the website ${discoveredWebsite}.`, null, { key: "foundWebsite", values: { url: discoveredWebsite } });
       website = await this.isolate("website", () => this.runWebsite(discoveredWebsite, category, ai, exclude));
     }
     if (!mapsInput && !explicitWebsite && !discoveredWebsite && menuUrls.length === 0) {
-      await this.event("discovering", "warning", "No Google Maps link, website or menu link given — add your details manually, or connect a source.");
+      await this.event("discovering", "warning", "No Google Maps link, website or menu link given — add your details manually, or connect a source.", null, { key: "noInput" });
     }
     await this.checkCancelled();
 
@@ -215,7 +215,7 @@ class JobRun {
         if (guess) facts.push(typeFact(guess, "website", null, website.pages[0]?.url ?? null));
       }
     }
-    await this.event("normalizing", "info", `${facts.length} fact candidate(s) prepared.`);
+    await this.event("normalizing", "info", `${facts.length} fact candidate(s) prepared.`, null, { key: "prepared", values: { n: facts.length } });
 
     await this.setStatus("validating");
     const valid = facts.filter((f) => validFact(f));
@@ -260,6 +260,8 @@ class JobRun {
       "conflict_check",
       conflicts > 0 ? "warning" : "success",
       `${created} new or changed, ${unchanged} unchanged${conflicts ? `, ${conflicts} conflicting with another source` : ""}.`,
+      null,
+      { key: conflicts ? "savedWithConflicts" : "saved", values: { created, unchanged, conflicts } },
     );
 
     const readiness = await loadReadiness(this.supabase, this.tenantId);
@@ -287,6 +289,8 @@ class JobRun {
           "conflict_check",
           "warning",
           "Couldn't add the products and services found to your catalog — they're still here in the Business Brain for review.",
+          null,
+          { key: "catalogFailed" },
         );
       }
       if (added && added.products + added.services > 0) {
@@ -296,6 +300,8 @@ class JobRun {
           `Added ${added.products} product(s) and ${added.services} service(s) to your catalog — as drafts until you approve them.` +
             (added.needsPrice > 0 ? ` ${added.needsPrice} were priced in another currency: set your own price on each.` : "") +
             (added.images.attached > 0 ? ` ${added.images.attached} photo(s) added.` : ""),
+          null,
+          { key: "catalogAdded", values: { products: added.products, services: added.services, needsPrice: added.needsPrice, photos: added.images.attached } },
         );
       }
     }
@@ -313,7 +319,7 @@ class JobRun {
     });
     await this.event(final, final === "failed" ? "error" : final === "paused" ? "warning" : "success", `Finished — Business Brain readiness ${readiness.score}%.`, {
       readiness: readiness.score,
-    });
+    }, { key: "finished", values: { score: readiness.score } });
   }
 
   // ── Google ────────────────────────────────────────────────────────────
@@ -322,7 +328,7 @@ class JobRun {
     if (!(this.deps.places?.apiKey ?? placesConfigured())) {
       throw new PlacesError("Google Maps import isn't configured on this platform yet.", "not_configured");
     }
-    await this.event("google", "info", "Reading your Google Maps listing (official Places API).");
+    await this.event("google", "info", "Reading your Google Maps listing (official Places API).", null, { key: "readingGoogle" });
     const usage = { calls: 0, estimatedCostUsd: 0 };
     let place: PlaceDetails;
     try {
@@ -367,7 +373,7 @@ class JobRun {
     await this.event("google", "success", `Found "${place.name ?? "your business"}" on Google Maps${guess ? ` (${guess.label ?? guess.key})` : ""}.`, {
       calls: usage.calls,
       estimated_cost_usd: round6(usage.estimatedCostUsd),
-    });
+    }, { key: "foundGoogle", values: { name: place.name ?? "", type: guess ? (guess.label ?? guess.key) : "none" } });
     return { place, guess, sourceId, facts: factsFromGoogle(place, guess, this.now()) };
   }
 
@@ -380,7 +386,7 @@ class JobRun {
     await this.supabase.from("business_sources").update({ status: "crawling", processing_status: "processing", error_message: null }).eq("id", sourceId);
 
     await this.setStatus("fetching");
-    await this.event("website", "info", `Reading ${url.hostname}.`);
+    await this.event("website", "info", `Reading ${url.hostname}.`, null, { key: "readingSite", values: { host: url.hostname } });
     let pagesFetched = 0;
     let crawl;
     try {
@@ -404,14 +410,14 @@ class JobRun {
       throw error;
     }
     for (const f of crawl.failed.slice(0, 5)) this.warnings.push(`Couldn't read ${f.url} (${f.reason}).`);
-    if (crawl.skippedByRobots > 0) await this.event("website", "info", `${crawl.skippedByRobots} page(s) skipped as the site's robots.txt asks.`);
+    if (crawl.skippedByRobots > 0) await this.event("website", "info", `${crawl.skippedByRobots} page(s) skipped as the site's robots.txt asks.`, null, { key: "robots", values: { n: crawl.skippedByRobots } });
 
     // Fingerprint every page; unchanged pages reuse their cached extraction (and AI result).
     await this.setStatus("extracting");
     const docs = await this.saveDocuments(sourceId, crawl.pages);
     const changed = docs.filter((d) => d.status !== "unchanged").length;
     await this.update({ documents_processed: docs.length });
-    await this.event("extracting", "info", `${docs.length} page(s) read — ${changed} new or changed, ${docs.length - changed} unchanged.`);
+    await this.event("extracting", "info", `${docs.length} page(s) read — ${changed} new or changed, ${docs.length - changed} unchanged.`, null, { key: "pagesRead", values: { n: docs.length, changed, unchanged: docs.length - changed } });
 
     // Gated AI: only pages with a gap deterministic extraction couldn't fill, best pages first, within budget.
     await this.checkCancelled();
@@ -433,18 +439,18 @@ class JobRun {
             .eq("id", doc.id);
         } else if (result.status === "skipped" && result.reason === "budget") {
           this.aiSkippedForBudget = needsAi.length - needsAi.indexOf(doc);
-          await this.event("ai_processing", "warning", `Analysis budget reached — ${this.aiSkippedForBudget} page(s) kept to rule-based extraction.`);
+          await this.event("ai_processing", "warning", `Analysis budget reached — ${this.aiSkippedForBudget} page(s) kept to rule-based extraction.`, null, { key: "budget", values: { n: this.aiSkippedForBudget } });
           break;
         } else if (result.status === "skipped" && result.reason === "no_model") {
-          await this.event("ai_processing", "info", "No AI model is configured — rule-based extraction only.");
+          await this.event("ai_processing", "info", "No AI model is configured — rule-based extraction only.", null, { key: "noModel" });
           break;
         } else if (result.status === "failed") {
           this.warnings.push(`AI couldn't read ${doc.page.finalUrl}.`);
         }
       }
-      await this.event("ai_processing", "info", `AI read ${aiUsed} page(s) that rules couldn't fully cover.`);
+      await this.event("ai_processing", "info", `AI read ${aiUsed} page(s) that rules couldn't fully cover.`, null, { key: "aiRead", values: { n: aiUsed } });
     } else {
-      await this.event("ai_processing", "info", "No AI needed — rules covered every page.");
+      await this.event("ai_processing", "info", "No AI needed — rules covered every page.", null, { key: "noAi" });
     }
 
     const now = this.now().toISOString();
@@ -493,7 +499,7 @@ class JobRun {
       primarySourceId ??= sourceId;
       sourceCount += 1;
       await this.supabase.from("business_sources").update({ status: "crawling", processing_status: "processing", error_message: null }).eq("id", sourceId);
-      await this.event("menu", "info", `Reading the menu link ${url.toString()} (primary source).`);
+      await this.event("menu", "info", `Reading the menu link ${url.toString()} (primary source).`, null, { key: "readingMenu", values: { url: url.toString() } });
 
       let crawl;
       try {
@@ -520,9 +526,17 @@ class JobRun {
         "menu",
         "success",
         `Menu page read (${crawl.direct.kind.toLowerCase().replace("_", " ")}): ${crawl.direct.extraction.images.length} image(s), ${crawl.direct.extraction.offerings.length} item(s) in text; ${related.length} related menu/catalog page(s).`,
+        null,
+        { key: "menuRead", values: { images: crawl.direct.extraction.images.length, items: crawl.direct.extraction.offerings.length, related: related.length } },
       );
       for (const o of crawl.ordering) {
-        await this.event("menu", o.status === "read" ? "info" : "warning", o.status === "read" ? `Online ordering found and read: ${o.url}` : `Online ordering link found but not read: ${o.url} — ${o.reason}`);
+        await this.event(
+          "menu",
+          o.status === "read" ? "info" : "warning",
+          o.status === "read" ? `Online ordering found and read: ${o.url}` : `Online ordering link found but not read: ${o.url} — ${o.reason}`,
+          null,
+          o.status === "read" ? { key: "orderingRead", values: { url: o.url } } : { key: "orderingNotRead", values: { url: o.url, reason: o.reason ?? "" } },
+        );
       }
       if (crawl.skippedByRobots.length > 0) this.warnings.push(`${crawl.skippedByRobots.length} menu page(s) skipped as robots.txt asks.`);
       for (const f of crawl.failed.slice(0, 5)) this.warnings.push(`Couldn't read ${f.url} (${f.reason}).`);
@@ -600,6 +614,7 @@ class JobRun {
       s.failed > 0 ? "warning" : "success",
       `Menu images: ${s.imagesDetected} found, ${s.menuImages} look like menus — ${s.ocrOnly} read by OCR, ${s.vision} by the vision model, ${s.unchanged} unchanged; ${items} item(s).`,
       { ...s, items },
+      { key: "menuImages", values: { found: s.imagesDetected, menus: s.menuImages, ocr: s.ocrOnly, vision: s.vision, unchanged: s.unchanged, items } },
     );
     if (result.outcomes.some((o) => o.status === "skipped_budget")) this.aiSkippedForBudget += result.outcomes.filter((o) => o.status === "skipped_budget").length;
     for (const o of result.outcomes.filter((x) => x.status === "failed").slice(0, 5)) this.warnings.push(`Menu image not read: ${o.imageUrl} (${o.note ?? "error"}).`);
@@ -827,10 +842,22 @@ class JobRun {
     return tenant ? draftBrainCatalog(this.supabase, tenant, { storage, fetchImage: this.deps.fetchImage ?? this.deps.fetchPage }) : null;
   }
 
-  async event(step: string, level: "info" | "success" | "warning" | "error", message: string, data?: Record<string, unknown>) {
+  /**
+   * `message` is the English text (logs, Super Admin); `i18n` names the same
+   * message for the console to show in the owner's language
+   * (console.discovery.event.<key>) — kept in the event's data.
+   */
+  async event(
+    step: string,
+    level: "info" | "success" | "warning" | "error",
+    message: string,
+    data?: Record<string, unknown> | null,
+    i18n?: { key: string; values?: Record<string, string | number> },
+  ) {
+    const stored = i18n ? { ...(data ?? {}), i18n } : (data ?? null);
     await this.supabase
       .from("brain_ingestion_events")
-      .insert({ tenant_id: this.tenantId, job_id: this.job.id, step, level, message: message.slice(0, 500), data: (data ?? null) as Json });
+      .insert({ tenant_id: this.tenantId, job_id: this.job.id, step, level, message: message.slice(0, 500), data: stored as Json });
   }
 
   async fail(message: string) {

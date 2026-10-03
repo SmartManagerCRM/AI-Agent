@@ -5,11 +5,9 @@ import { Pagination, parsePage } from "@/components/console/pagination";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
-
-const CHANNEL_LABEL: Record<string, string> = {
-  external_agent: "External Agent",
-  website_widget: "Website Widget",
-};
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
+import { channelLabel, statusLabel } from "@/lib/i18n-labels";
 
 const STATUSES = ["all", "open", "closed"] as const;
 type StatusTab = (typeof STATUSES)[number];
@@ -27,6 +25,8 @@ export default async function ConversationsPage({
   const statusFilter: StatusTab = STATUSES.find((s) => s === statusParam) ?? "all";
   const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
+  const t = await getTranslations("console.conversations");
+  const tAll = await getTranslations();
   const supabase = await createUserClient();
 
   // Counts are exact (counted in Postgres), and the list is paged — every conversation is reachable.
@@ -73,7 +73,7 @@ export default async function ConversationsPage({
   const baseHref = `/${locale}/${slug}/conversations`;
   const tabs: Tab[] = STATUSES.map((key) => ({
     key,
-    label: key.charAt(0).toUpperCase() + key.slice(1),
+    label: t(key),
     count: counts[key],
     href: key === "all" ? baseHref : `${baseHref}?status=${key}`,
     active: statusFilter === key,
@@ -81,12 +81,12 @@ export default async function ConversationsPage({
 
   return (
     <div className="flex max-w-4xl flex-col gap-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Conversations</h1>
+      <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.conversations.conversations" /></h1>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiTile icon="conversations" accent="emerald" label="Total" value={String(counts.all)} trend={null} href={`/${locale}/${slug}/conversations`} />
-        <KpiTile icon="orders" accent="blue" label="Open" value={String(counts.open)} trend={null} href={`/${locale}/${slug}/conversations?status=open`} />
-        <KpiTile icon="billing" accent="purple" label="Closed" value={String(counts.closed)} trend={null} href={`/${locale}/${slug}/conversations?status=closed`} />
+        <KpiTile icon="conversations" accent="emerald" label={tAll("common.total")} value={String(counts.all)} trend={null} href={`/${locale}/${slug}/conversations`} />
+        <KpiTile icon="orders" accent="blue" label={t("open")} value={String(counts.open)} trend={null} href={`/${locale}/${slug}/conversations?status=open`} />
+        <KpiTile icon="billing" accent="purple" label={t("closed")} value={String(counts.closed)} trend={null} href={`/${locale}/${slug}/conversations?status=closed`} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">
@@ -109,26 +109,25 @@ export default async function ConversationsPage({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-medium text-slate-900">
-                        {customerName ?? CHANNEL_LABEL[conversation.channel] ?? conversation.channel}
+                        {customerName ?? channelLabel(tAll, conversation.channel)}
                       </p>
                       <span
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                           conversation.status === "open"
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-slate-100 text-slate-500"
                         }`}
                       >
-                        {conversation.status}
+                        {statusLabel(tAll, conversation.status)}
                       </span>
                     </div>
                     {last && (
                       <p className="mt-0.5 truncate text-slate-600">
-                        <span className="font-medium capitalize">{last.role}:</span> {last.content.slice(0, 160)}
+                        <span className="font-medium">{tAll.has(`common.messageRole.${last.role}`) ? tAll(`common.messageRole.${last.role}`) : last.role}:</span> {last.content.slice(0, 160)}
                       </p>
                     )}
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {CHANNEL_LABEL[conversation.channel] ?? conversation.channel} · started{" "}
-                      {new Date(conversation.started_at).toLocaleString(locale)}
+                      {t("started", { channel: channelLabel(tAll, conversation.channel), date: new Date(conversation.started_at).toLocaleString(locale) })}
                     </p>
                   </div>
                 </li>
@@ -138,13 +137,13 @@ export default async function ConversationsPage({
         ) : (
           <div className="p-4">
             <EmptyState
-              title={counts.all === 0 ? "No conversations yet" : "No conversations match this filter"}
+              title={counts.all === 0 ? t("emptyTitle") : t("noMatchTitle")}
               description={
                 counts.all === 0
-                  ? "They will appear here once customers start talking to your Agent."
-                  : "Try a different status filter."
+                  ? t("emptyDescription")
+                  : t("noMatchDescription")
               }
-              actionLabel={counts.all === 0 ? "Set up your Agent" : undefined}
+              actionLabel={counts.all === 0 ? t("setUpAgent") : undefined}
               actionHref={counts.all === 0 ? `/${locale}/${slug}/agent` : undefined}
             />
           </div>

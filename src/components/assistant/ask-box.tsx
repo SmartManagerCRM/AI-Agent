@@ -1,17 +1,20 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { askBusinessAction, type AskAnswer } from "@/server/assistant/ask";
 
-const SUGGESTIONS = ["Sales today", "Orders this week", "Best sellers this month", "Pending orders", "Bookings today", "Members renewing soon", "Is my Agent live?"];
+/** console.ask.suggestion1…7 — phrased so the question parser understands them in each language (tests/unit/ask-suggestions.test.ts). */
+export const SUGGESTION_COUNT = 7;
 
 /**
  * Dashboard → Ask SmartManager: questions about the business, answered from
  * its own data with no AI (and so no AI cost). English, Arabic or French.
  */
 export function AskBox({ locale, slug, placeholder }: { locale: string; slug: string; placeholder: string }) {
+const t = useTranslations("console.ask");
   const [question, setQuestion] = useState("");
   const [history, setHistory] = useState<{ q: string; a: AskAnswer }[]>([]);
   const [pending, startTransition] = useTransition();
@@ -43,15 +46,15 @@ export function AskBox({ locale, slug, placeholder }: { locale: string; slug: st
           aria-label={placeholder}
           className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
         />
-        <span className="hidden shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 sm:inline" title="Answered from your own data — no AI is used, so it costs nothing.">
-          Free · no AI
+        <span className="hidden shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 sm:inline" title={t("freeTitle")}>
+          {t("free")}
         </span>
         <button type="submit" disabled={pending || !question.trim()} className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
-          {pending ? "…" : "Ask"}
+          {pending ? "…" : t("ask")}
         </button>
       </form>
       <div className="flex flex-wrap gap-1.5">
-        {SUGGESTIONS.map((s) => (
+        {Array.from({ length: SUGGESTION_COUNT }, (_, i) => t(`suggestion${i + 1}`)).map((s) => (
           <button key={s} type="button" onClick={() => ask(s)} disabled={pending} className="rounded-full bg-white/80 px-3 py-1 text-xs text-slate-600 ring-1 ring-slate-200 hover:bg-white hover:text-slate-900">
             {s}
           </button>

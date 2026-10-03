@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 import { importOfferings, syncApprovedProducts } from "./catalog-sync";
 import { loadGoLive } from "./go-live";
@@ -26,8 +27,9 @@ function refresh(locale: string, slug: string) {
  * signed-in member's slug resolves to, never an id from the form.
  */
 export async function publishAgentAction(_prev: GoLiveActionState, formData: FormData): Promise<GoLiveActionState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = schema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
-  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { locale, slug } = parsed.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
@@ -36,59 +38,61 @@ export async function publishAgentAction(_prev: GoLiveActionState, formData: For
   if (formData.get("importProducts") === "on") {
     const state = await loadGoLive(supabase, tenant, locale);
     const result = await importOfferings(supabase, tenant, state.offerings.importable);
-    if (!result.ok) return { ok: false, message: result.message };
+    if (!result.ok) return { ok: false, message: t("goLive.importNoPermission") };
     imported = result.imported;
   }
 
   const { data, error } = await supabase.rpc("publish_agent", { p_tenant_id: tenant.id });
   if (error) {
     refresh(locale, slug);
-    return { ok: false, message: publishError(error.message, imported) };
+    return { ok: false, message: publishError(t, error.message, imported) };
   }
   refresh(locale, slug);
-  const parts = ["Your Agent is live."];
-  if (imported) parts.push(`${imported} product(s) added to your catalog.`);
+  const parts = [t("goLive.live")];
+  if (imported) parts.push(t("goLive.imported", { n: imported }));
   if (data?.trial_started && data.trial_ends_at) {
-    parts.push(`Your free trial started — it runs until ${new Date(data.trial_ends_at).toLocaleDateString(locale)}.`);
+    parts.push(t("goLive.trialStarted", { date: new Date(data.trial_ends_at).toLocaleDateString(locale) }));
   }
   return { ok: true, message: parts.join(" ") };
 }
 
 export async function pauseAgentAction(_prev: GoLiveActionState, formData: FormData): Promise<GoLiveActionState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = schema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
-  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { locale, slug } = parsed.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const { error } = await supabase.rpc("pause_agent", { p_tenant_id: tenant.id });
   refresh(locale, slug);
   if (error) {
-    if (error.message.startsWith("PERMISSION_ERROR")) return { ok: false, message: "Only the business owner or a manager can pause the Agent." };
-    if (error.message.includes("not live")) return { ok: false, message: "The Agent isn't live." };
-    return { ok: false, message: "Couldn't pause the Agent — please try again." };
+    if (error.message.startsWith("PERMISSION_ERROR")) return { ok: false, message: t("goLive.pauseNoPermission") };
+    if (error.message.includes("not live")) return { ok: false, message: t("goLive.notLive") };
+    return { ok: false, message: t("goLive.pauseFailed") };
   }
-  return { ok: true, message: "Your Agent is paused. Customers see “temporarily unavailable” until you publish again." };
+  return { ok: true, message: t("goLive.paused") };
 }
 
-function publishError(message: string, imported: number): string {
-  const added = imported ? ` (${imported} product(s) were added to your catalog.)` : "";
-  if (message.startsWith("PERMISSION_ERROR")) return "Only the business owner or a manager can publish the Agent.";
-  if (message.startsWith("LAUNCH_REQUIREMENTS")) return `Not ready to go live yet — missing: ${message.replace(/^LAUNCH_REQUIREMENTS:\s*/, "")}.${added}`;
-  if (message.startsWith("PLAN_REQUIRED")) return `Your plan has ended — choose a plan in Billing to publish your Agent.${added}`;
-  if (message.startsWith("LAUNCH_BLOCKED")) return "This business is suspended — contact support.";
-  return `Couldn't publish the Agent — please try again.${added}`;
+function publishError(t: Awaited<ReturnType<typeof actionT>>, message: string, imported: number): string {
+  const added = imported ? t("goLive.addedNote", { n: imported }) : "";
+  if (message.startsWith("PERMISSION_ERROR")) return t("goLive.publishNoPermission");
+  if (message.startsWith("LAUNCH_REQUIREMENTS")) return t("goLive.notReady", { missing: message.replace(/^LAUNCH_REQUIREMENTS:\s*/, "") }) + added;
+  if (message.startsWith("PLAN_REQUIRED")) return t("goLive.planEnded") + added;
+  if (message.startsWith("LAUNCH_BLOCKED")) return t("goLive.suspended");
+  return t("goLive.publishFailed") + added;
 }
 
 /** Live Agent: add approved Brain products that aren't in the catalog yet (same rules as Go live). */
 export async function syncCatalogAction(_prev: GoLiveActionState, formData: FormData): Promise<GoLiveActionState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = schema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
-  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { locale, slug } = parsed.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const added = await syncApprovedProducts(supabase, tenant, locale);
   refresh(locale, slug);
   return added > 0
-    ? { ok: true, message: `${added} product(s) added — they're on your live Agent now.` }
-    : { ok: false, message: "Nothing was added — you need permission to edit products, or they're already in your catalog." };
+    ? { ok: true, message: t("goLive.synced", { n: added }) }
+    : { ok: false, message: t("goLive.nothingAdded") };
 }

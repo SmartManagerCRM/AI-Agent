@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -63,6 +64,8 @@ export function PlanForm({
   initial: PlanFormValues;
   onDone?: () => void;
 }) {
+const t = useTranslations("console.planForm");
+const tCommon = useTranslations("common");
   const [state, formAction, pending] = useActionState(async (prev: Awaited<ReturnType<typeof savePlanAction>>, fd: FormData) => {
     const result = await savePlanAction(prev, fd);
     if (result?.ok) onDone?.();
@@ -80,11 +83,11 @@ export function PlanForm({
       {initial.id && <input type="hidden" name="planId" value={initial.id} />}
 
       <fieldset className="flex flex-wrap gap-2">
-        <legend className="mb-1 font-medium text-slate-700">Type</legend>
+        <legend className="mb-1 font-medium text-slate-700">{t("type")}</legend>
         {(
           [
-            ["service", "Service subscription", "Paid access — gym, classes, car wash, coworking …"],
-            ["loyalty", "Loyalty / club", "Free or paid — member discount and perks"],
+            ["service", t("serviceLabel"), t("serviceText")],
+            ["loyalty", t("loyaltyLabel"), t("loyaltyText")],
           ] as const
         ).map(([value, label, text]) => (
           <label
@@ -102,63 +105,63 @@ export function PlanForm({
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="flex flex-col gap-1 sm:col-span-2">
-          Plan name
-          <input name="name" required maxLength={120} defaultValue={initial.name} placeholder={kind === "service" ? "e.g. Monthly gym" : "e.g. Coffee club"} className={input} />
+          {t("planName")}
+          <input name="name" required maxLength={120} defaultValue={initial.name} placeholder={kind === "service" ? t("egGym") : t("egClub")} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Price per period ({currency}) <span className={hint}>0 or empty = free</span>
+          {t("pricePerPeriod", { currency })} <span className={hint}>{t("zeroFree")}</span>
           <input name="price" type="number" min={0} step={step} defaultValue={initial.price} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Joining fee ({currency}) <span className={hint}>one-off, optional</span>
+          {t("joiningFee", { currency })} <span className={hint}>{t("oneOff")}</span>
           <input name="joiningFee" type="number" min={0} step={step} defaultValue={initial.joiningFee} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Duration
+          {t("duration")}
           <select name="billingPeriod" value={period} onChange={(e) => setPeriod(e.target.value as PlanFormValues["billingPeriod"])} className={input}>
-            <option value="day">Days</option>
-            <option value="week">Weeks</option>
-            <option value="month">Months</option>
-            <option value="year">Years</option>
-            <option value="none">No expiry</option>
+            <option value="day">{t("days")}</option>
+            <option value="week">{t("weeks")}</option>
+            <option value="month">{t("months")}</option>
+            <option value="year">{t("years")}</option>
+            <option value="none">{t("noExpiry")}</option>
           </select>
         </label>
         {!noExpiry && (
           <label className="flex flex-col gap-1">
-            Length <span className={hint}>e.g. 3 = every 3 months</span>
+            {t("length")} <span className={hint}>{t("lengthHint")}</span>
             <input name="periodCount" type="number" min={1} max={60} required defaultValue={initial.periodCount} className={input} />
           </label>
         )}
         {!noExpiry && (
           <label className="flex flex-col gap-1">
-            Free trial (days) <span className={hint}>0 = none</span>
+            {t("trial")} <span className={hint}>{t("zeroNone")}</span>
             <input name="trialDays" type="number" min={0} max={365} defaultValue={initial.trialDays} className={input} />
           </label>
         )}
         {!noExpiry && (
           <label className="flex flex-col gap-1">
-            Grace period (days) <span className={hint}>after the renewal date</span>
+            {t("grace")} <span className={hint}>{t("afterRenewal")}</span>
             <input name="graceDays" type="number" min={0} max={90} defaultValue={initial.graceDays} className={input} />
           </label>
         )}
         <label className="flex flex-col gap-1">
-          Visits per period <span className={hint}>empty = unlimited</span>
+          {t("visits")} <span className={hint}>{t("emptyUnlimited")}</span>
           <input name="visitsPerPeriod" type="number" min={1} max={10000} defaultValue={initial.visitsPerPeriod} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Member discount (%) <span className={hint}>on purchases, optional</span>
+          {t("discount")} <span className={hint}>{t("onPurchases")}</span>
           <input name="discountPercent" type="number" min={0.01} max={100} step={0.01} defaultValue={initial.discountPercent} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Member limit <span className={hint}>empty = no limit</span>
+          {t("limit")} <span className={hint}>{t("emptyNoLimit")}</span>
           <input name="maxMembers" type="number" min={1} defaultValue={initial.maxMembers} className={input} />
         </label>
         <label className="flex flex-col gap-1 sm:col-span-2">
-          Description <span className={hint}>optional</span>
+          {t("description")} <span className={hint}>{tCommon("optional")}</span>
           <textarea name="description" rows={2} maxLength={1000} defaultValue={initial.description} className={input} />
         </label>
         <label className="flex flex-col gap-1 sm:col-span-2">
-          Benefits <span className={hint}>one per line — e.g. “Free towel”, “Priority booking”</span>
+          {t("benefits")} <span className={hint}>{t("benefitsHint")}</span>
           <textarea name="benefits" rows={2} maxLength={2000} defaultValue={initial.benefits} className={input} />
         </label>
       </div>
@@ -166,7 +169,7 @@ export function PlanForm({
       {services.length > 0 && (
         <fieldset>
           <legend className="mb-1 font-medium text-slate-700">
-            Included services <span className={hint}>optional — the bookable services this membership covers</span>
+            {t("includedServices")} <span className={hint}>{t("includedHint")}</span>
           </legend>
           <div className="flex flex-wrap gap-2">
             {services.map((s) => (
@@ -182,17 +185,17 @@ export function PlanForm({
       {!noExpiry && (
         <label className="flex items-center gap-2">
           <input type="checkbox" name="autoRenew" defaultChecked={initial.autoRenew} className="h-4 w-4 accent-emerald-600" />
-          New members renew automatically by default <span className={hint}>(you record each renewal; can be changed per member)</span>
+          {t("autoRenew")} <span className={hint}>{t("autoRenewHint")}</span>
         </label>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : initial.id ? "Save plan" : "Create plan"}
+          {pending ? tCommon("saving") : initial.id ? t("savePlan") : t("createPlan")}
         </Button>
         {onDone && initial.id && (
           <Button type="button" variant="secondary" onClick={onDone}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
         )}
         {state && (

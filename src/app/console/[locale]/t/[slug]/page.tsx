@@ -7,6 +7,7 @@ import { DonutChart } from "@/components/console/donut-chart";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { StatusPill } from "@/components/console/status-pill";
+import { statusLabel } from "@/lib/i18n-labels";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireTenantMember } from "@/server/tenant/context";
@@ -16,6 +17,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const t = await getTranslations("console");
+  const tAll = await getTranslations();
   const supabase = await createUserClient();
   const user = await currentUser();
 
@@ -107,7 +109,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
             </Link>
           </h2>
           {stats.ordersCount > 0 ? (
-            <DonutChart segments={stats.ordersByStatusGroup} centerLabel={t("dashboard.kpiOrders")} />
+            <DonutChart segments={stats.ordersByStatusGroup.map((s) => ({ ...s, label: tAll(`common.orderGroup.${s.key}`) }))} centerLabel={t("dashboard.kpiOrders")} />
           ) : (
             <p className="text-sm text-slate-500">{t("dashboard.noOrdersYet")}</p>
           )}
@@ -182,7 +184,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
                     {conversation.channel === "external_agent"
                       ? t("dashboard.channelAgent")
                       : t("dashboard.channelWidget")}
-                    <span className="ms-2 text-xs capitalize text-slate-400">({conversation.status})</span>
+                    <span className="ms-2 text-xs text-slate-400">({statusLabel(tAll, conversation.status)})</span>
                   </span>
                   <span className="text-xs text-slate-400">
                     {conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toLocaleDateString(locale) : "—"}
@@ -223,7 +225,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
                   <span className="text-slate-800">{product.name}</span>
                 </span>
                 <span className="flex items-center gap-3 text-slate-500">
-                  <span>{product.quantity} sold</span>
+                  <span>{t("dashboard.sold", { n: product.quantity })}</span>
                   <span className="font-medium text-slate-900">{money(product.revenueMinor)}</span>
                 </span>
               </li>

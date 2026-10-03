@@ -5,6 +5,8 @@ import { formatMoney } from "@/lib/money";
 import { toggleCouponAction } from "@/server/marketing/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700",
@@ -16,16 +18,19 @@ function discountLabel(
   currency: string,
   exponent: number,
   locale: string,
+  off: (amount: string) => string,
 ): string {
   return coupon.discount_type === "percentage"
-    ? `${coupon.discount_value / 100}% off`
-    : `${formatMoney(coupon.discount_value, currency, exponent, locale)} off`;
+    ? off(`${(coupon.discount_value / 100).toLocaleString(locale)}%`)
+    : off(formatMoney(coupon.discount_value, currency, exponent, locale));
 }
 
 export default async function MarketingPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.marketing");
+  const tAll = await getTranslations();
 
   const [{ data: coupons }, { data: currencyRow }, { data: discountTotal }] = await Promise.all([
     supabase.from("coupons").select("*").eq("tenant_id", tenant.id).order("created_at", { ascending: false }),
@@ -43,20 +48,20 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Marketing</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Discount codes your Agent and website checkout will honor automatically — no other marketing channels yet.
+          {t("subtitle")}
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <KpiTile icon="marketing" accent="emerald" label="Active coupons" value={String(activeCount)} trend={null} href={`/${locale}/${slug}/marketing#coupons`} />
-        <KpiTile icon="orders" accent="blue" label="Redemptions" value={String(totalRedemptions)} trend={null} href={`/${locale}/${slug}/orders`} />
-        <KpiTile icon="billing" accent="purple" label="Discount given" value={money(totalDiscountMinor)} trend={null} href={`/${locale}/${slug}/orders`} />
+        <KpiTile icon="marketing" accent="emerald" label={t("activeCoupons")} value={String(activeCount)} trend={null} href={`/${locale}/${slug}/marketing#coupons`} />
+        <KpiTile icon="orders" accent="blue" label={t("redemptions")} value={String(totalRedemptions)} trend={null} href={`/${locale}/${slug}/orders`} />
+        <KpiTile icon="billing" accent="purple" label={t("discountGiven")} value={money(totalDiscountMinor)} trend={null} href={`/${locale}/${slug}/orders`} />
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Create a coupon</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("create")}</h2>
         <CreateCouponForm
           tenantId={tenant.id}
           slug={slug}
@@ -67,18 +72,18 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
       </section>
 
       <section id="coupons" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Coupons</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("coupons")}</h2>
         {(coupons ?? []).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Code</th>
-                  <th className="py-2 text-start font-medium">Discount</th>
-                  <th className="py-2 text-start font-medium">Usage</th>
-                  <th className="py-2 text-start font-medium">Valid</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("col.code")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.discount")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.usage")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.valid")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,20 +93,20 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
                       <p className="font-medium text-slate-900">{coupon.code}</p>
                       {coupon.description && <p className="text-xs text-slate-500">{coupon.description}</p>}
                     </td>
-                    <td className="py-2 text-slate-700">{discountLabel(coupon, tenant.currency, exponent, locale)}</td>
+                    <td className="py-2 text-slate-700">{discountLabel(coupon, tenant.currency, exponent, locale, (amount) => t("off", { amount }))}</td>
                     <td className="py-2 text-slate-600">
                       {coupon.times_used}
                       {coupon.usage_limit ? ` / ${coupon.usage_limit}` : ""}
                     </td>
                     <td className="py-2 text-xs text-slate-500">
-                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString(locale) : "Any time"}
+                      {coupon.starts_at ? new Date(coupon.starts_at).toLocaleDateString(locale) : t("anyTime")}
                       {coupon.ends_at ? ` – ${new Date(coupon.ends_at).toLocaleDateString(locale)}` : ""}
                     </td>
                     <td className="py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[coupon.status]}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[coupon.status]}`}
                       >
-                        {coupon.status}
+                        {statusLabel(tAll, coupon.status)}
                       </span>
                     </td>
                     <td className="py-2">
@@ -111,7 +116,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
                         <input type="hidden" name="slug" value={slug} />
                         <input type="hidden" name="locale" value={locale} />
                         <button type="submit" className="text-xs font-medium text-slate-600 hover:underline">
-                          {coupon.status === "active" ? "Disable" : "Enable"}
+                          {coupon.status === "active" ? t("disable") : t("enable")}
                         </button>
                       </form>
                     </td>
@@ -122,8 +127,8 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
           </div>
         ) : (
           <EmptyState
-            title="No coupons yet"
-            description="Create one above — your Agent will offer it and honor it automatically at checkout."
+            title={t("emptyTitle")}
+            description={t("emptyDescription")}
           />
         )}
       </section>

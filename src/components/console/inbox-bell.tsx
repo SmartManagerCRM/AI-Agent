@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
@@ -17,6 +18,7 @@ export function InboxBell({ locale, slug, count }: { locale: string; slug: strin
   const href = `/${locale}/${slug}/conversations`;
   const pathname = usePathname();
   const router = useRouter();
+  const t = useTranslations("console.shell");
   const onInbox = pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export function InboxBell({ locale, slug, count }: { locale: string; slug: strin
       href={href}
       prefetch={false}
       className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
-      aria-label={shown > 0 ? `Open conversations (${shown} new)` : "Open conversations"}
+      aria-label={shown > 0 ? t("openConversationsNew", { count: shown }) : t("openConversations")}
       data-testid="inbox-bell"
     >
       <Icon path={NAV_ICON_PATHS.bell} size={18} />

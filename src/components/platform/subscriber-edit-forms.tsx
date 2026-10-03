@@ -1,6 +1,9 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
+
+import { statusLabel } from "@/lib/i18n-labels";
 
 import {
   updateSubscriberBusinessAction,
@@ -56,6 +59,8 @@ export function BusinessEditForm({
   businessTypes: Option[];
   languages: string[];
 }) {
+const t = useTranslations("platform.editForms");
+const tAll = useTranslations();
   const [message, formAction, pending] = useActionState(updateSubscriberBusinessAction, undefined);
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -65,11 +70,11 @@ export function BusinessEditForm({
       <input type="hidden" name="nameLocale" value={values.nameLocale} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={label}>
-          Business name ({values.nameLocale})
+          {t("businessName", { lang: values.nameLocale.toUpperCase() })}
           <input name="businessName" required maxLength={120} defaultValue={values.businessName} className={input} />
         </label>
         <label className={label}>
-          Business type
+          {t("businessType")}
           <select name="businessTypeKey" defaultValue={values.businessTypeKey} className={input}>
             {businessTypes.map((t) => (
               <option key={t.value} value={t.value}>
@@ -79,24 +84,25 @@ export function BusinessEditForm({
           </select>
         </label>
         <label className={label}>
-          Business status
+          {t("businessStatus")}
           <select name="status" defaultValue={values.status} className={input}>
-            <option value="onboarding">Onboarding</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="closed">Closed</option>
+            {["onboarding", "active", "suspended", "closed"].map((s) => (
+              <option key={s} value={s}>
+                {statusLabel(tAll, s)}
+              </option>
+            ))}
           </select>
         </label>
         <label className={label}>
-          Agent reachable as
+          {t("reachable")}
           <select name="deploymentMode" defaultValue={values.deploymentMode} className={input}>
-            <option value="external_agent">Standalone link only</option>
-            <option value="website_widget">Website widget only</option>
-            <option value="both">Both</option>
+            <option value="external_agent">{t("mode.external_agent")}</option>
+            <option value="website_widget">{t("mode.website_widget")}</option>
+            <option value="both">{t("mode.both")}</option>
           </select>
         </label>
         <label className={label}>
-          Contact email
+          {t("contactEmail")}
           <input
             name="contactEmail"
             type="email"
@@ -106,33 +112,33 @@ export function BusinessEditForm({
           />
         </label>
         <label className={label}>
-          Contact phone
+          {t("contactPhone")}
           <input name="contactPhone" maxLength={40} defaultValue={values.contactPhone} className={input} />
         </label>
         <label className={label}>
-          Website
+          {t("website")}
           <input name="websiteUrl" maxLength={300} defaultValue={values.websiteUrl} className={input} />
         </label>
         <label className={label}>
-          Country
+          {t("country")}
           <input name="country" maxLength={80} defaultValue={values.country} className={input} />
         </label>
         <label className={label}>
-          City
+          {t("city")}
           <input name="city" maxLength={80} defaultValue={values.city} className={input} />
         </label>
         <label className={label}>
-          Timezone
+          {t("timezone")}
           <input
             name="timezone"
             required
             defaultValue={values.timezone}
-            placeholder="e.g. Asia/Riyadh"
+            placeholder={t("tzPlaceholder")}
             className={input}
           />
         </label>
         <label className={label}>
-          Default language
+          {t("defaultLanguage")}
           <select name="defaultLanguage" defaultValue={values.defaultLanguage} className={input}>
             {languages.map((l) => (
               <option key={l} value={l}>
@@ -144,18 +150,18 @@ export function BusinessEditForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">Owner</p>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">{t("owner")}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label className={label}>
-            Full name
+            {t("fullName")}
             <input name="ownerFullName" maxLength={120} defaultValue={values.ownerFullName} className={input} />
           </label>
           <label className={label}>
-            Phone
+            {t("phone")}
             <input name="ownerPhone" maxLength={40} defaultValue={values.ownerPhone} className={input} />
           </label>
           <label className={label}>
-            Sign-in email
+            {t("signInEmail")}
             <input value={values.ownerEmail} readOnly className={`${input} bg-slate-50 text-slate-500`} />
           </label>
         </div>
@@ -163,7 +169,7 @@ export function BusinessEditForm({
 
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className={button}>
-          {pending ? "Saving…" : "Save business"}
+          {pending ? t("saving") : t("saveBusiness")}
         </button>
         <Result message={message} />
       </div>
@@ -192,6 +198,8 @@ export function SubscriptionEditForm({
   values: SubscriptionEditValues;
   plans: Option[];
 }) {
+const t = useTranslations("platform.editForms");
+const tAll = useTranslations();
   const [message, formAction, pending] = useActionState(updateSubscriberSubscriptionAction, undefined);
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -200,7 +208,7 @@ export function SubscriptionEditForm({
       <input type="hidden" name="slug" value={values.slug} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className={label}>
-          Plan
+          {t("plan")}
           <select name="planKey" defaultValue={values.planKey} className={input}>
             {plans.map((p) => (
               <option key={p.value} value={p.value}>
@@ -210,16 +218,16 @@ export function SubscriptionEditForm({
           </select>
         </label>
         <label className={label}>
-          Subscription status
+          {t("subscriptionStatus")}
           <select name="status" defaultValue={values.status} className={input}>
-            <option value="trialing">Trialing</option>
-            <option value="active">Active (paid)</option>
-            <option value="past_due">Past due</option>
-            <option value="canceled">Canceled</option>
+            <option value="trialing">{statusLabel(tAll, "trialing")}</option>
+            <option value="active">{t("activePaid")}</option>
+            <option value="past_due">{statusLabel(tAll, "past_due")}</option>
+            <option value="canceled">{statusLabel(tAll, "canceled")}</option>
           </select>
         </label>
         <label className={label}>
-          Trial ends (UTC)
+          {t("trialEnds")}
           <input
             name="trialEndsAt"
             type="datetime-local"
@@ -230,7 +238,7 @@ export function SubscriptionEditForm({
         </label>
         <div />
         <label className={label}>
-          Billing period start (UTC)
+          {t("periodStart")}
           <input
             name="currentPeriodStart"
             type="datetime-local"
@@ -239,7 +247,7 @@ export function SubscriptionEditForm({
           />
         </label>
         <label className={label}>
-          Billing period end (UTC)
+          {t("periodEnd")}
           <input
             name="currentPeriodEnd"
             type="datetime-local"
@@ -249,12 +257,11 @@ export function SubscriptionEditForm({
         </label>
       </div>
       <p className="text-xs text-slate-500">
-        An active (paid) subscription needs both billing period dates; usage limits are counted inside that period.
-        Changes are re-checked against the usage limits immediately and recorded in the audit log.
+        {t("subscriptionNote")}
       </p>
       <div className="flex items-center gap-3">
         <button type="submit" disabled={pending} className={button}>
-          {pending ? "Saving…" : "Save subscription"}
+          {pending ? t("saving") : t("saveSubscription")}
         </button>
         <Result message={message} />
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 
 import { Button } from "@/components/console/button";
@@ -19,6 +20,7 @@ export default function TenantConsoleError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+const t = useTranslations("console.error");
   useEffect(() => {
     console.error(error);
   }, [error]);
@@ -29,14 +31,13 @@ export default function TenantConsoleError({
         <Icon path={NAV_ICON_PATHS.alert} size={24} />
       </span>
       <div className="flex flex-col gap-1">
-        <p className="text-lg font-semibold text-slate-900">Something went wrong</p>
+        <p className="text-lg font-semibold text-slate-900">{t("title")}</p>
         <p className="max-w-sm text-sm text-slate-500">
-          This page hit a problem loading your data. It&apos;s usually temporary — try again, and if it keeps happening
-          let us know.
+          {t("body")}
         </p>
-        {error.digest && <p className="mt-1 font-mono text-xs text-slate-400">Reference: {error.digest}</p>}
+        {error.digest && <p className="mt-1 font-mono text-xs text-slate-400">{t("reference", { digest: error.digest })}</p>}
       </div>
-      <Button onClick={reset}>Try again</Button>
+      <Button onClick={reset}>{t("retry")}</Button>
     </div>
   );
 }

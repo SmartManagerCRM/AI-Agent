@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import QRCode from "qrcode";
 
 import { CopyButton } from "@/components/console/copy-button";
@@ -5,18 +7,60 @@ import type { GoLiveState } from "@/server/agent-public/go-live";
 
 import { PauseAgentForm, PublishAgentForm, SyncCatalogForm } from "./go-live-forms";
 
-const MODE_LABEL: Record<GoLiveState["deploymentMode"], string> = {
-  external_agent: "Public Agent link",
-  website_widget: "Website widget",
-  both: "Public Agent link + website widget",
-};
+type T = (key: string, values?: Record<string, string | number>) => string;
 
-const LANGUAGE_LABEL: Record<string, string> = { en: "English", ar: "Arabic", fr: "French" };
+/** A launch checklist item worded in the user's language from the same figures (`launchChecklist` decides ok / required). */
+function itemText(t: T, item: GoLiveState["items"][number], s: GoLiveState): { label: string; detail: string } {
+  const sellable = s.pricedProducts + s.offerings.importable.length;
+  const optional = (ok: boolean) => (ok ? t("detail.confirmed") : t("detail.optional"));
+  switch (item.key) {
+    case "name":
+      return { label: t("item.name"), detail: s.businessName || t("detail.missing") };
+    case "type":
+      return { label: t("item.type"), detail: s.businessTypeLabel ?? t("detail.missing") };
+    case "identity":
+      return {
+        label: t("item.identity"),
+        detail: item.ok ? t("detail.identity", { facts: s.approvedKnowledge, products: s.activeProducts }) : t("detail.identityMissing"),
+      };
+    case "products":
+      return {
+        label: s.orderingEnabled ? t("item.productsOrdering") : t("item.products"),
+        detail:
+          sellable > 0
+            ? t("detail.products", { n: s.pricedProducts }) + (s.offerings.importable.length ? t("detail.productsImport", { n: s.offerings.importable.length }) : "")
+            : s.orderingEnabled
+              ? t("detail.productsMissingOrdering")
+              : t("detail.productsNone"),
+      };
+    case "interaction":
+      return {
+        label: t("item.interaction"),
+        detail: [t("detail.chat"), sellable > 0 ? t("detail.browse") : null, s.orderingEnabled && sellable > 0 ? t("detail.order") : null, s.bookingServices > 0 ? t("detail.book") : null]
+          .filter(Boolean)
+          .join(", "),
+      };
+    case "plan":
+      return {
+        label: t("item.plan"),
+        detail: s.subscription === "entitled" ? t("detail.planActive") : s.subscription === "none" ? t("detail.planTrial") : t("detail.planEnded"),
+      };
+    case "hours":
+      return { label: t("item.hours"), detail: item.ok ? t("detail.confirmed") : t("detail.hoursOptional") };
+    case "description":
+    case "policies":
+    case "faq":
+      return { label: t(`item.${item.key}`), detail: optional(item.ok) };
+    default:
+      return { label: item.label, detail: item.detail };
+  }
+}
 
 /** LIVE / NOT LIVE — deployment status, never Brain readiness. */
 export function LiveBadge({ status }: { status: GoLiveState["status"] }) {
   const live = status === "published";
   const paused = status === "paused";
+  const t = useTranslations("console.goLive");
   return (
     <span
       data-testid="agent-live-badge"
@@ -25,7 +69,7 @@ export function LiveBadge({ status }: { status: GoLiveState["status"] }) {
       }`}
     >
       <span aria-hidden>{live ? "●" : "○"}</span>
-      {live ? "LIVE" : paused ? "PAUSED" : "NOT LIVE"}
+      {live ? t("badge.live") : paused ? t("badge.paused") : t("badge.notLive")}
     </span>
   );
 }
@@ -36,25 +80,26 @@ export function LiveBadge({ status }: { status: GoLiveState["status"] }) {
  * Agent page.
  */
 export async function GoLivePanel({ state, slug, locale }: { state: GoLiveState; slug: string; locale: string }) {
+  const t = await getTranslations("console.goLive");
   if (state.isLive) {
     // Encodes exactly the canonical public URL — generated locally, no third-party QR service.
     const qr = await QRCode.toDataURL(state.agentUrl, { width: 480, margin: 1 });
     return (
       <section id="go-live" className="scroll-mt-20 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4" data-testid="go-live-panel">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-emerald-800">✓ Agent is Live</h2>
+          <h2 className="text-base font-semibold text-emerald-800">{t("isLive")}</h2>
           <LiveBadge status={state.status} />
         </div>
-        <p className="mt-2 text-sm text-slate-700">Your Agent is live:</p>
+        <p className="mt-2 text-sm text-slate-700">{t("yourAgentIsLive")}</p>
         <p className="mt-1 break-all rounded-lg bg-white px-3 py-2 font-mono text-sm text-slate-900 ring-1 ring-slate-200" data-testid="agent-url">
           {state.agentUrl}
         </p>
         {state.publishedAt && (
-          <p className="mt-1 text-xs text-slate-500">Published {new Date(state.publishedAt).toLocaleString(locale)}</p>
+          <p className="mt-1 text-xs text-slate-500">{t("published", { date: new Date(state.publishedAt).toLocaleString(locale) })}</p>
         )}
         {state.deploymentMode === "website_widget" && (
           <p className="mt-2 text-xs text-amber-700">
-            Your Agent is set to “Website widget only”, so this link shows “not live” — switch to “Both” on the Agent page to use it.
+            {t("widgetOnly")}
           </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -64,22 +109,22 @@ export async function GoLivePanel({ state, slug, locale }: { state: GoLiveState;
             rel="noopener noreferrer"
             className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
           >
-            Open Agent
+            {t("openAgent")}
           </a>
-          <CopyButton value={state.agentUrl} label="Copy Link" />
+          <CopyButton value={state.agentUrl} label={t("copyLink")} />
           <details className="group">
             <summary className="cursor-pointer list-none rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
-              Generate QR
+              {t("generateQr")}
             </summary>
             <div className="mt-2 flex items-end gap-3 rounded-lg bg-white p-3 ring-1 ring-slate-200">
               {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package */}
-              <img src={qr} alt={`QR code for ${state.agentUrl}`} width={144} height={144} className="rounded-md" />
+              <img src={qr} alt={t("qrAlt", { url: state.agentUrl })} width={144} height={144} className="rounded-md" />
               <a
                 href={qr}
                 download={`${slug}-agent-qr.png`}
                 className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
               >
-                Download QR code
+                {t("downloadQr")}
               </a>
             </div>
           </details>
@@ -100,49 +145,45 @@ export async function GoLivePanel({ state, slug, locale }: { state: GoLiveState;
     <section id="go-live" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4" data-testid="go-live-panel">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-slate-900">
-          {paused
-            ? "Your Agent is paused"
-            : state.canPublish
-              ? "Your AI Agent is ready to go live."
-              : "Go live — a few things first"}
+          {paused ? t("pausedTitle") : state.canPublish ? t("readyTitle") : t("notReadyTitle")}
         </h2>
         <LiveBadge status={state.status} />
       </div>
       <p className="mt-1 text-xs text-slate-500">
         {paused
-          ? "Customers opening your link see “temporarily unavailable”. Publish again to bring it back."
-          : "Customers can only reach your Agent after you publish it. Your Business Brain doesn't need to be 100% complete."}
+          ? t("pausedHint")
+          : t("publishHint")}
       </p>
 
       <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-        <Row label="Business name" value={state.businessName || "—"} />
-        <Row label="Business type" value={state.businessTypeLabel ?? "—"} />
+        <Row label={t("row.name")} value={state.businessName || "—"} />
+        <Row label={t("row.type")} value={state.businessTypeLabel ?? "—"} />
         <Row
-          label="Products / services"
-          value={`${state.activeProducts} in catalog${offerings.importable.length ? ` · ${offerings.importable.length} approved to add` : ""}${state.bookingServices ? ` · ${state.bookingServices} bookable service(s)` : ""}`}
+          label={t("row.products")}
+          value={`${t("inCatalog", { n: state.activeProducts })}${offerings.importable.length ? t("approvedToAdd", { n: offerings.importable.length }) : ""}${state.bookingServices ? t("bookable", { n: state.bookingServices }) : ""}`}
         />
-        <Row label="Approved knowledge" value={`${state.approvedKnowledge} fact(s)`} />
-        <Row label="Language" value={state.languages.map((l) => LANGUAGE_LABEL[l] ?? l).join(", ")} />
-        <Row label="Deployment mode" value={MODE_LABEL[state.deploymentMode]} />
-        <Row label="Online ordering" value={state.orderingEnabled ? "On" : "Off — customers can chat and browse"} />
+        <Row label={t("row.knowledge")} value={t("facts", { n: state.approvedKnowledge })} />
+        <Row label={t("row.language")} value={state.languages.map((l) => (["en", "ar", "fr"].includes(l) ? t(`lang.${l}`) : l)).join(", ")} />
+        <Row label={t("row.mode")} value={t(`mode.${state.deploymentMode}`)} />
+        <Row label={t("row.ordering")} value={state.orderingEnabled ? t("orderingOn") : t("orderingOff")} />
       </dl>
 
-      <p className="mt-4 text-sm text-slate-700">Your public Agent URL will be:</p>
+      <p className="mt-4 text-sm text-slate-700">{t("urlWillBe")}</p>
       <p className="mt-1 break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-sm text-slate-800" data-testid="agent-url">
         {state.agentUrl}
       </p>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Checklist title="Required" items={required} />
-        <Checklist title="Optional" items={optional} />
+        <Checklist title={t("required")} items={required.map((i) => ({ ...i, ...itemText(t, i, state) }))} />
+        <Checklist title={t("optional")} items={optional.map((i) => ({ ...i, ...itemText(t, i, state) }))} />
       </div>
 
       {(offerings.unreadable > 0 || offerings.otherCurrency > 0 || offerings.unpriced > 0) && (
         <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          Not added to your catalog:
-          {offerings.unreadable > 0 && ` ${offerings.unreadable} approved product name(s) look like unreadable scan text — reject them in Review.`}
-          {offerings.otherCurrency > 0 && ` ${offerings.otherCurrency} priced in another currency.`}
-          {offerings.unpriced > 0 && ` ${offerings.unpriced} without a price.`}
+          {t("notAdded")}
+          {offerings.unreadable > 0 && t("unreadable", { n: offerings.unreadable })}
+          {offerings.otherCurrency > 0 && t("otherCurrency", { n: offerings.otherCurrency })}
+          {offerings.unpriced > 0 && t("unpriced", { n: offerings.unpriced })}
         </p>
       )}
 
@@ -152,7 +193,7 @@ export async function GoLivePanel({ state, slug, locale }: { state: GoLiveState;
           locale={locale}
           canPublish={state.canPublish}
           importable={offerings.importable.length}
-          label={paused ? "Publish again" : "Publish Agent"}
+          label={paused ? t("publishAgain") : t("publish")}
         />
       </div>
     </section>

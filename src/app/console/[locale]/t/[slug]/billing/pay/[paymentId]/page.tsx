@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { simulateMockSubscriptionPaymentAction } from "@/server/billing/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,8 @@ export default async function SubscriptionPayPage({
   const { locale, slug, paymentId } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.billingPay");
+  const tAll = await getTranslations();
 
   const { data: payment } = await supabase
     .from("subscription_payments")
@@ -39,8 +42,8 @@ export default async function SubscriptionPayPage({
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 py-10 text-center">
       <div>
-        <h1 className="text-xl font-semibold capitalize">{payment.plan_key} plan</h1>
-        <p className="mt-1 text-sm text-neutral-500">Subscription payment</p>
+        <h1 className="text-xl font-semibold">{t("plan", { plan: tAll.has(`common.plan.${payment.plan_key}`) ? tAll(`common.plan.${payment.plan_key}`) : payment.plan_key })}</h1>
+        <p className="mt-1 text-sm text-neutral-500">{t("subtitle")}</p>
       </div>
 
       <div className="rounded-lg border border-neutral-200 px-8 py-6">
@@ -52,7 +55,7 @@ export default async function SubscriptionPayPage({
       {payment.status === "pending" && payment.provider === "mock" && (
         <div className="flex flex-col items-center gap-3">
           <p className="max-w-xs text-xs text-neutral-400">
-            This is a test payment page — no real payment gateway is connected yet.
+            {t("test")}
           </p>
           <div className="flex gap-3">
             <form action={simulateMockSubscriptionPaymentAction}>
@@ -61,7 +64,7 @@ export default async function SubscriptionPayPage({
               <input type="hidden" name="locale" value={locale} />
               <input type="hidden" name="slug" value={slug} />
               <button type="submit" className="rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white">
-                Simulate successful payment
+                {t("simulateOk")}
               </button>
             </form>
             <form action={simulateMockSubscriptionPaymentAction}>
@@ -70,16 +73,16 @@ export default async function SubscriptionPayPage({
               <input type="hidden" name="locale" value={locale} />
               <input type="hidden" name="slug" value={slug} />
               <button type="submit" className="rounded-full border border-neutral-300 px-4 py-2 text-sm text-neutral-700">
-                Simulate failed payment
+                {t("simulateFail")}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {payment.status === "succeeded" && <p className="text-sm font-medium text-green-700">Payment received — subscription active!</p>}
+      {payment.status === "succeeded" && <p className="text-sm font-medium text-green-700">{t("received")}</p>}
       {payment.status === "failed" && (
-        <p className="text-sm font-medium text-red-700">This payment attempt failed — return to Billing to try again.</p>
+        <p className="text-sm font-medium text-red-700">{t("failed")}</p>
       )}
     </div>
   );

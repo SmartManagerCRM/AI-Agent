@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -12,7 +13,7 @@ const keySchema = z
   .toLowerCase()
   .min(2)
   .max(40)
-  .regex(/^[a-z][a-z0-9_-]*$/, "lowercase letters, numbers, - or _, starting with a letter");
+  .regex(/^[a-z][a-z0-9_-]*$/, "@platform.keyFormat");
 
 const createSchema = z.object({ key: keySchema, name: z.string().trim().min(1).max(80), locale: z.string() });
 
@@ -25,7 +26,8 @@ export async function createBusinessTypeAction(
     name: formData.get("name"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -34,8 +36,8 @@ export async function createBusinessTypeAction(
     .insert({ key: parsed.data.key, name: { [parsed.data.locale]: parsed.data.name }, is_active: true });
   if (error) {
     return error.code === "23505"
-      ? "VALIDATION_ERROR: a business type with that key already exists."
-      : "VALIDATION_ERROR: could not create that business type — please try again.";
+      ? t("platform.typeExists")
+      : t("platform.typeFailed");
   }
 
   revalidatePath(`/${parsed.data.locale}/super-admin/settings`);

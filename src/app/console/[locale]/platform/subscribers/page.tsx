@@ -7,6 +7,9 @@ import { getRecentSubscribers } from "@/server/platform/dashboard-stats";
 import { markAllSubscribersCheckedAction } from "@/server/platform/subscriber-checks";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { RichMsg } from "@/components/i18n/msg";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700",
@@ -30,9 +33,11 @@ export default async function SubscribersPage({
   const statusFilter = (STATUS_FILTERS as readonly string[]).includes(statusParam ?? "") ? statusParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.subscribers");
+  const tAll = await getTranslations();
 
   const [subscribers, { data: currencies }, { data: unchecked }] = await Promise.all([
-    getRecentSubscribers(supabase, 200),
+    getRecentSubscribers(supabase, 200, locale),
     supabase.from("currencies").select("code, exponent"),
     supabase.rpc("unchecked_subscribers"),
   ]);
@@ -49,13 +54,13 @@ export default async function SubscribersPage({
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Subscribers</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
         <a
           href="/api/super-admin/export/subscribers"
           className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
-          Export CSV
+          {t("export")}
         </a>
       </div>
 
@@ -63,7 +68,7 @@ export default async function SubscribersPage({
         <KpiTile
           icon="customers"
           accent="emerald"
-          label="Total subscribers"
+          label={t("total")}
           value={String(subscribers.length)}
           trend={null}
           href={base}
@@ -71,7 +76,7 @@ export default async function SubscribersPage({
         <KpiTile
           icon="billing"
           accent="blue"
-          label="Active"
+          label={t("active")}
           value={String(activeCount)}
           trend={null}
           href={`${base}?status=active`}
@@ -79,7 +84,7 @@ export default async function SubscribersPage({
         <KpiTile
           icon="agent"
           accent="orange"
-          label="Trialing"
+          label={t("trialing")}
           value={String(trialCount)}
           trend={null}
           href={`${base}?status=trialing`}
@@ -87,7 +92,7 @@ export default async function SubscribersPage({
         <KpiTile
           icon="alert"
           accent="purple"
-          label="Past due"
+          label={t("pastDue")}
           value={String(pastDueCount)}
           trend={null}
           href={`${base}?status=past_due`}
@@ -100,13 +105,19 @@ export default async function SubscribersPage({
           data-testid="unchecked-subscribers"
         >
           <span>
-            <strong>{uncheckedSlugs.size}</strong> new subscriber{uncheckedSlugs.size === 1 ? "" : "s"} not yet checked — marked{" "}
-            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">New</span> below. Opening one checks it.
+            <RichMsg
+              id="platform.subscribers.unchecked"
+              values={{
+                count: uncheckedSlugs.size,
+                b: (c) => <strong>{c}</strong>,
+                new: (c) => <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">{c}</span>,
+              }}
+            />
           </span>
           <form action={markAllSubscribersCheckedAction}>
             <input type="hidden" name="locale" value={locale} />
             <button type="submit" className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">
-              Mark all as checked
+              {t("markAll")}
             </button>
           </form>
         </div>
@@ -114,9 +125,9 @@ export default async function SubscribersPage({
 
       {statusFilter && (
         <p className="text-sm text-slate-600">
-          Showing <span className="font-medium capitalize">{statusFilter.replace("_", " ")}</span> subscribers ·{" "}
+          <RichMsg id="platform.subscribers.showing" values={{ status: statusLabel(tAll, statusFilter), b: (c) => <span className="font-medium">{c}</span> }} />{" "}
           <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
-            Show all
+            {t("showAll")}
           </Link>
         </p>
       )}
@@ -127,13 +138,13 @@ export default async function SubscribersPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Subscriber</th>
-                  <th className="py-2 text-start font-medium">Business</th>
-                  <th className="py-2 text-start font-medium">Type</th>
-                  <th className="py-2 text-start font-medium">Plan</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Joined</th>
-                  <th className="py-2 text-start font-medium">Revenue</th>
+                  <th className="py-2 text-start font-medium">{t("col.subscriber")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.type")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.joined")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.revenue")}</th>
                   <th className="py-2 text-start font-medium" />
                 </tr>
               </thead>
@@ -149,7 +160,7 @@ export default async function SubscribersPage({
                       </Link>
                       {uncheckedSlugs.has(s.slug) && (
                         <span className="ms-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white" data-testid="subscriber-new">
-                          New
+                          {t("new")}
                         </span>
                       )}
                       {s.email && <p className="text-xs text-slate-400">{s.email}</p>}
@@ -163,9 +174,9 @@ export default async function SubscribersPage({
                     <td className="py-2 text-slate-600">{s.planLabel ?? "—"}</td>
                     <td className="py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[s.status]}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[s.status]}`}
                       >
-                        {s.status.replace("_", " ")}
+                        {statusLabel(tAll, s.status)}
                       </span>
                     </td>
                     <td className="py-2 text-slate-600">{new Date(s.joinedAt).toLocaleDateString(locale)}</td>
@@ -178,7 +189,7 @@ export default async function SubscribersPage({
                         prefetch={false}
                         className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
                       >
-                        Edit
+                        {t("edit")}
                       </Link>
                     </td>
                   </tr>
@@ -188,8 +199,8 @@ export default async function SubscribersPage({
           </div>
         ) : (
           <EmptyState
-            title={statusFilter ? "No subscribers with this status" : "No subscribers yet"}
-            description={statusFilter ? "Try another filter." : "They'll appear here once the first business signs up."}
+            title={statusFilter ? t("noStatus") : t("empty")}
+            description={statusFilter ? t("tryAnother") : t("emptyDescription")}
           />
         )}
       </section>

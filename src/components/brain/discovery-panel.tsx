@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
@@ -22,20 +23,33 @@ type Props = {
   isLive?: boolean;
 };
 
-const STEPS = ["Your listing", "Website & menu", "Analyze", "Review", "Go live"];
+const STEPS = ["listing", "website", "analyze", "review", "live"];
 
-const STAGES: { status: string; label: string }[] = [
-  { status: "discovering", label: "Finding your business" },
-  { status: "fetching", label: "Reading your website" },
-  { status: "extracting", label: "Extracting details and reading menu images" },
-  { status: "ai_processing", label: "Reading what rules couldn't" },
-  { status: "normalizing", label: "Organizing facts" },
-  { status: "conflict_check", label: "Checking for conflicts" },
+const STAGES = ["discovering", "fetching", "extracting", "ai_processing", "normalizing", "conflict_check"].map(
+  (status) => ({ status }),
+);
+const ORDER = [
+  "created",
+  "discovering",
+  "fetching",
+  "extracting",
+  "ai_processing",
+  "normalizing",
+  "validating",
+  "conflict_check",
 ];
-const ORDER = ["created", "discovering", "fetching", "extracting", "ai_processing", "normalizing", "validating", "conflict_check"];
 const RUNNING = new Set(ORDER);
 
-export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, activeJobId, hasRunBefore, isLive = false }: Props) {
+export function DiscoveryPanel({
+  slug,
+  locale,
+  placesAvailable,
+  defaults,
+  activeJobId,
+  hasRunBefore,
+  isLive = false,
+}: Props) {
+  const t = useTranslations("console.discovery");
   const router = useRouter();
   const [state, formAction, pending] = useActionState(startDiscoveryAction, undefined);
   const jobId = state?.jobId ?? activeJobId;
@@ -68,35 +82,35 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
   return (
     <section className="rounded-xl border border-emerald-200 bg-gradient-to-b from-emerald-50/60 to-white p-4 sm:p-5">
       <div className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-slate-900">Analyze my business</h2>
-        <p className="text-sm text-slate-600">
-          Point SmartManager at your Google Maps listing and/or website. It reads them, organizes what it finds, and asks you
-          to confirm — nothing reaches your customers until you approve it. No website? That&apos;s fine.
-        </p>
+        <h2 className="text-base font-semibold text-slate-900">{t("title")}</h2>
+        <p className="text-sm text-slate-600">{t("intro")}</p>
       </div>
 
-      <ol className="mt-4 flex flex-wrap gap-2 text-xs" aria-label="Setup steps">
-        {STEPS.map((label, i) => (
-          <li
-            key={label}
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
-              i === currentStep
-                ? "border-emerald-500 bg-emerald-600 text-white"
-                : i < currentStep
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-slate-200 bg-white text-slate-500"
-            }`}
-          >
-            <span className="font-semibold">{i < currentStep ? "✓" : i + 1}</span>{" "}
-            {i === STEPS.length - 1 ? (
-              <a href="#go-live" className="hover:underline">
-                {label}
-              </a>
-            ) : (
-              label
-            )}
-          </li>
-        ))}
+      <ol className="mt-4 flex flex-wrap gap-2 text-xs" aria-label={t("steps")}>
+        {STEPS.map((step, i) => {
+          const label = t(`step.${step}`);
+          return (
+            <li
+              key={step}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+                i === currentStep
+                  ? "border-emerald-500 bg-emerald-600 text-white"
+                  : i < currentStep
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 bg-white text-slate-500"
+              }`}
+            >
+              <span className="font-semibold">{i < currentStep ? "✓" : i + 1}</span>{" "}
+              {i === STEPS.length - 1 ? (
+                <a href="#go-live" className="hover:underline">
+                  {label}
+                </a>
+              ) : (
+                label
+              )}
+            </li>
+          );
+        })}
       </ol>
 
       {running ? (
@@ -117,7 +131,9 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
                   >
                     {done ? "✓" : ""}
                   </span>
-                  <span className={done ? "text-slate-500" : active ? "font-medium text-slate-900" : "text-slate-400"}>{stage.label}</span>
+                  <span className={done ? "text-slate-500" : active ? "font-medium text-slate-900" : "text-slate-400"}>
+                    {t(`stage.${stage.status}`)}
+                  </span>
                 </li>
               );
             })}
@@ -125,8 +141,11 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
           {progress && progress.events.length > 0 && (
             <ul className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
               {progress.events.slice(-4).map((e, i) => (
-                <li key={i} className={e.level === "error" ? "text-red-600" : e.level === "warning" ? "text-amber-700" : ""}>
-                  {e.message}
+                <li
+                  key={i}
+                  className={e.level === "error" ? "text-red-600" : e.level === "warning" ? "text-amber-700" : ""}
+                >
+                  {e.i18n && t.has(`event.${e.i18n.key}`) ? t(`event.${e.i18n.key}`, e.i18n.values) : e.message}
                 </li>
               ))}
             </ul>
@@ -136,7 +155,7 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
             <input type="hidden" name="slug" value={slug} />
             <input type="hidden" name="locale" value={locale} />
             <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
-              Cancel analysis
+              {t("cancel")}
             </button>
           </form>
         </div>
@@ -145,22 +164,18 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="locale" value={locale} />
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-800">Google Maps listing</span>
+            <span className="font-medium text-slate-800">{t("maps")}</span>
             <input
               name="mapsInput"
               defaultValue={defaults.mapsInput}
               disabled={!placesAvailable}
-              placeholder={placesAvailable ? "Maps link, or business name + city" : "Not available yet"}
+              placeholder={placesAvailable ? t("mapsPlaceholder") : t("notAvailable")}
               className="rounded-lg border border-slate-300 px-3 py-2 disabled:bg-slate-50"
             />
-            <span className="text-xs text-slate-500">
-              {placesAvailable
-                ? "Share → Copy link in Google Maps. Read through Google's official Places API."
-                : "Google Maps import isn't configured on this platform yet — use your website or add details by hand."}
-            </span>
+            <span className="text-xs text-slate-500">{placesAvailable ? t("mapsHint") : t("mapsOff")}</span>
           </label>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-slate-800">Website (optional)</span>
+            <span className="font-medium text-slate-800">{t("website")}</span>
             <input
               name="websiteUrl"
               defaultValue={defaults.websiteUrl}
@@ -168,10 +183,10 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
               inputMode="url"
               className="rounded-lg border border-slate-300 px-3 py-2"
             />
-            <span className="text-xs text-slate-500">We read public pages only and respect your site&apos;s robots.txt.</span>
+            <span className="text-xs text-slate-500">{t("websiteHint")}</span>
           </label>
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-medium text-slate-800">Menu, products or services links (optional)</span>
+            <span className="font-medium text-slate-800">{t("menus")}</span>
             <textarea
               name="menuUrls"
               defaultValue={defaults.menuUrls}
@@ -179,21 +194,18 @@ export function DiscoveryPanel({ slug, locale, placesAvailable, defaults, active
               placeholder={"https://yourbusiness.com/menu\nhttps://yourbusiness.com/breakfast"}
               className="rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs"
             />
-            <span className="text-xs text-slate-500">
-              One per line (up to 5). Each is read in depth — including menus that are images — together with related menu
-              and online-ordering pages on the same site. No need to upload the menu again.
-            </span>
+            <span className="text-xs text-slate-500">{t("menusHint")}</span>
           </label>
           <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
             <Button type="submit" disabled={pending}>
-              {pending ? "Starting…" : hasRunBefore ? "Analyze again" : "Analyze my business"}
+              {pending ? t("starting") : hasRunBefore ? t("again") : t("title")}
             </Button>
-            {hasRunBefore && <span className="text-xs text-slate-500">Unchanged pages are skipped automatically.</span>}
+            {hasRunBefore && <span className="text-xs text-slate-500">{t("skipped")}</span>}
             {state?.error && <p className="basis-full text-sm text-red-600">{state.error}</p>}
           </div>
         </form>
       )}
-      {!running && progress?.status === "cancelled" && <p className="mt-2 text-xs text-slate-500">Analysis cancelled.</p>}
+      {!running && progress?.status === "cancelled" && <p className="mt-2 text-xs text-slate-500">{t("cancelled")}</p>}
     </section>
   );
 }

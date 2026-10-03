@@ -13,6 +13,9 @@ import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import type { Database } from "@/types/database";
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
+import { fulfillmentLabel, statusLabel } from "@/lib/i18n-labels";
 
 const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
 
@@ -53,6 +56,8 @@ export default async function OrdersPage({
   const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.orders");
+  const tAll = await getTranslations();
 
   // Counts are exact (counted in Postgres), and the list is paged — every order is reachable, however many there are.
   const countOf = (group: Group) => {
@@ -109,7 +114,7 @@ export default async function OrdersPage({
   const baseHref = `/${locale}/${slug}/orders`;
   const tabs: Tab[] = GROUPS.map((group) => ({
     key: group,
-    label: group.charAt(0).toUpperCase() + group.slice(1),
+    label: tAll(`common.orderGroup.${group}`),
     count: counts[group],
     href: group === "all" ? baseHref : `${baseHref}?status=${group}`,
     active: statusFilter === group,
@@ -118,8 +123,8 @@ export default async function OrdersPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Orders</h1>
-        <SearchInput placeholder="Search by customer..." defaultValue={q} />
+        <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.orders.orders" /></h1>
+        <SearchInput placeholder={t("searchPlaceholder")} defaultValue={q} />
       </div>
       <ManualOrders
         slug={slug}
@@ -137,10 +142,10 @@ export default async function OrdersPage({
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="orders" accent="emerald" label="Total orders" value={String(counts.all)} trend={null} href={`/${locale}/${slug}/orders`} />
-        <KpiTile icon="billing" accent="orange" label="Pending" value={String(counts.pending)} trend={null} href={`/${locale}/${slug}/orders?status=pending`} />
-        <KpiTile icon="conversations" accent="blue" label="Active" value={String(counts.active)} trend={null} href={`/${locale}/${slug}/orders?status=active`} />
-        <KpiTile icon="customers" accent="purple" label="Completed" value={String(counts.completed)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
+        <KpiTile icon="orders" accent="emerald" label={t("totalOrders")} value={String(counts.all)} trend={null} href={`/${locale}/${slug}/orders`} />
+        <KpiTile icon="billing" accent="orange" label={tAll("common.orderGroup.pending")} value={String(counts.pending)} trend={null} href={`/${locale}/${slug}/orders?status=pending`} />
+        <KpiTile icon="conversations" accent="blue" label={tAll("common.orderGroup.active")} value={String(counts.active)} trend={null} href={`/${locale}/${slug}/orders?status=active`} />
+        <KpiTile icon="customers" accent="purple" label={tAll("common.orderGroup.completed")} value={String(counts.completed)} trend={null} href={`/${locale}/${slug}/orders?status=completed`} />
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white">
@@ -153,12 +158,12 @@ export default async function OrdersPage({
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="px-4 py-2 text-start font-medium">#</th>
-                  <th className="px-4 py-2 text-start font-medium">Customer</th>
-                  <th className="px-4 py-2 text-start font-medium">Fulfillment</th>
-                  <th className="px-4 py-2 text-start font-medium">Total</th>
-                  <th className="px-4 py-2 text-start font-medium">Status</th>
-                  <th className="px-4 py-2 text-start font-medium">Payment</th>
-                  <th className="px-4 py-2 text-start font-medium">Actions</th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.customer" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.fulfillment" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.total" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.status" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.payment" /></th>
+                  <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.actions" /></th>
                 </tr>
               </thead>
               <tbody>
@@ -173,18 +178,18 @@ export default async function OrdersPage({
                       <NewOrderBadge orderId={order.id} />
                       {order.created_via !== "agent" && (
                         <span className="ms-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                          {order.created_via === "manual" ? "Manual" : "Imported"}
+                          {order.created_via === "manual" ? t("manual") : t("imported")}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
-                    <td className="px-4 py-3 capitalize text-slate-500">{order.fulfillment_type}</td>
+                    <td className="px-4 py-3 text-slate-500">{fulfillmentLabel(tAll, order.fulfillment_type)}</td>
                     <td className="px-4 py-3 text-slate-700">{money(order.total_minor, order.currency)}</td>
                     <td className="px-4 py-3">
                       <StatusPill status={order.status} />
                     </td>
-                    <td className="px-4 py-3 capitalize text-slate-500">
-                      {latestPaymentByOrder.get(order.id)?.status ?? "—"}
+                    <td className="px-4 py-3 text-slate-500">
+                      {statusLabel(tAll, latestPaymentByOrder.get(order.id)?.status)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -196,9 +201,9 @@ export default async function OrdersPage({
                             <input type="hidden" name="locale" value={locale} />
                             <button
                               type="submit"
-                              className="text-xs font-medium text-emerald-600 underline-offset-2 capitalize hover:underline"
+                              className="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline"
                             >
-                              Mark {next.replace("_", " ")}
+                              {t("markAs", { status: statusLabel(tAll, next) })}
                             </button>
                           </form>
                         ))}
@@ -215,7 +220,7 @@ export default async function OrdersPage({
                                 type="submit"
                                 className="text-xs font-medium text-emerald-600 underline-offset-2 hover:underline"
                               >
-                                Mark cash collected
+                                <Msg id="console.orders.markCashCollected" />
                               </button>
                             </form>
                           );
@@ -230,13 +235,13 @@ export default async function OrdersPage({
         ) : (
           <div className="p-4">
             <EmptyState
-              title={counts.all === 0 && !q ? "No orders yet" : "No orders match this filter"}
+              title={counts.all === 0 && !q ? t("emptyTitle") : t("noMatchTitle")}
               description={
                 counts.all === 0 && !q
-                  ? "Orders from your AI Agent show up here — or add one yourself with “Add order”."
-                  : "Try a different status or clear your search."
+                  ? t("emptyDescription")
+                  : t("noMatchDescription")
               }
-              actionLabel={counts.all === 0 && !q ? "Add a product" : undefined}
+              actionLabel={counts.all === 0 && !q ? t("addProduct") : undefined}
               actionHref={counts.all === 0 && !q ? `/${locale}/${slug}/products` : undefined}
             />
           </div>

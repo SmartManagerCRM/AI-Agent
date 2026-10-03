@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState, useState } from "react";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
@@ -32,6 +33,8 @@ export function CustomerForm({
   initial: CustomerValues;
   onDone?: () => void;
 }) {
+const t = useTranslations("console.customerForm");
+const tCommon = useTranslations("common");
   const [state, formAction, pending] = useActionState(async (prev: Awaited<ReturnType<typeof saveCustomerAction>>, fd: FormData) => {
     const result = await saveCustomerAction(prev, fd);
     if (result?.ok) onDone?.();
@@ -49,34 +52,34 @@ export function CustomerForm({
       {initial.customerId && <input type="hidden" name="customerId" value={initial.customerId} />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="flex flex-col gap-1">
-          Name
+          {t("name")}
           <input name="name" required maxLength={120} defaultValue={initial.name} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Phone <span className={hint}>optional</span>
+          {t("phone")} <span className={hint}>{tCommon("optional")}</span>
           <input name="phone" type="tel" maxLength={40} defaultValue={initial.phone} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Email <span className={hint}>optional</span>
+          {t("email")} <span className={hint}>{tCommon("optional")}</span>
           <input name="email" type="email" maxLength={200} defaultValue={initial.email} className={input} />
         </label>
         <label className="flex flex-col gap-1">
-          Birthday <span className={hint}>optional</span>
+          {t("birthday")} <span className={hint}>{tCommon("optional")}</span>
           <input name="birthday" type="date" defaultValue={initial.birthday} className={input} />
         </label>
         <label className="flex flex-col gap-1 sm:col-span-2 lg:col-span-4">
-          Notes <span className={hint}>optional — preferences, allergies, where they usually sit …</span>
+          {t("notes")} <span className={hint}>{t("notesHint")}</span>
           <input name="notes" maxLength={1000} defaultValue={initial.notes} className={input} />
         </label>
       </div>
-      <p className="text-xs text-slate-500">Orders placed with the same phone number or email are listed under this customer.</p>
+      <p className="text-xs text-slate-500">{t("matchHint")}</p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : initial.customerId ? "Save customer" : "Add customer"}
+          {pending ? tCommon("saving") : initial.customerId ? t("saveCustomer") : t("addCustomer")}
         </Button>
         {onDone && (
           <Button type="button" variant="secondary" onClick={onDone}>
-            Cancel
+            {tCommon("cancel")}
           </Button>
         )}
         {state && (
@@ -104,6 +107,8 @@ export type CustomerListRow = {
 
 /** One row of the Customers table, with Edit / Delete for saved customers and Save for those known only from orders. */
 export function CustomerRow({ row, locale, slug }: { row: CustomerListRow; locale: string; slug: string }) {
+const t = useTranslations("console.customerForm");
+const tCommon = useTranslations("common");
   const [editing, setEditing] = useState(false);
   const saved = row.customerId !== null;
   return (
@@ -116,7 +121,7 @@ export function CustomerRow({ row, locale, slug }: { row: CustomerListRow; local
             </span>
             <span className="min-w-0">
               {row.name}
-              {saved && <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Saved</span>}
+              {saved && <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{t("saved")}</span>}
               {row.notes && <span className="block truncate text-xs font-normal text-slate-500">{row.notes}</span>}
             </span>
           </div>
@@ -138,18 +143,18 @@ export function CustomerRow({ row, locale, slug }: { row: CustomerListRow; local
           <span className="flex items-center justify-end gap-1">
             {saved ? (
               <>
-                <IconButton icon="edit" label="Edit" onClick={() => setEditing((v) => !v)} />
+                <IconButton icon="edit" label={tCommon("edit")} onClick={() => setEditing((v) => !v)} />
                 <ActionIconForm
                   action={deleteCustomerAction}
                   fields={{ locale, slug, customerId: row.customerId! }}
-                  confirm={`Remove ${row.name} from your saved customers? Their orders stay.`}
+                  confirm={t("removeConfirm", { name: row.name })}
                 >
-                  <IconButton type="submit" icon="trash" label="Delete" tone="red" />
+                  <IconButton type="submit" icon="trash" label={tCommon("delete")} tone="red" />
                 </ActionIconForm>
               </>
             ) : row.phone || row.email ? (
               // Only customers with a phone or email: that's how their orders are matched once saved.
-              <IconButton icon="plus" label="Save as customer" tone="emerald" onClick={() => setEditing((v) => !v)} />
+              <IconButton icon="plus" label={t("saveAsCustomer")} tone="emerald" onClick={() => setEditing((v) => !v)} />
             ) : null}
           </span>
         </td>

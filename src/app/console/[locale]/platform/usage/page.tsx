@@ -7,6 +7,9 @@ import { loadVoiceAccount } from "@/server/platform/voice-account";
 import { summarizePlatformUsage, USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { RichMsg } from "@/components/i18n/msg";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const usd = (v: number | null, digits = 2) => (v === null ? "—" : `$${v.toFixed(digits)}`);
 const pct = (v: number | null) => (v === null ? "—" : `${v.toFixed(1)}%`);
@@ -17,15 +20,14 @@ const pct = (v: number | null) => (v === null ? "—" : `${v.toFixed(1)}%`);
  * on the business page's Usage Limits tab — never in the subscriber console.
  */
 /** The count boxes' filters — the same predicates their counts use (`summarizePlatformUsage`). */
-const FILTERS: Record<string, { label: string; match: (r: SubscriberUsageRow) => boolean }> = {
-  near_conversation_limit: { label: "Near conversation limit", match: (r) => r.isPaid && r.usageState === "CONVERSATION_WARNING" },
-  near_ai_cost_cap: { label: "Near AI cost cap", match: (r) => r.isPaid && r.aiState === "warning" },
-  grace: { label: "In grace period", match: (r) => r.isPaid && r.conversationState === "grace" },
-  conversation_limited: { label: "Conversation-limited", match: (r) => r.isPaid && r.conversationState === "blocked" },
-  ai_cost_limited: { label: "AI-cost-limited", match: (r) => r.isPaid && r.aiState === "blocked" },
-  both_limits: { label: "Both limits reached", match: (r) => r.isPaid && r.usageState === "BOTH_LIMITS_REACHED" },
+const FILTERS: Record<string, { match: (r: SubscriberUsageRow) => boolean }> = {
+  near_conversation_limit: { match: (r) => r.isPaid && r.usageState === "CONVERSATION_WARNING" },
+  near_ai_cost_cap: { match: (r) => r.isPaid && r.aiState === "warning" },
+  grace: { match: (r) => r.isPaid && r.conversationState === "grace" },
+  conversation_limited: { match: (r) => r.isPaid && r.conversationState === "blocked" },
+  ai_cost_limited: { match: (r) => r.isPaid && r.aiState === "blocked" },
+  both_limits: { match: (r) => r.isPaid && r.usageState === "BOTH_LIMITS_REACHED" },
   trials_ended: {
-    label: "Trials ended by a limit",
     match: (r) => r.isTrial && (r.trialEndReason === "conversation_limit" || r.trialEndReason === "ai_cost_limit"),
   },
 };
@@ -42,6 +44,8 @@ export default async function PlatformUsagePage({
   const filter = filterParam && FILTERS[filterParam] ? filterParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.usagePage");
+  const tAll = await getTranslations();
   const [rows, settings, voiceAccount] = await Promise.all([loadPlatformUsage(supabase), loadUsageSettings(supabase), loadVoiceAccount()]);
   const summary = summarizePlatformUsage(rows);
   const base = `/${locale}/super-admin/usage`;
@@ -54,10 +58,9 @@ export default async function PlatformUsagePage({
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Usage &amp; AI Cost</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Each subscriber&apos;s current billing period. Agent AI cost excludes Business Brain analysis and premium voice,
-          which are shown separately. The AI cost cap covers the AI Agent only — premium voice is not part of it.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -65,7 +68,7 @@ export default async function PlatformUsagePage({
         <KpiTile
           icon="billing"
           accent="orange"
-          label="Agent AI cost (current periods)"
+          label={t("kpi.agentCost")}
           value={usd(summary.totalAgentAiCost, 4)}
           trend={null}
           href={`/${locale}/super-admin/usage#subscribers`}
@@ -73,7 +76,7 @@ export default async function PlatformUsagePage({
         <KpiTile
           icon="branches"
           accent="purple"
-          label="Business Brain AI cost"
+          label={t("kpi.brainCost")}
           value={usd(summary.totalBrainAiCost, 4)}
           trend={null}
           href={`/${locale}/super-admin/business-brain`}
@@ -83,17 +86,17 @@ export default async function PlatformUsagePage({
           accent="emerald"
           label={
             voiceAccount.free
-              ? `Premium voice — ElevenLabs free tier (${summary.totalVoiceClips.toLocaleString(locale)} clips, ≈ ${usd(summary.totalVoiceCost, 4)} at paid rates)`
-              : `Premium voice cost (${summary.totalVoiceClips.toLocaleString(locale)} clips)`
+              ? t("kpi.voiceFree", { clips: summary.totalVoiceClips.toLocaleString(locale), cost: usd(summary.totalVoiceCost, 4) })
+              : t("kpi.voicePaid", { clips: summary.totalVoiceClips.toLocaleString(locale) })
           }
-          value={voiceAccount.exhausted ? "Used up → device voice" : voiceAccount.free ? "Free" : usd(summary.totalVoiceCost, 4)}
+          value={voiceAccount.exhausted ? t("usedUp") : voiceAccount.free ? t("free") : usd(summary.totalVoiceCost, 4)}
           trend={null}
           href={`/${locale}/super-admin/usage#by-plan`}
         />
         <KpiTile
           icon="conversations"
           accent="blue"
-          label="Avg AI cost / conversation"
+          label={t("kpi.perConversation")}
           value={usd(summary.avgCostPerConversation, 5)}
           trend={null}
           href={`/${locale}/super-admin/usage#by-plan`}
@@ -101,7 +104,7 @@ export default async function PlatformUsagePage({
         <KpiTile
           icon="sparkle"
           accent="teal"
-          label="Avg AI cost / AI response"
+          label={t("kpi.perResponse")}
           value={usd(summary.avgCostPerAiResponse, 5)}
           trend={null}
           href={`/${locale}/super-admin/ai-agents`}
@@ -126,31 +129,31 @@ export default async function PlatformUsagePage({
             prefetch={false}
             className={`rounded-xl border bg-white p-3 transition hover:border-emerald-300 hover:shadow-sm ${filter === key ? "border-emerald-400" : "border-slate-200"}`}
           >
-            <p className="text-xs text-slate-500">{FILTERS[key].label}</p>
+            <p className="text-xs text-slate-500">{t(`filter.${key}`)}</p>
             <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
           </Link>
         ))}
       </div>
 
       <section id="by-plan" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">By plan</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("byPlan")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 text-start font-medium">Plan</th>
-                <th className="py-2 text-start font-medium">Subscribers (paid)</th>
-                <th className="py-2 text-start font-medium">Conversations</th>
-                <th className="py-2 text-start font-medium">Agent AI cost</th>
-                <th className="py-2 text-start font-medium">Voice cost</th>
-                <th className="py-2 text-start font-medium">Avg conversation use</th>
-                <th className="py-2 text-start font-medium">Avg AI cap use</th>
+                <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                <th className="py-2 text-start font-medium">{t("col.subscribers")}</th>
+                <th className="py-2 text-start font-medium">{t("col.conversations")}</th>
+                <th className="py-2 text-start font-medium">{t("col.agentCost")}</th>
+                <th className="py-2 text-start font-medium">{t("col.voiceCost")}</th>
+                <th className="py-2 text-start font-medium">{t("col.avgConv")}</th>
+                <th className="py-2 text-start font-medium">{t("col.avgAi")}</th>
               </tr>
             </thead>
             <tbody>
               {summary.byPlan.map((p) => (
                 <tr key={p.planKey} className="border-b border-slate-100 last:border-0">
-                  <td className="py-2 font-medium capitalize text-slate-900">{p.planKey}</td>
+                  <td className="py-2 font-medium text-slate-900">{tAll.has(`common.plan.${p.planKey}`) ? tAll(`common.plan.${p.planKey}`) : p.planKey}</td>
                   <td className="py-2 text-slate-600">
                     {p.subscribers} ({p.paidSubscribers})
                   </td>
@@ -169,11 +172,11 @@ export default async function PlatformUsagePage({
       <section id="subscribers" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-900">
-            Subscribers{filter ? ` — ${FILTERS[filter].label}` : ""}
+            {t("subscribers")}{filter ? ` — ${t(`filter.${filter}`)}` : ""}
           </h2>
           {filter && (
             <Link href={`${base}#subscribers`} prefetch={false} className="text-xs font-medium text-emerald-700 hover:underline">
-              Show all
+              {t("showAll")}
             </Link>
           )}
         </div>
@@ -181,13 +184,13 @@ export default async function PlatformUsagePage({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 text-start font-medium">Business</th>
-                <th className="py-2 text-start font-medium">Plan</th>
-                <th className="py-2 text-start font-medium">Period</th>
-                <th className="py-2 text-start font-medium">Conversations</th>
-                <th className="py-2 text-start font-medium">AI cost / cap</th>
-                <th className="py-2 text-start font-medium">Brain AI</th>
-                <th className="py-2 text-start font-medium">State</th>
+                <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                <th className="py-2 text-start font-medium">{t("col.plan")}</th>
+                <th className="py-2 text-start font-medium">{t("col.period")}</th>
+                <th className="py-2 text-start font-medium">{t("col.conversations")}</th>
+                <th className="py-2 text-start font-medium">{t("col.aiCap")}</th>
+                <th className="py-2 text-start font-medium">{t("col.brain")}</th>
+                <th className="py-2 text-start font-medium">{t("col.state")}</th>
               </tr>
             </thead>
             <tbody>
@@ -202,8 +205,9 @@ export default async function PlatformUsagePage({
                       {r.businessName}
                     </Link>
                   </td>
-                  <td className="py-2 capitalize text-slate-600">
-                    {r.planKey} <span className="text-xs text-slate-400">({r.status})</span>
+                  <td className="py-2 text-slate-600">
+                    {tAll.has(`common.plan.${r.planKey}`) ? tAll(`common.plan.${r.planKey}`) : r.planKey}{" "}
+                    <span className="text-xs text-slate-400">({statusLabel(tAll, r.status)})</span>
                   </td>
                   <td className="whitespace-nowrap py-2 text-xs text-slate-500">
                     {r.periodStart ? new Date(r.periodStart).toLocaleDateString(locale) : "—"} –{" "}
@@ -216,13 +220,13 @@ export default async function PlatformUsagePage({
                   <td className="py-2 text-slate-600">
                     {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost, 4)} / {usd(r.aiCostLimit)}{" "}
                     <span className="text-xs text-slate-400">
-                      {r.isPaid || r.isTrial ? pct(r.aiCostPercent) : "not capped"}
+                      {r.isPaid || r.isTrial ? pct(r.aiCostPercent) : t("notCapped")}
                     </span>
                   </td>
                   <td className="py-2 text-slate-600">{usd(r.brainAiCost, 4)}</td>
                   <td className="py-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${USAGE_STATE_STYLE[r.usageState]}`}>
-                      {r.usageState.replace(/_/g, " ")}
+                      {tAll.has(`platform.usageState.${r.usageState}`) ? tAll(`platform.usageState.${r.usageState}`) : r.usageState.replace(/_/g, " ")}
                     </span>
                   </td>
                 </tr>
@@ -230,7 +234,7 @@ export default async function PlatformUsagePage({
               {sorted.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-slate-400">
-                    {filter ? "No subscribers match this filter." : "No subscriptions yet."}
+                    {filter ? t("noMatch") : t("none")}
                   </td>
                 </tr>
               )}
@@ -240,15 +244,18 @@ export default async function PlatformUsagePage({
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-900">Warning thresholds &amp; trial limits</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-900">{t("thresholds")}</h2>
         <p className="mb-3 text-xs text-slate-500">
-          Subscribers see conversation warnings at these levels (plus 100%). The AI cost warning is visible to Super
-          Admin only. A free trial ends on its end date, after its trial conversations, or once its AI allowance is used
-          — whichever comes first (empty = no such limit). Plan limits are edited on{" "}
-          <Link href={`/${locale}/super-admin/plans`} prefetch={false} className="text-emerald-700 hover:underline">
-            Subscriptions &amp; Plans
-          </Link>
-          .
+          <RichMsg
+            id="platform.usagePage.thresholdsNote"
+            values={{
+              link: (c) => (
+                <Link href={`/${locale}/super-admin/plans`} prefetch={false} className="text-emerald-700 hover:underline">
+                  {c}
+                </Link>
+              ),
+            }}
+          />
         </p>
         <UsageSettingsForm
           locale={locale}

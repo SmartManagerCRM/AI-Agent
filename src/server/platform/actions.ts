@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -50,7 +51,8 @@ export async function updatePlatformSettingsAction(
     supportedCurrencies: formData.get("supportedCurrencies"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -63,13 +65,13 @@ export async function updatePlatformSettingsAction(
       supported_currencies: parseCsvList(parsed.data.supportedCurrencies, (s) => s.toUpperCase()),
     })
     .eq("id", true);
-  if (error) return "VALIDATION_ERROR: could not save platform settings — please try again.";
+  if (error) return t("platform.settingsFailed");
   // The AI budget column is hidden from signed-in users (column grants) — written with the service role, Super Admin checked above.
   const { error: budgetError } = await serviceClient()
     .from("platform_settings")
     .update({ default_ai_monthly_budget_usd: parsed.data.defaultAiMonthlyBudgetUsd ?? null })
     .eq("id", true);
-  if (budgetError) return "VALIDATION_ERROR: could not save the AI budget — please try again.";
+  if (budgetError) return t("platform.budgetFailed");
 
   revalidatePath(`/${parsed.data.locale}/super-admin/settings`);
 }
@@ -195,7 +197,8 @@ export async function createAiModelConfigAction(
     outputPrice: formData.get("outputPrice"),
     locale: formData.get("locale"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
@@ -206,7 +209,7 @@ export async function createAiModelConfigAction(
     input_price_per_million_usd: parsed.data.inputPrice,
     output_price_per_million_usd: parsed.data.outputPrice,
   });
-  if (error) return "VALIDATION_ERROR: could not create that model config — please try again.";
+  if (error) return t("platform.modelFailed");
 
   revalidatePath(`/${parsed.data.locale}/super-admin/models`);
 }
@@ -242,12 +245,16 @@ export async function addPlatformAdminAction(
   formData: FormData,
 ): Promise<string | undefined> {
   const parsed = addAdminSchema.safeParse({ email: formData.get("email"), locale: formData.get("locale") });
-  if (!parsed.success) return "VALIDATION_ERROR: enter a valid email.";
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("platform.validEmail");
 
   await requireSuperAdmin(parsed.data.locale);
   const supabase = await createUserClient();
   const { error } = await supabase.rpc("add_platform_admin", { p_email: parsed.data.email, p_level: "admin" });
-  if (error) return error.message.replace(/^[A-Z_]+: /, "");
+  if (error) {
+    if (/^NOT_FOUND: no account exists for /.test(error.message)) return t("platform.noAccount", { email: parsed.data.email });
+    return t("platform.adminFailed");
+  }
 
   revalidatePath(`/${parsed.data.locale}/super-admin/admins`);
 }

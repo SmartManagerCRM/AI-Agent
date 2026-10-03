@@ -6,6 +6,9 @@ import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const STATUS_STYLE: Record<string, string> = {
   active: "bg-emerald-50 text-emerald-700",
@@ -26,6 +29,8 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.billing");
+  const tAll = await getTranslations();
 
   const [{ data: subscription }, { data: plans }, { data: planCurrencies }] = await Promise.all([
     supabase.from("subscriptions").select("plan_key, status, trial_ends_at, current_period_end").eq("tenant_id", tenant.id).maybeSingle(),
@@ -41,38 +46,38 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Current subscription</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("current")}</h2>
         {subscription ? (
           <div className="flex flex-wrap items-center gap-3">
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${STATUS_STYLE[subscription.status] ?? "bg-slate-100 text-slate-500"}`}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[subscription.status] ?? "bg-slate-100 text-slate-500"}`}
             >
-              {subscription.status.replace("_", " ")}
+              {statusLabel(tAll, subscription.status)}
             </span>
-            <span className="text-sm font-medium capitalize text-slate-900">{subscription.plan_key}</span>
+            <span className="text-sm font-medium text-slate-900">{tAll.has(`common.plan.${subscription.plan_key}`) ? tAll(`common.plan.${subscription.plan_key}`) : subscription.plan_key}</span>
             {trialDaysRemaining !== null && (
               <span className="text-sm text-slate-500">
-                {trialDaysRemaining} day{trialDaysRemaining === 1 ? "" : "s"} left in trial
+                {t("trialLeft", { count: trialDaysRemaining })}
               </span>
             )}
             {subscription.current_period_end && (
               <span className="text-sm text-slate-500">
-                {subscription.status === "active" ? "Renews" : "Expires"} {new Date(subscription.current_period_end).toLocaleDateString(locale)}
+                {t(subscription.status === "active" ? "renews" : "expires", { date: new Date(subscription.current_period_end).toLocaleDateString(locale) })}
               </span>
             )}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">No active plan yet — pick one below to get started.</p>
+          <p className="text-sm text-slate-500">{t("noPlan")}</p>
         )}
       </section>
 
       {(usage?.isPaid || usage?.isTrial) && <UsageSection usage={usage} locale={locale} />}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-slate-900">Plans</h2>
+        <h2 className="text-sm font-semibold text-slate-900">{t("plans")}</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(plans ?? []).map((plan) => {
             const exponent = exponentByCode.get(plan.currency) ?? 2;
@@ -85,10 +90,10 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
                 <p className="font-semibold text-slate-900">{plan.name[locale] ?? plan.name.en ?? plan.key}</p>
                 <p className="text-2xl font-bold text-slate-900">
                   {formatMoney(plan.price_minor, plan.currency, exponent, locale)}
-                  <span className="text-sm font-normal text-slate-500"> / {plan.billing_interval}</span>
+                  <span className="text-sm font-normal text-slate-500"> / {t.has(`interval.${plan.billing_interval}`) ? t(`interval.${plan.billing_interval}`) : plan.billing_interval}</span>
                 </p>
                 {isCurrent ? (
-                  <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">Current plan</span>
+                  <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">{t("currentPlan")}</span>
                 ) : (
                   <form action={subscribeAction}>
                     <input type="hidden" name="tenantId" value={tenant.id} />
@@ -96,7 +101,7 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
                     <input type="hidden" name="locale" value={locale} />
                     <input type="hidden" name="slug" value={slug} />
                     <Button type="submit" className="w-fit">
-                      Subscribe
+                      {t("subscribe")}
                     </Button>
                   </form>
                 )}
@@ -109,10 +114,10 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
   );
 }
 
-const STATE_LABEL: Record<SubscriberUsage["conversationState"], { label: string; style: string }> = {
-  ok: { label: "Active", style: "bg-emerald-50 text-emerald-700" },
-  grace: { label: "Grace period", style: "bg-amber-50 text-amber-700" },
-  blocked: { label: "Limit reached", style: "bg-red-50 text-red-700" },
+const STATE_STYLE: Record<SubscriberUsage["conversationState"], string> = {
+  ok: "bg-emerald-50 text-emerald-700",
+  grace: "bg-amber-50 text-amber-700",
+  blocked: "bg-red-50 text-red-700",
 };
 
 const NOTICE_STYLE = {
@@ -123,6 +128,8 @@ const NOTICE_STYLE = {
 
 /** This billing period's (or the free trial's) customer conversations — never AI cost figures (the summary doesn't carry them). */
 function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: string }) {
+  const t = useTranslations("console.billing");
+  const tUsage = useTranslations("console.usage");
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
   const formatDateTime = (iso: string) =>
@@ -133,11 +140,11 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
   const trial = usage.isTrial;
   const state = trial
     ? usage.trialEnded
-      ? { label: "Trial ended", style: "bg-red-50 text-red-700" }
-      : { label: "Free trial", style: "bg-blue-50 text-blue-700" }
+      ? { label: t("trialEnded"), style: "bg-red-50 text-red-700" }
+      : { label: t("freeTrial"), style: "bg-blue-50 text-blue-700" }
     : usage.aiLimited
-      ? { label: "AI limited", style: "bg-red-50 text-red-700" }
-      : STATE_LABEL[usage.conversationState];
+      ? { label: t("aiLimited"), style: "bg-red-50 text-red-700" }
+      : { label: t(`state.${usage.conversationState}`), style: STATE_STYLE[usage.conversationState] };
   const barColor =
     usage.trialEnded || usage.conversationState !== "ok" || usage.warningLevel >= 95
       ? "bg-red-500"
@@ -150,7 +157,7 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-slate-900">{trial ? "Free trial usage" : "Usage this billing period"}</h2>
+        <h2 className="text-sm font-semibold text-slate-900">{trial ? t("trialUsage") : t("periodUsage")}</h2>
         <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${state.style}`}>{state.label}</span>
       </div>
 
@@ -162,9 +169,9 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
                 {usage.conversationsUsed.toLocaleString(locale)}
               </span>
               {" / "}
-              {limit.toLocaleString(locale)} customer conversations
+              {t("ofConversations", { limit: limit.toLocaleString(locale) })}
             </p>
-            <p className="text-sm text-slate-500">{remaining?.toLocaleString(locale)} remaining</p>
+            <p className="text-sm text-slate-500">{t("remaining", { n: (remaining ?? 0).toLocaleString(locale) })}</p>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(1, percent)}%` }} />
@@ -172,14 +179,14 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
         </div>
       ) : (
         <p className="text-sm text-slate-700">
-          {usage.conversationsUsed.toLocaleString(locale)} customer conversations — no limit on this plan.
+          {t("noLimit", { n: usage.conversationsUsed.toLocaleString(locale) })}
         </p>
       )}
 
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         {usage.periodStart && lastDay && (
           <div>
-            <dt className="text-slate-500">{trial ? "Trial period" : "Billing period"}</dt>
+            <dt className="text-slate-500">{trial ? t("trialPeriod") : t("billingPeriod")}</dt>
             <dd className="text-slate-900">
               {formatDate(usage.periodStart)} – {formatDate(lastDay)}
             </dd>
@@ -187,19 +194,19 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
         )}
         {usage.periodEnd && !trial && (
           <div>
-            <dt className="text-slate-500">Usage resets on</dt>
+            <dt className="text-slate-500">{t("resetsOn")}</dt>
             <dd className="text-slate-900">{formatDate(usage.periodEnd)}</dd>
           </div>
         )}
         {usage.conversationState === "grace" && usage.graceUntil && (
           <div>
-            <dt className="text-slate-500">Grace period ends</dt>
+            <dt className="text-slate-500">{t("graceEnds")}</dt>
             <dd className="text-slate-900">{formatDateTime(usage.graceUntil)}</dd>
           </div>
         )}
       </dl>
 
-      {usageNotices(usage, formatDate).map((notice) => (
+      {usageNotices(usage, formatDate, (key, values) => tUsage(key, values), (n) => n.toLocaleString(locale)).map((notice) => (
         <div key={notice.title} className={`rounded-lg border p-3 text-sm ${NOTICE_STYLE[notice.tone]}`}>
           <p className="font-medium">{notice.title}</p>
           <p className="mt-1">{notice.body}</p>
@@ -207,10 +214,11 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
       ))}
       <p className="text-xs text-slate-500">
         {trial
-          ? `One conversation is one customer chat session, however many messages it has. The free trial ends on ${
-              usage.trialEndsAt ? formatDate(usage.trialEndsAt) : "its end date"
-            }${limit !== null ? ` or after ${limit.toLocaleString(locale)} customer conversations` : ""}, whichever comes first.`
-          : "One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders keep working at any usage level."}
+          ? t("trialFootnote", {
+              date: usage.trialEndsAt ? formatDate(usage.trialEndsAt) : t("trialEndDate"),
+              limit: limit !== null ? t("orAfter", { limit: limit.toLocaleString(locale) }) : "",
+            })
+          : t("paidFootnote")}
       </p>
     </section>
   );

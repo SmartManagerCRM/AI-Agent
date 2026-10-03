@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAgentT } from "./agent-i18n";
 
+import { type AgentErrorCode, couponErrorCode } from "@/lib/agent-errors";
 import { formatMoney } from "@/lib/money";
 import type { CartView, PaymentMethod } from "@/server/commerce/cart";
 
@@ -34,11 +35,12 @@ function useLineName() {
   };
 }
 
-function ErrorNote({ message }: { message: string | null }) {
+function ErrorNote({ message }: { message: AgentErrorCode | null }) {
+  const t = useAgentT();
   if (!message) return null;
   return (
     <p role="alert" className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700 ring-1 ring-red-100">
-      {message}
+      {t(`errors.${message}`)}
     </p>
   );
 }
@@ -156,7 +158,7 @@ export function CartScreen() {
                   {t("cart.apply")}
                 </button>
               </div>
-              {cart.coupon && !cart.coupon.valid && cart.coupon.message && <p className="text-xs font-medium text-red-600">{cart.coupon.message}</p>}
+              {cart.coupon && !cart.coupon.valid && cart.coupon.message && <p className="text-xs font-medium text-red-600">{t(`errors.${couponErrorCode(cart.coupon.message)}`)}</p>}
               {cart.coupon?.valid && <p className="text-xs font-medium text-agent-700">✓ {t("cart.couponApplied")}</p>}
             </form>
 

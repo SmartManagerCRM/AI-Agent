@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -21,7 +22,7 @@ const businessSchema = z.object({
   slug: z.string(),
   locale: z.string(),
   nameLocale: z.string().regex(/^[a-z]{2}$/),
-  businessName: text(120).min(1, "Business name is required."),
+  businessName: text(120).min(1, "@platform.businessNameRequired"),
   businessTypeKey: z.string().min(1),
   status: z.enum(["onboarding", "active", "suspended", "closed"]),
   contactEmail: text(200),
@@ -36,10 +37,30 @@ const businessSchema = z.object({
   ownerPhone: text(40),
 });
 
-/** The database's VALIDATION_ERROR / NOT_FOUND message, else a generic one. */
-function dbMessage(message: string | undefined, fallback: string): string {
+type T = Awaited<ReturnType<typeof actionT>>;
+
+/** The database's VALIDATION_ERROR / NOT_FOUND reasons (supabase/migrations, admin_update_*) → actions.platform.db.*. */
+const DB_REASONS: [RegExp, string][] = [
+  [/^(business does not exist|no such business\.)$/, "db.noBusiness"],
+  [/^this business has no subscription$/, "db.noSubscription"],
+  [/^business name is required$/, "businessNameRequired"],
+  [/^trial end date is required$/, "trialEndRequired"],
+  [/^an active subscription needs its billing period start and end$/, "db.periodBoth"],
+  [/^set both billing period dates, or neither$/, "db.periodPair"],
+  [/^the billing period must end after it starts$/, "db.periodOrder"],
+  [/^invalid (business|subscription) status$/, "db.invalidStatus"],
+  [/^invalid contact email$/, "db.invalidEmail"],
+  [/^invalid (default language|language for the business name)$/, "db.invalidLanguage"],
+  [/^unknown business type$/, "db.unknownType"],
+  [/^(unknown or inactive plan .*|unknown plan|plan does not exist)$/, "db.unknownPlan"],
+  [/^unknown timezone$/, "db.unknownTimezone"],
+];
+
+/** The database's VALIDATION_ERROR / NOT_FOUND message in the user's language, else a generic one. */
+function dbMessage(t: T, message: string | undefined, fallbackKey: string): string {
   const m = /^(VALIDATION_ERROR|NOT_FOUND): (.+)$/.exec(message ?? "");
-  return m ? `VALIDATION_ERROR: ${m[2]}` : fallback;
+  const key = m ? DB_REASONS.find(([re]) => re.test(m[2]))?.[1] : undefined;
+  return `VALIDATION_ERROR: ${t(`platform.${key ?? fallbackKey}`)}`;
 }
 
 function fields<T extends z.ZodRawShape>(schema: z.ZodObject<T>, formData: FormData) {
@@ -51,7 +72,8 @@ export async function updateSubscriberBusinessAction(
   formData: FormData,
 ): Promise<string | undefined> {
   const parsed = businessSchema.safeParse(fields(businessSchema, formData));
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return `VALIDATION_ERROR: ${issueMessage(t, parsed.error.issues, "checkFields")}`;
   const d = parsed.data;
 
   await requireSuperAdmin(d.locale);
@@ -73,11 +95,11 @@ export async function updateSubscriberBusinessAction(
     p_owner_full_name: d.ownerFullName || null,
     p_owner_phone: d.ownerPhone || null,
   });
-  if (error) return dbMessage(error.message, "VALIDATION_ERROR: could not save the business — please try again.");
+  if (error) return dbMessage(t, error.message, "businessFailed");
 
   revalidatePath(`/${d.locale}/super-admin/subscribers`);
   revalidatePath(`/${d.locale}/super-admin/businesses/${d.slug}`);
-  return "Saved.";
+  return t("saved");
 }
 
 /** "2026-10-17T09:30" (UTC, from a datetime-local input) → ISO, or null when empty. */
@@ -88,7 +110,7 @@ const utcDateTime = z
     if (!v) return null;
     const t = Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? `${v}:00Z` : v);
     if (Number.isNaN(t)) {
-      ctx.addIssue({ code: "custom", message: "Invalid date." });
+      ctx.addIssue({ code: "custom", message: "@platform.invalidDate" });
       return z.NEVER;
     }
     return new Date(t).toISOString();
@@ -110,9 +132,10 @@ export async function updateSubscriberSubscriptionAction(
   formData: FormData,
 ): Promise<string | undefined> {
   const parsed = subscriptionSchema.safeParse(fields(subscriptionSchema, formData));
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return `VALIDATION_ERROR: ${issueMessage(t, parsed.error.issues, "checkFields")}`;
   const d = parsed.data;
-  if (!d.trialEndsAt) return "VALIDATION_ERROR: the trial end date is required.";
+  if (!d.trialEndsAt) return `VALIDATION_ERROR: ${t("platform.trialEndRequired")}`;
 
   await requireSuperAdmin(d.locale);
   const supabase = await createUserClient();
@@ -124,10 +147,10 @@ export async function updateSubscriberSubscriptionAction(
     p_current_period_start: d.currentPeriodStart,
     p_current_period_end: d.currentPeriodEnd,
   });
-  if (error) return dbMessage(error.message, "VALIDATION_ERROR: could not save the subscription — please try again.");
+  if (error) return dbMessage(t, error.message, "subscriptionFailed");
 
   revalidatePath(`/${d.locale}/super-admin/subscribers`);
   revalidatePath(`/${d.locale}/super-admin/usage`);
   revalidatePath(`/${d.locale}/super-admin/businesses/${d.slug}`);
-  return "Saved.";
+  return t("saved");
 }

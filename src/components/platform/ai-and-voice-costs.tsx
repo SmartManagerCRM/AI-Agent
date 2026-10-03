@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 import type { VoiceAccount } from "@/server/platform/voice-account";
 
 type Usage = {
@@ -20,6 +22,7 @@ const usd = (v: number, digits = 2) => `$${v.toFixed(digits)}`;
  * on its own, never part of the cap).
  */
 export function AiAndVoiceCosts({ usage, account, locale }: { usage: Usage; account: VoiceAccount; locale: string }) {
+  const t = useTranslations("platform.costs");
   const metered = usage.isPaid || usage.isTrial;
   const aiUsed = metered ? usage.aiCostUsed : usage.agentAiCost;
   const percent = usage.aiCostLimit ? Math.min(100, Math.round((aiUsed / usage.aiCostLimit) * 100)) : null;
@@ -28,10 +31,10 @@ export function AiAndVoiceCosts({ usage, account, locale }: { usage: Usage; acco
   return (
     <div className="grid gap-3 sm:grid-cols-2" data-testid="ai-voice-costs">
       <div className="rounded-lg border border-slate-200 p-3" data-testid="ai-agent-cost">
-        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">AI Agent cost</p>
+        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{t("aiTitle")}</p>
         <p className="mt-1 text-2xl font-semibold text-slate-900">
           {usd(aiUsed, 4)}
-          {usage.aiCostLimit !== null && <span className="text-sm font-normal text-slate-500"> / {usd(usage.aiCostLimit)} cap</span>}
+          {usage.aiCostLimit !== null && <span className="text-sm font-normal text-slate-500">{t("cap", { amount: usd(usage.aiCostLimit) })}</span>}
         </p>
         {percent !== null && (
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100" aria-hidden>
@@ -39,28 +42,31 @@ export function AiAndVoiceCosts({ usage, account, locale }: { usage: Usage; acco
           </div>
         )}
         <p className="mt-2 text-xs text-slate-500">
-          {usage.agentAiResponses.toLocaleString(locale)} AI replies this {usage.isTrial ? "trial" : "period"}. This is the only cost the
-          plan&apos;s AI cost cap covers.
+          {t("aiNote", { count: usage.agentAiResponses.toLocaleString(locale), period: usage.isTrial ? t("periodTrial") : t("periodBilling") })}
         </p>
       </div>
       <div className="rounded-lg border border-slate-200 p-3" data-testid="premium-voice-cost">
-        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">Premium voice (ElevenLabs)</p>
+        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{t("voiceTitle")}</p>
         <p className="mt-1 text-2xl font-semibold text-slate-900">
-          {account.free ? "Free" : usd(usage.agentVoiceCost, 4)}
+          {account.free ? t("free") : usd(usage.agentVoiceCost, 4)}
           {account.free && (
-            <span className="text-sm font-normal text-slate-500"> · ≈ {usd(usage.agentVoiceCost, 4)} at paid rates</span>
+            <span className="text-sm font-normal text-slate-500">{t("atPaid", { amount: usd(usage.agentVoiceCost, 4) })}</span>
           )}
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          {usage.agentVoiceClips.toLocaleString(locale)} clips · {usage.agentVoiceCharacters.toLocaleString(locale)} characters generated this period
-          (replays from the cache cost nothing). Not part of the AI cost cap.
+          {t("voiceNote", { clips: usage.agentVoiceClips.toLocaleString(locale), chars: usage.agentVoiceCharacters.toLocaleString(locale) })}
         </p>
         <p className={`mt-2 text-xs font-medium ${account.exhausted ? "text-red-600" : "text-slate-600"}`} data-testid="voice-account">
           {account.exhausted
-            ? `${account.free ? "Free-tier" : "Plan"} characters used up — every Agent speaks with the customer's device voice${resets ? ` until ${resets}` : ""}.`
+            ? t(account.free ? "usedUpFree" : "usedUpPlan", { until: resets ? t("until", { date: resets }) : "" })
             : q
-              ? `ElevenLabs ${q.tier === "free" ? "free tier" : `${q.tier ?? ""} plan`}: ${q.used.toLocaleString(locale)} / ${q.limit.toLocaleString(locale)} characters used this month${resets ? ` · resets ${resets}` : ""}. When they run out, Agents switch to the device voice automatically.`
-              : "ElevenLabs allowance not readable (the API key needs the “User → Read” permission). Agents still switch to the device voice if ElevenLabs refuses for quota."}
+              ? t("quota", {
+                  tier: q.tier === "free" ? t("freeTier") : t("plan", { tier: q.tier ?? "" }),
+                  used: q.used.toLocaleString(locale),
+                  limit: q.limit.toLocaleString(locale),
+                  resets: resets ? t("resets", { date: resets }) : "",
+                })
+              : t("unreadable")}
         </p>
       </div>
     </div>

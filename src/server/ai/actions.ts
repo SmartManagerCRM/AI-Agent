@@ -12,6 +12,7 @@ import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
 import { runAgentGateway, type GatewayResult } from "@/server/ai/gateway";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 const greetingText = z.string().trim().max(300).optional().or(z.literal(""));
 
@@ -38,7 +39,7 @@ export async function updateAgentSettingsAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -68,7 +69,7 @@ export async function updateAgentSettingsAction(
       },
     })
     .eq("tenant_id", parsed.data.tenantId);
-  if (error) return "VALIDATION_ERROR: could not save Agent settings — please try again.";
+  if (error) return (await actionT(parsed.data.locale))("agent.settingsFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
 }
@@ -88,33 +89,34 @@ export type AgentBackgroundState = { ok: boolean; message: string } | undefined;
  * permission to change settings changes nothing and the file is removed.
  */
 export async function updateAgentBackgroundAction(_prev: AgentBackgroundState, formData: FormData): Promise<AgentBackgroundState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = backgroundSchema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
-  if (!parsed.success) return { ok: false, message: "Something went wrong — please reload the page." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const remove = formData.get("remove") === "on";
   const file = formData.get("photo");
-  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: "Choose a photo first." };
-  if (file instanceof File && file.size > MAX_BACKGROUND_BYTES) return { ok: false, message: "That photo is larger than 6 MB. Choose a smaller one." };
+  if (!remove && (!(file instanceof File) || file.size === 0)) return { ok: false, message: t("agent.choosePhoto") };
+  if (file instanceof File && file.size > MAX_BACKGROUND_BYTES) return { ok: false, message: t("agent.photoTooLarge") };
 
   let storage;
   try {
     storage = bucketWriter(serviceClient());
   } catch {
-    return { ok: false, message: "Photos can't be stored on this server yet (storage isn't configured)." };
+    return { ok: false, message: t("agent.photoNoStorage") };
   }
   const supabase = await createUserClient();
   const { data: current } = await supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle();
-  if (!current) return { ok: false, message: "Only the business owner or an admin can change the Agent." };
+  if (!current) return { ok: false, message: t("agent.noPermission") };
   const previous = current.agent?.background_path ?? null;
 
   let path: string | null = null;
   if (!remove && file instanceof File) {
     const image = await normalizeImage(new Uint8Array(await file.arrayBuffer()), { maxEdge: BACKGROUND_EDGE }).catch(() => null);
-    if (!image) return { ok: false, message: "That photo couldn't be used. Upload a JPG, PNG or WebP picture." };
+    if (!image) return { ok: false, message: t("agent.photoUnusable") };
     const hash = createHash("sha256").update(image.data).digest("hex").slice(0, 16);
     path = `${tenant.id}/agent-background-${hash}.webp`;
     if (path !== previous && !(await storage.upload(path, image.data, image.contentType))) {
-      return { ok: false, message: "The photo couldn't be saved — please try again." };
+      return { ok: false, message: t("agent.photoSaveFailed") };
     }
   }
 
@@ -125,11 +127,11 @@ export async function updateAgentBackgroundAction(_prev: AgentBackgroundState, f
     .select("tenant_id");
   if (!updated || updated.length === 0) {
     if (path && path !== previous) await storage.remove([path]);
-    return { ok: false, message: "Only the business owner or an admin can change the Agent." };
+    return { ok: false, message: t("agent.noPermission") };
   }
   if (previous && previous !== path) await storage.remove([previous]);
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/agent`);
-  return { ok: true, message: path ? "Background photo saved — it now shows behind your Agent." : "Background photo removed." };
+  return { ok: true, message: path ? t("agent.backgroundSaved") : t("agent.backgroundRemoved") };
 }
 
 const testMessageSchema = z.object({
@@ -161,7 +163,7 @@ export async function testAgentMessageAction(_prevState: TestAgentState, formDat
     locale: formData.get("locale"),
     message: formData.get("message"),
   });
-  if (!parsed.success) return { message: "", error: "Enter a message to test." };
+  if (!parsed.success) return { message: "", error: (await actionT(formData.get("locale")))("agent.enterMessage") };
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();

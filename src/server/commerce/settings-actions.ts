@@ -1,5 +1,6 @@
 "use server";
 
+import { actionT } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -40,13 +41,14 @@ export async function updateCheckoutSettingsAction(
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return t("checkFields");
 
   const fulfillmentTypes: ("pickup" | "delivery" | "dine_in")[] = [];
   if (parsed.data.pickup === "on") fulfillmentTypes.push("pickup");
   if (parsed.data.delivery === "on") fulfillmentTypes.push("delivery");
   if (parsed.data.dineIn === "on") fulfillmentTypes.push("dine_in");
-  if (fulfillmentTypes.length === 0) return "VALIDATION_ERROR: enable at least one fulfillment method.";
+  if (fulfillmentTypes.length === 0) return t("checkout.oneMethod");
 
   await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
@@ -65,7 +67,7 @@ export async function updateCheckoutSettingsAction(
       },
     })
     .eq("tenant_id", parsed.data.tenantId);
-  if (error) return "VALIDATION_ERROR: could not save checkout settings — please try again.";
+  if (error) return t("checkout.saveFailed");
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/settings`);
 }

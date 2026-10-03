@@ -6,6 +6,8 @@ import { publicAgentUrls } from "@/server/agent-public/urls";
 import { setTableActiveAction } from "@/server/commerce/table-actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
 
 /**
  * Per-branch tables + real QR codes (Customer Agent Master Prompt §25
@@ -21,6 +23,8 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const tr = await getTranslations("console.tables");
+  const tAll = await getTranslations();
 
   const [{ data: branches }, { data: tables }] = await Promise.all([
     supabase.from("branches").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("created_at"),
@@ -45,15 +49,14 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Tables</h1>
+        <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.tables.tables" /></h1>
         <p className="mt-1 text-sm text-slate-500">
-          Print a table&apos;s QR code and put it on the table — scanning it opens your Agent already set to dine-in for
-          that exact table.
+          <Msg id="console.tables.printATableSQr" />
         </p>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Add a table</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.tables.addATable" /></h2>
         <CreateTableForm
           tenantId={tenant.id}
           slug={slug}
@@ -63,7 +66,7 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Your tables</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.tables.yourTables" /></h2>
         {tablesWithQr.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {tablesWithQr.map((t) => (
@@ -72,9 +75,9 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
                 className="flex flex-col items-center gap-2 rounded-lg border border-slate-100 p-3 text-center"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
-                <img src={t.qrDataUrl} alt={`QR code for table ${t.label}`} width={120} height={120} />
+                <img src={t.qrDataUrl} alt={tr("qrAlt", { label: t.label })} width={120} height={120} />
                 <p className="text-sm font-medium text-slate-900">
-                  Table {t.label}{" "}
+                  {tr("table", { label: t.label })}{" "}
                   <span className="font-normal text-slate-400">— {branchNameById.get(t.branch_id)}</span>
                 </p>
                 <form action={setTableActiveAction}>
@@ -83,14 +86,14 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
                   <input type="hidden" name="locale" value={locale} />
                   <input type="hidden" name="slug" value={slug} />
                   <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                    {t.is_active ? "Active" : "Inactive"}
+                    {t.is_active ? tAll("common.active") : tAll("common.inactive")}
                   </button>
                 </form>
               </div>
             ))}
           </div>
         ) : (
-          <EmptyState title="No tables yet" description="Add a table above to generate its QR code." />
+          <EmptyState title={tr("emptyTitle")} description={tr("emptyDescription")} />
         )}
       </section>
     </div>

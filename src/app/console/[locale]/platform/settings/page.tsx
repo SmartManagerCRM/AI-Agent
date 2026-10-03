@@ -3,11 +3,13 @@ import { PlatformSettingsForm } from "@/components/platform/platform-settings-fo
 import { setBusinessTypeActiveAction } from "@/server/platform/business-type-actions";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
 
 export default async function PlatformSettingsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const tr = await getTranslations("platform.settings");
 
   const [{ data: settings }, { data: businessTypes }] = await Promise.all([
     // The AI budget column is hidden from signed-in users (column grants); Super Admin checked above.
@@ -23,7 +25,7 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Platform Settings</h1>
+      <h1 className="text-2xl font-semibold text-slate-900">{tr("title")}</h1>
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <PlatformSettingsForm
           locale={locale}
@@ -40,7 +42,7 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
       </section>
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Business types</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{tr("types")}</h2>
         <div className="mb-4">
           <CreateBusinessTypeForm locale={locale} />
         </div>
@@ -59,7 +61,7 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
                 <input type="hidden" name="value" value={(!t.is_active).toString()} />
                 <input type="hidden" name="locale" value={locale} />
                 <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                  {t.is_active ? "Active" : "Inactive"}
+                  {t.is_active ? tr("active") : tr("inactive")}
                 </button>
               </form>
             </div>

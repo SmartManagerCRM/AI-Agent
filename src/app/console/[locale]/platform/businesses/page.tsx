@@ -4,6 +4,9 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { setTenantStatusAction } from "@/server/platform/actions";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { createUserClient } from "@/server/supabase/clients";
+import { getTranslations } from "next-intl/server";
+import { RichMsg } from "@/components/i18n/msg";
+import { statusLabel } from "@/lib/i18n-labels";
 
 const NEXT_STATUSES: Record<string, ("active" | "suspended" | "closed")[]> = {
   onboarding: ["active"],
@@ -33,6 +36,8 @@ export default async function BusinessesPage({
   const statusFilter = (STATUS_FILTERS as readonly string[]).includes(statusParam ?? "") ? statusParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const t = await getTranslations("platform.businessList");
+  const tAll = await getTranslations();
 
   const [{ data: tenants }, { data: subscriptions }, { data: tenantSettings }, { data: businessTypes }] =
     await Promise.all([
@@ -46,7 +51,7 @@ export default async function BusinessesPage({
     ]);
 
   const subByTenant = new Map((subscriptions ?? []).map((s) => [s.tenant_id, s]));
-  const typeNameByKey = new Map((businessTypes ?? []).map((t) => [t.key, t.name.en ?? t.key]));
+  const typeNameByKey = new Map((businessTypes ?? []).map((t) => [t.key, t.name[locale] ?? t.name.en ?? t.key]));
   const agentActiveByTenant = new Map(
     (tenantSettings ?? []).map((s) => [s.tenant_id, (s.agent as { active?: boolean } | null)?.active === true]),
   );
@@ -61,28 +66,28 @@ export default async function BusinessesPage({
   return (
     <div className="flex max-w-6xl flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Businesses</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
         <a
           href="/api/super-admin/export/businesses"
           className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
         >
-          Export CSV
+          {t("export")}
         </a>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="building" accent="emerald" label="Total businesses" value={String(all.length)} trend={null} href={base} />
-        <KpiTile icon="agent" accent="blue" label="Active" value={String(activeCount)} trend={null} href={`${base}?status=active`} />
-        <KpiTile icon="customers" accent="orange" label="Onboarding" value={String(onboardingCount)} trend={null} href={`${base}?status=onboarding`} />
-        <KpiTile icon="alert" accent="purple" label="Suspended" value={String(suspendedCount)} trend={null} href={`${base}?status=suspended`} />
+        <KpiTile icon="building" accent="emerald" label={t("total")} value={String(all.length)} trend={null} href={base} />
+        <KpiTile icon="agent" accent="blue" label={t("active")} value={String(activeCount)} trend={null} href={`${base}?status=active`} />
+        <KpiTile icon="customers" accent="orange" label={t("onboarding")} value={String(onboardingCount)} trend={null} href={`${base}?status=onboarding`} />
+        <KpiTile icon="alert" accent="purple" label={t("suspended")} value={String(suspendedCount)} trend={null} href={`${base}?status=suspended`} />
       </div>
 
       {statusFilter && (
         <p className="text-sm text-slate-600">
-          Showing <span className="font-medium capitalize">{statusFilter}</span> businesses ·{" "}
+          <RichMsg id="platform.businessList.showing" values={{ status: statusLabel(tAll, statusFilter), b: (c) => <span className="font-medium">{c}</span> }} />{" "}
           <Link href={base} prefetch={false} className="font-medium text-emerald-700 hover:underline">
-            Show all
+            {t("showAll")}
           </Link>
         </p>
       )}
@@ -93,13 +98,13 @@ export default async function BusinessesPage({
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">Business</th>
-                  <th className="py-2 text-start font-medium">Type</th>
-                  <th className="py-2 text-start font-medium">Country</th>
-                  <th className="py-2 text-start font-medium">Agent</th>
-                  <th className="py-2 text-start font-medium">Subscription</th>
-                  <th className="py-2 text-start font-medium">Status</th>
-                  <th className="py-2 text-start font-medium">Actions</th>
+                  <th className="py-2 text-start font-medium">{t("col.business")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.type")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.country")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.agent")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.subscription")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.status")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -118,7 +123,7 @@ export default async function BusinessesPage({
                           prefetch={false}
                           className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
                         >
-                          {tenant.business_name.en ?? tenant.slug}
+                          {tenant.business_name[locale] ?? tenant.business_name.en ?? tenant.slug}
                         </Link>
                         <p className="text-xs text-slate-400">/{tenant.slug}</p>
                       </td>
@@ -135,19 +140,19 @@ export default async function BusinessesPage({
                           <span
                             className={`h-1.5 w-1.5 rounded-full ${agentActive ? "bg-emerald-500" : "bg-slate-400"}`}
                           />
-                          {agentActive ? "Active" : "Inactive"}
+                          {agentActive ? t("agentActive") : t("agentInactive")}
                         </span>
                       </td>
-                      <td className="py-2 capitalize text-slate-600">
+                      <td className="py-2 text-slate-600">
                         {subscription
-                          ? `${subscription.plan_key} — ${subscription.status.replace("_", " ")}`
-                          : "No plan"}
+                          ? `${tAll.has(`common.plan.${subscription.plan_key}`) ? tAll(`common.plan.${subscription.plan_key}`) : subscription.plan_key} — ${statusLabel(tAll, subscription.status)}`
+                          : t("noPlan")}
                       </td>
                       <td className="py-2">
                         <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[tenant.status]}`}
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[tenant.status]}`}
                         >
-                          {tenant.status}
+                          {statusLabel(tAll, tenant.status)}
                         </span>
                       </td>
                       <td className="py-2">
@@ -159,9 +164,9 @@ export default async function BusinessesPage({
                               <input type="hidden" name="locale" value={locale} />
                               <button
                                 type="submit"
-                                className="text-xs font-medium capitalize text-emerald-600 hover:underline"
+                                className="text-xs font-medium text-emerald-600 hover:underline"
                               >
-                                {next}
+                                {t(`action.${next}`)}
                               </button>
                             </form>
                           ))}
@@ -175,8 +180,8 @@ export default async function BusinessesPage({
           </div>
         ) : (
           <EmptyState
-            title={statusFilter ? "No businesses with this status" : "No businesses yet"}
-            description={statusFilter ? "Try another filter." : "Businesses will appear here as they sign up."}
+            title={statusFilter ? t("noStatus") : t("empty")}
+            description={statusFilter ? t("tryAnother") : t("emptyDescription")}
           />
         )}
       </section>

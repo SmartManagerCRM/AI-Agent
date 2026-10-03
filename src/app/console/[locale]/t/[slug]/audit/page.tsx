@@ -1,5 +1,7 @@
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { getTranslations } from "next-intl/server";
+import { auditActionLabel } from "@/lib/i18n-labels";
 
 /**
  * Read-only audit log (spec §98 Phase 8, `audit.read` — seeded since
@@ -12,6 +14,8 @@ export default async function AuditLogPage({ params }: { params: Promise<{ local
   const { locale, slug } = await params;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.audit");
+  const tAll = await getTranslations();
 
   const { data: entries } = await supabase
     .from("audit_logs")
@@ -22,21 +26,21 @@ export default async function AuditLogPage({ params }: { params: Promise<{ local
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Audit log</h1>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <table className="w-full text-start text-sm">
         <thead>
           <tr className="border-b border-neutral-200 text-neutral-500">
-            <th className="py-2 text-start">When</th>
-            <th className="py-2 text-start">Action</th>
-            <th className="py-2 text-start">Entity</th>
-            <th className="py-2 text-start">Details</th>
+            <th className="py-2 text-start">{t("when")}</th>
+            <th className="py-2 text-start">{t("action")}</th>
+            <th className="py-2 text-start">{t("entity")}</th>
+            <th className="py-2 text-start">{t("details")}</th>
           </tr>
         </thead>
         <tbody>
           {(entries ?? []).map((entry) => (
             <tr key={entry.id} className="border-b border-neutral-100 align-top">
               <td className="py-2 whitespace-nowrap">{new Date(entry.at).toLocaleString(locale)}</td>
-              <td className="py-2">{entry.action}</td>
+              <td className="py-2">{auditActionLabel(tAll, entry.action)}</td>
               <td className="py-2">{entry.entity}</td>
               <td className="py-2 font-mono text-xs text-neutral-500">{entry.diff ? JSON.stringify(entry.diff) : "—"}</td>
             </tr>
@@ -44,7 +48,7 @@ export default async function AuditLogPage({ params }: { params: Promise<{ local
           {(entries ?? []).length === 0 && (
             <tr>
               <td colSpan={4} className="py-4 text-center text-neutral-400">
-                Nothing recorded yet.
+                {t("empty")}
               </td>
             </tr>
           )}

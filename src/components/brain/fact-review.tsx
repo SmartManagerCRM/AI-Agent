@@ -1,4 +1,7 @@
+import { useTranslations } from "next-intl";
+
 import { Button } from "@/components/console/button";
+import { RichMsg } from "@/components/i18n/msg";
 import {
   approveBrainEntryAction,
   approveSafeSuggestionsAction,
@@ -21,27 +24,18 @@ type Entry = Pick<
   | "expires_at"
 >;
 
-const GROUPS: { key: string; title: string; types: string[] }[] = [
-  { key: "business", title: "Business details", types: ["identity", "business_type", "about"] },
-  { key: "contact", title: "Contact & location", types: ["contact", "location"] },
-  { key: "hours", title: "Opening hours & service options", types: ["hours", "capability"] },
-  { key: "offerings", title: "Products & services", types: ["product_candidate", "service_candidate"] },
-  { key: "policies", title: "Policies", types: ["policy"] },
-  { key: "faq", title: "Frequently asked questions", types: ["faq"] },
+const GROUPS: { key: string; types: string[] }[] = [
+  { key: "business", types: ["identity", "business_type", "about"] },
+  { key: "contact", types: ["contact", "location"] },
+  { key: "hours", types: ["hours", "capability"] },
+  { key: "offerings", types: ["product_candidate", "service_candidate"] },
+  { key: "policies", types: ["policy"] },
+  { key: "faq", types: ["faq"] },
 ];
 const CRITICAL = new Set(["hours", "capability", "product_candidate", "service_candidate", "policy"]);
 const MAX_PER_GROUP = 60;
 
-const METHOD_LABEL: Record<string, string> = {
-  ocr: "Menu image · OCR",
-  vision: "Menu image · read by vision model — verify",
-  structured_api: "Google Maps",
-  structured_data: "Website (structured data)",
-  deterministic: "Website",
-  ai: "Website · read by AI — verify",
-  inferred: "AI summary — verify",
-  owner: "You",
-};
+type T = { (key: string, values?: Record<string, string | number>): string; has(key: string): boolean };
 
 function contentOf(entry: Entry): {
   display: string;
@@ -84,6 +78,7 @@ export function FactReview({
   locale: string;
   currency: string;
 }) {
+  const t = useTranslations("console.factReview");
   if (entries.length === 0) return null;
   // One value per fact is approved in bulk (the same rule `approveSafeSuggestionsAction` applies).
   const safeCount = new Set(
@@ -104,11 +99,10 @@ export function FactReview({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">
-            Review what we found ({new Set(entries.map((e) => e.fact_key ?? e.id)).size})
+            {t("title", { count: new Set(entries.map((e) => e.fact_key ?? e.id)).size })}
           </h2>
           <p className="text-xs text-slate-500">
-            Items marked <span className="font-medium text-amber-700">Check carefully</span> (prices, hours, policies,
-            delivery) are never approved automatically.
+            <RichMsg id="console.factReview.hint" values={{ mark: (chunks) => <span className="font-medium text-amber-700">{chunks}</span> }} />
           </p>
         </div>
         {safeCount > 0 && (
@@ -116,7 +110,7 @@ export function FactReview({
             <input type="hidden" name="slug" value={slug} />
             <input type="hidden" name="locale" value={locale} />
             <Button type="submit" variant="secondary" className="px-3 py-1.5 text-xs">
-              Approve {safeCount} high-confidence detail{safeCount === 1 ? "" : "s"}
+              {t("approveSafe", { count: safeCount })}
             </Button>
           </form>
         )}
@@ -136,7 +130,7 @@ export function FactReview({
               className="scroll-mt-20"
             >
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {group.title} <span className="font-normal normal-case">({clusters.length})</span>
+                {t(`group.${group.key}`)} <span className="font-normal normal-case">({clusters.length})</span>
               </h3>
               <ul className="flex flex-col gap-2">
                 {clusters.slice(0, MAX_PER_GROUP).flatMap((cluster) =>
@@ -167,7 +161,7 @@ export function FactReview({
               </ul>
               {clusters.length > MAX_PER_GROUP && (
                 <p className="mt-2 text-xs text-slate-500">
-                  {clusters.length - MAX_PER_GROUP} more — confirm or reject these first to see the rest.
+                  {t("more", { n: clusters.length - MAX_PER_GROUP })}
                 </p>
               )}
             </div>
@@ -176,7 +170,7 @@ export function FactReview({
       </div>
       {hasGoogle && (
         <p className="mt-4 text-xs text-slate-400">
-          Some details are from Google Maps. Unconfirmed Google details are removed automatically after 30 days.
+          {t("googleNote")}
         </p>
       )}
     </section>
@@ -205,21 +199,15 @@ function clusterByFact(items: Entry[], conflictKeys: Set<string>): { entries: En
   }));
 }
 
-const SOURCE_NAME: Record<string, string> = {
-  google_business: "Google Maps",
-  website: "Website",
-  online_menu: "Menu page",
-  online_ordering: "Online ordering",
-  image: "Menu image",
-  manual: "You",
-};
+const sourceName = (t: T, sourceType: string) => (t.has(`source.${sourceType}`) ? t(`source.${sourceType}`) : sourceType.replace(/_/g, " "));
 
-function sourceLabel(entry: Entry): string {
+function sourceLabel(t: T, entry: Entry): string {
   if (entry.source_type === "online_ordering" || entry.source_type === "online_menu") {
-    const base = SOURCE_NAME[entry.source_type];
-    return entry.extraction_method === "ai" ? `${base} · read by AI — verify` : base;
+    const base = sourceName(t, entry.source_type);
+    return entry.extraction_method === "ai" ? t("readByAi", { source: base }) : base;
   }
-  return METHOD_LABEL[entry.extraction_method ?? ""] ?? entry.source_type.replace(/_/g, " ");
+  const method = `method.${entry.extraction_method ?? ""}`;
+  return t.has(method) ? t(method) : entry.source_type.replace(/_/g, " ");
 }
 
 function FactRow({
@@ -237,6 +225,7 @@ function FactRow({
   locale: string;
   currency: string;
 }) {
+  const t = useTranslations("console.factReview");
   const c = contentOf(entry);
   const critical = CRITICAL.has(entry.entry_type);
   const isOffering = entry.entry_type === "product_candidate" || entry.entry_type === "service_candidate";
@@ -261,8 +250,8 @@ function FactRow({
             {c.display.length > 400 ? `${c.display.slice(0, 400)}…` : c.display}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-            <span>{sourceLabel(entry)}</span>
-            {entry.confidence_score !== null && <span>· {entry.confidence_score}% confidence</span>}
+            <span>{sourceLabel(t, entry)}</span>
+            {entry.confidence_score !== null && <span>{t("confidence", { n: entry.confidence_score })}</span>}
             {c.category && <span>· {c.category}</span>}
             {entry.source_url && (
               <a
@@ -271,7 +260,7 @@ function FactRow({
                 rel="noopener noreferrer nofollow"
                 className="text-emerald-700 hover:underline"
               >
-                · source
+                {t("sourceLink")}
               </a>
             )}
             {c.imageUrl && (
@@ -281,16 +270,16 @@ function FactRow({
                 rel="noopener noreferrer nofollow"
                 className="text-emerald-700 hover:underline"
               >
-                · menu image
+                {t("menuImage")}
               </a>
             )}
-            {entry.last_seen_at && <span>· seen {new Date(entry.last_seen_at).toLocaleDateString(locale)}</span>}
-            {expiresIn !== null && <span>· expires in {expiresIn}d unless confirmed</span>}
+            {entry.last_seen_at && <span>{t("seen", { date: new Date(entry.last_seen_at).toLocaleDateString(locale) })}</span>}
+            {expiresIn !== null && <span>{t("expires", { n: expiresIn })}</span>}
             {critical && (
-              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">Check carefully</span>
+              <span className="rounded-full bg-amber-50 px-1.5 py-0.5 font-medium text-amber-700">{t("checkCarefully")}</span>
             )}
             {conflicted && (
-              <span className="rounded-full bg-red-50 px-1.5 py-0.5 font-medium text-red-700">Sources disagree</span>
+              <span className="rounded-full bg-red-50 px-1.5 py-0.5 font-medium text-red-700">{t("disagree")}</span>
             )}
           </div>
         </div>
@@ -304,7 +293,7 @@ function FactRow({
               <input type="hidden" name="name" value={offering.name ?? ""} />
               <input type="hidden" name="amount" value={offering.amount} />
               <Button type="submit" variant="secondary" className="px-2 py-1 text-xs text-emerald-700">
-                Confirm as {offering.amount} {currency}
+                {t("confirmAs", { amount: offering.amount, currency })}
               </Button>
             </form>
           ) : (
@@ -313,7 +302,7 @@ function FactRow({
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="locale" value={locale} />
               <Button type="submit" variant="secondary" className="px-2 py-1 text-xs text-emerald-700">
-                {conflicted ? "Use this" : "Confirm"}
+                {conflicted ? t("useThis") : t("confirm")}
               </Button>
             </form>
           )}
@@ -322,14 +311,14 @@ function FactRow({
             <input type="hidden" name="slug" value={slug} />
             <input type="hidden" name="locale" value={locale} />
             <Button type="submit" variant="danger" className="px-2 py-1 text-xs">
-              Reject
+              {t("reject")}
             </Button>
           </form>
         </div>
       </div>
       {editable && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-medium text-slate-600">Edit &amp; confirm</summary>
+          <summary className="cursor-pointer text-xs font-medium text-slate-600">{t("editConfirm")}</summary>
           <form action={confirmFactWithEditAction} className="mt-2 flex flex-wrap items-end gap-2">
             <input type="hidden" name="entryId" value={entry.id} />
             <input type="hidden" name="slug" value={slug} />
@@ -337,7 +326,7 @@ function FactRow({
             {offering ? (
               <>
                 <label className="flex flex-col gap-1 text-xs">
-                  Name
+                  {t("name")}
                   <input
                     name="name"
                     defaultValue={offering.name ?? ""}
@@ -347,19 +336,19 @@ function FactRow({
                   />
                 </label>
                 <label className="flex flex-col gap-1 text-xs">
-                  Price ({currency})
+                  {t("price", { currency })}
                   <input
                     name="amount"
                     defaultValue={offering.amount ?? ""}
                     inputMode="decimal"
-                    placeholder="Leave empty if unknown"
+                    placeholder={t("leaveEmpty")}
                     className="w-36 rounded-md border border-slate-300 px-2 py-1 text-sm"
                   />
                 </label>
               </>
             ) : (
               <label className="flex min-w-64 flex-1 flex-col gap-1 text-xs">
-                Correct value
+                {t("correctValue")}
                 <textarea
                   name="value"
                   defaultValue={c.display}
@@ -372,22 +361,19 @@ function FactRow({
               </label>
             )}
             <Button type="submit" className="px-3 py-1.5 text-xs">
-              Save &amp; confirm
+              {t("saveConfirm")}
             </Button>
           </form>
         </details>
       )}
       {alsoSeen.length > 0 && (
         <p className="mt-1.5 text-xs text-slate-500" dir="auto">
-          Also found in:{" "}
-          {alsoSeen
-            .map((other) => `${SOURCE_NAME[other.source_type] ?? other.source_type} (${contentOf(other).display})`)
-            .join(" · ")}
+          {t("alsoFound", { list: alsoSeen.map((other) => `${sourceName(t, other.source_type)} (${contentOf(other).display})`).join(" · ") })}
         </p>
       )}
       {entry.entry_type === "hours" && (
         <p className="mt-1 text-xs text-slate-500">
-          Hours set on your branch (in Branches) always take priority over these.
+          {t("hoursNote")}
         </p>
       )}
     </li>

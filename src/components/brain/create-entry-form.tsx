@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useActionState } from "react";
 
 import { Button } from "@/components/console/button";
@@ -20,6 +21,8 @@ const ENTRY_TYPES = [
 ] as const;
 
 export function CreateEntryForm({ tenantId, slug, locale }: Props) {
+const t = useTranslations("console.entryForm");
+const tBrain = useTranslations("console.brain");
   const [error, formAction, pending] = useActionState(createBrainEntryAction, undefined);
 
   return (
@@ -29,33 +32,33 @@ export function CreateEntryForm({ tenantId, slug, locale }: Props) {
       <input type="hidden" name="locale" value={locale} />
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          Type
+          {t("type")}
           <select name="entryType" className="rounded-md border border-neutral-300 px-3 py-2">
             {ENTRY_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type.replace("_", " ")}
+                {tBrain(`entryType.${type}`)}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          Key
+          {t("key")}
           <input
             name="entryKey"
             required
-            placeholder="e.g. delivery-area"
+            placeholder={t("keyPlaceholder")}
             pattern="[a-z0-9][a-z0-9\-]{0,78}[a-z0-9]?"
             className="rounded-md border border-neutral-300 px-3 py-2"
           />
         </label>
       </div>
       <label className="flex flex-col gap-1 text-sm">
-        Content
+        {t("content")}
         <textarea name="text" required rows={3} maxLength={4000} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">
-        Add entry
+        {t("add")}
       </Button>
     </form>
   );

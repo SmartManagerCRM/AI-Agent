@@ -1,3 +1,6 @@
+import { useTranslations } from "next-intl";
+
+import { statusLabel } from "@/lib/i18n-labels";
 import { orderStatusGroup } from "@/lib/order-status";
 
 const GROUP_STYLE: Record<string, string> = {
@@ -8,10 +11,11 @@ const GROUP_STYLE: Record<string, string> = {
 };
 
 export function StatusPill({ status }: { status: string }) {
+  const t = useTranslations();
   const group = orderStatusGroup(status);
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium capitalize ${GROUP_STYLE[group]}`}>
-      {status.replace(/_/g, " ")}
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${GROUP_STYLE[group]}`}>
+      {statusLabel(t, status)}
     </span>
   );
 }

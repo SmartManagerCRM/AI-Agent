@@ -13,6 +13,8 @@ import { setProductStatusAction } from "@/server/catalog/actions";
 import { timed } from "@/server/perf";
 import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { Msg } from "@/components/i18n/msg";
+import { getTranslations } from "next-intl/server";
 
 /** 16 rows of the 3-column grid. */
 const PAGE_SIZE = 48;
@@ -80,6 +82,7 @@ export default async function ProductsPage({
   const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
+  const t = await getTranslations("console.products");
 
   const countProducts = () =>
     supabase.from("products").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).neq("status", "archived");
@@ -115,18 +118,18 @@ export default async function ProductsPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-slate-900">Products &amp; Services</h1>
-        <SearchInput placeholder="Search products..." defaultValue={q} />
+        <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.products.productsServices" /></h1>
+        <SearchInput placeholder={t("searchPlaceholder")} defaultValue={q} />
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="products" accent="emerald" label="Total products" value={String(productCount)} trend={null} href={`/${locale}/${slug}/products#products`} />
-        <KpiTile icon="orders" accent="blue" label="Active" value={String(activeCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
-        <KpiTile icon="billing" accent="orange" label="Draft" value={String(draftCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
+        <KpiTile icon="products" accent="emerald" label={t("totalProducts")} value={String(productCount)} trend={null} href={`/${locale}/${slug}/products#products`} />
+        <KpiTile icon="orders" accent="blue" label={t("active")} value={String(activeCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
+        <KpiTile icon="billing" accent="orange" label={t("draft")} value={String(draftCount ?? 0)} trend={null} href={`/${locale}/${slug}/products#products`} />
         <KpiTile
           icon="branches"
           accent="purple"
-          label="Categories"
+          label={t("categories")}
           value={String((categories ?? []).length)}
           trend={null}
           href={`/${locale}/${slug}/products#categories`}
@@ -134,7 +137,7 @@ export default async function ProductsPage({
       </div>
 
       <section id="categories" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Categories</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.products.categories" /></h2>
         <CreateCategoryForm tenantId={tenant.id} slug={slug} locale={locale} />
         <ul className="mt-3 flex flex-wrap gap-2 text-sm">
           {(categories ?? []).map((category) => (
@@ -146,12 +149,11 @@ export default async function ProductsPage({
       </section>
 
       <section id="import" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Add products from a file</h2>
+        <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.products.addProductsFromAFile" /></h2>
         <FileImportForm slug={slug} locale={locale} defaultKind="product" />
         <div className="mt-4 border-t border-slate-100 pt-3">
           <p className="mb-2 text-xs text-slate-500">
-            What the Business Brain finds is added here automatically. Approved before this page existed, or added
-            nothing? Bring everything in now:
+            <Msg id="console.products.whatTheBusinessBrainFinds" />
           </p>
           <BrainSyncButton slug={slug} locale={locale} />
         </div>
@@ -159,22 +161,22 @@ export default async function ProductsPage({
 
       <section id="products" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-900">Products</h2>
+          <h2 className="text-sm font-semibold text-slate-900"><Msg id="console.products.products" /></h2>
           {(draftCount ?? 0) > 0 && (
             <form action={setProductStatusAction} className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
               <input type="hidden" name="status" value="active" />
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="locale" value={locale} />
-              <span>Drafts and suspended products aren&apos;t shown to customers.</span>
+              <span><Msg id="console.products.draftsAndSuspendedProductsAren" /></span>
               {(needsPriceCount ?? 0) > 0 && (
-                <span className="text-amber-700">{needsPriceCount} need your price first.</span>
+                <span className="text-amber-700">{t("needPrice", { count: needsPriceCount ?? 0 })}</span>
               )}
               {(readyDraftCount ?? 0) > 0 && (
                 <button
                   type="submit"
                   className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 hover:bg-emerald-100"
                 >
-                  Activate all {readyDraftCount} drafts
+                  {t("activateAll", { count: readyDraftCount ?? 0 })}
                 </button>
               )}
             </form>
@@ -214,11 +216,11 @@ export default async function ProductsPage({
         ) : (
           <div className="mt-4">
             <EmptyState
-              title={productCount === 0 ? "No products yet" : "No products match your search"}
+              title={productCount === 0 ? t("emptyTitle") : t("noMatchTitle")}
               description={
                 productCount === 0
-                  ? "Add your first product or service above so customers can order it through your AI Agent."
-                  : "Try a different search term."
+                  ? t("emptyDescription")
+                  : t("tryDifferentSearch")
               }
             />
           </div>

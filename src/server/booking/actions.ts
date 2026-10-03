@@ -6,6 +6,7 @@ import { z } from "zod";
 import { parseBookResult, type BookingRefusal } from "@/server/commerce/booking";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { actionT } from "@/server/i18n/action-messages";
 
 /** The fields a service form sends (create and edit share them). */
 const serviceFieldsSchema = z.object({
@@ -45,11 +46,10 @@ export async function createServiceAction(
   _prevState: string | undefined,
   formData: FormData,
 ): Promise<string | undefined> {
+  const t = await actionT(formData.get("locale"));
   const ids = createServiceSchema.safeParse({ tenantId: formData.get("tenantId"), slug: formData.get("slug"), locale: formData.get("locale") });
   const fields = readServiceFields(formData);
-  if (!ids.success || !fields.success) {
-    return `VALIDATION_ERROR: ${fields.success ? "reload the page." : (fields.error.issues[0]?.message ?? "check the form fields.")}`;
-  }
+  if (!ids.success || !fields.success) return fields.success ? t("reload") : t("checkFields");
   const { locale, slug } = ids.data;
   const { tenant } = await requireTenantMember(locale, slug);
   const f = fields.data;
@@ -68,7 +68,7 @@ export async function createServiceAction(
     online_booking: f.onlineBooking,
     requires_approval: f.requiresApproval,
   });
-  if (error) return "VALIDATION_ERROR: could not create that service — please try again.";
+  if (error) return t("bookings.serviceCreateFailed");
 
   revalidatePath(`/${locale}/${slug}/bookings`);
 }
@@ -129,10 +129,11 @@ export type ServiceEditState = { ok: boolean; message: string } | undefined;
 
 /** Edit a service (name and description in the console's language; other translations kept). */
 export async function updateServiceAction(_prev: ServiceEditState, formData: FormData): Promise<ServiceEditState> {
+  const t = await actionT(formData.get("locale"));
   const ids = updateServiceSchema.safeParse({ serviceId: formData.get("serviceId"), locale: formData.get("locale"), slug: formData.get("slug") });
   const fields = readServiceFields(formData);
-  if (!ids.success) return { ok: false, message: "Reload the page and try again." };
-  if (!fields.success) return { ok: false, message: fields.error.issues[0]?.message ?? "Check the fields." };
+  if (!ids.success) return { ok: false, message: t("reload") };
+  if (!fields.success) return { ok: false, message: t("checkFields") };
   const { locale, slug } = ids.data;
   const f = fields.data;
   const { tenant } = await requireTenantMember(locale, slug);
@@ -147,7 +148,7 @@ export async function updateServiceAction(_prev: ServiceEditState, formData: For
       .maybeSingle(),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
   ]);
-  if (!service) return { ok: false, message: "That service no longer exists — reload the page." };
+  if (!service) return { ok: false, message: t("bookings.serviceGone") };
   const key = locale in service.name ? locale : (Object.keys(service.name)[0] ?? locale);
   const description = { ...(service.description ?? {}) };
   if (f.description) description[key] = f.description;
@@ -167,9 +168,9 @@ export async function updateServiceAction(_prev: ServiceEditState, formData: For
     })
     .eq("tenant_id", tenant.id)
     .eq("id", ids.data.serviceId);
-  if (error) return { ok: false, message: "Couldn't save — you need permission to edit services." };
+  if (error) return { ok: false, message: t("bookings.serviceNoPermission") };
   revalidatePath(`/${locale}/${slug}/bookings`);
-  return { ok: true, message: "Saved." };
+  return { ok: true, message: t("saved") };
 }
 
 const cancelBookingSchema = z.object({ bookingId: z.uuid(), locale: z.string(), slug: z.string() });
@@ -192,16 +193,8 @@ export async function cancelBookingAction(formData: FormData): Promise<void> {
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/bookings`);
 }
 
-const REFUSALS: Record<BookingRefusal, string> = {
-  unavailable: "That service is suspended or deleted.",
-  party_size: "That's more people than this service takes at once (see its capacity).",
-  past: "That time has already passed.",
-  too_far: "Bookings can be made up to a year ahead.",
-  bad_time_out: "The time out must be after the time in, within 24 hours.",
-  closed: "That's outside your opening hours (Branches → opening hours).",
-  full: "That time is fully booked for this service.",
-  invalid: "Check the date and times.",
-};
+/** Why `book_service` refused, worded under actions.bookings.refusal.<reason>. */
+const refusalKey = (reason: BookingRefusal) => `bookings.refusal.${reason}`;
 
 const consoleBookingSchema = z.object({
   locale: z.string(),
@@ -222,6 +215,7 @@ export type ConsoleBookingState = { ok: boolean; message: string } | undefined;
 
 /** Bookings → New booking: the owner books a customer in (phone, walk-in). Validated like every booking — hours, capacity. */
 export async function createConsoleBookingAction(_prev: ConsoleBookingState, formData: FormData): Promise<ConsoleBookingState> {
+  const t = await actionT(formData.get("locale"));
   const optional = (key: string) => {
     const v = formData.get(key);
     return typeof v === "string" && v.trim() !== "" ? v.trim() : undefined;
@@ -242,7 +236,7 @@ export async function createConsoleBookingAction(_prev: ConsoleBookingState, for
   });
   if (!parsed.success) {
     const field = parsed.error.issues[0]?.path[0];
-    return { ok: false, message: field === "phone" ? "Enter the customer's phone number." : field === "name" ? "Enter the customer's name." : "Check the date and times." };
+    return { ok: false, message: field === "phone" ? t("bookings.enterPhone") : field === "name" ? t("bookings.enterName") : t("bookings.refusal.invalid") };
   }
   const d = parsed.data;
   const { tenant } = await requireTenantMember(d.locale, d.slug);
@@ -261,11 +255,12 @@ export async function createConsoleBookingAction(_prev: ConsoleBookingState, for
     p_notes: d.notes ?? null,
     p_source: "console",
   });
-  if (error) return { ok: false, message: error.code === "42501" ? "You need permission to manage bookings." : "Couldn't save the booking — please try again." };
+  if (error) return { ok: false, message: error.code === "42501" ? t("bookings.noPermission") : t("bookings.saveFailed") };
   const result = parseBookResult(data);
-  if (!result.ok) return { ok: false, message: REFUSALS[result.reason] };
+  if (!result.ok) return { ok: false, message: t(refusalKey(result.reason)) };
   revalidatePath(`/${d.locale}/${d.slug}/bookings`);
-  return { ok: true, message: `Booked ${d.name} on ${d.date} at ${d.timeIn}.` };
+  const date = new Date(`${d.date}T00:00:00Z`).toLocaleDateString(d.locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  return { ok: true, message: t("bookings.booked", { name: d.name, date, time: d.timeIn }) };
 }
 
 const completeBookingSchema = z.object({ bookingId: z.uuid(), locale: z.string(), slug: z.string() });
@@ -303,13 +298,14 @@ export type DecideBookingState = { ok: boolean; message: string } | undefined;
  * Agent page, waiting on the answer, shows it within seconds.
  */
 export async function decideBookingAction(_prev: DecideBookingState, formData: FormData): Promise<DecideBookingState> {
+  const t = await actionT(formData.get("locale"));
   const parsed = decideSchema.safeParse({
     bookingId: formData.get("bookingId"),
     decision: formData.get("decision"),
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
-  if (!parsed.success) return { ok: false, message: "Reload the page and try again." };
+  if (!parsed.success) return { ok: false, message: t("reload") };
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   const { data, error } = await supabase.rpc("decide_booking", {
@@ -317,10 +313,13 @@ export async function decideBookingAction(_prev: DecideBookingState, formData: F
     p_booking_id: parsed.data.bookingId,
     p_decision: parsed.data.decision,
   });
-  if (error) return { ok: false, message: error.code === "42501" ? "You need permission to manage bookings." : "Couldn't save — please try again." };
+  if (error) return { ok: false, message: error.code === "42501" ? t("bookings.noPermission") : t("bookings.couldntSave") };
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/bookings`);
   if (!data?.ok) {
-    return { ok: false, message: data?.reason === "already_answered" ? `This request was already answered (${data.status}).` : "That request no longer exists — reload the page." };
+    return {
+      ok: false,
+      message: data?.reason === "already_answered" ? t("bookings.alreadyAnswered", { status: data.status ?? "" }) : t("bookings.requestGone"),
+    };
   }
-  return { ok: true, message: data.status === "confirmed" ? "Confirmed — the customer sees it now." : "Declined — the customer sees a polite apology." };
+  return { ok: true, message: data.status === "confirmed" ? t("bookings.confirmed") : t("bookings.declined") };
 }
