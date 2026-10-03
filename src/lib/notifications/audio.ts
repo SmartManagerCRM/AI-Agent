@@ -92,20 +92,31 @@ export async function resumeAudio(): Promise<boolean> {
   return audioReady();
 }
 
-/** Plays a sound now; false if audio is locked, the file failed to load, or the browser refused. */
-export function playSound(name: SoundName, volume = 1): boolean {
+/** Pause between repeats of the same sound (seconds). */
+const REPEAT_GAP_S = 0.35;
+
+/**
+ * Plays a sound now — `times` times back to back (all scheduled at once on
+ * the audio clock, so the repeats can't drift or overlap). False if audio is
+ * locked, the file failed to load, or the browser refused.
+ */
+export function playSound(name: SoundName, volume = 1, times = 1): boolean {
   const buffer = decoded.get(name);
   if (!context || context.state !== "running" || !buffer) {
     if (context && context.state === "suspended") void context.resume().catch(() => undefined);
     return false;
   }
   try {
-    const source = context.createBufferSource();
     const gain = context.createGain();
     gain.gain.value = volume;
-    source.buffer = buffer;
-    source.connect(gain).connect(context.destination);
-    source.start();
+    gain.connect(context.destination);
+    const start = context.currentTime;
+    for (let i = 0; i < Math.max(1, Math.min(times, 5)); i++) {
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gain);
+      source.start(start + i * (buffer.duration + REPEAT_GAP_S));
+    }
     return true;
   } catch {
     return false;

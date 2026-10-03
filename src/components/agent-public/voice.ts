@@ -101,6 +101,16 @@ export function spokenText(reply: string): string {
     .replace(/^\s*[-•]\s+/gm, "")
     .replace(/[ \t]+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
+    // Typed punctuation the voice would stumble over ("assistant!, .. We", "them , or", "want !!", "today! ..."):
+    // spaces before marks go, stray dots/commas after ! or ? go, repeats collapse — the words are never changed.
+    .replace(/[ \t]+([,.!?؟،…])/g, "$1")
+    .replace(/([!?؟])[\s,.،…]*[,.،…]+/g, "$1")
+    .replace(/[,،]\s*(?:\.{2,}|…)/g, ",")
+    // An ellipsis mid-sentence ("Welcome... to") is a pause (comma); before a new sentence, a full stop.
+    .replace(/(?:\.{2,}|…)(\s+)(?=\p{Ll})/gu, ",$1")
+    .replace(/\.{2,}|…/g, ".")
+    .replace(/([!?؟.,،])\1+/g, "$1")
+    .replace(/^[\s,.;:!?،]+/gm, "")
     .trim();
 }
 

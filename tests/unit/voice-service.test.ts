@@ -13,6 +13,7 @@ const profile: VoiceProfile = {
   voiceName: "Chris",
   model: "eleven_flash_v2_5",
   pricePerMillionCharsUsd: 50,
+  greetingSettings: null,
   settings: { stability: 0.5, speed: 0.97 },
 };
 const TENANT_A = "00000000-0000-4000-8000-00000000000a";

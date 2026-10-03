@@ -27,7 +27,14 @@ export type VoiceProfile = {
   model: string;
   pricePerMillionCharsUsd: number;
   settings: VoiceSettings;
+  /** Warmer, livelier delivery for the welcome greeting (null = the same as replies). */
+  greetingSettings: VoiceSettings | null;
 };
+
+/** The profile that speaks the welcome greeting: the same voice, in its greeting delivery when one is set. */
+export function greetingProfile(profile: VoiceProfile): VoiceProfile {
+  return profile.greetingSettings ? { ...profile, settings: profile.greetingSettings } : profile;
+}
 
 export type AudioStore = {
   read(path: string): Promise<Uint8Array | null>;

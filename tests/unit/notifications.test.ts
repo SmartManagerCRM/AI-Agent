@@ -255,3 +255,12 @@ describe("sound scheduling", () => {
     expect(h.played).toHaveLength(1);
   });
 });
+
+describe("order sound repeats", () => {
+  it("a new order rings three times; other alerts once", async () => {
+    const { soundRepeats } = await import("@/lib/notifications/core");
+    expect(soundRepeats("new-order")).toBe(3);
+    expect(soundRepeats("order-reminder")).toBe(1);
+    expect(soundRepeats("new-subscriber")).toBe(1);
+  });
+});

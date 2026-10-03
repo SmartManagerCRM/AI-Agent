@@ -44,6 +44,15 @@ describe("Agent voice (browser speech, no AI)", () => {
   it("reads replies without links, emoji or formatting marks", () => {
     expect(spokenText("Your order is ready 🎉👍🏽\nPay here: https://pay.example.com/abc?x=1 thanks")).toBe("Your order is ready\nPay here: thanks");
     expect(spokenText("**Latte** — 18 SAR\n- Mocha\n• Tea")).toBe("Latte — 18 SAR\nMocha\nTea");
+  });
+
+  it("smooths typed punctuation so the greeting flows (words unchanged)", () => {
+    expect(
+      spokenText("Am your AI ordering assistant!, .. We have plenty of delicious dishes in the menu today! ... You can enjoy browsing them , or I can assist you if you want !!"),
+    ).toBe("Am your AI ordering assistant! We have plenty of delicious dishes in the menu today! You can enjoy browsing them, or I can assist you if you want!");
+    expect(spokenText("Welcome... to Roasters Café!!")).toBe("Welcome, to Roasters Café!");
+    expect(spokenText("Latte 18.50 SAR, Mocha 20.00 SAR.")).toBe("Latte 18.50 SAR, Mocha 20.00 SAR.");
+    expect(spokenText("مرحبا بك !! كيف أساعدك ؟؟")).toBe("مرحبا بك! كيف أساعدك؟");
     expect(spokenText("مرحبًا 👋 كيف يمكنني مساعدتك؟")).toBe("مرحبًا كيف يمكنني مساعدتك؟");
     expect(spokenText("https://only.a/link")).toBe("");
   });

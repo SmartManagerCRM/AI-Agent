@@ -27,7 +27,7 @@ export type VoiceGender = "male" | "female";
 export async function activeVoiceProfile(gender: VoiceGender): Promise<VoiceProfile | null> {
   const { data } = await serviceClient()
     .from("voice_profiles")
-    .select("id, gender, provider, voice_id, voice_name, model, price_per_million_chars_usd, settings")
+    .select("id, gender, provider, voice_id, voice_name, model, price_per_million_chars_usd, settings, greeting_settings")
     .eq("gender", gender)
     .eq("is_active", true)
     .maybeSingle();
@@ -41,6 +41,7 @@ export async function activeVoiceProfile(gender: VoiceGender): Promise<VoiceProf
     model: data.model,
     pricePerMillionCharsUsd: Number(data.price_per_million_chars_usd),
     settings: data.settings ?? {},
+    greetingSettings: data.greeting_settings ?? null,
   };
 }
 

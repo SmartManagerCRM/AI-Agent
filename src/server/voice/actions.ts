@@ -7,7 +7,7 @@ import { isRateLimited } from "@/server/shared/rate-limit";
 import { requireTenantMember } from "@/server/tenant/context";
 
 import { activeVoiceProfile, voiceDeps } from "./index";
-import { sentenceAudio } from "./service";
+import { greetingProfile, sentenceAudio } from "./service";
 
 const previewInput = z.object({
   locale: z.string(),
@@ -41,7 +41,7 @@ export async function previewAgentVoiceAction(raw: z.input<typeof previewInput>)
   );
   const parts: Uint8Array[] = [];
   for (const sentence of sentences) {
-    const result = await sentenceAudio(deps, { tenantId: tenant.id, profile, language: sentence.language, text: sentence.text });
+    const result = await sentenceAudio(deps, { tenantId: tenant.id, profile: greetingProfile(profile), language: sentence.language, text: sentence.text });
     if (!result.ok) {
       return {
         ok: false,

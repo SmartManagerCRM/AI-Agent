@@ -21,6 +21,7 @@ import {
   Deduper,
   acceptEvent,
   orderSummary,
+  soundRepeats,
   type NotificationEvent,
   type NotificationScope,
   type SoundName,
@@ -316,7 +317,7 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
   // ── Sound engine (scheduler) ────────────────────────────────────────────
   useEffect(() => {
     const scheduler = new AlertScheduler({
-      play: (sound) => soundOnRef.current && playSound(sound, sound === "order-reminder" ? 0.85 : 1),
+      play: (sound) => soundOnRef.current && playSound(sound, sound === "order-reminder" ? 0.85 : 1, soundRepeats(sound)),
       claim: claimEvent,
       reminderMs: isTenant ? reminderMs : null,
     });
@@ -541,7 +542,8 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
   }, [soundOn, ready, enable, prefKey, sounds]);
 
   const testSound = useCallback(() => {
-    void unlockAudio(sounds).then(() => playSound(sounds[0]));
+    // The test plays exactly what a real alert plays (a new order: three times).
+    void unlockAudio(sounds).then(() => playSound(sounds[0], 1, soundRepeats(sounds[0])));
     return true;
   }, [sounds]);
 

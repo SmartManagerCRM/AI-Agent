@@ -5,7 +5,7 @@ import { LOCALES } from "@/i18n/locales";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { activeVoiceProfile, greetingSentences, messageSentences, tenantVoiceGender, voiceDeps } from "@/server/voice";
-import { sentenceAudio } from "@/server/voice/service";
+import { greetingProfile, sentenceAudio } from "@/server/voice/service";
 
 /**
  * The Agent's premium voice: one sentence of audio per request, streamed
@@ -53,7 +53,9 @@ export async function POST(request: Request) {
   const target = sentences[sentence];
   if (!target) return fallback(416, "no_such_sentence");
 
-  const result = await sentenceAudio(deps, { tenantId: tenant.id, profile, language: target.language, text: target.text });
+  // The welcome greeting is spoken in the voice's warmer greeting delivery.
+  const speaker = source.kind === "greeting" ? greetingProfile(profile) : profile;
+  const result = await sentenceAudio(deps, { tenantId: tenant.id, profile: speaker, language: target.language, text: target.text });
   if (!result.ok) return fallback(result.reason === "limit" ? 402 : 502, result.reason);
   // Storing a fresh sentence in the cache (and recording its cost) finishes after the response.
   after(() => result.done);

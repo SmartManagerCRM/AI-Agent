@@ -574,6 +574,8 @@ export type Database = {
           model: string;
           price_per_million_chars_usd: number;
           settings: Record<string, number | boolean>;
+          /** Warmer delivery for the welcome greeting; null = same as settings. */
+          greeting_settings: Record<string, number | boolean> | null;
           is_active: boolean;
           notes: string | null;
           created_at: string;
