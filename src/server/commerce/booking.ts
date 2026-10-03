@@ -2,17 +2,15 @@ import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
-export type BookableService = { id: string; name: string; durationMinutes: number; priceMinor: number | null };
-export type Slot = { startsAt: string; endsAt: string };
-
-const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type BookableService = { id: string; name: string; durationMinutes: number | null; priceMinor: number | null };
+export type Slot = { startsAt: string; endsAt: string | null; localTime: string; spotsLeft: number };
 
 /**
  * Real, server-validated booking (Customer Agent Master Prompt §26).
- * Availability always comes from the business's own real branch hours
- * minus its own already-confirmed bookings for that exact service — never
- * an invented slot. One resource per service (see the migration's own
- * doc comment for why that's an honest, not a fake, simplification.
+ * Availability and every booking are decided in Postgres
+ * (`service_slots`, `book_service_at`): the business's own opening hours in
+ * its own time zone, the service's capacity and the bookings already made —
+ * never an invented slot.
  */
 export async function findActiveServiceByName(
   supabase: TypedSupabaseClient,
@@ -20,20 +18,9 @@ export async function findActiveServiceByName(
   locale: string,
   name: string,
 ): Promise<BookableService | null> {
-  const { data } = await supabase
-    .from("bookable_services")
-    .select("id, name, duration_minutes, price_minor")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true);
+  const services = await listActiveServices(supabase, tenantId, locale);
   const needle = name.trim().toLowerCase();
-  const match = (data ?? []).find((s) => (s.name[locale] ?? Object.values(s.name)[0] ?? "").toLowerCase() === needle);
-  if (!match) return null;
-  return {
-    id: match.id,
-    name: match.name[locale] ?? Object.values(match.name)[0] ?? "",
-    durationMinutes: match.duration_minutes,
-    priceMinor: match.price_minor,
-  };
+  return services.find((s) => s.name.toLowerCase() === needle) ?? null;
 }
 
 /** Every active service, for the AI to list when a customer asks "what can I book?" without naming one. */
@@ -46,7 +33,9 @@ export async function listActiveServices(
     .from("bookable_services")
     .select("id, name, duration_minutes, price_minor")
     .eq("tenant_id", tenantId)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .eq("online_booking", true)
+    .is("archived_at", null);
   return (data ?? []).map((s) => ({
     id: s.id,
     name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
@@ -55,75 +44,46 @@ export async function listActiveServices(
   }));
 }
 
-/** Real open slots for one service on one calendar day (tenant-local date, "YYYY-MM-DD"), computed live — never cached, never invented. */
+/** Real open start times for one service on one local date ("YYYY-MM-DD" in the business's time zone), computed live. */
 export async function getAvailableSlots(
   supabase: TypedSupabaseClient,
   tenantId: string,
-  service: BookableService,
+  service: Pick<BookableService, "id">,
   dateISO: string,
 ): Promise<Slot[]> {
-  const { data: branch } = await supabase
-    .from("branches")
-    .select("opening_hours")
-    .eq("tenant_id", tenantId)
-    .eq("is_default", true)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!branch) return [];
-
-  const date = new Date(`${dateISO}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return [];
-  const weekday = WEEKDAY_KEYS[(date.getUTCDay() + 6) % 7];
-  const openingHours = branch.opening_hours as Record<string, { open: string; close: string }[]>;
-  const windows = openingHours[weekday] ?? [];
-  if (windows.length === 0) return [];
-
-  const durationMs = service.durationMinutes * 60_000;
-  const candidates: Slot[] = [];
-  for (const window of windows) {
-    const [openH, openM] = window.open.split(":").map(Number);
-    const [closeH, closeM] = window.close.split(":").map(Number);
-    let cursor = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), openH, openM);
-    const closeMs = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), closeH, closeM);
-    while (cursor + durationMs <= closeMs) {
-      candidates.push({
-        startsAt: new Date(cursor).toISOString(),
-        endsAt: new Date(cursor + durationMs).toISOString(),
-      });
-      cursor += durationMs;
-    }
-  }
-
-  const now = Date.now();
-  const future = candidates.filter((c) => new Date(c.startsAt).getTime() > now);
-  if (future.length === 0) return [];
-
-  const dayStart = new Date(`${dateISO}T00:00:00Z`).toISOString();
-  const dayEnd = new Date(new Date(dayStart).getTime() + 24 * 60 * 60 * 1000).toISOString();
-  const { data: existing } = await supabase
-    .from("bookings")
-    .select("starts_at, ends_at")
-    .eq("tenant_id", tenantId)
-    .eq("service_id", service.id)
-    .eq("status", "confirmed")
-    .gte("starts_at", dayStart)
-    .lt("starts_at", dayEnd);
-
-  return future.filter((slot) => {
-    const start = new Date(slot.startsAt).getTime();
-    const end = new Date(slot.endsAt).getTime();
-    return !(existing ?? []).some((b) => {
-      const bStart = new Date(b.starts_at).getTime();
-      const bEnd = new Date(b.ends_at).getTime();
-      return start < bEnd && end > bStart;
-    });
-  });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return [];
+  const { data, error } = await supabase.rpc("service_slots", { p_tenant_id: tenantId, p_service_id: service.id, p_date: dateISO });
+  if (error || !data) return [];
+  return data.map((r) => ({ startsAt: r.starts_at, endsAt: r.ends_at, localTime: r.local_time, spotsLeft: r.spots_left }));
 }
 
-export type CreateBookingResult =
-  { ok: true; bookingId: string; startsAt: string; endsAt: string } | { ok: false; error: string };
+export type BookingRefusal = "unavailable" | "party_size" | "past" | "too_far" | "bad_time_out" | "closed" | "full" | "invalid";
+export type BookResult = { ok: true; bookingId: string; startsAt: string; endsAt: string | null } | { ok: false; reason: BookingRefusal };
 
-/** Re-validates the slot is still free (a second customer may have taken it since it was offered) before writing — never trusts the caller's own belief that a slot is open. */
+export function parseBookResult(data: unknown): BookResult {
+  const r = (data ?? {}) as Record<string, unknown>;
+  if (r.ok === true && typeof r.booking_id === "string" && typeof r.starts_at === "string") {
+    return { ok: true, bookingId: r.booking_id, startsAt: r.starts_at, endsAt: typeof r.ends_at === "string" ? r.ends_at : null };
+  }
+  const reason = typeof r.reason === "string" ? r.reason : "invalid";
+  return { ok: false, reason: (["unavailable", "party_size", "past", "too_far", "bad_time_out", "closed", "full"].includes(reason) ? reason : "invalid") as BookingRefusal };
+}
+
+const REFUSAL_TEXT: Record<BookingRefusal, string> = {
+  unavailable: "That service can't be booked right now.",
+  party_size: "That's more people than this service can take at once.",
+  past: "That time has already passed — please pick another.",
+  too_far: "Bookings can be made up to a year ahead.",
+  bad_time_out: "The time out must be after the time in (within 24 hours).",
+  closed: "The business is closed at that time — please pick a time within opening hours.",
+  full: "That time is fully booked — please pick another time.",
+  invalid: "Could not create that booking — please try again.",
+};
+
+export type CreateBookingResult =
+  { ok: true; bookingId: string; startsAt: string; endsAt: string | null } | { ok: false; error: string };
+
+/** A booking the AI chat makes: re-validated in the database (a second customer may have taken the slot since it was offered). */
 export async function createBooking(
   supabase: TypedSupabaseClient,
   tenantId: string,
@@ -133,41 +93,23 @@ export async function createBooking(
   details: { name?: string; phone?: string; email?: string },
 ): Promise<CreateBookingResult> {
   const startsAt = new Date(startsAtISO);
-  if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() <= Date.now()) {
-    return { ok: false, error: "That time isn't available anymore — please pick another slot." };
-  }
-  const endsAt = new Date(startsAt.getTime() + service.durationMinutes * 60_000);
-
-  const { data: conflicting } = await supabase
-    .from("bookings")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("service_id", service.id)
-    .eq("status", "confirmed")
-    .lt("starts_at", endsAt.toISOString())
-    .gt("ends_at", startsAt.toISOString())
-    .limit(1);
-  if ((conflicting ?? []).length > 0) {
-    return { ok: false, error: "That slot was just booked by someone else — please pick another time." };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from("bookings")
-    .insert({
-      tenant_id: tenantId,
-      service_id: service.id,
-      conversation_id: conversationId,
-      customer_name: details.name ?? null,
-      customer_phone: details.phone ?? null,
-      customer_email: details.email ?? null,
-      starts_at: startsAt.toISOString(),
-      ends_at: endsAt.toISOString(),
-    })
-    .select("id")
-    .single();
-  if (error || !inserted) return { ok: false, error: "Could not create that booking — please try again." };
-
-  return { ok: true, bookingId: inserted.id, startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString() };
+  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: REFUSAL_TEXT.past };
+  const { data, error } = await supabase.rpc("book_service_at", {
+    p_tenant_id: tenantId,
+    p_service_id: service.id,
+    p_starts_at: startsAt.toISOString(),
+    p_ends_at: null,
+    p_party_size: 1,
+    p_customer_name: details.name ?? null,
+    p_customer_phone: details.phone ?? null,
+    p_customer_email: details.email ?? null,
+    p_notes: null,
+    p_source: "agent_chat",
+    p_conversation_id: conversationId,
+  });
+  if (error) return { ok: false, error: REFUSAL_TEXT.invalid };
+  const result = parseBookResult(data);
+  return result.ok ? result : { ok: false, error: REFUSAL_TEXT[result.reason] };
 }
 
 export async function cancelBookingById(

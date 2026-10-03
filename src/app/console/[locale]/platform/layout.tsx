@@ -127,7 +127,7 @@ export default async function PlatformLayout({
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <SoundToggle />
-              <PlatformAccountMenu locale={locale} name={name} alertCount={alerts.length} alerts={alerts} />
+              <PlatformAccountMenu locale={locale} name={name} alerts={alerts} />
             </div>
           </header>
           <main className="flex-1 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</main>

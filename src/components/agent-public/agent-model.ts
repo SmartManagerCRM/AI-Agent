@@ -21,8 +21,15 @@ export type AgentProduct = {
 export type AgentService = {
   id: string;
   name: LocalizedText;
-  durationMinutes: number;
+  description: LocalizedText;
+  /** null = no fixed length. */
+  durationMinutes: number | null;
   priceMinor: number | null;
+  priceUnit: "booking" | "hour" | "person";
+  /** People who can be booked at the same time. */
+  capacity: number;
+  /** The customer chooses their time out (or a duration). */
+  customerSetsEnd: boolean;
 };
 
 export type FulfillmentType = "pickup" | "delivery" | "dine_in";

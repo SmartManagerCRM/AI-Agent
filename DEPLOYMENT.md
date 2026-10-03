@@ -369,6 +369,35 @@ install (only the console's pages link the manifest).
   device.
 - The landing page's "Ask" bar has a mic: it opens the conversation and
   starts listening in one tap.
+- **Bookings: time in / time out** — services may have no fixed length,
+  let the customer choose their time out (or a duration), take several
+  people at once (capacity), price per booking / hour / person, and be
+  ticked "Bookable on your Agent". Every booking goes through
+  `book_service` / `book_service_at` (opening hours in the business's time
+  zone, capacity under a per-service lock). The owner can book customers in
+  from Bookings → New booking; customers book themselves on the Agent's
+  landing page (Book tile → service details → time → details → confirm) —
+  a form, never the AI, so no AI cost. Migration
+  `20261005100000_bookings_time_in_out.sql`, applied.
+- **Memberships** (sidebar, below Bookings) — loyalty (free or paid) and
+  paid service subscriptions: price per period, joining fee, length or no
+  expiry, free trial, grace period, visits per period, member discount,
+  benefits, member limit, included services. Members: number, start and
+  renewal dates, payment (cash/card/transfer/online), auto-renew, check-ins,
+  renew, freeze/resume (frozen days added back), cancel. Plan prices follow
+  a business currency switch. Permissions `memberships.read/write`
+  (owner/admin write, staff read). Migration `20261005110000_memberships.sql`,
+  applied.
+- **Bell counts** — the console bell counts conversations with activity
+  since you last opened Conversations (per person, every device;
+  `inbox_reads`, migration `20261005090000_inbox_reads.sql`, applied). The
+  Super Admin bell counts only alerts not yet opened on that device.
+- **Ask SmartManager** (dashboard) — answers questions about sales, orders,
+  best sellers, customers, bookings, members, conversations, leads,
+  products, Agent status and hours, in English, Arabic or French, from the
+  business's own data (`tenant_period_summary`, migration
+  `20261005120000_business_answers.sql`, applied). It never calls an AI
+  model — anything else gets the list of what it can answer.
 - **Business logo** — Settings → Logo (owner/admin, `settings.write`): PNG,
   JPG or WebP up to 3 MB, re-encoded to WebP (≤ 512 px, transparency kept)
   in the `catalog-images` bucket as `<tenant_id>/logo-<hash>.webp`; path in

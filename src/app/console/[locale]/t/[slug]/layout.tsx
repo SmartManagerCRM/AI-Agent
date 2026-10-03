@@ -18,6 +18,7 @@ import { endImpersonationAction } from "@/server/platform/impersonation-actions"
 import { timed } from "@/server/perf";
 import { notificationLabels } from "@/server/notifications/labels";
 import { productImageUrl } from "@/lib/product-image";
+import { newConversationCount } from "@/server/inbox/count";
 import { createUserClient } from "@/server/supabase/clients";
 
 export default async function TenantLayout({
@@ -39,7 +40,7 @@ export default async function TenantLayout({
     { data: profile },
     { data: subscription },
     { count: conversationCount },
-    { count: openConversationCount },
+    newConversations,
     { data: announcements },
     deploymentStatus,
     { data: currencies },
@@ -54,11 +55,7 @@ export default async function TenantLayout({
         : Promise.resolve({ data: null }),
       supabase.from("subscriptions").select("status, trial_ends_at, plan_key").eq("tenant_id", tenant.id).maybeSingle(),
       supabase.from("conversations").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
-      supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenant.id)
-        .eq("status", "open"),
+      newConversationCount(supabase, tenant.id, user?.id ?? null),
       supabase
         .from("platform_announcements")
         .select("id, message, severity")
@@ -101,6 +98,7 @@ export default async function TenantLayout({
     { key: "customers", href: `/${locale}/${slug}/customers`, label: t("nav.customers") },
     { key: "bell", href: `/${locale}/${slug}/leads`, label: t("nav.leads") },
     { key: "check", href: `/${locale}/${slug}/bookings`, label: t("nav.bookings") },
+    { key: "membership", href: `/${locale}/${slug}/memberships`, label: t("nav.memberships") },
     { key: "analytics", href: `/${locale}/${slug}/analytics`, label: t("nav.analytics") },
     { key: "marketing", href: `/${locale}/${slug}/marketing`, label: t("nav.marketing") },
     { key: "billing", href: `/${locale}/${slug}/billing`, label: t("nav.billing") },
@@ -228,7 +226,7 @@ export default async function TenantLayout({
               isSuperAdmin={showSuperAdminLink}
               superAdminLabel={t("superAdminLink")}
               signOutLabel={t("signOut")}
-              openConversationCount={openConversationCount ?? 0}
+              newConversationCount={newConversations}
               currencyBar={
                 <CurrencyBar
                   current={tenant.currency}

@@ -21,7 +21,7 @@ import type { AgentChat } from "./use-agent-chat";
 import type { AgentCommerce } from "./use-agent-commerce";
 import type { VoiceGender } from "./voice";
 
-export type Screen = "home" | "browse" | "cart" | "checkout" | "done";
+export type Screen = "home" | "browse" | "book" | "cart" | "checkout" | "done";
 
 /** What the conversation's voice exposes to the rest of the Agent (registered by the chat, which owns the mic). */
 export type VoiceBridge = { start: () => void };
@@ -49,6 +49,8 @@ export type AgentUi = {
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
+  /** Today's date where the business is (YYYY-MM-DD): the first day a customer can book. */
+  bookingToday: string;
   popularIds: string[];
   info: AgentBusinessInfo;
   activeTable: { id: string; label: string } | null;
@@ -61,7 +63,7 @@ export type AgentUi = {
   screen: Screen;
   money: (minor: number) => string;
   text: (value: LocalizedText | null | undefined) => string;
-  go: (screen: Screen, options?: { categoryId?: string | null }) => void;
+  go: (screen: Screen, options?: { categoryId?: string | null; serviceId?: string | null }) => void;
   back: () => void;
   openChat: (message?: string) => void;
   /** Opens the conversation and starts listening (the landing page's mic). */

@@ -1,8 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AccountMenu } from "@/components/console/account-menu";
-import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
+import { InboxBell } from "@/components/console/inbox-bell";
 import { LocaleSwitcher } from "@/components/console/locale-switcher";
 import { MobileMenuButton } from "@/components/console/mobile-sidebar";
 import { SoundToggle } from "@/components/notifications/notification-center";
@@ -18,7 +17,8 @@ type Props = {
   isSuperAdmin: boolean;
   superAdminLabel: string;
   signOutLabel: string;
-  openConversationCount: number;
+  /** Conversations with new activity since this person last opened Conversations. */
+  newConversationCount: number;
   /** The business-currency picker (subscriber consoles only). */
   currencyBar?: ReactNode;
 };
@@ -32,7 +32,7 @@ export function TopHeader({
   isSuperAdmin,
   superAdminLabel,
   signOutLabel,
-  openConversationCount,
+  newConversationCount,
   currencyBar,
 }: Props) {
   const initial = userName.trim().charAt(0).toUpperCase() || "?";
@@ -47,19 +47,7 @@ export function TopHeader({
         {currencyBar}
         <SoundToggle />
         <LocaleSwitcher locale={locale} />
-        <Link
-          href={`/${locale}/${workspace.slug}/conversations`}
-          prefetch={false}
-          className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
-          aria-label="Open conversations"
-        >
-          <Icon path={NAV_ICON_PATHS.bell} size={18} />
-          {openConversationCount > 0 && (
-            <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-semibold text-white">
-              {openConversationCount > 9 ? "9+" : openConversationCount}
-            </span>
-          )}
-        </Link>
+        <InboxBell locale={locale} slug={workspace.slug} count={newConversationCount} />
         <AccountMenu
           locale={locale}
           name={userName}

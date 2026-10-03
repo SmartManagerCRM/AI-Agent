@@ -45,7 +45,6 @@ export function HomeView() {
   const hasBooking = services.length > 0;
   const capability = capabilityKey(canOrder, hasBooking);
   const roleKey = ROLE_KEYS.has(businessTypeKey) ? businessTypeKey : hasCatalog ? "shop" : "default";
-  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const tiles: Tile[] = [];
   if (hasCatalog) {
@@ -64,7 +63,15 @@ export function HomeView() {
   }
   const extras: Tile[] = [];
   if (hasBooking) {
-    extras.push({ key: "book", label: t("home.tiles.book"), icon: "📅", tone: "from-agent-50 to-agent-100", onClick: () => scrollTo("agent-services") });
+    // The services the owner offers for online booking, as a category of their own.
+    extras.push({
+      key: "book",
+      label: t("home.tiles.book"),
+      sub: t("home.serviceCount", { count: services.length }),
+      icon: "📅",
+      tone: "from-agent-50 to-agent-100",
+      onClick: () => ui.go("book", { serviceId: services.length === 1 ? services[0].id : null }),
+    });
   }
   if (!canOrder && !hasBooking) {
     extras.push({ key: "quote", label: t("home.tiles.quote"), icon: "📝", tone: "from-sky-50 to-indigo-100", onClick: () => ui.openChat(t("prompts.quote")) });
@@ -278,14 +285,14 @@ export function HomeView() {
                     <p className="truncate text-[15px] font-semibold text-slate-900">{name}</p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1">
-                        <ClockIcon size={13} /> {t("home.duration", { minutes: s.durationMinutes })}
+                        <ClockIcon size={13} /> {s.durationMinutes !== null ? t("home.duration", { minutes: s.durationMinutes }) : t("home.flexibleLength")}
                       </span>
                       {s.priceMinor !== null && <span className="font-semibold text-slate-800">{ui.money(s.priceMinor)}</span>}
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => ui.openChat(t("prompts.bookService", { service: name }))}
+                    onClick={() => ui.go("book", { serviceId: s.id })}
                     className={`${focusRing} flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-agent-700 px-4 text-xs font-semibold text-white hover:bg-agent-800`}
                     aria-label={t("home.bookNamed", { name })}
                   >

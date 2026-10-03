@@ -74,7 +74,7 @@ describe("formatMessage (Agent translations)", () => {
   });
 
   it("formats every Agent message in every language without leftover syntax", () => {
-    const values = { name: "X", business: "X", count: 3, minutes: 30, label: "7", category: "X", code: "X", price: "X", branch: "X", service: "X", number: 1001 };
+    const values = { name: "X", business: "X", count: 3, minutes: 30, label: "7", category: "X", code: "X", price: "X", branch: "X", service: "X", number: 1001, hours: "09:00–17:00", time: "10:00", date: "Mon 5 Oct" };
     for (const locale of ["en", "ar", "fr"] as const) {
       const walk = (node: unknown, path: string) => {
         if (typeof node === "string") {

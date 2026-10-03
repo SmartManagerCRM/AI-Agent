@@ -75,12 +75,15 @@ export async function loadAgentExperience(
       .eq("is_default", true)
       .eq("is_active", true)
       .maybeSingle(),
-    supabase.from("tenants").select("contact_phone, contact_email, city, logo_path").eq("id", tenant.id).maybeSingle(),
+    supabase.from("tenants").select("contact_phone, contact_email, city, logo_path, timezone").eq("id", tenant.id).maybeSingle(),
     supabase
       .from("bookable_services")
-      .select("id, name, duration_minutes, price_minor")
+      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
+      // Only services the owner offers for online booking appear on the Agent.
+      .eq("online_booking", true)
+      .is("archived_at", null)
       .order("created_at"),
     getPopularityByProduct(supabase, tenant.id),
   ]);
@@ -136,7 +139,18 @@ export async function loadAgentExperience(
         priceMinor: p.price_minor,
         imageUrl: productImageUrl(p.image_path),
       })),
-      services: (services ?? []).map((s) => ({ id: s.id, name: s.name, durationMinutes: s.duration_minutes, priceMinor: s.price_minor })),
+      services: (services ?? []).map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: descriptionFor(s.description, locale, tenant.defaultLanguage),
+        durationMinutes: s.duration_minutes,
+        priceMinor: s.price_minor,
+        priceUnit: s.price_unit,
+        capacity: s.capacity,
+        customerSetsEnd: s.customer_sets_end,
+      })),
+      // "Today" where the business is — the first day a customer can book.
+      bookingToday: new Intl.DateTimeFormat("en-CA", { timeZone: contact?.timezone || "UTC" }).format(new Date()),
       popularProductIds: [...popularity.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id),
       info: {
         branchName,

@@ -7,7 +7,8 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { isFuture } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { cancelBookingAction } from "@/server/booking/actions";
+import { NewBookingForm } from "@/components/booking/new-booking-form";
+import { cancelBookingAction, completeBookingAction } from "@/server/booking/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -37,12 +38,12 @@ export default async function BookingsPage({
   const [{ data: allServices }, { data: bookings }, { data: currency }, { count: totalBookings }, { count: upcomingBookings }] = await Promise.all([
     supabase
       .from("bookable_services")
-      .select("id, name, duration_minutes, price_minor, is_active, source, archived_at")
+      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, online_booking, is_active, source, archived_at")
       .eq("tenant_id", tenant.id)
       .order("created_at"),
     supabase
       .from("bookings")
-      .select("id, service_id, customer_name, customer_phone, starts_at, status")
+      .select("id, service_id, customer_name, customer_phone, starts_at, ends_at, party_size, source, notes, status")
       .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
       .order("id", { ascending: false })
@@ -59,6 +60,11 @@ export default async function BookingsPage({
   const exponent = currency?.exponent ?? 2;
   // Deleted services are hidden; their past bookings still show the service's name.
   const services = (allServices ?? []).filter((s) => s.archived_at === null);
+  // Times are shown in the business's own time zone (where its opening hours apply).
+  const tz = tenant.timezone || "UTC";
+  const day = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
+  const clock = (iso: string) => new Date(iso).toLocaleTimeString(locale, { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
   const serviceNameById = new Map(
     (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );
@@ -108,9 +114,14 @@ export default async function BookingsPage({
               service={{
                 id: s.id,
                 name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
+                description: s.description?.[locale] ?? Object.values(s.description ?? {})[0] ?? "",
                 durationMinutes: s.duration_minutes,
                 priceMinor: s.price_minor,
                 priceLabel: s.price_minor !== null ? formatMoney(s.price_minor, tenant.currency, exponent, locale) : null,
+                priceUnit: s.price_unit,
+                capacity: s.capacity,
+                customerSetsEnd: s.customer_sets_end,
+                onlineBooking: s.online_booking,
                 isActive: s.is_active,
                 source: s.source,
               }}
@@ -127,6 +138,27 @@ export default async function BookingsPage({
         </div>
       </section>
 
+      {services.some((s) => s.is_active) && (
+        <section id="new-booking" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-1 text-sm font-semibold text-slate-900">New booking</h2>
+          <p className="mb-3 text-xs text-slate-500">Book a customer in by phone or at the counter. Opening hours and each service&apos;s capacity are checked.</p>
+          <NewBookingForm
+            locale={locale}
+            slug={slug}
+            today={today}
+            services={services
+              .filter((s) => s.is_active)
+              .map((s) => ({
+                id: s.id,
+                name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
+                durationMinutes: s.duration_minutes,
+                customerSetsEnd: s.customer_sets_end,
+                capacity: s.capacity,
+              }))}
+          />
+        </section>
+      )}
+
       <section id="bookings" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Bookings</h2>
         {(bookings ?? []).length > 0 ? (
@@ -136,7 +168,11 @@ export default async function BookingsPage({
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="py-2 text-start font-medium">Service</th>
                   <th className="py-2 text-start font-medium">Customer</th>
-                  <th className="py-2 text-start font-medium">When</th>
+                  <th className="py-2 text-start font-medium">Date</th>
+                  <th className="py-2 text-start font-medium">Time in</th>
+                  <th className="py-2 text-start font-medium">Time out</th>
+                  <th className="py-2 text-start font-medium">People</th>
+                  <th className="py-2 text-start font-medium">From</th>
                   <th className="py-2 text-start font-medium">Status</th>
                   <th className="py-2 text-start font-medium">Actions</th>
                 </tr>
@@ -145,8 +181,18 @@ export default async function BookingsPage({
                 {(bookings ?? []).map((b) => (
                   <tr key={b.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-2 font-medium text-slate-900">{serviceNameById.get(b.service_id) ?? "—"}</td>
-                    <td className="py-2 text-slate-600">{b.customer_name ?? b.customer_phone ?? "—"}</td>
-                    <td className="py-2 text-slate-600">{new Date(b.starts_at).toLocaleString(locale)}</td>
+                    <td className="py-2 text-slate-600">
+                      {b.customer_name ?? "—"}
+                      {b.customer_phone && <span className="block text-xs text-slate-400" dir="ltr">{b.customer_phone}</span>}
+                      {b.notes && <span className="block text-xs text-slate-400">“{b.notes}”</span>}
+                    </td>
+                    <td className="whitespace-nowrap py-2 text-slate-600">{day(b.starts_at)}</td>
+                    <td className="py-2 text-slate-600">{clock(b.starts_at)}</td>
+                    <td className="py-2 text-slate-600">{b.ends_at ? clock(b.ends_at) : "—"}</td>
+                    <td className="py-2 text-slate-600">{b.party_size}</td>
+                    <td className="py-2 text-xs text-slate-500">
+                      {b.source === "console" ? "Console" : b.source === "agent_form" ? "Agent booking form" : "Agent chat"}
+                    </td>
                     <td className="py-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[b.status]}`}
@@ -155,8 +201,18 @@ export default async function BookingsPage({
                       </span>
                     </td>
                     <td className="py-2">
+                      {b.status === "confirmed" && (
+                        <form action={completeBookingAction} className="inline">
+                          <input type="hidden" name="bookingId" value={b.id} />
+                          <input type="hidden" name="locale" value={locale} />
+                          <input type="hidden" name="slug" value={slug} />
+                          <button type="submit" className="me-3 text-xs font-medium text-emerald-700 hover:underline">
+                            Completed
+                          </button>
+                        </form>
+                      )}
                       {b.status === "confirmed" && isFuture(b.starts_at) && (
-                        <form action={cancelBookingAction}>
+                        <form action={cancelBookingAction} className="inline">
                           <input type="hidden" name="bookingId" value={b.id} />
                           <input type="hidden" name="locale" value={locale} />
                           <input type="hidden" name="slug" value={slug} />

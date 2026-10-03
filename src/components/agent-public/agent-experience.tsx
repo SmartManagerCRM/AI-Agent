@@ -28,6 +28,7 @@ import type { VoiceGender } from "./voice";
 
 // Screens a customer only reaches after tapping something load on first use, keeping them out of the
 // home page's initial JavaScript.
+const BookView = dynamic(() => import("./book-view").then((m) => m.BookView), { ssr: false });
 const CartScreen = dynamic(() => import("./cart-views").then((m) => m.CartScreen), { ssr: false });
 const CheckoutScreen = dynamic(() => import("./cart-views").then((m) => m.CheckoutScreen), { ssr: false });
 const ConfirmationScreen = dynamic(() => import("./cart-views").then((m) => m.ConfirmationScreen), { ssr: false });
@@ -55,6 +56,8 @@ export type AgentExperienceProps = {
   categories: AgentCategory[];
   products: AgentProduct[];
   services: AgentService[];
+  /** Today's date where the business is (YYYY-MM-DD). */
+  bookingToday: string;
   popularProductIds: string[];
   info: AgentBusinessInfo;
   currency: string;
@@ -65,7 +68,7 @@ export type AgentExperienceProps = {
   activeTable: { id: string; label: string } | null;
 };
 
-type NavState = { screen: Screen; chatOpen: boolean; categoryId: string | null };
+type NavState = { screen: Screen; chatOpen: boolean; categoryId: string | null; serviceId?: string | null };
 const HOME: NavState = { screen: "home", chatOpen: false, categoryId: null };
 const DONE: NavState = { screen: "done", chatOpen: false, categoryId: null };
 
@@ -105,7 +108,7 @@ export function AgentExperience(props: AgentExperienceProps) {
 
   const navigate = useCallback((next: NavState, replace = false) => {
     setNav((prev) => {
-      if (next.screen !== prev.screen || next.categoryId !== prev.categoryId) window.scrollTo({ top: 0 });
+      if (next.screen !== prev.screen || next.categoryId !== prev.categoryId || next.serviceId !== prev.serviceId) window.scrollTo({ top: 0 });
       return next;
     });
     try {
@@ -159,6 +162,7 @@ export function AgentExperience(props: AgentExperienceProps) {
       categories: props.categories,
       products: props.products,
       services: props.services,
+      bookingToday: props.bookingToday,
       popularIds: props.popularProductIds,
       info: props.info,
       activeTable: props.activeTable,
@@ -172,7 +176,12 @@ export function AgentExperience(props: AgentExperienceProps) {
       money: (minor) => formatMoney(minor, currency, currencyExponent, locale),
       text: (value) => pickText(value, locale, fallbackLocale),
       go: (screen, options) =>
-        navigate({ screen, chatOpen: false, categoryId: options?.categoryId !== undefined ? options.categoryId : screen === "browse" ? null : nav.categoryId }),
+        navigate({
+          screen,
+          chatOpen: false,
+          categoryId: options?.categoryId !== undefined ? options.categoryId : screen === "browse" ? null : nav.categoryId,
+          serviceId: screen === "book" ? (options?.serviceId ?? null) : null,
+        }),
       back,
       openChat: (message) => {
         navigate({ ...nav, chatOpen: true });
@@ -220,6 +229,7 @@ export function AgentExperience(props: AgentExperienceProps) {
           >
             {nav.screen === "home" && <HomeView />}
             {nav.screen === "browse" && <BrowseView categoryId={nav.categoryId} onCategory={(id) => navigate({ ...nav, categoryId: id }, true)} />}
+            {nav.screen === "book" && <BookView serviceId={nav.serviceId ?? null} onService={(id) => navigate({ ...nav, serviceId: id })} />}
             {nav.screen === "cart" && <CartScreen />}
             {nav.screen === "checkout" && <CheckoutScreen />}
             {nav.screen === "done" && (commerce.orderResult ? <ConfirmationScreen /> : <HomeView />)}

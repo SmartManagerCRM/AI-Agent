@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { AskBox } from "@/components/assistant/ask-box";
 import { LineChart } from "@/components/charts/line-chart";
 import { DonutChart } from "@/components/console/donut-chart";
 import { EmptyState } from "@/components/console/empty-state";
@@ -38,16 +39,7 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
       <section className="rounded-2xl bg-gradient-to-br from-emerald-50 via-blue-50 to-violet-50 p-6">
         <h1 className="text-2xl font-semibold text-slate-900">{t("dashboard.greeting", { name: firstName })}</h1>
         <p className="mt-1 text-sm text-slate-600">{t("dashboard.tagline")}</p>
-        <form className="mt-4 flex max-w-xl items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-          <input
-            disabled
-            placeholder={t("dashboard.aiPlaceholder")}
-            className="flex-1 bg-transparent text-sm text-slate-500 outline-none placeholder:text-slate-400"
-          />
-          <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-400">
-            {t("dashboard.aiSoon")}
-          </span>
-        </form>
+        <AskBox locale={locale} slug={slug} placeholder={t("dashboard.aiPlaceholder")} />
       </section>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">

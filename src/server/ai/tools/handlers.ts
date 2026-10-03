@@ -301,7 +301,7 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         content: services
           .map(
             (s) =>
-              `${s.name} (${s.durationMinutes} min${s.priceMinor !== null ? `, ${formatMinor(s.priceMinor, ctx.currencyExponent)} ${ctx.currency}` : ""})`,
+              `${s.name} (${s.durationMinutes !== null ? `${s.durationMinutes} min` : "flexible length"}${s.priceMinor !== null ? `, ${formatMinor(s.priceMinor, ctx.currencyExponent)} ${ctx.currency}` : ""})`,
           )
           .join("; "),
       };
@@ -319,8 +319,9 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { content: "Give the date as YYYY-MM-DD.", isError: true };
       const slots = await getAvailableSlots(ctx.supabase, ctx.tenantId, service, date);
       if (slots.length === 0) return { content: `No open slots for ${service.name} on ${date}.` };
-      const times = slots.map((s) => new Date(s.startsAt).toISOString());
-      return { content: `Open slots for ${service.name} on ${date}: ${times.join(", ")}.` };
+      // Local clock times for the customer, with the exact instant to book.
+      const times = slots.slice(0, 40).map((s) => `${s.localTime} (slot_start ${s.startsAt}${s.spotsLeft > 1 ? `, ${s.spotsLeft} places` : ""})`);
+      return { content: `Open start times for ${service.name} on ${date} (business local time): ${times.join(", ")}.` };
     }
 
     case "create_booking": {

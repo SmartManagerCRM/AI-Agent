@@ -468,6 +468,102 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
         Relationships: [];
       };
+      membership_plans: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: LocalizedText;
+          description: LocalizedText;
+          kind: "loyalty" | "service";
+          price_minor: number;
+          joining_fee_minor: number;
+          currency: string;
+          billing_period: "none" | "day" | "week" | "month" | "year";
+          period_count: number;
+          auto_renew_default: boolean;
+          trial_days: number;
+          grace_days: number;
+          visits_per_period: number | null;
+          discount_percent: number | null;
+          benefits: string | null;
+          max_members: number | null;
+          service_ids: string[];
+          is_active: boolean;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["membership_plans"]["Row"]> & {
+          tenant_id: string;
+          name: LocalizedText;
+          kind: "loyalty" | "service";
+          currency: string;
+          billing_period: "none" | "day" | "week" | "month" | "year";
+        };
+        Update: Partial<Database["public"]["Tables"]["membership_plans"]["Row"]>;
+        Relationships: [];
+      };
+      memberships: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          plan_id: string;
+          member_number: number;
+          customer_name: string;
+          customer_phone: string | null;
+          customer_email: string | null;
+          status: "active" | "paused" | "cancelled";
+          start_date: string;
+          /** Renewal date (end of the current period); null = no expiry. */
+          end_date: string | null;
+          trial_ends_on: string | null;
+          auto_renew: boolean;
+          price_minor: number;
+          currency: string;
+          payment_status: "paid" | "unpaid" | "free" | "trial";
+          visits_used: number;
+          paused_on: string | null;
+          cancelled_at: string | null;
+          cancel_reason: string | null;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: Partial<Pick<Database["public"]["Tables"]["memberships"]["Row"], "customer_name" | "customer_phone" | "customer_email" | "auto_renew" | "notes">>;
+        Relationships: [];
+      };
+      membership_payments: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          membership_id: string;
+          kind: "joining" | "period" | "renewal";
+          amount_minor: number;
+          currency: string;
+          method: "cash" | "card" | "transfer" | "online" | "other";
+          period_start: string | null;
+          period_end: string | null;
+          paid_at: string;
+          recorded_by: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      membership_visits: {
+        Row: { id: string; tenant_id: string; membership_id: string; visited_at: string; recorded_by: string | null };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      inbox_reads: {
+        Row: { user_id: string; tenant_id: string; seen_at: string };
+        Insert: { user_id: string; tenant_id: string; seen_at?: string };
+        Update: { seen_at?: string };
+        Relationships: [];
+      };
       voice_profiles: {
         Row: {
           id: string;
@@ -634,9 +730,18 @@ export type Database = {
           id: string;
           tenant_id: string;
           name: LocalizedText;
-          duration_minutes: number;
+          /** Optional: a service may have no fixed length. */
+          duration_minutes: number | null;
           price_minor: number | null;
           is_active: boolean;
+          /** The customer may choose their own time out (or a duration). */
+          customer_sets_end: boolean;
+          /** People who may be booked at the same time. */
+          capacity: number;
+          /** Customers can book it themselves on the Agent's landing page. */
+          online_booking: boolean;
+          description: LocalizedText;
+          price_unit: "booking" | "hour" | "person";
           source: "manual" | "brain" | "file_import";
           brain_fact_key: string | null;
           /** Set when the owner deleted the service (kept for its bookings). */
@@ -647,7 +752,6 @@ export type Database = {
         Insert: Partial<Database["public"]["Tables"]["bookable_services"]["Row"]> & {
           tenant_id: string;
           name: LocalizedText;
-          duration_minutes: number;
         };
         Update: Partial<Database["public"]["Tables"]["bookable_services"]["Row"]>;
         Relationships: [];
@@ -662,9 +766,12 @@ export type Database = {
           customer_phone: string | null;
           customer_email: string | null;
           starts_at: string;
-          ends_at: string;
+          /** Time out; null when open-ended. */
+          ends_at: string | null;
           status: "confirmed" | "completed" | "canceled";
           notes: string | null;
+          party_size: number;
+          source: "agent_chat" | "agent_form" | "console";
           created_at: string;
           updated_at: string;
         };
@@ -672,7 +779,6 @@ export type Database = {
           tenant_id: string;
           service_id: string;
           starts_at: string;
-          ends_at: string;
         };
         Update: Partial<Database["public"]["Tables"]["bookings"]["Row"]>;
         Relationships: [];
@@ -1017,6 +1123,66 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      enrol_membership: {
+        Args: {
+          p_plan_id: string;
+          p_customer_name: string;
+          p_customer_phone: string | null;
+          p_customer_email: string | null;
+          p_start_date: string;
+          p_paid: boolean;
+          p_payment_method: string | null;
+          p_auto_renew: boolean;
+          p_notes: string | null;
+        };
+        Returns: Json;
+      };
+      renew_membership: { Args: { p_membership_id: string; p_paid: boolean; p_payment_method: string | null }; Returns: Json };
+      mark_membership_paid: { Args: { p_membership_id: string; p_payment_method: string }; Returns: Json };
+      membership_check_in: { Args: { p_membership_id: string }; Returns: Json };
+      set_membership_status: { Args: { p_membership_id: string; p_status: string; p_reason?: string | null }; Returns: Json };
+      tenant_period_summary: {
+        Args: { p_tenant_id: string; p_from: string; p_to: string };
+        Returns: Json;
+      };
+      book_service: {
+        Args: {
+          p_tenant_id: string;
+          p_service_id: string;
+          p_date: string;
+          p_time_in: string;
+          p_time_out: string | null;
+          p_duration_minutes: number | null;
+          p_party_size: number;
+          p_customer_name: string | null;
+          p_customer_phone: string | null;
+          p_customer_email: string | null;
+          p_notes: string | null;
+          p_source: "agent_form" | "console";
+          p_conversation_id?: string | null;
+        };
+        Returns: Json;
+      };
+      book_service_at: {
+        Args: {
+          p_tenant_id: string;
+          p_service_id: string;
+          p_starts_at: string;
+          p_ends_at: string | null;
+          p_party_size: number;
+          p_customer_name: string | null;
+          p_customer_phone: string | null;
+          p_customer_email: string | null;
+          p_notes: string | null;
+          p_source: "agent_chat" | "agent_form" | "console";
+          p_conversation_id?: string | null;
+        };
+        Returns: Json;
+      };
+      service_slots: {
+        Args: { p_tenant_id: string; p_service_id: string; p_date: string };
+        Returns: { starts_at: string; ends_at: string | null; local_time: string; spots_left: number }[];
+      };
       admin_update_business: {
         Args: {
           p_tenant_id: string;

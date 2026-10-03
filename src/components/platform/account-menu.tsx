@@ -1,10 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { signOutAction } from "@/server/auth/actions";
 import type { PlatformAlert } from "@/server/platform/dashboard-stats";
+
+// Alerts already looked at on this device: the bell counts only new ones.
+const SEEN_KEY = "sa-seen-alerts";
+const SEEN_EVENT = "sa-seen-alerts";
+function readSeen(): string {
+  try {
+    return window.localStorage.getItem(SEEN_KEY) ?? "[]";
+  } catch {
+    return "[]";
+  }
+}
+function subscribeSeen(onChange: () => void) {
+  window.addEventListener(SEEN_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(SEEN_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
 
 const SEVERITY_STYLE: Record<string, string> = {
   warning: "bg-amber-50 text-amber-700",
@@ -14,15 +33,26 @@ const SEVERITY_STYLE: Record<string, string> = {
 export function PlatformAccountMenu({
   locale,
   name,
-  alertCount,
   alerts,
 }: {
   locale: string;
   name: string;
-  alertCount: number;
   alerts: PlatformAlert[];
 }) {
   const [bellOpen, setBellOpen] = useState(false);
+  const seenRaw = useSyncExternalStore(subscribeSeen, readSeen, () => null);
+  // Before the browser is known (server render) nothing is marked seen, so nothing flickers in later.
+  const seen = new Set<string>(seenRaw ? (JSON.parse(seenRaw) as string[]) : alerts.map((a) => a.id));
+  const unseen = alerts.filter((a) => !seen.has(a.id)).length;
+  const markSeen = useCallback(() => {
+    try {
+      // Only current alerts are kept, so the list never grows.
+      window.localStorage.setItem(SEEN_KEY, JSON.stringify(alerts.map((a) => a.id)));
+    } catch {
+      // Storage blocked: the count clears for this page only.
+    }
+    window.dispatchEvent(new Event(SEEN_EVENT));
+  }, [alerts]);
   const [menuOpen, setMenuOpen] = useState(false);
   const initial = name.trim().charAt(0).toUpperCase() || "S";
 
@@ -34,14 +64,18 @@ export function PlatformAccountMenu({
           onClick={() => {
             setBellOpen((v) => !v);
             setMenuOpen(false);
+            markSeen();
           }}
           className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
           aria-label="Notifications"
         >
           <Icon path={NAV_ICON_PATHS.bell} size={18} />
-          {alertCount > 0 && (
-            <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
-              {alertCount > 9 ? "9+" : alertCount}
+          {unseen > 0 && (
+            <span
+              data-testid="alerts-bell-count"
+              className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white"
+            >
+              {unseen > 9 ? "9+" : unseen}
             </span>
           )}
         </button>

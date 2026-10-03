@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
 import { Button } from "@/components/console/button";
+import { ServiceFields } from "@/components/console/service-fields";
 import {
   deleteServiceAction,
   setServiceActiveAction,
@@ -14,9 +15,14 @@ import {
 export type ServiceRowData = {
   id: string;
   name: string;
-  durationMinutes: number;
+  description: string;
+  durationMinutes: number | null;
   priceMinor: number | null;
   priceLabel: string | null;
+  priceUnit: "booking" | "hour" | "person";
+  capacity: number;
+  customerSetsEnd: boolean;
+  onlineBooking: boolean;
   isActive: boolean;
   source: "manual" | "brain" | "file_import";
 };
@@ -49,40 +55,21 @@ export function ServiceRow({
         <input type="hidden" name="serviceId" value={service.id} />
         <input type="hidden" name="locale" value={locale} />
         <input type="hidden" name="slug" value={slug} />
-        <label className="flex min-w-40 flex-1 flex-col gap-1">
-          Name
-          <input
-            name="name"
-            required
-            maxLength={160}
-            defaultValue={service.name}
-            className="rounded-md border border-neutral-300 px-2 py-1.5"
+        <div className="basis-full">
+          <ServiceFields
+            exponent={exponent}
+            values={{
+              name: service.name,
+              description: service.description,
+              durationMinutes: service.durationMinutes,
+              priceMajor: service.priceMinor === null ? "" : (service.priceMinor / 10 ** exponent).toFixed(exponent),
+              priceUnit: service.priceUnit,
+              capacity: service.capacity,
+              customerSetsEnd: service.customerSetsEnd,
+              onlineBooking: service.onlineBooking,
+            }}
           />
-        </label>
-        <label className="flex flex-col gap-1">
-          Minutes
-          <input
-            name="durationMinutes"
-            type="number"
-            required
-            min={1}
-            max={480}
-            defaultValue={service.durationMinutes}
-            className="w-24 rounded-md border border-neutral-300 px-2 py-1.5"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          Price
-          <input
-            name="priceMajor"
-            type="number"
-            min={0}
-            step={1 / 10 ** exponent}
-            defaultValue={service.priceMinor === null ? "" : (service.priceMinor / 10 ** exponent).toFixed(exponent)}
-            placeholder="on request"
-            className="w-28 rounded-md border border-neutral-300 px-2 py-1.5"
-          />
-        </label>
+        </div>
         <Button type="submit" disabled={pending} className="px-3 py-1.5">
           {pending ? "Saving…" : "Save"}
         </Button>
@@ -100,8 +87,15 @@ export function ServiceRow({
       data-testid="service-row"
     >
       <span className="text-slate-900">
-        {service.name} — {service.durationMinutes} min
-        {service.priceLabel && ` · ${service.priceLabel}`}
+        <strong className="font-medium">{service.name}</strong> — {service.durationMinutes !== null ? `${service.durationMinutes} min` : "no fixed length"}
+        {service.customerSetsEnd && " · customer sets time out"}
+        {service.priceLabel && ` · ${service.priceLabel}${service.priceUnit === "hour" ? " / hour" : service.priceUnit === "person" ? " / person" : ""}`}
+        {service.capacity > 1 && ` · ${service.capacity} at a time`}
+        <span
+          className={`ms-2 rounded-full px-2 py-0.5 text-xs font-medium ${service.onlineBooking ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"}`}
+        >
+          {service.onlineBooking ? "On Agent" : "Console only"}
+        </span>
         {service.source !== "manual" && (
           <span className="ms-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
             {service.source === "brain" ? "From Business Brain" : "Imported"}
