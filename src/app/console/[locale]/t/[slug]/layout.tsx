@@ -33,6 +33,14 @@ export default async function TenantLayout({
   const t = await getTranslations("console");
   const user = await currentUser();
   const supabase = await createUserClient();
+  // Still waiting for the business: orders received but not yet completed, and bookings not yet fulfilled
+  // (requests to answer and confirmed bookings not yet completed). Counted in Postgres, under the member's own
+  // RLS — someone who can't see orders or bookings gets no number.
+  const waitingCounts = Promise.all([
+    supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["paid", "confirmed", "preparing", "ready"]),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["pending", "confirmed"]),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("status", "pending"),
+  ]);
 
   const [
     showSuperAdminLink,
@@ -86,9 +94,16 @@ export default async function TenantLayout({
       ? await loadSubscriberUsage(supabase, tenant.id)
       : null;
 
+  const [{ count: openOrders }, { count: openBookings }, { count: bookingRequests }] = await waitingCounts;
+  const plural = (n: number, one: string, other: string) => `${n} ${n === 1 ? one : other}`;
   const nav: NavItem[] = [
     { key: "dashboard", href: `/${locale}/${slug}`, label: t("nav.dashboard") },
-    { key: "orders", href: `/${locale}/${slug}/orders`, label: t("nav.orders") },
+    {
+      key: "orders",
+      href: `/${locale}/${slug}/orders`,
+      label: t("nav.orders"),
+      count: { value: openOrders ?? 0, title: `${plural(openOrders ?? 0, "order", "orders")} received, not yet completed` },
+    },
     { key: "products", href: `/${locale}/${slug}/products`, label: t("nav.products") },
     { key: "branches", href: `/${locale}/${slug}/branches`, label: t("nav.branches") },
     { key: "building", href: `/${locale}/${slug}/tables`, label: t("nav.tables") },
@@ -97,7 +112,21 @@ export default async function TenantLayout({
     { key: "conversations", href: `/${locale}/${slug}/conversations`, label: t("nav.conversations") },
     { key: "customers", href: `/${locale}/${slug}/customers`, label: t("nav.customers") },
     { key: "bell", href: `/${locale}/${slug}/leads`, label: t("nav.leads") },
-    { key: "check", href: `/${locale}/${slug}/bookings`, label: t("nav.bookings") },
+    {
+      key: "check",
+      href: `/${locale}/${slug}/bookings`,
+      label: t("nav.bookings"),
+      count: {
+        value: openBookings ?? 0,
+        urgent: (bookingRequests ?? 0) > 0,
+        title: [
+          bookingRequests ? `${plural(bookingRequests, "request", "requests")} waiting for your answer` : null,
+          `${plural((openBookings ?? 0) - (bookingRequests ?? 0), "confirmed booking", "confirmed bookings")} not yet completed`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      },
+    },
     { key: "membership", href: `/${locale}/${slug}/memberships`, label: t("nav.memberships") },
     { key: "analytics", href: `/${locale}/${slug}/analytics`, label: t("nav.analytics") },
     { key: "marketing", href: `/${locale}/${slug}/marketing`, label: t("nav.marketing") },

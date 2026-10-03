@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MarkSubscriberChecked } from "@/components/platform/mark-subscriber-checked";
 import { BusinessEditForm, SubscriptionEditForm } from "@/components/platform/subscriber-edit-forms";
 import { SubscriberUsageOverridesForm } from "@/components/platform/usage-limits-forms";
 import { loadPlanAiCostLimits, loadPlatformUsage } from "@/server/platform/usage";
@@ -85,6 +86,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
+      <MarkSubscriberChecked locale={locale} tenantId={tenant.id} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link

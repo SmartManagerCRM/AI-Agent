@@ -468,6 +468,8 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
         setHighlighted((prev) => new Map(prev).set(event.entity_id, Date.now()));
         refresh();
       }
+      // A new signup: the Subscribers number in the sidebar goes up.
+      if (event.kind === "new_subscriber") refresh();
       schedulerRef.current?.add(event);
       const text = describeRef.current(event);
       void showBrowserNotification(

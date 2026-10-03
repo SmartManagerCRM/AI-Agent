@@ -1183,6 +1183,14 @@ export type Database = {
         Args: { p_tenant_id: string; p_from: string; p_to: string };
         Returns: Json;
       };
+      unchecked_subscribers: {
+        Args: Record<string, never>;
+        Returns: { tenant_id: string; slug: string; created_at: string }[];
+      };
+      mark_subscribers_checked: {
+        Args: { p_tenant_ids: string[] | null };
+        Returns: number;
+      };
       decide_booking: {
         Args: { p_tenant_id: string; p_booking_id: string; p_decision: "confirm" | "decline" };
         Returns: { ok: boolean; status?: string; reason?: string };

@@ -15,7 +15,7 @@ import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireSuperAdmin } from "@/server/tenant/context";
 
-type NavItem = { key: NavIconKey; href: string; label: string };
+type NavItem = { key: NavIconKey; href: string; label: string; count?: { value: number; title: string } };
 type NavGroup = { label: string; items: NavItem[] };
 
 export default async function PlatformLayout({
@@ -30,15 +30,18 @@ export default async function PlatformLayout({
   const user = await currentUser();
   const supabase = await createUserClient();
 
-  const [{ data: profile }, alerts] = await timed(
+  const [{ data: profile }, alerts, { data: unchecked }] = await timed(
     "layout.superAdmin",
     Promise.all([
       user
         ? supabase.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle()
         : Promise.resolve({ data: null }),
       getPlatformAlerts(supabase),
+      // New subscribers no Super Admin has opened yet.
+      supabase.rpc("unchecked_subscribers"),
     ]),
   );
+  const uncheckedCount = (unchecked ?? []).length;
   const name = profile?.full_name ?? profile?.email ?? user?.email ?? "Super Admin";
 
   const groups: NavGroup[] = [
@@ -46,7 +49,12 @@ export default async function PlatformLayout({
       label: "Platform Management",
       items: [
         { key: "dashboard", href: `/${locale}/super-admin`, label: "Dashboard" },
-        { key: "customers", href: `/${locale}/super-admin/subscribers`, label: "Subscribers" },
+        {
+          key: "customers",
+          href: `/${locale}/super-admin/subscribers`,
+          label: "Subscribers",
+          count: { value: uncheckedCount, title: `${uncheckedCount} new subscriber${uncheckedCount === 1 ? "" : "s"} not yet checked` },
+        },
         { key: "building", href: `/${locale}/super-admin/businesses`, label: "Businesses" },
         { key: "bell", href: `/${locale}/super-admin/leads`, label: "Leads" },
         { key: "sparkle", href: `/${locale}/super-admin/analytics`, label: "Analytics" },

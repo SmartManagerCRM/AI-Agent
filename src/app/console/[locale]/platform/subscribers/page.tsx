@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { formatMoney } from "@/lib/money";
 import { getRecentSubscribers } from "@/server/platform/dashboard-stats";
+import { markAllSubscribersCheckedAction } from "@/server/platform/subscriber-checks";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
@@ -30,10 +31,13 @@ export default async function SubscribersPage({
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
 
-  const [subscribers, { data: currencies }] = await Promise.all([
+  const [subscribers, { data: currencies }, { data: unchecked }] = await Promise.all([
     getRecentSubscribers(supabase, 200),
     supabase.from("currencies").select("code, exponent"),
+    supabase.rpc("unchecked_subscribers"),
   ]);
+  // New subscribers no Super Admin has opened yet (opening one checks it).
+  const uncheckedSlugs = new Set((unchecked ?? []).map((u) => u.slug));
   const exponentByCode = new Map((currencies ?? []).map((c) => [c.code, c.exponent]));
 
   const activeCount = subscribers.filter((s) => s.status === "active").length;
@@ -90,6 +94,24 @@ export default async function SubscribersPage({
         />
       </div>
 
+      {uncheckedSlugs.size > 0 && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          data-testid="unchecked-subscribers"
+        >
+          <span>
+            <strong>{uncheckedSlugs.size}</strong> new subscriber{uncheckedSlugs.size === 1 ? "" : "s"} not yet checked — marked{" "}
+            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs font-semibold text-white">New</span> below. Opening one checks it.
+          </span>
+          <form action={markAllSubscribersCheckedAction}>
+            <input type="hidden" name="locale" value={locale} />
+            <button type="submit" className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">
+              Mark all as checked
+            </button>
+          </form>
+        </div>
+      )}
+
       {statusFilter && (
         <p className="text-sm text-slate-600">
           Showing <span className="font-medium capitalize">{statusFilter.replace("_", " ")}</span> subscribers ·{" "}
@@ -117,11 +139,19 @@ export default async function SubscribersPage({
               </thead>
               <tbody>
                 {shown.map((s) => (
-                  <tr key={s.userId} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                  <tr
+                    key={s.userId}
+                    className={`border-b border-slate-100 last:border-0 hover:bg-slate-50 ${uncheckedSlugs.has(s.slug) ? "bg-amber-50/50" : ""}`}
+                  >
                     <td className="py-2">
                       <Link href={`${base}/${s.slug}`} prefetch={false} className="font-medium text-slate-900 hover:underline">
                         {s.name}
                       </Link>
+                      {uncheckedSlugs.has(s.slug) && (
+                        <span className="ms-2 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white" data-testid="subscriber-new">
+                          New
+                        </span>
+                      )}
                       {s.email && <p className="text-xs text-slate-400">{s.email}</p>}
                     </td>
                     <td className="py-2 text-slate-600">

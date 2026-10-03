@@ -7,7 +7,9 @@ import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icon
 import { useNewOrderCount } from "@/components/notifications/notification-center";
 import { activeNavHref } from "@/lib/nav-active";
 
-export type NavItem = { key: NavIconKey; href: string; label: string; badge?: string };
+/** Things on a page still waiting for the business (open orders, bookings not yet fulfilled). */
+export type NavCount = { value: number; title: string; urgent?: boolean };
+export type NavItem = { key: NavIconKey; href: string; label: string; badge?: string; count?: NavCount };
 
 export function TenantNav({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
@@ -19,6 +21,9 @@ export function TenantNav({ items }: { items: NavItem[] }) {
     <nav className="flex flex-col gap-0.5 text-sm">
       {items.map((item) => {
         const active = item.href === current;
+        // Orders received while the console is open count at once, before the page's numbers refresh.
+        const waiting = item.key === "orders" ? Math.max(item.count?.value ?? 0, newOrders) : (item.count?.value ?? 0);
+        const fresh = item.key === "orders" ? newOrders > 0 : (item.count?.urgent ?? false);
         return (
           <Link
             key={item.key}
@@ -33,12 +38,16 @@ export function TenantNav({ items }: { items: NavItem[] }) {
               <Icon path={NAV_ICON_PATHS[item.key]} />
               {item.label}
             </span>
-            {item.key === "orders" && newOrders > 0 ? (
+            {waiting > 0 ? (
               <span
-                data-testid="nav-new-orders"
-                className="animate-pulse rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-semibold text-white"
+                data-testid={item.key === "orders" && newOrders > 0 ? "nav-new-orders" : `nav-count-${item.key}`}
+                title={item.count?.title}
+                aria-label={item.count?.title}
+                className={`min-w-6 rounded-full px-2 py-0.5 text-center text-xs font-semibold text-white ${
+                  fresh ? "animate-pulse bg-emerald-500" : "bg-amber-500"
+                }`}
               >
-                {newOrders}
+                {waiting > 99 ? "99+" : waiting}
               </span>
             ) : item.badge && (
               <span

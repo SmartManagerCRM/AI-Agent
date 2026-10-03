@@ -532,3 +532,17 @@ install (only the console's pages link the manifest).
   (migration `20261006100000_voice_greeting_even_tone.sql`). Each greeting
   is generated once more in this delivery, then served from the cache.
 
+
+## Sidebar numbers: what is still waiting
+
+- Business console: **Orders** shows orders received but not yet completed
+  (paid, confirmed, preparing, ready); **Bookings** shows bookings not yet
+  fulfilled (requests waiting for an answer + confirmed bookings not yet
+  marked completed) and pulses while a request waits. Hover for details.
+  Counted in Postgres under the member's own permissions; updated as orders
+  and requests arrive (realtime) and as soon as one is completed/answered.
+- Super Admin: **Subscribers** shows new subscribers no Super Admin has
+  opened yet (`platform_subscriber_checks`, Super-Admin-only; migration
+  `20261006130000_subscriber_checks.sql`). Opening a subscriber checks it;
+  the Subscribers page has "Mark all as checked". Subscribers that existed
+  before this change count as checked.
