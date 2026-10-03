@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 import { actionT } from "@/server/i18n/action-messages";
 
 import { importOfferings, syncApprovedProducts } from "./catalog-sync";
@@ -40,6 +41,7 @@ export async function publishAgentAction(_prev: GoLiveActionState, formData: For
     const result = await importOfferings(supabase, tenant, state.offerings.importable);
     if (!result.ok) return { ok: false, message: t("goLive.importNoPermission") };
     imported = result.imported;
+    if (imported) translateSoon();
   }
 
   const { data, error } = await supabase.rpc("publish_agent", { p_tenant_id: tenant.id });
@@ -91,6 +93,7 @@ export async function syncCatalogAction(_prev: GoLiveActionState, formData: Form
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const added = await syncApprovedProducts(supabase, tenant, locale);
+  if (added > 0) translateSoon();
   refresh(locale, slug);
   return added > 0
     ? { ok: true, message: t("goLive.synced", { n: added }) }

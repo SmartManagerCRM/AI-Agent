@@ -6,6 +6,8 @@ import { z } from "zod";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
+import { isContentLang } from "@/server/translate/types";
 
 const createSchema = z.object({
   message: z.string().trim().min(1).max(500),
@@ -29,8 +31,15 @@ export async function createAnnouncementAction(
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("platform_announcements")
-    .insert({ message: parsed.data.message, severity: parsed.data.severity, created_by: user.id });
+    .insert({
+      message: parsed.data.message,
+      // The language it was written in — the others are filled in automatically.
+      message_locale: isContentLang(parsed.data.locale) ? parsed.data.locale : "en",
+      severity: parsed.data.severity,
+      created_by: user.id,
+    });
   if (error) return t("platform.announcementFailed");
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/announcements`);
 }

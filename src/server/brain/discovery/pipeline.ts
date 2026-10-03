@@ -284,6 +284,8 @@ class JobRun {
     // change tells open consoles to refresh.
     if (final !== "failed") {
       const added = await this.addFindingsToCatalog().catch(() => null);
+      // The new drafts get their other languages in the background (no AI).
+      if (added && added.products + added.services > 0) void import("@/server/translate/queue").then((m) => m.runTranslationQueue()).catch(() => {});
       if (!added || added.failed) {
         await this.event(
           "conflict_check",

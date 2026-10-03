@@ -8,6 +8,7 @@ import { statusLabel } from "@/lib/i18n-labels";
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
 import { Button } from "@/components/console/button";
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
+import { AutoTranslatedChip } from "@/components/i18n/auto-translated";
 import {
   deleteProductAction,
   setProductStatusAction,
@@ -27,6 +28,8 @@ export type ProductCardData = {
   categoryId: string | null;
   /** Public URL of the stored photo, null when the product has none. */
   imageUrl: string | null;
+  /** The name shown was translated automatically (not typed by anyone). */
+  autoTranslated?: boolean;
 };
 
 const STATUS_STYLE: Record<ProductCardData["status"], string> = {
@@ -96,6 +99,7 @@ export function ProductCard({
               defaultValue={product.name}
               className="rounded-md border border-neutral-300 px-2 py-1.5"
             />
+            {product.autoTranslated && <span className="text-xs text-sky-700">{tCommon("autoTranslatedHint")}</span>}
           </label>
           <div className="flex gap-2">
             <label className="flex flex-1 flex-col gap-1">
@@ -163,7 +167,10 @@ export function ProductCard({
         </form>
       ) : (
         <>
-          <p className="font-medium text-slate-900">{product.name}</p>
+          <p className="font-medium text-slate-900">
+            {product.name}
+            {product.autoTranslated && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />}
+          </p>
           {product.description && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{product.description}</p>}
           <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-sm">
             {needsPrice ? (

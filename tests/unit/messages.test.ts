@@ -77,7 +77,7 @@ describe("messages", () => {
       const names = new Set<string>();
       const walk = (nodes: MessageFormatElement[]) => {
         for (const node of nodes) {
-          if ("value" in node && node.type !== TYPE.literal && node.type !== TYPE.pound) names.add(String(node.value));
+          if ("value" in node && node.type !== TYPE.literal) names.add(String(node.value));
           if ("options" in node) for (const option of Object.values(node.options)) walk(option.value);
           if ("children" in node) walk(node.children);
         }

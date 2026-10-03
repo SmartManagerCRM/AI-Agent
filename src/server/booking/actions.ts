@@ -6,6 +6,7 @@ import { z } from "zod";
 import { parseBookResult, type BookingRefusal } from "@/server/commerce/booking";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 import { actionT } from "@/server/i18n/action-messages";
 
 /** The fields a service form sends (create and edit share them). */
@@ -69,6 +70,7 @@ export async function createServiceAction(
     requires_approval: f.requiresApproval,
   });
   if (error) return t("bookings.serviceCreateFailed");
+  translateSoon();
 
   revalidatePath(`/${locale}/${slug}/bookings`);
 }
@@ -169,6 +171,7 @@ export async function updateServiceAction(_prev: ServiceEditState, formData: For
     .eq("tenant_id", tenant.id)
     .eq("id", ids.data.serviceId);
   if (error) return { ok: false, message: t("bookings.serviceNoPermission") };
+  translateSoon();
   revalidatePath(`/${locale}/${slug}/bookings`);
   return { ok: true, message: t("saved") };
 }

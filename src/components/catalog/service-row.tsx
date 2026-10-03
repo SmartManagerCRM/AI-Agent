@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+
+import { AutoTranslatedChip } from "@/components/i18n/auto-translated";
 import { useActionState, useState } from "react";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
@@ -16,6 +18,8 @@ import {
 export type ServiceRowData = {
   id: string;
   name: string;
+  /** The name shown was translated automatically (not typed by anyone). */
+  autoTranslated?: boolean;
   description: string;
   durationMinutes: number | null;
   priceMinor: number | null;
@@ -93,7 +97,8 @@ export function ServiceRow({
       data-testid="service-row"
     >
       <span className="text-slate-900">
-        <strong className="font-medium">{service.name}</strong> — {service.durationMinutes !== null ? t("minutes", { n: service.durationMinutes }) : tFields("noFixedLength")}
+        <strong className="font-medium">{service.name}</strong>
+        {service.autoTranslated && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />} — {service.durationMinutes !== null ? t("minutes", { n: service.durationMinutes }) : tFields("noFixedLength")}
         {service.customerSetsEnd && t("customerSetsEnd")}
         {service.priceLabel && ` · ${service.priceLabel}${service.priceUnit === "hour" ? t("perHour") : service.priceUnit === "person" ? t("perPerson") : ""}`}
         {service.capacity > 1 && t("atATime", { n: service.capacity })}

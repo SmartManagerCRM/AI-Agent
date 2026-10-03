@@ -14,7 +14,7 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
 
   const { data: announcements } = await supabase
     .from("platform_announcements")
-    .select("id, message, severity, is_active, created_at")
+    .select("id, message, message_translations, severity, is_active, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -40,7 +40,7 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
                 className="flex items-center justify-between gap-3 rounded-md border border-slate-100 p-3 text-sm"
               >
                 <div className="min-w-0">
-                  <p className="text-slate-900">{a.message}</p>
+                  <p className="text-slate-900">{a.message_translations[locale] ?? a.message}</p>
                   <p className="text-xs text-slate-400">
                     {t.has(`severity.${a.severity}`) ? t(`severity.${a.severity}`) : a.severity} · {new Date(a.created_at).toLocaleString(locale)}
                   </p>

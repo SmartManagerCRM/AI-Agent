@@ -13,6 +13,7 @@ import { bookingMessage, whatsappLink, whatsappNumber, type MessageLocale } from
 import { cancelBookingAction, completeBookingAction } from "@/server/booking/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { autoTranslated } from "@/server/translate/marks";
 import { businessToday, resolveTimeZone } from "@/lib/timezone";
 import { getTranslations } from "next-intl/server";
 
@@ -87,6 +88,7 @@ export default async function BookingsPage({
   const exponent = currency?.exponent ?? 2;
   // Deleted services are hidden; their past bookings still show the service's name.
   const services = (allServices ?? []).filter((s) => s.archived_at === null);
+  const autoServices = await autoTranslated(supabase, "bookable_services", "name", locale, services.map((s) => ({ key: s.id, value: s.name[locale] })));
   // Times are shown in the business's own time zone (where its opening hours apply).
   const tz = resolveTimeZone(tenant.timezone);
   const day = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
@@ -227,6 +229,7 @@ export default async function BookingsPage({
                 requiresApproval: s.requires_approval,
                 isActive: s.is_active,
                 source: s.source,
+                autoTranslated: autoServices.has(s.id),
               }}
               exponent={exponent}
               locale={locale}

@@ -68,7 +68,7 @@ export default async function TenantLayout({
       newConversationCount(supabase, tenant.id, user?.id ?? null),
       supabase
         .from("platform_announcements")
-        .select("id, message, severity")
+        .select("id, message, message_translations, severity")
         .eq("is_active", true)
         .order("created_at", { ascending: false }),
       loadDeploymentStatus(supabase, tenant.id),
@@ -186,7 +186,7 @@ export default async function TenantLayout({
               a.severity === "warning" ? "bg-amber-100 text-amber-900" : "bg-blue-50 text-blue-800"
             }`}
           >
-            {a.message}
+            {a.message_translations[locale] ?? a.message}
           </div>
         ))}
         <div className="flex min-h-0 flex-1 bg-slate-50">

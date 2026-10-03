@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 import { actionT } from "@/server/i18n/action-messages";
 
 import { addCatalogItems, existingCatalogNames } from "./bulk";
@@ -126,6 +127,7 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
       images = { attached: 0, failed: jobs.length, skipped: 0 };
     }
   }
+  translateSoon();
   revalidatePath(`/${locale}/${slug}/products`);
   revalidatePath(`/${locale}/${slug}/bookings`);
   revalidatePath(`/${locale}/${slug}`);

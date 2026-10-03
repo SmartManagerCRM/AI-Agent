@@ -4,6 +4,7 @@ import { CreateProductForm } from "@/components/catalog/create-product-form";
 import { FileImportForm } from "@/components/catalog/file-import-form";
 import { ProductCard } from "@/components/catalog/product-card";
 import { EmptyState } from "@/components/console/empty-state";
+import { AutoTranslatedChip } from "@/components/i18n/auto-translated";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
@@ -13,6 +14,7 @@ import { setProductStatusAction } from "@/server/catalog/actions";
 import { timed } from "@/server/perf";
 import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { autoTranslated } from "@/server/translate/marks";
 import { Msg } from "@/components/i18n/msg";
 import { getTranslations } from "next-intl/server";
 
@@ -114,6 +116,12 @@ export default async function ProductsPage({
   const label = (text: Record<string, string>) => text[locale] ?? Object.values(text)[0] ?? "";
   const categoryOptions = (categories ?? []).map((c) => ({ id: c.id, label: label(c.name) }));
   const productCount = totalCount ?? 0;
+  // Names shown in this language that were translated automatically (marked so the owner can check them).
+  const [autoProducts, autoCategories] = await Promise.all([
+    autoTranslated(supabase, "products", "name", locale, products.map((p) => ({ key: p.id, value: p.name[locale] }))),
+    autoTranslated(supabase, "categories", "name", locale, (categories ?? []).map((c) => ({ key: c.id, value: c.name[locale] }))),
+  ]);
+  const tCommon = await getTranslations("common");
 
   return (
     <div className="flex flex-col gap-6">
@@ -143,6 +151,7 @@ export default async function ProductsPage({
           {(categories ?? []).map((category) => (
             <li key={category.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">
               {label(category.name)}
+              {autoCategories.has(category.id) && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />}
             </li>
           ))}
         </ul>
@@ -205,6 +214,7 @@ export default async function ProductsPage({
                   sourcePrice: product.source_price,
                   categoryId: product.category_id,
                   imageUrl: productImageUrl(product.image_path),
+                  autoTranslated: autoProducts.has(product.id),
                 }}
                 categories={categoryOptions}
                 exponent={exponent}

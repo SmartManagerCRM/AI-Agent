@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { draftBrainCatalog } from "@/server/catalog/brain-drafts";
 import { bucketWriter, storeProductImage } from "@/server/catalog/product-images";
+import { translateSoon } from "@/server/translate/queue";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { actionT } from "@/server/i18n/action-messages";
@@ -75,6 +76,7 @@ export async function createCategoryAction(
     .from("categories")
     .insert({ tenant_id: parsed.data.tenantId, name: { [parsed.data.locale]: parsed.data.name } });
   if (error) return (await actionT(parsed.data.locale))("catalog.categoryFailed");
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
@@ -118,6 +120,7 @@ export async function createProductAction(
     status: parsed.data.status,
   });
   if (error) return (await actionT(parsed.data.locale))("catalog.productFailed");
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/products`);
 }
@@ -247,6 +250,7 @@ export async function updateProductAction(_prev: ProductEditState, formData: For
     .eq("tenant_id", tenant.id)
     .eq("id", parsed.data.productId);
   if (error) return { ok: false, message: t("catalog.noPermission") };
+  translateSoon();
 
   const photo = savedPhoto(formData.get("photo"));
   if (photo === "too_large") {
@@ -347,6 +351,7 @@ export async function syncBrainCatalogAction(_prev: BrainSyncState, formData: Fo
 }
 
 function revalidateCatalog(locale: string, slug: string) {
+  translateSoon();
   revalidatePath(`/${locale}/${slug}/products`);
   revalidatePath(`/${locale}/${slug}/bookings`);
   revalidatePath(`/${locale}/${slug}`);

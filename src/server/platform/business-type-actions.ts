@@ -6,6 +6,7 @@ import { z } from "zod";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 
 const keySchema = z
   .string()
@@ -39,6 +40,7 @@ export async function createBusinessTypeAction(
       ? t("platform.typeExists")
       : t("platform.typeFailed");
   }
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/settings`);
 }

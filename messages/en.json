@@ -2165,6 +2165,28 @@
       "subtitle": "What each system role can do, across every business on the platform. These 3 roles are shared by every tenant — toggling a permission here changes it everywhere at once, not just for one business.",
       "on": "On",
       "off": "Off"
+    },
+    "translation": {
+      "title": "Automatic translation",
+      "intro": "Names and descriptions that owners and Super Admins add are translated into the other languages in the background — no AI. A translation someone typed is never replaced.",
+      "order": "Used in this order:",
+      "provider": {
+        "glossary": "Built-in word list",
+        "azure_free": "Azure Translator — free tier",
+        "deepl_free": "DeepL API Free",
+        "azure_paid": "Azure Translator — paid tier",
+        "local": "Open-source models on this server"
+      },
+      "notSet": "Not set up",
+      "ready": "Ready",
+      "always": "Always on — free",
+      "usedOf": "{used} / {limit} characters this month",
+      "usedNoCap": "{used} characters this month (no cap)",
+      "usedUp": "Allowance used up this month",
+      "waiting": "{n, plural, =0 {Nothing waiting to be translated.} one {# item waiting to be translated.} other {# items waiting to be translated.}}",
+      "translated": "{n, plural, =0 {No automatic translations yet.} one {# automatic translation so far.} other {# automatic translations so far.}}",
+      "translateMissing": "Translate missing content now",
+      "keysHint": "Services are set up with environment variables on the server (see DEPLOYMENT.md). Keys are never shown here."
     }
   },
   "agent": {
@@ -2801,7 +2823,9 @@
       "orders": "Orders",
       "settings": "Settings",
       "staff": "Staff"
-    }
+    },
+    "autoTranslated": "Auto-translated",
+    "autoTranslatedHint": "Translated automatically — edit it to correct it; your wording is then kept."
   },
   "actions": {
     "reload": "Reload the page and try again.",
@@ -3114,7 +3138,9 @@
         "unknownTimezone": "Unknown timezone.",
         "grace": "The grace period must be between 0 and 720 hours."
       },
-      "planCreateFailed": "Could not create that plan — please try again."
+      "planCreateFailed": "Could not create that plan — please try again.",
+      "translateFailed": "Could not start the translation — please try again.",
+      "translateQueued": "{n, plural, =0 {Nothing to translate.} one {# item checked — missing languages are being filled in.} other {# items checked — missing languages are being filled in.}}"
     },
     "auth": {
       "signInInvalid": "Enter a valid email and password.",

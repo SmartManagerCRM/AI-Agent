@@ -121,6 +121,10 @@ identically across all three Node.js applications:
 | `GEMINI_API_KEY` | paid-tier Gemini key (optional — AI features degrade to "not configured" without it) |
 | `ELEVENLABS_API_KEY` | ElevenLabs API key for the Agent's premium voice (optional — without it the Agent speaks with each customer's device voice). Server-side only. |
 | `ANTHROPIC_API_KEY` | optional fallback provider |
+| `AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` | optional — Azure Translator resource on the **free F0** tier, for automatic translation of what owners and the Super Admin add (see "Automatic translation" below). Server-side only. |
+| `DEEPL_API_KEY` | optional — DeepL API **Free** key (ends in `:fx`), used once Azure's free characters are used up. Server-side only. |
+| `AZURE_TRANSLATOR_PAID_KEY` / `AZURE_TRANSLATOR_PAID_REGION` / `AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT` | optional — a second Azure Translator resource on a **paid** tier, used only after both free allowances; the limit caps its characters per month. Leave unset for none. |
+| `TRANSLATION_LOCAL_MODELS` | leave unset; set to `off` only if the server can't spare the memory for the in-app open-source translation models (the last fallback). |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | generate once with `openssl rand -base64 32`, reuse the same value everywhere — required correctness insurance for this three-instance setup (§3), even though a shared build artifact makes it unlikely to bite in practice; see `.env.example` |
 | `PORT` | set automatically by hPanel to whatever port it assigns your app — don't override it |
 
@@ -567,3 +571,47 @@ install (only the console's pages link the manifest).
   endpoint answers "device voice" at once, without calling ElevenLabs —
   until the characters reset (or the plan is upgraded). Owners' "Preview
   voice" explains it. Nothing to configure.
+
+## Automatic translation (no AI)
+
+Names and descriptions of products, categories, services and membership plans,
+and the Super Admin's business types, plans and announcements, are translated
+into the other two languages (English, Arabic, French) in the background after
+each save, and every few minutes for anything still waiting (imports, the
+Business Brain). Code: `src/server/translate`; database:
+`supabase/migrations/20261007100000_content_translations.sql`.
+
+Cheapest first, each step only when the previous one can't:
+
+1. **Built-in word list** — common menu sections, dishes, drinks, business
+   types, plans and services. Free, instant.
+2. **Azure Translator, free tier** (`AZURE_TRANSLATOR_KEY`) — up to 2,000,000
+   characters a month.
+3. **DeepL API Free** (`DEEPL_API_KEY`) — up to 500,000 characters a month.
+4. **Azure Translator, paid tier** (`AZURE_TRANSLATOR_PAID_KEY`) — only if
+   set; capped by `AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT` when that is set.
+5. **Open-source models on this server** (OPUS-MT via transformers.js, an
+   optional dependency) — run in a separate process with no secrets, so a
+   memory problem can't take the app down; the models download once from
+   Hugging Face into the server's temp directory. Set
+   `TRANSLATION_LOCAL_MODELS=off` to skip them.
+
+Characters are counted per service per calendar month in `translation_usage`
+before each request, so a free allowance is never exceeded; a service that
+answers "allowance used up" is skipped until the next month. What a person
+typed is never replaced; an automatic translation is redone when its source
+text changes, and is marked "Auto-translated" in the console. Super Admin →
+Settings shows each service's use this month and has **Translate missing
+content now** for everything that already exists.
+
+Setting up the free services:
+
+- **Azure**: in the Azure portal create a *Translator* resource, pricing tier
+  **F0 (free)**. Copy one of its keys to `AZURE_TRANSLATOR_KEY` and its
+  location/region (e.g. `westeurope`) to `AZURE_TRANSLATOR_REGION`.
+- **DeepL**: sign up for *DeepL API Free* and copy the authentication key
+  (ending in `:fx`) to `DEEPL_API_KEY`.
+
+`npm ci` installs the optional model runtime with its CPU libraries only
+(`.npmrc`: `onnxruntime-node-install=skip`); if it can't be installed, the app
+still builds and runs — the in-app fallback is then simply unavailable.

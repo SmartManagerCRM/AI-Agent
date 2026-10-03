@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 
 export type MembershipFormState = { ok: boolean; message: string } | undefined;
@@ -107,6 +108,7 @@ export async function savePlanAction(_prev: MembershipFormState, formData: FormD
     ? await supabase.from("membership_plans").update(row).eq("tenant_id", tenant.id).eq("id", planId)
     : await supabase.from("membership_plans").insert({ ...row, tenant_id: tenant.id, currency });
   if (error) return { ok: false, message: error.code === "42501" ? t("memberships.noPermission") : t("memberships.planSaveFailed") };
+  translateSoon();
   revalidatePath(`/${locale}/${slug}/memberships`);
   return { ok: true, message: planId ? t("memberships.planSaved") : t("memberships.planCreated", { name: p.name }) };
 }

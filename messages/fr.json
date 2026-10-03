@@ -2165,6 +2165,28 @@
       "subtitle": "Ce que chaque rôle système peut faire, dans toutes les activités de la plateforme. Ces 3 rôles sont partagés par tous — modifier une permission ici la change partout à la fois, pas pour une seule activité.",
       "on": "Activé",
       "off": "Désactivé"
+    },
+    "translation": {
+      "title": "Traduction automatique",
+      "intro": "Les noms et descriptions ajoutés par les propriétaires et les Super Admins sont traduits dans les autres langues en arrière-plan — sans IA. Une traduction saisie par quelqu’un n’est jamais remplacée.",
+      "order": "Utilisés dans cet ordre :",
+      "provider": {
+        "glossary": "Liste de mots intégrée",
+        "azure_free": "Azure Translator — niveau gratuit",
+        "deepl_free": "DeepL API Free",
+        "azure_paid": "Azure Translator — niveau payant",
+        "local": "Modèles open source sur ce serveur"
+      },
+      "notSet": "Non configuré",
+      "ready": "Prêt",
+      "always": "Toujours actif — gratuit",
+      "usedOf": "{used} / {limit} caractères ce mois-ci",
+      "usedNoCap": "{used} caractères ce mois-ci (sans plafond)",
+      "usedUp": "Allocation épuisée ce mois-ci",
+      "waiting": "{n, plural, =0 {Rien en attente de traduction.} one {# élément en attente de traduction.} other {# éléments en attente de traduction.}}",
+      "translated": "{n, plural, =0 {Aucune traduction automatique pour l’instant.} one {# traduction automatique jusqu’ici.} other {# traductions automatiques jusqu’ici.}}",
+      "translateMissing": "Traduire le contenu manquant maintenant",
+      "keysHint": "Les services se configurent par variables d’environnement sur le serveur (voir DEPLOYMENT.md). Les clés ne sont jamais affichées ici."
     }
   },
   "agent": {
@@ -2801,7 +2823,9 @@
       "orders": "Commandes",
       "settings": "Paramètres",
       "staff": "Équipe"
-    }
+    },
+    "autoTranslated": "Traduit automatiquement",
+    "autoTranslatedHint": "Traduit automatiquement — modifiez-le pour le corriger ; votre formulation sera alors conservée."
   },
   "actions": {
     "reload": "Rechargez la page et réessayez.",
@@ -3114,7 +3138,9 @@
         "unknownTimezone": "Fuseau horaire inconnu.",
         "grace": "La période de grâce doit être comprise entre 0 et 720 heures."
       },
-      "planCreateFailed": "Impossible de créer ce forfait — veuillez réessayer."
+      "planCreateFailed": "Impossible de créer ce forfait — veuillez réessayer.",
+      "translateFailed": "Impossible de lancer la traduction — veuillez réessayer.",
+      "translateQueued": "{n, plural, =0 {Rien à traduire.} one {# élément vérifié — les langues manquantes sont en cours d’ajout.} other {# éléments vérifiés — les langues manquantes sont en cours d’ajout.}}"
     },
     "auth": {
       "signInInvalid": "Saisissez une adresse e-mail et un mot de passe valides.",

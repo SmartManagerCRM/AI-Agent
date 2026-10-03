@@ -6,6 +6,7 @@ import { z } from "zod";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { translateSoon } from "@/server/translate/queue";
 
 /**
  * Super Admin Master Spec, Phase 3 — Subscriptions & Plans management.
@@ -78,6 +79,7 @@ export async function createPlanAction(
       ? t("platform.planExists")
       : t("platform.planCreateFailed");
   }
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
 }
@@ -140,6 +142,7 @@ export async function updatePlanAction(
     })
     .eq("key", parsed.data.key);
   if (error) return t("platform.planFailed");
+  translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
 }

@@ -175,9 +175,56 @@ export type Database = {
           is_active: boolean;
           created_by: string | null;
           created_at: string;
+          /** The language `message` was written in; `message_translations` holds the others. */
+          message_locale: "en" | "ar" | "fr";
+          message_translations: Record<string, string>;
         };
         Insert: Partial<Database["public"]["Tables"]["platform_announcements"]["Row"]> & { message: string };
         Update: Partial<Database["public"]["Tables"]["platform_announcements"]["Row"]>;
+        Relationships: [];
+      };
+      translation_queue: {
+        Row: {
+          table_name: string;
+          row_key: string;
+          tenant_id: string | null;
+          queued_at: string;
+          attempts: number;
+          next_attempt_at: string;
+          locked_until: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      content_translations: {
+        Row: {
+          table_name: string;
+          row_key: string;
+          field: string;
+          lang: "en" | "ar" | "fr";
+          tenant_id: string | null;
+          source_lang: "en" | "ar" | "fr";
+          source_hash: string;
+          value: string;
+          provider: string;
+          translated_at: string;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      translation_usage: {
+        Row: {
+          provider: string;
+          period: string;
+          characters: number;
+          requests: number;
+          exhausted_at: string | null;
+          updated_at: string;
+        };
+        Insert: never;
+        Update: never;
         Relationships: [];
       };
       notification_events: {
@@ -1186,6 +1233,40 @@ export type Database = {
       unchecked_subscribers: {
         Args: Record<string, never>;
         Returns: { tenant_id: string; slug: string; created_at: string }[];
+      };
+      claim_translation_jobs: {
+        Args: { p_limit: number };
+        Returns: Database["public"]["Tables"]["translation_queue"]["Row"][];
+      };
+      finish_translation_job: {
+        Args: { p_table: string; p_key: string; p_queued_at: string; p_retry_in_seconds: number | null };
+        Returns: undefined;
+      };
+      apply_content_translation: {
+        Args: {
+          p_table: string;
+          p_key: string;
+          p_field: string;
+          p_lang: string;
+          p_value: string;
+          p_expected: string | null;
+          p_source_lang: string;
+          p_source_hash: string;
+          p_provider: string;
+        };
+        Returns: boolean;
+      };
+      reserve_translation_characters: {
+        Args: { p_provider: string; p_characters: number; p_limit: number | null };
+        Returns: boolean;
+      };
+      settle_translation_characters: {
+        Args: { p_provider: string; p_refund: number; p_exhausted: boolean };
+        Returns: undefined;
+      };
+      queue_all_translations: {
+        Args: Record<string, never>;
+        Returns: number;
       };
       mark_subscribers_checked: {
         Args: { p_tenant_ids: string[] | null };
