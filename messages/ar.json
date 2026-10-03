@@ -357,7 +357,7 @@
       "notes": "ملاحظات للنشاط",
       "submit": "تأكيد الحجز",
       "submitting": "جارٍ الحجز…",
-      "confirmed": "تم تأكيد الحجز!",
+      "confirmed": "تم تأكيد الحجز",
       "confirmedText": "{service} يوم {date} الساعة {time}.",
       "confirmedEnd": "حتى الساعة {time}.",
       "seeYou": "نراك قريبًا يا {name}!",
@@ -379,7 +379,24 @@
         "email": "يرجى إدخال بريد إلكتروني صحيح أو تركه فارغًا.",
         "rate_limited": "حجوزات كثيرة من هذا الجهاز — يرجى المحاولة بعد بضع دقائق.",
         "unavailable_agent": "الحجز غير متاح حاليًا."
-      }
+      },
+      "peopleCount": "{count, plural, one {شخص واحد} two {شخصين} few {# أشخاص} many {# شخصًا} other {# شخص}}",
+      "checking": "أتحقق من توفر الموعد يوم {date} الساعة {time} لـ{people}.",
+      "checkingNote": "يقوم الفريق بتأكيد طلبك — عادةً خلال دقائق. ابقَ في هذه الصفحة، وسيظهر الرد هنا.",
+      "checkingWait": "بانتظار التأكيد",
+      "checkingLong": "ما زلنا نتحقق — قد يتواصل معك النشاط أيضًا على {phone}.",
+      "declinedTitle": "نعتذر منك بشدة",
+      "declinedText": "جدول الحجوزات ممتلئ يوم {date} الساعة {time}. يُرجى اختيار وقت آخر، ويسعدنا استقبالك.",
+      "chooseAnother": "اختر وقتًا آخر",
+      "details": "تفاصيل الحجز",
+      "detailService": "الخدمة",
+      "detailDate": "التاريخ",
+      "detailTime": "الوقت",
+      "detailPeople": "عدد الأشخاص",
+      "detailName": "الاسم",
+      "detailPhone": "الهاتف",
+      "submitRequest": "إرسال طلب الحجز",
+      "requestNote": "يؤكّد النشاط كل حجز لهذه الخدمة بنفسه — سترى ردّه هنا خلال دقائق."
     }
   },
   "pwa": {
@@ -424,6 +441,12 @@
     "brainAdded": "تمت إضافة {products} منتج و{services} خدمة إلى الكتالوج كمسودات — وافق عليها قبل أن يراها العملاء.",
     "brainNothingAdded": "صفحاتك محدّثة بما تم العثور عليه.",
     "brainReview": "مراجعة الكتالوج",
-    "brainView": "عرض النتائج"
+    "brainView": "عرض النتائج",
+    "bookingRequest": "طلب حجز",
+    "bookingRequestNotification": "طلب حجز جديد — أكّده أو اعتذر عنه",
+    "bookingPeopleOne": "شخص واحد",
+    "bookingPeopleOther": "{count} أشخاص",
+    "reviewBooking": "مراجعة الطلب",
+    "bookingRequests": "{count} طلبات حجز"
   }
 }

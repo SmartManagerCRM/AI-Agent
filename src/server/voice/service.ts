@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { speechSentences, type SpeechLanguage } from "@/components/agent-public/voice";
+
 import type { TtsProvider, VoiceLanguage, VoiceSettings } from "./provider";
 
 /**
@@ -72,6 +74,25 @@ export type SentenceAudio =
 
 /** Longest sentence sent for speech (longer text is a sign of misuse, not of a sentence). */
 export const MAX_SENTENCE_CHARS = 400;
+
+/**
+ * The greeting as the voice should say it: one even, friendly-professional
+ * tone from the first word to the last. Generated sentence by sentence,
+ * each clip got its own intonation — the short "Hi! I'm …" came out high and
+ * the rest lower — so the whole greeting in one language is one recording.
+ * Exclamation marks are read as full stops: they make the voice jump in
+ * pitch. (The text shown on screen is not changed.)
+ */
+export function evenGreeting(parts: readonly string[], locale: string): { text: string; language: SpeechLanguage }[] {
+  const calm = parts.map((part) => part.replace(/\s*[!¡]+/g, "."));
+  const out: { text: string; language: SpeechLanguage }[] = [];
+  for (const sentence of speechSentences(calm, locale)) {
+    const last = out[out.length - 1];
+    if (last && last.language === sentence.language && last.text.length + sentence.text.length < MAX_SENTENCE_CHARS) last.text = `${last.text} ${sentence.text}`;
+    else out.push({ ...sentence });
+  }
+  return out;
+}
 
 export function voiceCacheKey(profile: VoiceProfile, language: VoiceLanguage, text: string): string {
   const settings = Object.keys(profile.settings)

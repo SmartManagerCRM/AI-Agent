@@ -345,6 +345,12 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         },
       );
       if (!result.ok) return { content: result.error, isError: true };
+      if (result.status === "pending") {
+        // The business confirms each booking for this service itself: this is a request, not a booking yet.
+        return {
+          content: `Booking REQUEST sent for ${service.name} at ${result.startsAt} — request id ${result.bookingId}. It is NOT confirmed yet: the business confirms each booking for this service and will reply soon. Tell the customer you're checking availability and they'll be contacted to confirm.`,
+        };
+      }
       return {
         content: `Booked ${service.name} at ${result.startsAt} — booking id ${result.bookingId}. Keep this id to cancel later.`,
       };

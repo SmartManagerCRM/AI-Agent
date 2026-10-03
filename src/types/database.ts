@@ -183,7 +183,7 @@ export type Database = {
       notification_events: {
         Row: {
           id: string;
-          kind: "new_order_received" | "brain_analysis_finished" | "new_subscriber" | "subscription_upgraded";
+          kind: "new_order_received" | "brain_analysis_finished" | "booking_requested" | "new_subscriber" | "subscription_upgraded";
           audience: "tenant" | "platform";
           tenant_id: string;
           entity_id: string;
@@ -771,6 +771,8 @@ export type Database = {
           capacity: number;
           /** Customers can book it themselves on the Agent's landing page. */
           online_booking: boolean;
+          /** Agent bookings are requests the business confirms or declines. */
+          requires_approval: boolean;
           description: LocalizedText;
           price_unit: "booking" | "hour" | "person";
           source: "manual" | "brain" | "file_import";
@@ -799,10 +801,15 @@ export type Database = {
           starts_at: string;
           /** Time out; null when open-ended. */
           ends_at: string | null;
-          status: "confirmed" | "completed" | "canceled";
+          status: "pending" | "confirmed" | "declined" | "completed" | "canceled";
           notes: string | null;
           party_size: number;
           source: "agent_chat" | "agent_form" | "console";
+          /** The language the customer used on the Agent (for messages to them). */
+          customer_locale: "en" | "ar" | "fr" | null;
+          /** When / by whom a request was confirmed or declined. */
+          decided_at: string | null;
+          decided_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1175,6 +1182,10 @@ export type Database = {
       tenant_period_summary: {
         Args: { p_tenant_id: string; p_from: string; p_to: string };
         Returns: Json;
+      };
+      decide_booking: {
+        Args: { p_tenant_id: string; p_booking_id: string; p_decision: "confirm" | "decline" };
+        Returns: { ok: boolean; status?: string; reason?: string };
       };
       book_service: {
         Args: {

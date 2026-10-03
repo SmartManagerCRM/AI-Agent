@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { speechSentences } from "@/components/agent-public/voice";
 import { elevenLabsProvider, elevenLabsRequest } from "@/server/voice/elevenlabs";
 import type { TtsProvider, TtsRequest } from "@/server/voice/provider";
-import { sentenceAudio, voiceAudioPath, voiceCacheKey, voiceCostUsd, type VoiceDeps, type VoiceProfile } from "@/server/voice/service";
+import { evenGreeting, sentenceAudio, voiceAudioPath, voiceCacheKey, voiceCostUsd, type VoiceDeps, type VoiceProfile } from "@/server/voice/service";
 
 const profile: VoiceProfile = {
   id: "p1",
@@ -166,5 +166,24 @@ describe("what is spoken", () => {
       { text: "Welcome to Qahwa!", language: "en" },
       { text: "Fresh coffee, ready when you are.", language: "en" },
     ]);
+  });
+
+  it("the greeting is one recording per language, without exclamation pitch jumps", () => {
+    expect(
+      evenGreeting(
+        ["Hi! I'm Doudi.", "Am your AI ordering assistant! We have plenty of delicious dishes in the menu today! You can enjoy browsing them, or I can assist you if you want!"],
+        "en",
+      ),
+    ).toEqual([
+      {
+        text: "Hi. I'm Doudi. Am your AI ordering assistant. We have plenty of delicious dishes in the menu today. You can enjoy browsing them, or I can assist you if you want.",
+        language: "en",
+      },
+    ]);
+    expect(evenGreeting(["Bonjour ! Je suis Doudi.", "Comment puis-je vous aider aujourd'hui ?"], "fr")).toEqual([
+      { text: "Bonjour. Je suis Doudi. Comment puis-je vous aider aujourd'hui?", language: "fr" },
+    ]);
+    // A greeting typed in another script keeps its own voice language.
+    expect(evenGreeting(["أهلاً! أنا Doudi.", "Welcome!"], "ar").map((s) => s.language)).toEqual(["ar", "en"]);
   });
 });

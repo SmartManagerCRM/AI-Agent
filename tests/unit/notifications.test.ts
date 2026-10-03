@@ -5,7 +5,9 @@ import {
   BoundedSet,
   Deduper,
   acceptEvent,
+  needsAction,
   orderSummary,
+  soundFor,
   type NotificationEvent,
   type SoundName,
 } from "@/lib/notifications/core";
@@ -77,6 +79,20 @@ describe("event validation", () => {
     expect(acceptEvent(scope, order({ audience: "platform" }))).toBeNull();
     expect(acceptEvent(scope, { ...order(), id: "not-a-uuid" })).toBeNull();
     expect(acceptEvent(scope, null)).toBeNull();
+  });
+
+  it("a booking request rings like an order, for this business only", () => {
+    const scope = { kind: "tenant" as const, tenantId: TENANT };
+    const request = order({ kind: "booking_requested", payload: { local_time: "19:00", party_size: 2 } });
+    expect(acceptEvent(scope, request)).not.toBeNull();
+    expect(acceptEvent(scope, { ...request, tenant_id: OTHER })).toBeNull();
+    expect(acceptEvent({ kind: "platform" }, request)).toBeNull();
+    expect(needsAction("booking_requested")).toBe(true);
+    expect(soundFor("booking_requested")).toBe("new-order");
+    // The same request seen twice (realtime + catch-up) alerts once.
+    const deduper = new Deduper();
+    expect(deduper.firstTime(request)).toBe(true);
+    expect(deduper.firstTime({ ...request, id: uuid() })).toBe(false);
   });
 
   it('a business console also takes its own "analysis finished" event (never another business\'s)', () => {

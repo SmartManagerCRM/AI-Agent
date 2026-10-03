@@ -13,7 +13,12 @@
  */
 
 export type NotificationKind =
-  "new_order_received" | "brain_analysis_finished" | "new_subscriber" | "subscription_upgraded";
+  "new_order_received" | "brain_analysis_finished" | "booking_requested" | "new_subscriber" | "subscription_upgraded";
+
+/** Events the business must act on (an order, a booking request): they ring like an order and get one reminder. */
+export function needsAction(kind: NotificationKind): boolean {
+  return kind === "new_order_received" || kind === "booking_requested";
+}
 
 export type NotificationEvent = {
   id: string;
@@ -43,7 +48,7 @@ export function soundRepeats(sound: SoundName): number {
 }
 
 export function soundFor(kind: NotificationKind): SoundName {
-  return kind === "new_order_received"
+  return needsAction(kind)
     ? "new-order"
     : kind === "new_subscriber"
       ? "new-subscriber"
@@ -60,7 +65,7 @@ export function acceptEvent(scope: NotificationScope, row: unknown): Notificatio
   if (typeof e.entity_id !== "string" || !UUID.test(e.entity_id)) return null;
   if (typeof e.created_at !== "string" || !e.payload || typeof e.payload !== "object") return null;
   if (scope.kind === "tenant") {
-    if (e.kind !== "new_order_received" && e.kind !== "brain_analysis_finished") return null;
+    if (e.kind !== "new_order_received" && e.kind !== "brain_analysis_finished" && e.kind !== "booking_requested") return null;
     if (e.audience !== "tenant" || e.tenant_id !== scope.tenantId) return null;
   } else if (e.audience !== "platform" || (e.kind !== "new_subscriber" && e.kind !== "subscription_upgraded")) {
     return null;
@@ -93,8 +98,8 @@ export class Deduper {
   }
   firstTime(event: NotificationEvent): boolean {
     const keys = [`event:${event.id}`, `${event.kind}:${event.entity_id}`];
-    // Orders dedupe by order id; platform events by event (a business may upgrade twice).
-    const key = event.kind === "new_order_received" ? keys[1] : keys[0];
+    // Orders and booking requests dedupe by their id; platform events by event (a business may upgrade twice).
+    const key = needsAction(event.kind) ? keys[1] : keys[0];
     if (this.seen.has(key)) return false;
     this.seen.add(key);
     return true;
@@ -226,7 +231,7 @@ export class AlertScheduler {
         const ready = [...this.tracked.values()].filter(
           (t) => t.sounds === 1 && !t.acknowledged && t.firstSoundAt !== null && now - t.firstSoundAt >= reminderMs / 2,
         );
-        if (ready.length > 0 && ready.some((t) => t.event.kind === "new_order_received")) {
+        if (ready.length > 0 && ready.some((t) => needsAction(t.event.kind))) {
           this.o.play("order-reminder");
           this.lastSoundAt = now;
         }

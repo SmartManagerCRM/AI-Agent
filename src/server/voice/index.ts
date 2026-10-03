@@ -11,7 +11,7 @@ import { serviceClient } from "@/server/supabase/clients";
 
 import { elevenLabsProvider } from "./elevenlabs";
 import type { TtsProvider } from "./provider";
-import type { AudioStore, VoiceDeps, VoiceProfile, VoiceSpend } from "./service";
+import { evenGreeting, type AudioStore, type VoiceDeps, type VoiceProfile, type VoiceSpend } from "./service";
 
 /**
  * Production wiring of the voice service (./service.ts): the provider a
@@ -106,6 +106,7 @@ async function agentStrings(locale: Locale): Promise<AgentStrings> {
 
 const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (m, k: string) => values[k] ?? m);
 
+
 /**
  * The greeting the Agent speaks — built exactly as the Agent page shows
  * it: "Hi! I'm <assistant>." then the greeting saved in Agent settings.
@@ -118,13 +119,13 @@ export async function greetingSentences(tenant: PublicTenant, locale: string): P
   ]);
   const businessName = tenant.businessName[ui] ?? tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
   const aiName = settings?.agent?.assistant_name || fill(strings.aiName, { business: businessName });
-  return speechSentences([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greetingFor(settings?.agent, ui) || strings.chat.defaultGreeting], ui);
+  return evenGreeting([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greetingFor(settings?.agent, ui) || strings.chat.defaultGreeting], ui);
 }
 
 /** Agent settings → Preview: the greeting as typed for one language, introduced in that language. */
 export async function previewGreetingSentences(language: Locale, aiName: string, greeting: string): Promise<{ text: string; language: SpeechLanguage }[]> {
   const strings = await agentStrings(language);
-  return speechSentences([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greeting || strings.chat.defaultGreeting], language);
+  return evenGreeting([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greeting || strings.chat.defaultGreeting], language);
 }
 
 /**

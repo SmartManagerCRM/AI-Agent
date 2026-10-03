@@ -80,7 +80,7 @@ export async function loadAgentExperience(
     supabase.from("tenants").select("contact_phone, contact_email, city, logo_path, timezone").eq("id", tenant.id).maybeSingle(),
     supabase
       .from("bookable_services")
-      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end")
+      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, requires_approval")
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       // Only services the owner offers for online booking appear on the Agent.
@@ -150,6 +150,7 @@ export async function loadAgentExperience(
         priceUnit: s.price_unit,
         capacity: s.capacity,
         customerSetsEnd: s.customer_sets_end,
+        requiresApproval: s.requires_approval,
       })),
       // "Today" where the business is — the first day a customer can book.
       bookingToday: businessToday(contact?.timezone),

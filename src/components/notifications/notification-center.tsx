@@ -20,6 +20,7 @@ import {
   AlertScheduler,
   Deduper,
   acceptEvent,
+  needsAction,
   orderSummary,
   soundRepeats,
   type NotificationEvent,
@@ -78,6 +79,13 @@ export type NotificationLabels = {
   brainNothingAdded: string;
   brainReview: string;
   brainView: string;
+  // Booking requests (services the business confirms itself)
+  bookingRequest: string;
+  bookingRequestNotification: string;
+  bookingPeopleOne: string;
+  bookingPeopleOther: string; // "{count} people"
+  reviewBooking: string;
+  bookingRequests: string; // "{count} booking requests"
 };
 
 type Props = {
@@ -240,6 +248,7 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
   const href = useCallback(
     (event: NotificationEvent) => {
       if (event.kind === "new_order_received") return `/${locale}/${slug}/orders#order-${event.entity_id}`;
+      if (event.kind === "booking_requested") return `/${locale}/${slug}/bookings#booking-${event.entity_id}`;
       if (event.kind === "brain_analysis_finished") {
         const p = event.payload as { products_added?: number; services_added?: number };
         if ((p.products_added ?? 0) > 0) return `/${locale}/${slug}/products#products`;
@@ -265,6 +274,20 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
           heading: o.orderNumber !== null ? fill(labels.orderNumber, { number: o.orderNumber }) : labels.newOrder,
           body: parts.join(" · "),
           notification: labels.newOrderNotification,
+        };
+      }
+      if (event.kind === "booking_requested") {
+        const b = event.payload as { service_name?: Record<string, string> | null; local_date?: string; local_time?: string; party_size?: number; customer_name?: string | null };
+        const service = b.service_name ? (b.service_name[locale] ?? Object.values(b.service_name)[0] ?? "") : "";
+        const date = b.local_date
+          ? new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${b.local_date}T12:00:00Z`))
+          : "";
+        const people = (b.party_size ?? 1) === 1 ? labels.bookingPeopleOne : fill(labels.bookingPeopleOther, { count: b.party_size ?? 1 });
+        return {
+          title: labels.bookingRequest,
+          heading: [service, [date, b.local_time].filter(Boolean).join(" ")].filter(Boolean).join(" · "),
+          body: [b.customer_name, people].filter(Boolean).join(" · "),
+          notification: labels.bookingRequestNotification,
         };
       }
       if (event.kind === "brain_analysis_finished") {
@@ -441,7 +464,7 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
         return;
       }
       setAlerts((prev) => [...prev, event].slice(-20));
-      if (event.kind === "new_order_received") {
+      if (needsAction(event.kind)) {
         setHighlighted((prev) => new Map(prev).set(event.entity_id, Date.now()));
         refresh();
       }
@@ -452,7 +475,7 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
         [text.heading, text.body].filter(Boolean).join(" — "),
         event.id,
         hrefRef.current(event),
-        event.kind === "new_order_received",
+        needsAction(event.kind),
       );
     };
 
@@ -569,6 +592,8 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
     .filter((a) => a.kind === "new_subscriber" || a.kind === "subscription_upgraded")
     .slice(-3);
   const brainAlert = alerts.find((a) => a.kind === "brain_analysis_finished");
+  const bookingAlerts = alerts.filter((a) => a.kind === "booking_requested");
+  const latestBooking = bookingAlerts[bookingAlerts.length - 1];
   const latestOrder = orderAlerts[orderAlerts.length - 1];
 
   return (
@@ -608,6 +633,22 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
             actionLabel={orderAlerts.length === 1 ? labels.viewOrder : labels.viewOrders}
             dismissLabel={labels.dismiss}
             onDone={() => acknowledge(orderAlerts.map((a) => a.id))}
+          />
+        )}
+        {latestBooking && (
+          <AlertCard
+            icon="📅"
+            title={labels.bookingRequest}
+            heading={bookingAlerts.length === 1 ? describe(latestBooking).heading : fill(labels.bookingRequests, { count: bookingAlerts.length })}
+            body={
+              bookingAlerts.length === 1
+                ? describe(latestBooking).body
+                : `${labels.latest}: ${[describe(latestBooking).heading, describe(latestBooking).body].filter(Boolean).join(" · ")}`
+            }
+            actionHref={href(latestBooking)}
+            actionLabel={labels.reviewBooking}
+            dismissLabel={labels.dismiss}
+            onDone={() => acknowledge(bookingAlerts.map((a) => a.id))}
           />
         )}
         {brainAlert && (

@@ -492,3 +492,43 @@ install (only the console's pages link the manifest).
   remember that `/favicon.ico` was missing before it was added; the fresh
   URLs aren't affected by that. Regenerate all icons with
   `node scripts/generate-pwa-icons.mjs`.
+
+## Bookings the business confirms itself
+
+- Bookings → service → **When a customer books on your Agent**: "Confirm
+  automatically" (as before) or "I confirm each request"
+  (`bookable_services.requires_approval`). Migrations
+  `20261006110000_booking_approval.sql` (columns, `decide_booking`),
+  `20261006110050_booking_approval_functions.sql` (booking functions) and
+  `20261006110100_booking_request_alerts.sql` (the live console alert).
+- With "I confirm each request", a booking made on the Agent (form or chat)
+  is a request: `pending` → `confirmed` or `declined`, answered with
+  `public.decide_booking` (bookings.write). A pending request holds its
+  places, so confirming can never overbook. Console bookings are always
+  confirmed at once.
+- The customer sees "I'm checking availability for (date) at (time) for
+  (people)." with a waiting animation; the page asks for the answer every
+  few seconds (status only), keeps waiting if they leave and come back,
+  then shows "Booking Confirmed" with the details, or a polite apology
+  (the schedule is full at that date and time) with "Choose another time".
+  EN / AR / FR. No AI cost.
+- The request reaches open consoles at once: a `booking_requested`
+  notification (same realtime path as orders, RLS: bookings.read) rings
+  like a new order and shows a "Booking request" alert; the Bookings page
+  lists "Booking requests waiting for you" with Confirm / Decline.
+- WhatsApp on every booking line: a wa.me link with the message ready to
+  send (booking confirmation, or the apology for a declined request), in
+  the language the customer used on the Agent (`bookings.customer_locale`).
+  A local phone number gets the business's country code (Settings →
+  country); the owner presses Send in WhatsApp — nothing is sent
+  automatically.
+
+## Greeting voice: one even tone
+
+- The whole greeting in a language is spoken as one recording (it used to be
+  one per sentence, each with its own intonation — a high "Hi! I'm …" and a
+  lower rest). Exclamation marks are read as full stops for the voice only.
+- Greeting delivery: stability 0.6, similarity 0.8, style 0.2, speed 1.0
+  (migration `20261006100000_voice_greeting_even_tone.sql`). Each greeting
+  is generated once more in this delivery, then served from the cache.
+

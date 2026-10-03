@@ -58,12 +58,22 @@ export async function getAvailableSlots(
 }
 
 export type BookingRefusal = "unavailable" | "party_size" | "past" | "too_far" | "bad_time_out" | "closed" | "full" | "invalid";
-export type BookResult = { ok: true; bookingId: string; startsAt: string; endsAt: string | null } | { ok: false; reason: BookingRefusal };
+export type BookingStatus = "pending" | "confirmed";
+export type BookResult =
+  | { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null }
+  | { ok: false; reason: BookingRefusal };
 
 export function parseBookResult(data: unknown): BookResult {
   const r = (data ?? {}) as Record<string, unknown>;
   if (r.ok === true && typeof r.booking_id === "string" && typeof r.starts_at === "string") {
-    return { ok: true, bookingId: r.booking_id, startsAt: r.starts_at, endsAt: typeof r.ends_at === "string" ? r.ends_at : null };
+    return {
+      ok: true,
+      bookingId: r.booking_id,
+      // A request the business confirms itself waits as "pending".
+      status: r.status === "pending" ? "pending" : "confirmed",
+      startsAt: r.starts_at,
+      endsAt: typeof r.ends_at === "string" ? r.ends_at : null,
+    };
   }
   const reason = typeof r.reason === "string" ? r.reason : "invalid";
   return { ok: false, reason: (["unavailable", "party_size", "past", "too_far", "bad_time_out", "closed", "full"].includes(reason) ? reason : "invalid") as BookingRefusal };
@@ -81,7 +91,7 @@ const REFUSAL_TEXT: Record<BookingRefusal, string> = {
 };
 
 export type CreateBookingResult =
-  { ok: true; bookingId: string; startsAt: string; endsAt: string | null } | { ok: false; error: string };
+  { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null } | { ok: false; error: string };
 
 /** A booking the AI chat makes: re-validated in the database (a second customer may have taken the slot since it was offered). */
 export async function createBooking(
@@ -122,6 +132,6 @@ export async function cancelBookingById(
     .update({ status: "canceled" })
     .eq("id", bookingId)
     .eq("tenant_id", tenantId)
-    .eq("status", "confirmed");
+    .in("status", ["confirmed", "pending"]);
   return !error;
 }

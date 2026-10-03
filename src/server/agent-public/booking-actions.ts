@@ -4,7 +4,8 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
-import { getAvailableSlots, parseBookResult, type BookingRefusal } from "@/server/commerce/booking";
+import { LOCALES } from "@/i18n/locales";
+import { getAvailableSlots, parseBookResult, type BookingRefusal, type BookingStatus } from "@/server/commerce/booking";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { serviceClient } from "@/server/supabase/clients";
 
@@ -70,10 +71,12 @@ const bookSchema = z.object({
   phone: z.string().trim().regex(/^\+?[\d\s()-]{6,25}$/),
   email: z.email().max(200).nullable(),
   notes: z.string().trim().max(500).nullable(),
+  /** The language the customer is using, so the business can answer in it. */
+  locale: z.enum(LOCALES).optional(),
 });
 
 export type AgentBookingResult =
-  | { ok: true; bookingId: string; startsAt: string; endsAt: string | null }
+  | { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null }
   | { ok: false; reason: BookingRefusal | "name" | "phone" | "email" | "rate_limited" | "unavailable_agent" };
 
 // A real person books a few times at most; this only stops a script filling the calendar.
@@ -108,5 +111,26 @@ export async function bookServiceAction(slug: string, surface: Surface, input: z
     p_source: "agent_form",
   });
   if (error) return { ok: false, reason: "invalid" };
-  return parseBookResult(data);
+  const result = parseBookResult(data);
+  if (result.ok && d.locale) {
+    await supabase.from("bookings").update({ customer_locale: d.locale }).eq("tenant_id", tenant.id).eq("id", result.bookingId);
+  }
+  return result;
+}
+
+export type RequestStatus = "pending" | "confirmed" | "declined" | "canceled" | "completed";
+
+/**
+ * The answer to a booking request, for the customer's page while it waits.
+ * Only the status is returned (no customer details): knowing the request's
+ * id — given only to the customer who made it — is what lets you ask.
+ */
+export async function bookingStatusAction(slug: string, surface: Surface, bookingId: string): Promise<RequestStatus | null> {
+  if (!z.uuid().safeParse(bookingId).success) return null;
+  const tenant = await loadTenant(slug, surface);
+  if (!tenant) return null;
+  const caller = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (isRateLimited(`book-status:${tenant.id}:${caller}`, 60_000, 60)) return "pending";
+  const { data } = await serviceClient().from("bookings").select("status").eq("tenant_id", tenant.id).eq("id", bookingId).maybeSingle();
+  return data?.status ?? null;
 }

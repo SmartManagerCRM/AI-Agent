@@ -30,6 +30,8 @@ export type AgentService = {
   capacity: number;
   /** The customer chooses their time out (or a duration). */
   customerSetsEnd: boolean;
+  /** The business confirms each booking itself: the customer waits for its answer. */
+  requiresApproval: boolean;
 };
 
 export type FulfillmentType = "pickup" | "delivery" | "dine_in";

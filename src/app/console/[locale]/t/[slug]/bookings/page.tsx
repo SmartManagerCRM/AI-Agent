@@ -8,15 +8,38 @@ import { Pagination, parsePage } from "@/components/console/pagination";
 import { isFuture } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { NewBookingForm } from "@/components/booking/new-booking-form";
+import { DecideBooking, WhatsAppButton } from "@/components/booking/booking-request-controls";
+import { bookingMessage, whatsappLink, whatsappNumber, type MessageLocale } from "@/lib/booking-whatsapp";
 import { cancelBookingAction, completeBookingAction } from "@/server/booking/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { businessToday, resolveTimeZone } from "@/lib/timezone";
 
 const STATUS_STYLE: Record<string, string> = {
+  pending: "bg-amber-100 text-amber-800",
   confirmed: "bg-emerald-50 text-emerald-700",
+  declined: "bg-rose-50 text-rose-700",
   completed: "bg-blue-50 text-blue-700",
   canceled: "bg-slate-100 text-slate-500",
+};
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Awaiting you",
+  confirmed: "Confirmed",
+  declined: "Declined",
+  completed: "Completed",
+  canceled: "Canceled",
+};
+
+type BookingLine = {
+  id: string;
+  service_id: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  party_size: number;
+  status: string;
+  customer_locale: string | null;
 };
 
 /** Bookable services + real bookings (Customer Agent Master Prompt §26). Every booking here was written by the create_booking tool — none are fabricated. */
@@ -36,15 +59,15 @@ export default async function BookingsPage({
 
   const now = new Date().toISOString();
   // Counts are exact (counted in Postgres), and the list is paged — every booking is reachable.
-  const [{ data: allServices }, { data: bookings }, { data: currency }, { count: totalBookings }, { count: upcomingBookings }] = await Promise.all([
+  const [{ data: allServices }, { data: bookings }, { data: currency }, { count: totalBookings }, { count: upcomingBookings }, { data: requests }] = await Promise.all([
     supabase
       .from("bookable_services")
-      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, online_booking, is_active, source, archived_at")
+      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, online_booking, requires_approval, is_active, source, archived_at")
       .eq("tenant_id", tenant.id)
       .order("created_at"),
     supabase
       .from("bookings")
-      .select("id, service_id, customer_name, customer_phone, starts_at, ends_at, party_size, source, notes, status")
+      .select("id, service_id, customer_name, customer_phone, starts_at, ends_at, party_size, source, notes, status, customer_locale, created_at")
       .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
       .order("id", { ascending: false })
@@ -57,6 +80,14 @@ export default async function BookingsPage({
       .eq("tenant_id", tenant.id)
       .eq("status", "confirmed")
       .gt("starts_at", now),
+    // Requests from the Agent waiting for the owner's answer, oldest first.
+    supabase
+      .from("bookings")
+      .select("id, service_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, notes, status, customer_locale, created_at")
+      .eq("tenant_id", tenant.id)
+      .eq("status", "pending")
+      .order("created_at")
+      .limit(50),
   ]);
   const exponent = currency?.exponent ?? 2;
   // Deleted services are hidden; their past bookings still show the service's name.
@@ -69,10 +100,85 @@ export default async function BookingsPage({
   const serviceNameById = new Map(
     (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );
+  const businessName = tenant.business_name[locale] ?? Object.values(tenant.business_name)[0] ?? tenant.slug;
+
+  // WhatsApp: the booking's details, ready to send, in the language the customer used on the Agent.
+  const whatsapp = (b: BookingLine) => {
+    const number = whatsappNumber(b.customer_phone, tenant.country);
+    if (!number || !["pending", "confirmed", "declined"].includes(b.status)) return null;
+    const lang: MessageLocale = b.customer_locale === "ar" || b.customer_locale === "fr" ? b.customer_locale : b.customer_locale === "en" ? "en" : locale === "ar" || locale === "fr" ? locale : "en";
+    const service = (allServices ?? []).find((s) => s.id === b.service_id);
+    const text = bookingMessage({
+      kind: b.status === "declined" ? "declined" : "confirmed",
+      locale: lang,
+      customerName: b.customer_name,
+      businessName: tenant.business_name[lang] ?? businessName,
+      serviceName: service ? (service.name[lang] ?? Object.values(service.name)[0] ?? "") : "",
+      date: new Date(b.starts_at).toLocaleDateString(lang, { timeZone: tz, weekday: "long", day: "numeric", month: "long" }),
+      time: new Date(b.starts_at).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
+      endTime: b.ends_at ? new Date(b.ends_at).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }) : null,
+      partySize: b.party_size,
+    });
+    return {
+      href: whatsappLink(number, text),
+      label: b.status === "declined" ? "Send the apology on WhatsApp" : "Send the booking confirmation on WhatsApp",
+    };
+  };
+  const since = (iso: string) => {
+    const minutes = Math.max(0, Math.round((new Date(now).getTime() - new Date(iso).getTime()) / 60000));
+    return minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : minutes < 1440 ? `${Math.round(minutes / 60)} h ago` : day(iso);
+  };
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900">Bookings</h1>
+
+      {(requests ?? []).length > 0 && (
+        <section id="requests" className="scroll-mt-20 rounded-xl border-2 border-amber-300 bg-amber-50/60 p-4" data-testid="booking-requests">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+            </span>
+            Booking requests waiting for you ({(requests ?? []).length})
+          </h2>
+          <p className="mt-0.5 text-xs text-amber-800">The customer is waiting on your Agent — confirm or decline and they see your answer within seconds.</p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {(requests ?? []).map((r) => {
+              const wa = whatsapp(r);
+              return (
+                <li
+                  key={r.id}
+                  id={`booking-${r.id}`}
+                  className="flex scroll-mt-24 flex-col gap-3 rounded-lg border border-amber-200 bg-white p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                  data-testid="booking-request"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">
+                      {serviceNameById.get(r.service_id) ?? "—"} · {day(r.starts_at)} · {clock(r.starts_at)}
+                      {r.ends_at ? `–${clock(r.ends_at)}` : ""}
+                    </p>
+                    <p className="text-slate-600">
+                      {r.customer_name ?? "—"} · {r.party_size === 1 ? "1 person" : `${r.party_size} people`}
+                      {r.customer_phone && (
+                        <span className="ms-1 text-slate-500" dir="ltr">
+                          · {r.customer_phone}
+                        </span>
+                      )}
+                    </p>
+                    {r.notes && <p className="text-xs text-slate-500">“{r.notes}”</p>}
+                    <p className="text-xs text-slate-400">Requested {since(r.created_at)}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DecideBooking bookingId={r.id} locale={locale} slug={slug} />
+                    {wa && <WhatsAppButton href={wa.href} label={wa.label} />}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <KpiTile
@@ -123,6 +229,7 @@ export default async function BookingsPage({
                 capacity: s.capacity,
                 customerSetsEnd: s.customer_sets_end,
                 onlineBooking: s.online_booking,
+                requiresApproval: s.requires_approval,
                 isActive: s.is_active,
                 source: s.source,
               }}
@@ -179,8 +286,10 @@ export default async function BookingsPage({
                 </tr>
               </thead>
               <tbody>
-                {(bookings ?? []).map((b) => (
-                  <tr key={b.id} className="border-b border-slate-100 last:border-0">
+                {(bookings ?? []).map((b) => {
+                  const wa = whatsapp(b);
+                  return (
+                  <tr key={b.id} id={`booking-row-${b.id}`} className={`border-b border-slate-100 last:border-0 ${b.status === "pending" ? "bg-amber-50/60" : ""}`}>
                     <td className="py-2 font-medium text-slate-900">{serviceNameById.get(b.service_id) ?? "—"}</td>
                     <td className="py-2 text-slate-600">
                       {b.customer_name ?? "—"}
@@ -195,13 +304,14 @@ export default async function BookingsPage({
                       {b.source === "console" ? "Console" : b.source === "agent_form" ? "Agent booking form" : "Agent chat"}
                     </td>
                     <td className="py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[b.status]}`}
-                      >
-                        {b.status}
+                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[b.status]}`}>
+                        {STATUS_LABEL[b.status] ?? b.status}
                       </span>
                     </td>
                     <td className="py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                      {b.status === "pending" && <DecideBooking bookingId={b.id} locale={locale} slug={slug} compact />}
+                      {wa && <WhatsAppButton href={wa.href} label={wa.label} compact />}
                       {b.status === "confirmed" && (
                         <form action={completeBookingAction} className="inline">
                           <input type="hidden" name="bookingId" value={b.id} />
@@ -222,9 +332,11 @@ export default async function BookingsPage({
                           </button>
                         </form>
                       )}
+                      </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

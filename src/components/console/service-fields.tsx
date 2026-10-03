@@ -8,6 +8,8 @@ export type ServiceFieldValues = {
   capacity: number;
   customerSetsEnd: boolean;
   onlineBooking: boolean;
+  /** Agent bookings wait for the business to confirm them. */
+  requiresApproval: boolean;
 };
 
 export const EMPTY_SERVICE: ServiceFieldValues = {
@@ -19,6 +21,7 @@ export const EMPTY_SERVICE: ServiceFieldValues = {
   capacity: 1,
   customerSetsEnd: false,
   onlineBooking: true,
+  requiresApproval: false,
 };
 
 const input = "rounded-md border border-neutral-300 px-3 py-2";
@@ -83,6 +86,27 @@ export function ServiceFields({ values, exponent }: { values: ServiceFieldValues
           <span className="block text-xs text-slate-500">Shows on your Agent&apos;s landing page so customers can book it themselves.</span>
         </span>
       </label>
+      <fieldset className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4" data-testid="service-confirmation">
+        <legend className="mb-1 font-medium text-slate-700">When a customer books on your Agent</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+            <input type="radio" name="confirmation" value="instant" defaultChecked={!values.requiresApproval} className="mt-1 accent-emerald-600" />
+            <span>
+              <strong>Confirm automatically</strong>
+              <span className="block text-xs text-slate-500">The booking is confirmed at once when the time is free.</span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-200 p-3 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50">
+            <input type="radio" name="confirmation" value="manual" defaultChecked={values.requiresApproval} className="mt-1 accent-emerald-600" />
+            <span>
+              <strong>I confirm each request</strong>
+              <span className="block text-xs text-slate-500">
+                The customer waits while you check; the request reaches you at once with a sound, and you confirm or decline it here.
+              </span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
     </div>
   );
 }

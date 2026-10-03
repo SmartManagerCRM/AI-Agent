@@ -357,7 +357,7 @@
       "notes": "Remarques pour l'établissement",
       "submit": "Confirmer la réservation",
       "submitting": "Réservation…",
-      "confirmed": "Réservation confirmée !",
+      "confirmed": "Réservation confirmée",
       "confirmedText": "{service} le {date} à {time}.",
       "confirmedEnd": "Jusqu'à {time}.",
       "seeYou": "À bientôt, {name} !",
@@ -379,7 +379,24 @@
         "email": "Indiquez un e-mail valide, ou laissez vide.",
         "rate_limited": "Trop de réservations depuis cet appareil — réessayez dans quelques minutes.",
         "unavailable_agent": "La réservation n'est pas disponible pour le moment."
-      }
+      },
+      "peopleCount": "{count, plural, one {# personne} other {# personnes}}",
+      "checking": "Je vérifie la disponibilité pour le {date} à {time} pour {people}.",
+      "checkingNote": "L'équipe confirme votre demande — en général en quelques minutes. Restez sur cette page, la réponse s'affichera ici.",
+      "checkingWait": "En attente de confirmation",
+      "checkingLong": "Vérification en cours — l'établissement peut aussi vous contacter au {phone}.",
+      "declinedTitle": "Nous sommes vraiment désolés",
+      "declinedText": "Le planning des réservations est complet le {date} à {time}. Merci de choisir un autre horaire — nous serons ravis de vous accueillir.",
+      "chooseAnother": "Choisir un autre horaire",
+      "details": "Détails de la réservation",
+      "detailService": "Service",
+      "detailDate": "Date",
+      "detailTime": "Heure",
+      "detailPeople": "Personnes",
+      "detailName": "Nom",
+      "detailPhone": "Téléphone",
+      "submitRequest": "Envoyer la demande",
+      "requestNote": "L'établissement confirme chaque réservation pour ce service — vous verrez sa réponse ici en quelques minutes."
     }
   },
   "pwa": {
@@ -424,6 +441,12 @@
     "brainAdded": "{products} produit(s) et {services} service(s) ajoutés au catalogue en brouillon — approuvez-les avant que les clients ne les voient.",
     "brainNothingAdded": "Vos pages sont à jour avec ce qui a été trouvé.",
     "brainReview": "Voir le catalogue",
-    "brainView": "Voir les résultats"
+    "brainView": "Voir les résultats",
+    "bookingRequest": "Demande de réservation",
+    "bookingRequestNotification": "Nouvelle demande de réservation — à confirmer ou refuser",
+    "bookingPeopleOne": "1 personne",
+    "bookingPeopleOther": "{count} personnes",
+    "reviewBooking": "Voir la demande",
+    "bookingRequests": "{count} demandes de réservation"
   }
 }

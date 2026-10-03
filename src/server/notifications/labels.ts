@@ -37,5 +37,11 @@ export async function notificationLabels(area: "orders" | "platform"): Promise<N
     brainNothingAdded: t("brainNothingAdded"),
     brainReview: t("brainReview"),
     brainView: t("brainView"),
+    bookingRequest: t("bookingRequest"),
+    bookingRequestNotification: t("bookingRequestNotification"),
+    bookingPeopleOne: t("bookingPeopleOne"),
+    bookingPeopleOther: raw("bookingPeopleOther"),
+    reviewBooking: t("reviewBooking"),
+    bookingRequests: raw("bookingRequests"),
   };
 }

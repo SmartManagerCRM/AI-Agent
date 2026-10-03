@@ -23,6 +23,7 @@ export type ServiceRowData = {
   capacity: number;
   customerSetsEnd: boolean;
   onlineBooking: boolean;
+  requiresApproval: boolean;
   isActive: boolean;
   source: "manual" | "brain" | "file_import";
 };
@@ -67,6 +68,7 @@ export function ServiceRow({
               capacity: service.capacity,
               customerSetsEnd: service.customerSetsEnd,
               onlineBooking: service.onlineBooking,
+              requiresApproval: service.requiresApproval,
             }}
           />
         </div>
@@ -96,6 +98,13 @@ export function ServiceRow({
         >
           {service.onlineBooking ? "On Agent" : "Console only"}
         </span>
+        {service.onlineBooking && (
+          <span
+            className={`ms-2 rounded-full px-2 py-0.5 text-xs font-medium ${service.requiresApproval ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}
+          >
+            {service.requiresApproval ? "You confirm each request" : "Confirmed automatically"}
+          </span>
+        )}
         {service.source !== "manual" && (
           <span className="ms-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700">
             {service.source === "brain" ? "From Business Brain" : "Imported"}

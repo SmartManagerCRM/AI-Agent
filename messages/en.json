@@ -357,7 +357,7 @@
       "notes": "Notes for the business",
       "submit": "Confirm booking",
       "submitting": "Booking…",
-      "confirmed": "Booking confirmed!",
+      "confirmed": "Booking Confirmed",
       "confirmedText": "{service} on {date} at {time}.",
       "confirmedEnd": "Until {time}.",
       "seeYou": "See you then, {name}!",
@@ -379,7 +379,24 @@
         "email": "Please enter a valid email, or leave it empty.",
         "rate_limited": "Too many bookings from this device — please try again in a few minutes.",
         "unavailable_agent": "Booking isn't available right now."
-      }
+      },
+      "peopleCount": "{count, plural, one {# person} other {# people}}",
+      "checking": "I'm checking availability for {date} at {time} for {people}.",
+      "checkingNote": "The team is confirming your request — usually within a few minutes. Stay on this page; the answer appears here.",
+      "checkingWait": "Waiting for confirmation",
+      "checkingLong": "Still checking — the business may also reach you at {phone}.",
+      "declinedTitle": "We're so sorry",
+      "declinedText": "The booking schedule is full on {date} at {time}. Please choose another time — we'd love to welcome you.",
+      "chooseAnother": "Choose another time",
+      "details": "Booking details",
+      "detailService": "Service",
+      "detailDate": "Date",
+      "detailTime": "Time",
+      "detailPeople": "People",
+      "detailName": "Name",
+      "detailPhone": "Phone",
+      "submitRequest": "Send booking request",
+      "requestNote": "The business confirms each booking for this service — you'll see their answer here within minutes."
     }
   },
   "pwa": {
@@ -424,6 +441,12 @@
     "brainAdded": "Added {products} product(s) and {services} service(s) to your catalog as drafts — approve them before customers see them.",
     "brainNothingAdded": "Your pages are up to date with what it found.",
     "brainReview": "Review catalog",
-    "brainView": "View results"
+    "brainView": "View results",
+    "bookingRequest": "Booking request",
+    "bookingRequestNotification": "New booking request — confirm or decline",
+    "bookingPeopleOne": "1 person",
+    "bookingPeopleOther": "{count} people",
+    "reviewBooking": "Review request",
+    "bookingRequests": "{count} booking requests"
   }
 }

@@ -18,6 +18,7 @@ const serviceFieldsSchema = z.object({
   capacity: z.coerce.number().int().min(1).max(500).default(1),
   customerSetsEnd: z.boolean(),
   onlineBooking: z.boolean(),
+  requiresApproval: z.boolean(),
 });
 
 function readServiceFields(formData: FormData) {
@@ -34,6 +35,7 @@ function readServiceFields(formData: FormData) {
     capacity: optional("capacity"),
     customerSetsEnd: formData.get("customerSetsEnd") === "on",
     onlineBooking: formData.get("onlineBooking") === "on",
+    requiresApproval: formData.get("confirmation") === "manual",
   });
 }
 
@@ -64,6 +66,7 @@ export async function createServiceAction(
     capacity: f.capacity,
     customer_sets_end: f.customerSetsEnd,
     online_booking: f.onlineBooking,
+    requires_approval: f.requiresApproval,
   });
   if (error) return "VALIDATION_ERROR: could not create that service — please try again.";
 
@@ -160,6 +163,7 @@ export async function updateServiceAction(_prev: ServiceEditState, formData: For
       capacity: f.capacity,
       customer_sets_end: f.customerSetsEnd,
       online_booking: f.onlineBooking,
+      requires_approval: f.requiresApproval,
     })
     .eq("tenant_id", tenant.id)
     .eq("id", ids.data.serviceId);
@@ -283,4 +287,40 @@ export async function completeBookingAction(formData: FormData): Promise<void> {
     .eq("id", parsed.data.bookingId)
     .eq("status", "confirmed");
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/bookings`);
+}
+
+const decideSchema = z.object({
+  bookingId: z.uuid(),
+  decision: z.enum(["confirm", "decline"]),
+  locale: z.string(),
+  slug: z.string(),
+});
+
+export type DecideBookingState = { ok: boolean; message: string } | undefined;
+
+/**
+ * Bookings → a request from the Agent: Confirm or Decline. The customer's
+ * Agent page, waiting on the answer, shows it within seconds.
+ */
+export async function decideBookingAction(_prev: DecideBookingState, formData: FormData): Promise<DecideBookingState> {
+  const parsed = decideSchema.safeParse({
+    bookingId: formData.get("bookingId"),
+    decision: formData.get("decision"),
+    locale: formData.get("locale"),
+    slug: formData.get("slug"),
+  });
+  if (!parsed.success) return { ok: false, message: "Reload the page and try again." };
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const { data, error } = await supabase.rpc("decide_booking", {
+    p_tenant_id: tenant.id,
+    p_booking_id: parsed.data.bookingId,
+    p_decision: parsed.data.decision,
+  });
+  if (error) return { ok: false, message: error.code === "42501" ? "You need permission to manage bookings." : "Couldn't save — please try again." };
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/bookings`);
+  if (!data?.ok) {
+    return { ok: false, message: data?.reason === "already_answered" ? `This request was already answered (${data.status}).` : "That request no longer exists — reload the page." };
+  }
+  return { ok: true, message: data.status === "confirmed" ? "Confirmed — the customer sees it now." : "Declined — the customer sees a polite apology." };
 }
