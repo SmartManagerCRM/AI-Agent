@@ -4,6 +4,7 @@ import { BusinessProfileForm } from "@/components/business/business-profile-form
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
 import { PaymentSettingsForm } from "@/components/commerce/payment-settings-form";
 import { productImageUrl } from "@/lib/product-image";
+import { timeZoneOptions } from "@/lib/timezone";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
@@ -40,6 +41,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
           tenantId={tenant.id}
           slug={slug}
           locale={locale}
+          timeZones={timeZoneOptions()}
           current={{
             contact_email: tenant.contact_email,
             contact_phone: tenant.contact_phone,

@@ -11,6 +11,7 @@ import { NewBookingForm } from "@/components/booking/new-booking-form";
 import { cancelBookingAction, completeBookingAction } from "@/server/booking/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { businessToday, resolveTimeZone } from "@/lib/timezone";
 
 const STATUS_STYLE: Record<string, string> = {
   confirmed: "bg-emerald-50 text-emerald-700",
@@ -61,10 +62,10 @@ export default async function BookingsPage({
   // Deleted services are hidden; their past bookings still show the service's name.
   const services = (allServices ?? []).filter((s) => s.archived_at === null);
   // Times are shown in the business's own time zone (where its opening hours apply).
-  const tz = tenant.timezone || "UTC";
+  const tz = resolveTimeZone(tenant.timezone);
   const day = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
   const clock = (iso: string) => new Date(iso).toLocaleTimeString(locale, { timeZone: tz, hour: "2-digit", minute: "2-digit" });
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+  const today = businessToday(tenant.timezone);
   const serviceNameById = new Map(
     (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );

@@ -12,6 +12,7 @@ import type { PublicTenant } from "@/server/agent-public/tenant";
 import type { PaymentMethod } from "@/server/commerce/cart";
 import { findActiveTable } from "@/server/commerce/tables";
 import { serviceClient } from "@/server/supabase/clients";
+import { businessToday } from "@/lib/timezone";
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -150,7 +151,7 @@ export async function loadAgentExperience(
         customerSetsEnd: s.customer_sets_end,
       })),
       // "Today" where the business is — the first day a customer can book.
-      bookingToday: new Intl.DateTimeFormat("en-CA", { timeZone: contact?.timezone || "UTC" }).format(new Date()),
+      bookingToday: businessToday(contact?.timezone),
       popularProductIds: [...popularity.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id),
       info: {
         branchName,

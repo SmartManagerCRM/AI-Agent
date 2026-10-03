@@ -10,6 +10,7 @@ import { EXPIRING_DAYS, memberState, periodLabel, type MemberState } from "@/lib
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { businessToday } from "@/lib/timezone";
 
 const PAGE_SIZE = 50;
 
@@ -66,7 +67,7 @@ export default async function MembershipsPage({
   const q = (sp.q ?? "").trim().slice(0, 80);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: tenant.timezone || "UTC" }).format(new Date());
+  const today = businessToday(tenant.timezone);
   const monthStart = `${today.slice(0, 8)}01`;
 
   let members = supabase

@@ -17,9 +17,13 @@ type Props = {
     country: string | null;
     city: string | null;
   };
+  /** Every time zone, from the server (labelled with its UTC offset). */
+  timeZones: { value: string; label: string }[];
 };
 
-export function BusinessProfileForm({ tenantId, slug, locale, current }: Props) {
+export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones }: Props) {
+  // A value typed by hand earlier ("UTC+1") isn't a time zone: it stays selectable until a city is chosen.
+  const known = timeZones.some((z) => z.value === current.timezone);
   const [error, formAction, pending] = useActionState(updateBusinessProfileAction, undefined);
 
   return (
@@ -59,14 +63,21 @@ export function BusinessProfileForm({ tenantId, slug, locale, current }: Props) 
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        Timezone
-        <input
-          name="timezone"
-          required
-          defaultValue={current.timezone}
-          placeholder="e.g. Asia/Riyadh"
-          className="rounded-md border border-neutral-300 px-3 py-2"
-        />
+        Time zone
+        <select name="timezone" required defaultValue={current.timezone} className="rounded-md border border-neutral-300 px-3 py-2" data-testid="timezone-select">
+          {!known && <option value={current.timezone}>{current.timezone} — please choose your city</option>}
+          {timeZones.map((z) => (
+            <option key={z.value} value={z.value}>
+              {z.label}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-500">Used for opening hours, bookings, memberships and reports.</span>
+        {!known && (
+          <span className="text-xs font-medium text-amber-700">
+            “{current.timezone}” isn&apos;t a time zone name — choose your city (for example Africa/Tunis) so times are always right.
+          </span>
+        )}
       </label>
 
       <label className="flex flex-col gap-1 text-sm">

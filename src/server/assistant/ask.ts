@@ -7,6 +7,7 @@ import { EXPIRING_DAYS } from "@/lib/membership-state";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { businessToday, resolveTimeZone } from "@/lib/timezone";
 
 /**
  * Ask SmartManager (console dashboard). STRICTLY no AI: the question is
@@ -158,8 +159,8 @@ export async function askBusinessAction(input: { locale: string; slug: string; q
   const { intent, period: asked, lang } = parseQuestion(question);
   const t = T[lang];
   const base = `/${locale}/${slug}`;
-  const tz = tenant.timezone || "UTC";
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+  const tz = resolveTimeZone(tenant.timezone);
+  const today = businessToday(tenant.timezone);
   const period = asked ?? DEFAULT_PERIOD[intent] ?? "today";
   const range = periodRange(period, today);
   const fromISO = zonedStart(range.from, tz);

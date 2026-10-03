@@ -1,7 +1,7 @@
 -- pgTAP: bookings with time in / time out, optional duration, capacity,
 -- opening hours in the business's own time zone, online booking switch.
 begin;
-select plan(22);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000e0a1', 'book-owner@test.local'),
@@ -25,6 +25,12 @@ insert into public.bookable_services (id, tenant_id, name, duration_minutes, cus
   ('00000000-0000-4000-8000-00000000e0f1', '00000000-0000-4000-8000-00000000e0b1', '{"en":"Haircut"}', 45, false, 1, true),
   ('00000000-0000-4000-8000-00000000e0f2', '00000000-0000-4000-8000-00000000e0b1', '{"en":"Court"}', null, true, 2, true),
   ('00000000-0000-4000-8000-00000000e0f3', '00000000-0000-4000-8000-00000000e0b1', '{"en":"Private room"}', 60, false, 1, false);
+
+-- A time zone typed as an offset is read the right way round (UTC+1 = one hour ahead), never as an error.
+update public.tenants set timezone = 'UTC+1' where id = '00000000-0000-4000-8000-00000000e0b2';
+select is(app.tenant_time_zone('00000000-0000-4000-8000-00000000e0b2'), 'Etc/GMT-1', '"UTC+1" is read as one hour ahead of UTC');
+update public.tenants set timezone = 'Not/AZone' where id = '00000000-0000-4000-8000-00000000e0b2';
+select is(app.tenant_time_zone('00000000-0000-4000-8000-00000000e0b2'), 'UTC', 'an unknown zone falls back to UTC instead of failing');
 
 -- A weekday (Mon–Thu) and the next Friday, a week or more ahead.
 create temp table d as

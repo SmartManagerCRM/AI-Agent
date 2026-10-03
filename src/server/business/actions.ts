@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
+import { isValidTimeZone } from "@/lib/timezone";
 import { slugify } from "@/lib/slugify";
 import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
@@ -109,7 +110,11 @@ export async function updateBusinessProfileAction(
   });
   if (!parsed.success) return `VALIDATION_ERROR: ${parsed.error.issues[0]?.message ?? "check the form fields."}`;
 
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  // Only a real time zone name (an unchanged old value may stay until the owner picks one).
+  if (!isValidTimeZone(parsed.data.timezone) && parsed.data.timezone !== tenant.timezone) {
+    return "VALIDATION_ERROR: choose your time zone from the list.";
+  }
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("tenants")
