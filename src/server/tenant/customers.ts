@@ -5,12 +5,16 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type CustomerRow = {
   key: string;
+  /** Set for a customer the business saved itself; null for one known only from orders. */
+  customerId: string | null;
   name: string;
   email: string | null;
   phone: string | null;
+  birthday: string | null;
+  notes: string | null;
   orderCount: number;
   totalSpentMinor: number;
-  lastOrderAt: string;
+  lastOrderAt: string | null;
 };
 
 export type CustomerSummary = {
@@ -24,11 +28,12 @@ export type CustomerSummary = {
 };
 
 /**
- * There is no `customers` table — orders carry the customer's
- * name/email/phone inline, and a customer is `email ?? phone ?? name`.
- * Grouping, sums and the spend-ordered page are computed in Postgres
- * (`tenant_customer_summary`, SECURITY INVOKER — the same RLS as a direct
- * select) rather than by downloading every order this tenant ever had.
+ * Customers the business saved itself (`customers`) and customers known
+ * only from their orders (orders carry name/email/phone inline; such a
+ * customer is `email ?? phone ?? name`). Orders are matched to a saved
+ * customer by email or phone. Grouping, sums and the spend-ordered page are
+ * computed in Postgres (`tenant_customer_summary`, SECURITY INVOKER — the
+ * same RLS as a direct select) rather than by downloading every order.
  */
 export async function getTenantCustomers(
   supabase: TypedSupabaseClient,
@@ -53,9 +58,12 @@ export async function getTenantCustomers(
     filteredCount: Number(data?.filtered_count ?? 0),
     rows: (data?.rows ?? []).map((r) => ({
       key: r.key,
+      customerId: r.customer_id ?? null,
       name: r.name,
       email: r.email,
       phone: r.phone,
+      birthday: r.birthday ?? null,
+      notes: r.notes ?? null,
       orderCount: Number(r.order_count),
       totalSpentMinor: Number(r.total_spent_minor),
       lastOrderAt: r.last_order_at,

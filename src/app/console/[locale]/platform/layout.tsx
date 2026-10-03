@@ -84,7 +84,7 @@ export default async function PlatformLayout({
     <MobileSidebarProvider>
       <NotificationCenter scope={{ kind: "platform" }} locale={locale} labels={alertLabels}>
       <div className="flex min-h-screen bg-slate-50">
-        <MobileSidebarFrame>
+        <MobileSidebarFrame name="platform">
           <div>
             <div className="mb-4 flex items-center gap-2 px-1">
               <Image src="/brand/logo-mark.png" alt="" width={32} height={32} className="rounded-lg" />

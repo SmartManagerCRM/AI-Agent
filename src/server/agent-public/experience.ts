@@ -13,6 +13,7 @@ import type { PaymentMethod } from "@/server/commerce/cart";
 import { findActiveTable } from "@/server/commerce/tables";
 import { serviceClient } from "@/server/supabase/clients";
 import { businessToday } from "@/lib/timezone";
+import { greetingFor } from "@/lib/agent-greeting";
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -125,7 +126,7 @@ export async function loadAgentExperience(
       businessTypeKey: tenant.businessTypeKey,
       assistantName: settings.agent.assistant_name ?? null,
       about: localized(aboutEntry?.content, locale, tenant.defaultLanguage, true),
-      greeting: settings.agent.greeting ?? null,
+      greeting: greetingFor(settings.agent, locale),
       backgroundUrl: productImageUrl(settings.agent.background_path),
       logoUrl: productImageUrl(contact?.logo_path),
       voiceGender,

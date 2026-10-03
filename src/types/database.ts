@@ -123,6 +123,8 @@ export type Database = {
             active: boolean;
             assistant_name: string | null;
             greeting: string | null;
+            /** The greeting per language (Agent settings); `greeting` keeps the main language's for older readers. */
+            greetings?: Partial<Record<"en" | "ar" | "fr", string>> | null;
             tone: string | null;
             /** Storage path (catalog-images bucket) of the photo behind the whole customer Agent. */
             background_path?: string | null;
@@ -466,6 +468,33 @@ export type Database = {
         };
         Insert: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["ai_model_configs"]["Row"]>;
+        Relationships: [];
+      };
+      customers: {
+        Row: {
+          id: string;
+          tenant_id: string;
+          name: string;
+          phone: string | null;
+          email: string | null;
+          birthday: string | null;
+          notes: string | null;
+          /** Generated: how orders are matched to this customer. */
+          email_key: string | null;
+          phone_key: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          tenant_id: string;
+          name: string;
+          phone?: string | null;
+          email?: string | null;
+          birthday?: string | null;
+          notes?: string | null;
+        };
+        Update: { name?: string; phone?: string | null; email?: string | null; birthday?: string | null; notes?: string | null };
         Relationships: [];
       };
       membership_plans: {
@@ -1339,12 +1368,18 @@ export type Database = {
           filtered_count: number;
           rows: {
             key: string;
+            /** Set for a customer the business saved itself (Customers → Add customer). */
+            customer_id: string | null;
             name: string;
             email: string | null;
             phone: string | null;
+            birthday: string | null;
+            notes: string | null;
             order_count: number;
             total_spent_minor: number;
-            last_order_at: string;
+            /** Null for a saved customer with no orders yet. */
+            last_order_at: string | null;
+            saved_at: string | null;
           }[];
         };
       };

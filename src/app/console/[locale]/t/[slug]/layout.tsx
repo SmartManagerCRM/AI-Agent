@@ -161,7 +161,7 @@ export default async function TenantLayout({
           </div>
         ))}
         <div className="flex min-h-0 flex-1 bg-slate-50">
-          <MobileSidebarFrame>
+          <MobileSidebarFrame name="tenant">
             <div>
               <div className="mb-6 flex items-center gap-2 px-1">
                 {logoUrl ? (

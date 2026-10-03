@@ -367,6 +367,16 @@ install (only the console's pages link the manifest).
   first tap where the browser doesn't allow speech before one. Customers
   can turn the Agent's voice off (chat header); it is remembered on their
   device.
+- **Greeting per language**: Agent settings has one greeting field each
+  for English, Arabic and French (`tenant_settings.agent.greetings`; no
+  migration — `greeting` keeps the first one for older readers, and a
+  single older greeting is read as the language it is written in). The
+  Agent shows and speaks the greeting of the language the customer picked;
+  a language left empty uses the built-in greeting in that language, so a
+  customer who picks Arabic is never greeted with English text. Picking
+  another language in the menu plays the greeting again, in it, every
+  time. With the premium voice each language's greeting is generated once
+  and then served from the cache.
 - The landing page's "Ask" bar has a mic: it opens the conversation and
   starts listening in one tap.
 - **Bookings: time in / time out** — services may have no fixed length,
@@ -455,3 +465,30 @@ install (only the console's pages link the manifest).
   for the language. Replies are read sentence by sentence at a calm pace.
   "Preview voice" plays the greeting on the owner's own device.
 
+## Customers: add, edit, delete
+
+- Customers → **Add a customer**: name, phone, email, birthday and notes
+  (walk-ins, regulars, people who call). Table `public.customers`
+  (migration `20261006090000_saved_customers.sql`), RLS per business:
+  owners and admins add / edit / delete (`customers.write`), staff can see
+  them (`customers.read`). One saved customer per email and per phone
+  number (any case / formatting).
+- The list combines saved customers with the customers known from orders.
+  An order is matched to a saved customer by email (any case) or phone
+  (digits only), so a regular's order history shows under their saved
+  profile; a customer known only from orders can be saved with one click
+  ("Save as customer", pre-filled). Deleting a saved customer keeps their
+  orders, listed by the details on the orders. Search matches name, phone
+  or email.
+
+## Console sidebar and favicon
+
+- The sidebar scrolls on its own (sticky beside the page on desktop, a
+  drawer on mobile): choosing a page never moves it, and its position is
+  kept across navigations, when the drawer reopens, and after a reload
+  (per browser tab, `sessionStorage`). Subscriber console and Super Admin.
+- Favicon: PNGs `public/icons/favicon-{16,32,48}.png` are linked first, with
+  `/favicon.ico?v=2` as the shortcut icon. Browsers and the host's cache can
+  remember that `/favicon.ico` was missing before it was added; the fresh
+  URLs aren't affected by that. Regenerate all icons with
+  `node scripts/generate-pwa-icons.mjs`.

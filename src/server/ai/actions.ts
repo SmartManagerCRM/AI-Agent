@@ -5,16 +5,20 @@ import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { LOCALES } from "@/i18n/locales";
+import type { AgentGreetings } from "@/lib/agent-greeting";
 import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
 
 import { runAgentGateway, type GatewayResult } from "@/server/ai/gateway";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
+const greetingText = z.string().trim().max(300).optional().or(z.literal(""));
+
 const updateSettingsSchema = z.object({
   tenantId: z.uuid(),
   assistantName: z.string().trim().max(80).optional().or(z.literal("")),
-  greeting: z.string().trim().max(300).optional().or(z.literal("")),
+  greetings: z.object({ en: greetingText, ar: greetingText, fr: greetingText }),
   tone: z.enum(["friendly", "formal", "playful"]),
   voice: z.enum(["male", "female"]).default("male"),
   locale: z.string(),
@@ -28,7 +32,7 @@ export async function updateAgentSettingsAction(
   const parsed = updateSettingsSchema.safeParse({
     tenantId: formData.get("tenantId"),
     assistantName: formData.get("assistantName"),
-    greeting: formData.get("greeting"),
+    greetings: Object.fromEntries(LOCALES.map((l) => [l, formData.get(`greeting_${l}`) ?? undefined])),
     tone: formData.get("tone"),
     voice: formData.get("voice") ?? undefined,
     locale: formData.get("locale"),
@@ -44,13 +48,20 @@ export async function updateAgentSettingsAction(
     .select("agent")
     .eq("tenant_id", parsed.data.tenantId)
     .maybeSingle();
+  // One greeting per language; `greeting` keeps the first one for readers that know only a single greeting.
+  const greetings: AgentGreetings = {};
+  for (const l of LOCALES) {
+    const text = parsed.data.greetings[l];
+    if (text) greetings[l] = text;
+  }
   const { error } = await supabase
     .from("tenant_settings")
     .update({
       agent: {
         active: current?.agent?.active ?? false,
         assistant_name: parsed.data.assistantName || null,
-        greeting: parsed.data.greeting || null,
+        greeting: LOCALES.map((l) => greetings[l]).find(Boolean) ?? null,
+        greetings,
         tone: parsed.data.tone,
         background_path: current?.agent?.background_path ?? null,
         voice: parsed.data.voice,

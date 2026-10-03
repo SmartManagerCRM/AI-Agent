@@ -9,9 +9,17 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SmartManager AI Agent",
   description: "SmartManager AI Agent — intelligent ordering and business automation.",
-  // Generated from the official logo by scripts/generate-pwa-icons.mjs.
+  // Generated from the official logo by scripts/generate-pwa-icons.mjs. The
+  // PNGs come first: browsers (and the host's cache) can remember that
+  // /favicon.ico was missing before it was added; fresh URLs sidestep that.
   icons: {
-    icon: [{ url: "/favicon.ico", sizes: "16x16 32x32 48x48" }],
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico?v=2", sizes: "16x16 32x32 48x48" }],
     apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
 };

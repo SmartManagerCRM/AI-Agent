@@ -164,6 +164,7 @@ export async function setTenantAgentActiveAction(formData: FormData): Promise<vo
         active: parsed.data.active === "true",
         assistant_name: current?.agent.assistant_name ?? null,
         greeting: current?.agent.greeting ?? null,
+        greetings: current?.agent.greetings ?? null,
         tone: current?.agent.tone ?? null,
         background_path: current?.agent.background_path ?? null,
         voice: current?.agent.voice ?? null,

@@ -7,9 +7,12 @@ import { LOCALE_COOKIE, LOCALE_NATIVE_NAMES, type Locale } from "@/i18n/locales"
 
 import { focusRing, useAgentUi, type Screen } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
+import { greetAgain } from "./greeting-flag";
 import { BackIcon, CartIcon, ChatIcon, CheckIcon, ChevronDownIcon, GlobeIcon, GridIcon, HomeIcon, PhoneIcon } from "./icons";
 
 function switchLocale(next: Locale) {
+  // The Agent greets the customer again, in the language they just picked.
+  greetAgain();
   document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
   // On a locale-prefixed Agent URL (/ar/agent/<slug>) the path would outrank the cookie:
   // go to the canonical, prefix-free URL instead of reloading.

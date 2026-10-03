@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Catalog } from "./catalog";
 import type { BrainSnapshot } from "./match";
+import { greetingFor, savedGreetings } from "@/lib/agent-greeting";
 import { isReadableName } from "@/server/brain/discovery/name-quality";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -136,7 +137,8 @@ export async function buildBrainSnapshot(
   return {
     locale,
     assistantName: settings?.agent?.assistant_name ?? null,
-    greeting: settings?.agent?.greeting ?? null,
+    greeting: greetingFor(settings?.agent, locale) ?? settings?.agent?.greeting ?? null,
+    greetings: savedGreetings(settings?.agent),
     currency: tenant.currency,
     currencyExponent,
     products: (products ?? []).map((p) => ({ name: p.name[locale] ?? Object.values(p.name)[0] ?? "", priceMinor: p.price_minor })),

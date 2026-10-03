@@ -5,6 +5,7 @@ import { GoLivePanel, LiveBadge } from "@/components/agent/go-live-panel";
 import { Button } from "@/components/console/button";
 import { CopyButton } from "@/components/console/copy-button";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { savedGreetings } from "@/lib/agent-greeting";
 import { productImageUrl } from "@/lib/product-image";
 import { activeVoiceProfile } from "@/server/voice";
 import { loadGoLive } from "@/server/agent-public/go-live";
@@ -123,6 +124,7 @@ export default async function AgentPage({ params }: { params: Promise<{ locale: 
           slug={slug}
           locale={locale}
           current={agentSettings}
+          greetings={savedGreetings(agentSettings)}
           premiumVoices={{
             male: maleVoice ? (maleVoice.voiceName ?? "Premium") : null,
             female: femaleVoice ? (femaleVoice.voiceName ?? "Premium") : null,

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 
@@ -41,8 +41,50 @@ export function MobileMenuButton() {
   );
 }
 
-export function MobileSidebarFrame({ children }: { children: ReactNode }) {
+function readSavedScroll(key: string): number | null {
+  try {
+    const value = Number(window.sessionStorage.getItem(key));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The sidebar scrolls on its own (sticky beside the page on desktop, a
+ * drawer on mobile), so choosing a page never moves it: its position is kept
+ * across navigations, when the drawer reopens, and across a full reload.
+ */
+export function MobileSidebarFrame({ name, children }: { name: "tenant" | "platform"; children: ReactNode }) {
   const { open, setOpen } = useMobileSidebar();
+  const storageKey = `${name}-sidebar-scroll`;
+  const asideRef = useRef<HTMLElement>(null);
+  const scrollTop = useRef<number | null>(null);
+
+  // First paint: back to where it was before a reload, or else make sure the current page's link is in view.
+  useLayoutEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+    const saved = readSavedScroll(storageKey);
+    if (saved !== null) {
+      scrollTop.current = saved;
+      aside.scrollTop = saved;
+      return;
+    }
+    const active = aside.querySelector<HTMLElement>('[aria-current="page"]');
+    if (active && aside.clientHeight > 0) {
+      const box = aside.getBoundingClientRect();
+      const link = active.getBoundingClientRect();
+      if (link.bottom > box.bottom || link.top < box.top) aside.scrollTop += link.top - box.top - box.height / 2 + link.height / 2;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on first paint; the key never changes
+  }, []);
+
+  // A hidden drawer loses its scroll position; put it back when it opens again.
+  useLayoutEffect(() => {
+    if (open && asideRef.current && scrollTop.current !== null) asideRef.current.scrollTop = scrollTop.current;
+  }, [open]);
+
   return (
     <>
       {open && (
@@ -53,7 +95,20 @@ export function MobileSidebarFrame({ children }: { children: ReactNode }) {
         />
       )}
       <aside
-        className={`${open ? "flex" : "hidden"} fixed inset-y-0 start-0 z-50 w-72 shrink-0 flex-col justify-between overflow-y-auto bg-slate-900 px-4 py-6 lg:static lg:z-auto lg:flex lg:w-60`}
+        ref={asideRef}
+        data-testid="console-sidebar"
+        onScroll={(e) => {
+          const top = e.currentTarget.scrollTop;
+          // A drawer being hidden reports 0 — that's not the person scrolling.
+          if (e.currentTarget.clientHeight === 0) return;
+          scrollTop.current = top;
+          try {
+            window.sessionStorage.setItem(storageKey, String(Math.round(top)));
+          } catch {
+            // Storage blocked: the position is still kept for this visit.
+          }
+        }}
+        className={`${open ? "flex" : "hidden"} fixed inset-y-0 start-0 z-50 w-72 shrink-0 flex-col justify-between overflow-y-auto overscroll-contain bg-slate-900 px-4 py-6 lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-screen lg:w-60 lg:self-start`}
       >
         <button
           type="button"

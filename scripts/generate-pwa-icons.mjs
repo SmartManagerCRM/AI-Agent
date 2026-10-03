@@ -7,6 +7,7 @@
 // then the robot head — the most recognisable part at small sizes — is
 // placed on the logo's own green. Outputs:
 //   public/favicon.ico            16/32/48 px, round
+//   public/icons/favicon-{16,32,48}.png  the same, as PNGs
 //   public/icons/icon-{192,256,384,512}.png   rounded square (purpose "any")
 //   public/icons/icon-180.png     opaque square for iOS (it rounds the corners itself)
 //   public/icons/icon-512-maskable.png  full-bleed; the head stays inside the
@@ -169,4 +170,8 @@ for (const size of [16, 32, 48]) {
   favicons.push({ size, data: await sharp(big).resize(size, size, { kernel: "lanczos3" }).png().toBuffer() });
 }
 await writeFile(path.join(root, "public/favicon.ico"), ico(favicons));
+// The same images as plain PNGs, linked first from the page <head>: a URL
+// no browser or host cache has seen, so a remembered "no favicon" for
+// /favicon.ico can't hide them.
+for (const { size, data } of favicons) await writeFile(path.join(icons, `favicon-${size}.png`), data);
 console.log("icons written");

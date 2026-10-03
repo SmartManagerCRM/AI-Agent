@@ -11,6 +11,7 @@ import { AgentAvatar } from "./agent-avatar";
 import { CartButton, LanguageSwitcher } from "./chrome";
 import { BackIcon, CartIcon, CheckIcon, MicIcon, SendIcon, SpeakerIcon, SpeakerOffIcon, StopIcon } from "./icons";
 import type { ChatMessage } from "./use-agent-chat";
+import { markGreeted, wasGreeted } from "./greeting-flag";
 import { useVoice, useVoiceMuted } from "./use-voice";
 
 /** Renders assistant text with bare URLs (e.g. a payment link from `place_order`) as clickable links. */
@@ -36,22 +37,6 @@ type Suggestion = { key: string; label: string; message: string };
 /** The greeting bubble's id for Listen / Stop (chat messages are numbered from 1). */
 const GREETING_ID = 0;
 const GREETING_SOURCE = { kind: "greeting" } as const;
-const GREETED_KEY = "agent-greeted:";
-
-function sessionFlag(key: string): boolean {
-  try {
-    return window.sessionStorage.getItem(key) === "1";
-  } catch {
-    return false;
-  }
-}
-function setSessionFlag(key: string) {
-  try {
-    window.sessionStorage.setItem(key, "1");
-  } catch {
-    // Storage blocked: the greeting may be spoken again on the next visit to this page — harmless.
-  }
-}
 
 /**
  * The conversation surface. Replies come only from the existing
@@ -105,27 +90,27 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
   }, [registerVoice, startListening]);
 
   // The Agent opens the conversation by voice: its greeting (the one saved in Agent settings) is read
-  // aloud once per visit, as soon as the page opens — or, where the browser doesn't let a page speak
+  // aloud once per visit — and again each time the customer picks another language — as soon as the page opens — or, where the browser doesn't let a page speak
   // before the customer's first tap, at that first tap. Read by the browser: no AI cost.
   const greetingParts = [`${t("home.hi")} ${t("chat.intro", { name: aiName })}`, greeting || t("chat.defaultGreeting")];
   const greetingRef = useRef(greetingParts);
   useEffect(() => {
     greetingRef.current = greetingParts;
   });
-  const greetedKey = GREETED_KEY + ui.slug;
+  const greetedSlug = ui.slug;
   useEffect(() => {
-    if (!voice.canSpeak || muted || sessionFlag(greetedKey)) return;
+    if (!voice.canSpeak || muted || wasGreeted(greetedSlug)) return;
     let started = false;
     const onStart = () => {
       started = true;
-      setSessionFlag(greetedKey);
+      markGreeted(greetedSlug);
     };
     speak(GREETING_ID, greetingRef.current, { onStart, source: GREETING_SOURCE });
     const atFirstTap = (e: Event) => {
       stopWaiting();
-      if (started || sessionFlag(greetedKey)) return;
+      if (started || wasGreeted(greetedSlug)) return;
       // One try per visit; a customer whose first tap is the mic wants to talk, not to be greeted.
-      setSessionFlag(greetedKey);
+      markGreeted(greetedSlug);
       if (!(e.target instanceof Element && e.target.closest("[data-voice-mic]"))) speak(GREETING_ID, greetingRef.current, { onStart, source: GREETING_SOURCE });
     };
     const stopWaiting = () => {
@@ -135,7 +120,7 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     window.addEventListener("pointerdown", atFirstTap, true);
     window.addEventListener("keydown", atFirstTap, true);
     return stopWaiting;
-  }, [voice.canSpeak, muted, greetedKey, speak]);
+  }, [voice.canSpeak, muted, greetedSlug, speak]);
 
   // A spoken question gets a spoken answer (read by the browser — no AI cost).
   const spokenReplies = useRef(new Set<number>());

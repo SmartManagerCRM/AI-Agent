@@ -15,6 +15,8 @@ export type BrainSnapshot = {
   locale: string;
   assistantName: string | null;
   greeting: string | null;
+  /** The greeting saved per language; absent = `greeting` for every language. */
+  greetings?: Partial<Record<"en" | "ar" | "fr", string>>;
   currency: string;
   currencyExponent: number;
   products: { name: string; priceMinor: number }[];
@@ -117,7 +119,7 @@ export function matchDeterministic(
   }
 
   if (trimmed.length <= 20 && containsAny(trimmed, GREETING_WORDS)) {
-    return { rule: "greeting", reply: snapshot.greeting || T[lang].hello(snapshot.assistantName) };
+    return { rule: "greeting", reply: (snapshot.greetings ? snapshot.greetings[lang] : snapshot.greeting) || T[lang].hello(snapshot.assistantName) };
   }
 
   if (containsAny(trimmed, HOURS_WORDS)) {

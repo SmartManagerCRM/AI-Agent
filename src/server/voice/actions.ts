@@ -2,11 +2,12 @@
 
 import { z } from "zod";
 
-import { speechSentences } from "@/components/agent-public/voice";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { requireTenantMember } from "@/server/tenant/context";
 
-import { activeVoiceProfile, voiceDeps } from "./index";
+import { LOCALES } from "@/i18n/locales";
+
+import { activeVoiceProfile, previewGreetingSentences, voiceDeps } from "./index";
 import { greetingProfile, sentenceAudio } from "./service";
 
 const previewInput = z.object({
@@ -15,6 +16,8 @@ const previewInput = z.object({
   gender: z.enum(["male", "female"]),
   name: z.string().trim().max(80),
   greeting: z.string().trim().max(300),
+  /** The language of the greeting being previewed (one field per language in Agent settings). */
+  language: z.enum(LOCALES).default("en"),
 });
 
 export type VoicePreview = { ok: true; audio: string; voiceName: string | null } | { ok: false; message: string };
@@ -35,10 +38,7 @@ export async function previewAgentVoiceAction(raw: z.input<typeof previewInput>)
   const deps = profile ? voiceDeps(profile) : null;
   if (!profile || !deps) return { ok: false, message: "Premium voice isn't available right now." };
 
-  const sentences = speechSentences(
-    [`Hi! I'm ${parsed.data.name || "your assistant"}.`, parsed.data.greeting || "How can I help you today?"],
-    parsed.data.locale,
-  );
+  const sentences = await previewGreetingSentences(parsed.data.language, parsed.data.name || "your assistant", parsed.data.greeting);
   const parts: Uint8Array[] = [];
   for (const sentence of sentences) {
     const result = await sentenceAudio(deps, { tenantId: tenant.id, profile: greetingProfile(profile), language: sentence.language, text: sentence.text });

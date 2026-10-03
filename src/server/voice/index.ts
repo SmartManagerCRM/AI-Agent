@@ -2,6 +2,7 @@ import "server-only";
 
 import { speechSentences, type SpeechLanguage } from "@/components/agent-public/voice";
 import { isLocale, type Locale } from "@/i18n/locales";
+import { greetingFor } from "@/lib/agent-greeting";
 import { agentLog } from "@/server/ai/diagnostics";
 import { checkAiUsage, reserveAiCall, settleAiCall } from "@/server/ai/usage-guard";
 import { hashToken, readSessionToken } from "@/server/agent-public/session";
@@ -117,7 +118,13 @@ export async function greetingSentences(tenant: PublicTenant, locale: string): P
   ]);
   const businessName = tenant.businessName[ui] ?? tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
   const aiName = settings?.agent?.assistant_name || fill(strings.aiName, { business: businessName });
-  return speechSentences([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, settings?.agent?.greeting || strings.chat.defaultGreeting], ui);
+  return speechSentences([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greetingFor(settings?.agent, ui) || strings.chat.defaultGreeting], ui);
+}
+
+/** Agent settings → Preview: the greeting as typed for one language, introduced in that language. */
+export async function previewGreetingSentences(language: Locale, aiName: string, greeting: string): Promise<{ text: string; language: SpeechLanguage }[]> {
+  const strings = await agentStrings(language);
+  return speechSentences([`${strings.home.hi} ${fill(strings.chat.intro, { name: aiName })}`, greeting || strings.chat.defaultGreeting], language);
 }
 
 /**

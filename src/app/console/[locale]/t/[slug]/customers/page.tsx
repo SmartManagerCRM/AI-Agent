@@ -1,7 +1,9 @@
+import { Disclosure } from "@/components/console/disclosure";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { SearchInput } from "@/components/console/search-input";
+import { CustomerForm, CustomerRow, NEW_CUSTOMER } from "@/components/customers/customer-ui";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -10,11 +12,11 @@ import { getTenantCustomers } from "@/server/tenant/customers";
 const PAGE_SIZE = 50;
 
 /**
- * There is no `customers` table in this schema — orders carry the
- * customer's name/email/phone inline. This derives a customer list from
- * that, grouped by email (falling back to phone, then name) as the best
- * identity key available. No new table, no fabricated data. Aggregated in
- * Postgres and paged server-side (`getTenantCustomers`).
+ * Customers the business added itself (Add customer) together with the
+ * customers known from orders (orders carry name/email/phone inline,
+ * grouped by email, else phone, else name). A saved customer's orders are
+ * matched by email or phone. Aggregated in Postgres and paged server-side
+ * (`getTenantCustomers`). No fabricated data.
  */
 export default async function CustomersPage({
   params,
@@ -43,10 +45,20 @@ export default async function CustomersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Customers</h1>
-        <SearchInput placeholder="Search customers..." defaultValue={q} />
+        <SearchInput placeholder="Search by name, phone or email..." defaultValue={q} />
       </div>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4" data-testid="add-customer">
+        <h2 className="text-sm font-semibold text-slate-900">Add a customer</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Walk-ins, regulars, people who call — save them here. Customers who order through your AI Agent appear automatically.
+        </p>
+        <Disclosure summary="New customer" initiallyOpen={totalCustomers === 0}>
+          <CustomerForm locale={locale} slug={slug} initial={NEW_CUSTOMER} />
+        </Disclosure>
+      </section>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiTile
@@ -80,24 +92,30 @@ export default async function CustomersPage({
                   <th className="px-4 py-2 text-start font-medium">Orders</th>
                   <th className="px-4 py-2 text-start font-medium">Total spent</th>
                   <th className="px-4 py-2 text-start font-medium">Last order</th>
+                  <th className="px-4 py-2 text-end font-medium">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {customers.map((customer) => (
-                  <tr key={customer.key} className="border-b border-slate-100 last:border-0">
-                    <td className="flex items-center gap-2 px-4 py-3 font-medium text-slate-900">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">
-                        {customer.name.charAt(0).toUpperCase()}
-                      </span>
-                      {customer.name}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">{customer.email ?? customer.phone ?? "—"}</td>
-                    <td className="px-4 py-3 text-slate-700">{customer.orderCount}</td>
-                    <td className="px-4 py-3 text-slate-700">{money(customer.totalSpentMinor)}</td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {new Date(customer.lastOrderAt).toLocaleDateString(locale)}
-                    </td>
-                  </tr>
+                  <CustomerRow
+                    key={customer.key}
+                    locale={locale}
+                    slug={slug}
+                    row={{
+                      key: customer.key,
+                      customerId: customer.customerId,
+                      name: customer.name,
+                      email: customer.email,
+                      phone: customer.phone,
+                      birthday: customer.birthday,
+                      notes: customer.notes,
+                      orderCount: customer.orderCount,
+                      totalSpent: money(customer.totalSpentMinor),
+                      lastOrder: customer.lastOrderAt ? new Date(customer.lastOrderAt).toLocaleDateString(locale) : null,
+                    }}
+                  />
                 ))}
               </tbody>
             </table>
@@ -108,7 +126,7 @@ export default async function CustomersPage({
               title={totalCustomers === 0 ? "No customers yet" : "No customers match your search"}
               description={
                 totalCustomers === 0
-                  ? "Customers appear here automatically once they place their first order through your AI Agent."
+                  ? "Add your first customer above — customers who order through your AI Agent also appear here automatically."
                   : "Try a different search term."
               }
               actionLabel={totalCustomers === 0 ? "Set up your Agent" : undefined}
