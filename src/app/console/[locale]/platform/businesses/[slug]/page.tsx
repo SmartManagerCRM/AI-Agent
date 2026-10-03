@@ -477,7 +477,7 @@ function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow
         <dd className="text-slate-900">
           {usd(usage.agentAiCost, 4)} · {usage.agentAiResponses.toLocaleString(locale)} AI responses
         </dd>
-        <dt className="text-slate-500">Premium voice this period (counted against the cap)</dt>
+        <dt className="text-slate-500">Premium voice this period (ElevenLabs — not part of the AI cost cap)</dt>
         <dd className="text-slate-900">
           {usd(usage.agentVoiceCost, 4)} · {usage.agentVoiceClips.toLocaleString(locale)} clips generated ·{" "}
           {usage.agentVoiceCharacters.toLocaleString(locale)} characters

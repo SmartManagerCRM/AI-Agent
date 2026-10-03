@@ -47,7 +47,7 @@ export type SubscriberUsageRow = {
   /** All Agent AI spend this period from the interaction ledger (trials included); Business Brain and premium voice excluded. */
   agentAiCost: number;
   agentAiResponses: number;
-  /** Premium voice this period: audio generated (cache replays cost nothing and aren't counted). Counts toward the AI cost cap. */
+  /** Premium voice this period: audio generated (cache replays cost nothing and aren't counted). Not part of the AI cost cap (that covers the AI Agent only). */
   agentVoiceCost: number;
   agentVoiceClips: number;
   agentVoiceCharacters: number;

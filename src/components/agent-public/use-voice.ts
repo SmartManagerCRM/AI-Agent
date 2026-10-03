@@ -210,7 +210,8 @@ export function useVoice({
   const speak = useCallback(
     (id: number, reply: string | string[], options?: { onStart?: () => void; source?: VoiceSource }) => {
       const player = playerRef.current;
-      if (!player || !options?.source) return deviceSpeak(id, reply, options);
+      // No premium voice for this (or its allowance ran out on this visit): the device voice says it all.
+      if (!player || player.exhausted || !options?.source) return deviceSpeak(id, reply, options);
       const token = ++playToken.current;
       if (typeof window !== "undefined" && "speechSynthesis" in window) window.speechSynthesis.cancel();
       setSpeakingId(id);

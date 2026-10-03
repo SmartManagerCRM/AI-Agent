@@ -70,7 +70,7 @@ export type SentenceAudio =
       /** Resolves once a fresh sentence is stored and its cost recorded (keep the server alive for it). */
       done: Promise<void>;
     }
-  | { ok: false; reason: "limit" | "provider" };
+  | { ok: false; reason: "limit" | "provider" | "quota" };
 
 /** Longest sentence sent for speech (longer text is a sign of misuse, not of a sentence). */
 export const MAX_SENTENCE_CHARS = 400;
@@ -169,7 +169,8 @@ export async function sentenceAudio(
   if (!result.ok) {
     if (reservationId) await deps.spend.settle(input.tenantId, reservationId, 0);
     await record(false, result.error);
-    return { ok: false, reason: "provider" };
+    // The voice account's characters are used up (ElevenLabs free tier included).
+    return { ok: false, reason: result.error === "QUOTA_EXCEEDED" ? "quota" : "provider" };
   }
 
   const [toCustomer, toCache] = result.audio.tee();

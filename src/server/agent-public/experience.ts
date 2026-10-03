@@ -6,6 +6,7 @@ import type { AgentExperienceProps } from "@/components/agent-public/agent-exper
 import { isLocale, LOCALE_COOKIE, LOCALES, type Locale } from "@/i18n/locales";
 import { DEFAULT_VOICE_GENDER } from "@/components/agent-public/voice";
 import { activeVoiceProfile } from "@/server/voice";
+import { premiumVoiceExhausted } from "@/server/voice/availability";
 import { productImageUrl } from "@/lib/product-image";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import type { PublicTenant } from "@/server/agent-public/tenant";
@@ -130,7 +131,8 @@ export async function loadAgentExperience(
       backgroundUrl: productImageUrl(settings.agent.background_path),
       logoUrl: productImageUrl(contact?.logo_path),
       voiceGender,
-      premiumVoice: (await activeVoiceProfile(voiceGender)) !== null,
+      // Premium voice while its allowance lasts; once used up, customers hear their device's own voice.
+      premiumVoice: (await activeVoiceProfile(voiceGender)) !== null && !(await premiumVoiceExhausted()),
       categories: (categories ?? []).map((c) => ({ id: c.id, name: c.name })),
       products: (products ?? []).map((p) => ({
         id: p.id,

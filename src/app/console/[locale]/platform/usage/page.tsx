@@ -3,6 +3,7 @@ import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { UsageSettingsForm } from "@/components/platform/usage-limits-forms";
 import { loadPlatformUsage, loadUsageSettings } from "@/server/platform/usage";
+import { loadVoiceAccount } from "@/server/platform/voice-account";
 import { summarizePlatformUsage, USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -41,7 +42,7 @@ export default async function PlatformUsagePage({
   const filter = filterParam && FILTERS[filterParam] ? filterParam : null;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
-  const [rows, settings] = await Promise.all([loadPlatformUsage(supabase), loadUsageSettings(supabase)]);
+  const [rows, settings, voiceAccount] = await Promise.all([loadPlatformUsage(supabase), loadUsageSettings(supabase), loadVoiceAccount()]);
   const summary = summarizePlatformUsage(rows);
   const base = `/${locale}/super-admin/usage`;
   const sorted = [...(filter ? rows.filter(FILTERS[filter].match) : rows)].sort(
@@ -56,7 +57,7 @@ export default async function PlatformUsagePage({
         <h1 className="text-2xl font-semibold text-slate-900">Usage &amp; AI Cost</h1>
         <p className="mt-1 text-sm text-slate-500">
           Each subscriber&apos;s current billing period. Agent AI cost excludes Business Brain analysis and premium voice,
-          which are shown separately (voice still counts toward each subscriber&apos;s AI cost cap).
+          which are shown separately. The AI cost cap covers the AI Agent only — premium voice is not part of it.
         </p>
       </div>
 
@@ -80,8 +81,12 @@ export default async function PlatformUsagePage({
         <KpiTile
           icon="agent"
           accent="emerald"
-          label={`Premium voice cost (${summary.totalVoiceClips.toLocaleString(locale)} clips)`}
-          value={usd(summary.totalVoiceCost, 4)}
+          label={
+            voiceAccount.free
+              ? `Premium voice — ElevenLabs free tier (${summary.totalVoiceClips.toLocaleString(locale)} clips, ≈ ${usd(summary.totalVoiceCost, 4)} at paid rates)`
+              : `Premium voice cost (${summary.totalVoiceClips.toLocaleString(locale)} clips)`
+          }
+          value={voiceAccount.exhausted ? "Used up → device voice" : voiceAccount.free ? "Free" : usd(summary.totalVoiceCost, 4)}
           trend={null}
           href={`/${locale}/super-admin/usage#by-plan`}
         />
@@ -209,7 +214,7 @@ export default async function PlatformUsagePage({
                     <span className="text-xs text-slate-400">{pct(r.conversationPercent)}</span>
                   </td>
                   <td className="py-2 text-slate-600">
-                    {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost + r.agentVoiceCost, 4)} / {usd(r.aiCostLimit)}{" "}
+                    {usd(r.isPaid || r.isTrial ? r.aiCostUsed : r.agentAiCost, 4)} / {usd(r.aiCostLimit)}{" "}
                     <span className="text-xs text-slate-400">
                       {r.isPaid || r.isTrial ? pct(r.aiCostPercent) : "not capped"}
                     </span>

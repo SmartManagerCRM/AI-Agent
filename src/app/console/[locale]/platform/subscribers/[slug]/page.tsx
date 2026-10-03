@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AiAndVoiceCosts } from "@/components/platform/ai-and-voice-costs";
 import { MarkSubscriberChecked } from "@/components/platform/mark-subscriber-checked";
 import { BusinessEditForm, SubscriptionEditForm } from "@/components/platform/subscriber-edit-forms";
 import { SubscriberUsageOverridesForm } from "@/components/platform/usage-limits-forms";
 import { loadPlanAiCostLimits, loadPlatformUsage } from "@/server/platform/usage";
+import { loadVoiceAccount } from "@/server/platform/voice-account";
 import { USAGE_STATE_STYLE } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -40,6 +42,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
     usageRows,
     planAiLimits,
     { data: aiOverride },
+    voiceAccount,
   ] = await Promise.all([
     supabase
       .from("subscriptions")
@@ -53,6 +56,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
     loadPlatformUsage(supabase, tenant.id),
     loadPlanAiCostLimits(supabase),
     supabase.from("ai_cost_limits").select("limit_usd").eq("tenant_id", tenant.id).maybeSingle(),
+    loadVoiceAccount(),
   ]);
   const usage = usageRows[0] ?? null;
   // Paid-plan thresholds: the plan's defaults and this subscriber's own overrides.
@@ -172,6 +176,15 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
         )}
       </section>
 
+      {usage && (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            Costs this {usage.isTrial ? "trial" : "billing period"}
+          </h2>
+          <AiAndVoiceCosts usage={usage} account={voiceAccount} locale={locale} />
+        </section>
+      )}
+
       {subscription && (
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-1 text-sm font-semibold text-slate-900">Usage thresholds (this subscriber only)</h2>
@@ -181,7 +194,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
             {planAiCostLimit !== null ? ` and a $${planAiCostLimit.toFixed(2)} AI cost cap` : ""} per billing period.
             Leave a field empty to use the plan default; Reset to Plan Defaults clears both.
             {usage &&
-              ` Now: ${usage.conversationsUsed.toLocaleString(locale)} conversations and $${usage.aiCostUsed.toFixed(4)} AI cost this ${usage.isTrial ? "trial" : "period"}.`}
+              ` Now: ${usage.conversationsUsed.toLocaleString(locale)} conversations and $${usage.aiCostUsed.toFixed(4)} AI Agent cost this ${usage.isTrial ? "trial" : "period"} (premium voice is not part of the cap).`}
             {subscription.status === "trialing" &&
               " While trialing, the trial limits (Usage & AI Cost) apply; these take effect once the subscription is paid."}
           </p>

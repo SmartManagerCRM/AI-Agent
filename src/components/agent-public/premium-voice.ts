@@ -90,6 +90,8 @@ export class PremiumVoicePlayer {
   private controller: AbortController | null = null;
   private objectUrls: string[] = [];
   private unlocked = false;
+  /** The premium voice's allowance is used up: the device voice speaks for the rest of this visit. */
+  exhausted = false;
 
   constructor(private readonly config: { slug: string; surface: "external_agent" | "website_widget"; endpoint?: string }) {}
 
@@ -160,7 +162,10 @@ export class PremiumVoicePlayer {
       }
       if (signal.aborted) return { status: "stopped" };
       if (!response || !response.ok || !response.body || !response.headers.get("content-type")?.includes("audio/mpeg")) {
-        await response?.body?.cancel().catch(() => {});
+        if (response?.headers.get("content-type")?.includes("application/json")) {
+          const answer = (await response.json().catch(() => null)) as { reason?: string } | null;
+          if (answer?.reason === "quota_exhausted") this.exhausted = true;
+        } else await response?.body?.cancel().catch(() => {});
         return { status: "failed", spoken: index, blocked: false };
       }
       total = Math.max(1, Number(response.headers.get("x-voice-sentences")) || 1);

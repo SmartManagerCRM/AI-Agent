@@ -8,6 +8,7 @@ import { requireTenantMember } from "@/server/tenant/context";
 import { LOCALES } from "@/i18n/locales";
 
 import { activeVoiceProfile, previewGreetingSentences, voiceDeps } from "./index";
+import { notePremiumVoiceExhausted, premiumVoiceExhausted } from "./availability";
 import { greetingProfile, sentenceAudio } from "./service";
 
 const previewInput = z.object({
@@ -37,15 +38,24 @@ export async function previewAgentVoiceAction(raw: z.input<typeof previewInput>)
   const profile = await activeVoiceProfile(parsed.data.gender);
   const deps = profile ? voiceDeps(profile) : null;
   if (!profile || !deps) return { ok: false, message: "Premium voice isn't available right now." };
+  if (await premiumVoiceExhausted()) {
+    return { ok: false, message: "The premium voice's free monthly characters are used up — your Agent speaks with each customer's device voice until they reset." };
+  }
 
   const sentences = await previewGreetingSentences(parsed.data.language, parsed.data.name || "your assistant", parsed.data.greeting);
   const parts: Uint8Array[] = [];
   for (const sentence of sentences) {
     const result = await sentenceAudio(deps, { tenantId: tenant.id, profile: greetingProfile(profile), language: sentence.language, text: sentence.text });
     if (!result.ok) {
+      if (result.reason === "quota") notePremiumVoiceExhausted();
       return {
         ok: false,
-        message: result.reason === "limit" ? "Your plan's AI allowance is used up, so the premium voice is paused." : "The premium voice didn't answer — please try again.",
+        message:
+          result.reason === "limit"
+            ? "The premium voice is paused for this business."
+            : result.reason === "quota"
+              ? "The premium voice's free monthly characters are used up — your Agent speaks with each customer's device voice until they reset."
+              : "The premium voice didn't answer — please try again.",
       };
     }
     const bytes = new Uint8Array(await new Response(result.audio).arrayBuffer());

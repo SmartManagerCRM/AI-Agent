@@ -64,10 +64,17 @@ const bucketStore: AudioStore = {
   },
 };
 
+/**
+ * The premium voice is not part of the plan's AI cost cap (that covers the AI
+ * Agent only): clips are recorded in the ledger as `voice_tts` and reported on
+ * their own, never reserved against the cap. A business whose trial has ended
+ * gets no premium voice; when the voice account's characters run out, the
+ * Agent uses the device voice (./availability.ts).
+ */
 const ledgerSpend: VoiceSpend = {
   async allowed(tenantId) {
     const gate = await checkAiUsage(tenantId);
-    return { allowed: !gate.blocked && !gate.trialEnded, governed: gate.governed };
+    return { allowed: !gate.trialEnded, governed: false };
   },
   reserve: (tenantId, estimateUsd) => reserveAiCall(tenantId, estimateUsd).then((r) => (r.allowed ? r : { allowed: false, reservationId: null })),
   settle: settleAiCall,

@@ -546,3 +546,24 @@ install (only the console's pages link the manifest).
   `20261006130000_subscriber_checks.sql`). Opening a subscriber checks it;
   the Subscribers page has "Mark all as checked". Subscribers that existed
   before this change count as checked.
+
+## Premium voice: outside the AI cost cap, free tier, automatic device-voice fallback
+
+- The plan's AI cost cap covers the **AI Agent only**. Premium voice clips
+  (`voice_tts`) are still recorded in the ledger but are no longer reserved
+  against the cap, and a period's AI spend is seeded/recounted without them
+  (migration `20261006140000_voice_outside_ai_cost_cap.sql`, which also
+  recounted the existing period counters from the ledger — repeatable).
+- Super Admin → subscriber: "Costs this period" shows **AI Agent cost**
+  (against the cap) and **Premium voice (ElevenLabs)** side by side. On the
+  ElevenLabs free tier the voice shows as "Free" with the estimate at paid
+  rates, plus the account's characters used / limit and reset date
+  (read from ElevenLabs `GET /v1/user/subscription` — the API key needs the
+  "User → Read" permission for this; without it the line says so).
+- When the ElevenLabs characters run out (seen in the account figures, or
+  ElevenLabs refusing a sentence with `quota_exceeded`), every Agent speaks
+  with the customer's own device voice (free, Android/iOS/desktop standard
+  voices) — the Agent page is served without premium voice and the voice
+  endpoint answers "device voice" at once, without calling ElevenLabs —
+  until the characters reset (or the plan is upgraded). Owners' "Preview
+  voice" explains it. Nothing to configure.

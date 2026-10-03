@@ -5,6 +5,7 @@ import { LOCALES } from "@/i18n/locales";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { activeVoiceProfile, greetingSentences, messageSentences, tenantVoiceGender, voiceDeps } from "@/server/voice";
+import { notePremiumVoiceExhausted, notePremiumVoiceUsed, premiumVoiceExhausted } from "@/server/voice/availability";
 import { greetingProfile, sentenceAudio } from "@/server/voice/service";
 
 /**
@@ -52,11 +53,20 @@ export async function POST(request: Request) {
   if (!sentences || sentences.length === 0) return fallback(404, "nothing_to_say");
   const target = sentences[sentence];
   if (!target) return fallback(416, "no_such_sentence");
+  // The voice account's characters are used up: the device voice speaks, for every sentence (cached ones too, so the voice never switches mid-visit).
+  if (await premiumVoiceExhausted(target.text.length)) return fallback(503, "quota_exhausted");
 
   // The welcome greeting is spoken in the voice's warmer greeting delivery.
   const speaker = source.kind === "greeting" ? greetingProfile(profile) : profile;
   const result = await sentenceAudio(deps, { tenantId: tenant.id, profile: speaker, language: target.language, text: target.text });
-  if (!result.ok) return fallback(result.reason === "limit" ? 402 : 502, result.reason);
+  if (!result.ok) {
+    if (result.reason === "quota") {
+      notePremiumVoiceExhausted();
+      return fallback(503, "quota_exhausted");
+    }
+    return fallback(result.reason === "limit" ? 402 : 502, result.reason);
+  }
+  if (!result.cached) notePremiumVoiceUsed(target.text.length);
   // Storing a fresh sentence in the cache (and recording its cost) finishes after the response.
   after(() => result.done);
 
