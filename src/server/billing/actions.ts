@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { mockPaymentProvider, signMockWebhookPayload } from "@/server/payments/mock";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -50,6 +51,7 @@ export async function subscribeAction(formData: FormData): Promise<void> {
     const { data: current } = await supabase.rpc("paddle_billing_subscription", { p_tenant_id: tenant.id });
     if (renewsThroughPaddle(current?.[0] ?? null)) {
       const changed = await changePaddlePlan(supabase, tenant.id, parsed.data.planKey);
+      if (changed.ok) sendSubscriptionEmailsSoon();
       redirect(`${billing}?paddle=${changed.ok ? "planChanged" : changed.reason}`);
     }
     const checkout = await startPaddleCheckout(supabase, tenant.id, parsed.data.planKey);
@@ -77,6 +79,7 @@ async function manage(formData: FormData, run: "cancel" | "resume" | "portal"): 
     redirect(portal.ok ? portal.url : `${billing}?paddle=${portal.reason}`);
   }
   const result = run === "cancel" ? await cancelPaddleSubscription(supabase, tenant.id) : await resumePaddleSubscription(supabase, tenant.id);
+  if (result.ok) sendSubscriptionEmailsSoon();
   redirect(`${billing}?paddle=${result.ok ? (run === "cancel" ? "canceled" : "resumed") : result.reason}`);
 }
 
@@ -136,6 +139,7 @@ export async function simulateMockSubscriptionPaymentAction(formData: FormData):
       currency: payment.currency,
     });
     await processSubscriptionProviderWebhook(mockPaymentProvider, body, signature);
+    sendSubscriptionEmailsSoon();
   }
 
   redirect(`/${parsed.data.locale}/${parsed.data.slug}/billing/pay/${parsed.data.paymentId}`);

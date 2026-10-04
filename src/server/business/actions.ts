@@ -10,6 +10,7 @@ import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
 import { isValidTimeZone } from "@/lib/timezone";
 import { slugify } from "@/lib/slugify";
 import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
+import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -70,6 +71,7 @@ export async function createBusinessAction(
     p_currency: parsed.data.currency,
   });
   if (error) return (await actionT(parsed.data.locale))("business.createFailed");
+  sendSubscriptionEmailsSoon();
 
   redirect(`/${parsed.data.locale}/${slug}`);
 }

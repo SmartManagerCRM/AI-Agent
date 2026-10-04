@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -148,6 +149,7 @@ export async function updateSubscriberSubscriptionAction(
     p_current_period_end: d.currentPeriodEnd,
   });
   if (error) return dbMessage(t, error.message, "subscriptionFailed");
+  sendSubscriptionEmailsSoon();
 
   revalidatePath(`/${d.locale}/super-admin/subscribers`);
   revalidatePath(`/${d.locale}/super-admin/usage`);

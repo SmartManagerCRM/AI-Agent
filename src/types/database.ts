@@ -1147,6 +1147,24 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      subscription_emails: {
+        Row: {
+          id: number;
+          tenant_id: string;
+          kind: string;
+          details: Json;
+          dedupe_key: string | null;
+          status: string;
+          attempts: number;
+          next_attempt_at: string;
+          last_error: string | null;
+          created_at: string;
+          sent_at: string | null;
+        };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       subscription_payments: {
         Row: {
           id: string;
@@ -1241,6 +1259,30 @@ export type Database = {
       unchecked_subscribers: {
         Args: Record<string, never>;
         Returns: { tenant_id: string; slug: string; created_at: string }[];
+      };
+      claim_subscription_emails: {
+        Args: { p_limit: number };
+        Returns: {
+          id: number;
+          kind: string;
+          details: Json;
+          attempts: number;
+          created_at: string;
+          tenant_id: string;
+          tenant_slug: string;
+          business_name: Json;
+          default_language: string | null;
+          tenant_timezone: string | null;
+          owner_email: string | null;
+          owner_name: string | null;
+          owner_language: string | null;
+          subscription: Json | null;
+          plans: Json | null;
+        }[];
+      };
+      finish_subscription_email: {
+        Args: { p_id: number; p_status: string; p_error?: string; p_retry_in_seconds?: number };
+        Returns: undefined;
       };
       claim_translation_jobs: {
         Args: { p_limit: number };

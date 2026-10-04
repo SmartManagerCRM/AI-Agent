@@ -124,6 +124,7 @@ identically across all three Node.js applications:
 | `AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` | optional — Azure Translator resource on the **free F0** tier, for automatic translation of what owners and the Super Admin add (see "Automatic translation" below). Server-side only. |
 | `DEEPL_API_KEY` | optional — DeepL API **Free** key (ends in `:fx`), used once Azure's free characters are used up. Server-side only. |
 | `AZURE_TRANSLATOR_PAID_KEY` / `AZURE_TRANSLATOR_PAID_REGION` / `AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT` | optional — a second Azure Translator resource on a **paid** tier, used only after both free allowances; the limit caps its characters per month. Leave unset for none. |
+| `RESEND_API_KEY` | optional — [Resend](https://resend.com) API key (sending access, domain `smartmanager.me`) for the subscription emails sent from support@smartmanager.me (see "Subscription emails" below). Server-side only. Without it no email is sent. |
 | `PADDLE_API_KEY` / `PADDLE_CLIENT_TOKEN` / `PADDLE_WEBHOOK_SECRET` | optional — Paddle Billing, for subscription payments that renew automatically (see "Subscription payments (Paddle)" below). All three or none; sandbox vs live is read from the keys (`pdl_sdbx_…`/`test_…` vs `pdl_live_…`/`live_…`). The API key and webhook secret are server-side only. |
 | `TRANSLATION_LOCAL_MODELS` | leave unset; set to `off` only if the server can't spare the memory for the in-app open-source translation models (the last fallback). |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | generate once with `openssl rand -base64 32`, reuse the same value everywhere — required correctness insurance for this three-instance setup (§3), even though a shared build artifact makes it unlikely to bite in practice; see `.env.example` |
@@ -633,7 +634,8 @@ Set up once per Paddle account (sandbox first, then live):
    URL `https://<your domain>/api/payments/webhook/paddle`, events
    `transaction.completed`, `transaction.payment_failed`, `subscription.created`,
    `subscription.activated`, `subscription.updated`, `subscription.past_due`,
-   `subscription.canceled`. Its secret key is `PADDLE_WEBHOOK_SECRET`.
+   `subscription.paused`, `subscription.resumed`, `subscription.canceled`.
+   Its secret key is `PADDLE_WEBHOOK_SECRET`.
 3. **Checkout → Checkout settings**: default payment link
    `https://<your domain>/checkout` (the page that opens Paddle's checkout —
    e.g. from Paddle's emails).
@@ -643,3 +645,26 @@ Without the three variables, subscription payments use the built-in test
 checkout (no money involved). Paddle's signed webhooks are the only thing that
 marks a plan paid, renewed, past due or cancelled.
 
+## Subscription emails (support@smartmanager.me)
+
+The business owner gets an email, in their language (English, Arabic or
+French), whenever their subscription changes: free trial started, payment
+received (with the amount), plan upgraded or downgraded, cancellation
+scheduled or withdrawn, subscription ended, paused, or a renewal payment
+failed. Every email names the plan, says whether it is billed **monthly or
+annually**, its price and the relevant dates, and links to the Billing page.
+
+- The database decides what happened (triggers on `subscriptions` and
+  `subscription_payments` queue one email per change in
+  `subscription_emails`), so a change is never missed, whoever made it —
+  Paddle, the owner, or the Super Admin. Payments of the built-in test
+  checkout send nothing.
+- The app sends them through Resend right after the change, and retries
+  every two minutes if a send fails for a temporary reason (up to six
+  attempts). An email that couldn't be sent within two days is dropped.
+- Sent to the business owner's sign-in email (else the business's contact
+  email), from `SmartManager <support@smartmanager.me>`; replies go to
+  support@smartmanager.me.
+
+Set up: in Resend, with `smartmanager.me` verified, create an API key with
+**sending access** for that domain and set it as `RESEND_API_KEY`.

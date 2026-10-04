@@ -3,6 +3,7 @@ import "server-only";
 import { Webhooks } from "@paddle/paddle-node-sdk";
 
 import type { Json } from "@/types/database";
+import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { serviceClient } from "@/server/supabase/clients";
 
 import { paddleConfig } from "./client";
@@ -56,6 +57,7 @@ export async function handlePaddleWebhook(rawBody: string, signature: string | n
       p_raw: raw as Json,
     });
     if (error) return { status: 500, body: { error: "could not record" } };
+    sendSubscriptionEmailsSoon();
     return { status: 200, body: { received: data ?? "recorded" } };
   }
 
@@ -71,5 +73,6 @@ export async function handlePaddleWebhook(rawBody: string, signature: string | n
     p_raw: raw as Json,
   });
   if (error) return { status: 500, body: { error: "could not record" } };
+  sendSubscriptionEmailsSoon();
   return { status: 200, body: { received: data ?? "applied" } };
 }

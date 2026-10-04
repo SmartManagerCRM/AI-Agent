@@ -102,6 +102,13 @@ const serverEnvSchema = z.object({
   PADDLE_CLIENT_TOKEN: optionalSecret,
   PADDLE_WEBHOOK_SECRET: optionalSecret,
   /**
+   * Resend API key (sending access) for the emails the platform sends from
+   * support@smartmanager.me — subscription updates to subscribers
+   * (src/server/email/). Server-side only. Without it nothing is sent: the
+   * emails wait (up to two days) for the key to be added.
+   */
+  RESEND_API_KEY: optionalSecret,
+  /**
    * `on` prints `[PERF] <operation>: <ms>` timing lines for the proxy,
    * auth/tenant resolution and the heaviest console queries (see
    * `src/server/perf.ts`). Off unless explicitly set — never logs values,
