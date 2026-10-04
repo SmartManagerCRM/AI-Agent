@@ -1,5 +1,6 @@
 import { CreateBusinessTypeForm } from "@/components/platform/business-types-form";
 import { PlatformSettingsForm } from "@/components/platform/platform-settings-form";
+import { SiteContactForm } from "@/components/platform/site-contact-form";
 import { TranslateMissingForm } from "@/components/platform/translate-missing-form";
 import { setBusinessTypeActiveAction } from "@/server/platform/business-type-actions";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
@@ -20,7 +21,7 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
     serviceClient()
       .from("platform_settings")
       .select(
-        "platform_name, maintenance_mode, default_ai_monthly_budget_usd, supported_languages, supported_currencies",
+        "platform_name, maintenance_mode, default_ai_monthly_budget_usd, supported_languages, supported_currencies, company_name, company_country, support_email, contact_email, contact_phone, social_links",
       )
       .eq("id", true)
       .maybeSingle(),
@@ -43,6 +44,22 @@ export default async function PlatformSettingsPage({ params }: { params: Promise
               supported_currencies: ["SAR", "USD", "EUR"],
             }
           }
+        />
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-4" id="site">
+        <h2 className="text-sm font-semibold text-slate-900">{tr("site.title")}</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-500">{tr("site.intro")}</p>
+        <SiteContactForm
+          locale={locale}
+          current={{
+            company_name: settings?.company_name ?? null,
+            company_country: settings?.company_country ?? null,
+            support_email: settings?.support_email ?? null,
+            contact_email: settings?.contact_email ?? null,
+            contact_phone: settings?.contact_phone ?? null,
+            social_links: (settings?.social_links as Record<string, string> | null) ?? {},
+          }}
         />
       </section>
 

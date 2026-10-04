@@ -32,7 +32,8 @@ function localeOrDefault(value: FormDataEntryValue | null): string {
 
 /** A relative, in-app path only — guards against an open redirect via a crafted `redirectTo`. */
 function safeRedirectTarget(locale: string, redirectTo: string | undefined): string {
-  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) return redirectTo;
+  // Browsers read "/\host" like "//host", so a backslash anywhere is refused too.
+  if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") && !redirectTo.includes("\\")) return redirectTo;
   return `/${locale}`;
 }
 

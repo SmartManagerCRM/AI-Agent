@@ -18,6 +18,11 @@ type Props = {
     billingInterval: "month" | "year";
     trialDays: number;
     sortOrder: number;
+    description: string;
+    features: string;
+    family: string;
+    isPopular: boolean;
+    isPublic: boolean;
   };
 };
 
@@ -126,6 +131,50 @@ const t = useTranslations("platform.planForm");
           defaultValue={plan?.sortOrder ?? 0}
           className="w-20 rounded-md border border-neutral-300 px-3 py-2"
         />
+      </label>
+
+      <label className="flex min-w-60 flex-1 flex-col gap-1 text-sm">
+        {t("description", { lang: locale.toUpperCase() })}
+        <input
+          name="description"
+          maxLength={160}
+          defaultValue={plan?.description}
+          placeholder={t("descriptionPlaceholder")}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        {t("family")}
+        <input
+          name="family"
+          maxLength={40}
+          defaultValue={plan?.family}
+          placeholder={t("familyPlaceholder")}
+          className="w-32 rounded-md border border-neutral-300 px-3 py-2"
+        />
+      </label>
+
+      <label className="flex w-full flex-col gap-1 text-sm">
+        {t("features", { lang: locale.toUpperCase() })}
+        <textarea
+          name="features"
+          rows={5}
+          maxLength={2000}
+          defaultValue={plan?.features}
+          placeholder={t("featuresPlaceholder")}
+          className="rounded-md border border-neutral-300 px-3 py-2"
+        />
+        <span className="text-xs text-neutral-500">{t("featuresHint")}</span>
+      </label>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="isPublic" defaultChecked={plan?.isPublic ?? true} />
+        {t("isPublic")}
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="isPopular" defaultChecked={plan?.isPopular ?? false} />
+        {t("isPopular")}
       </label>
 
       <button

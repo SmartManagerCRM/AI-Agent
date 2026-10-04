@@ -68,6 +68,12 @@ export type Database = {
           supported_currencies: string[];
           maintenance_mode: boolean;
           default_ai_monthly_budget_usd: number | null;
+          company_name: string | null;
+          company_country: string | null;
+          support_email: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          social_links: Json;
           created_at: string;
           updated_at: string;
         };
@@ -1109,6 +1115,11 @@ export type Database = {
           billing_interval: "month" | "year";
           trial_days: number;
           limits: Json;
+          description: LocalizedText;
+          features: LocalizedText;
+          is_popular: boolean;
+          is_public: boolean;
+          plan_family: string | null;
           conversation_limit: number | null;
           grace_period_hours: number;
           is_default: boolean;
@@ -1583,8 +1594,43 @@ export type Database = {
           p_slug: string;
           p_default_language: string;
           p_currency: string;
+          p_plan_key?: string;
+          p_country?: string;
+          p_contact_phone?: string;
+          p_owner_name?: string;
         };
         Returns: string;
+      };
+      public_subscription_plans: {
+        Args: Record<string, never>;
+        Returns: {
+          key: string;
+          family: string;
+          name: LocalizedText;
+          description: LocalizedText;
+          features: LocalizedText;
+          price_minor: number;
+          currency: string;
+          exponent: number;
+          billing_interval: "month" | "year";
+          trial_days: number;
+          conversation_limit: number | null;
+          is_popular: boolean;
+          sort_order: number;
+        }[];
+      };
+      public_site_info: {
+        Args: Record<string, never>;
+        Returns: {
+          platform_name: string;
+          company_name: string | null;
+          company_country: string | null;
+          support_email: string | null;
+          contact_email: string | null;
+          contact_phone: string | null;
+          social_links: Json;
+          supported_currencies: string[];
+        }[];
       };
       my_tenant_memberships: {
         Args: Record<string, never>;

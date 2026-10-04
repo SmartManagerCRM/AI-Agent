@@ -1,36 +1,37 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 
-import { consoleOrigin } from "@/lib/hosts";
-import { serverEnv } from "@/server/env";
+import { Benefits } from "@/components/site/landing/benefits";
+import { Categories } from "@/components/site/landing/categories";
+import { Faq } from "@/components/site/landing/faq";
+import { Hero } from "@/components/site/landing/hero";
+import { HowItWorks } from "@/components/site/landing/how-it-works";
+import { PricingSection } from "@/components/site/landing/pricing-section";
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/locales";
+import { announcedTrialDays } from "@/lib/site/pricing";
+import { pageMetadata } from "@/server/site/metadata";
+import { loadPublicPlans } from "@/server/site/public-data";
 
-export default async function MarketingHome() {
-  const t = await getTranslations("marketing");
-  const env = serverEnv();
-  const origin = consoleOrigin({
-    rootDomain: env.PLATFORM_ROOT_DOMAIN,
-    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
-    agentSubdomain: env.AGENT_SUBDOMAIN,
-    scheme: env.PUBLIC_URL_SCHEME,
-    port: env.PUBLIC_URL_PORT,
-    consoleUrl: env.CONSOLE_URL,
-  });
-  // On a real console subdomain, its own bare root already is the console.
-  // When CONSOLE_URL points this at the platform host instead, that host's
-  // bare root is the marketing page, so the link needs the `/subscriber`
-  // alias (see src/proxy.ts) to actually reach the console.
-  const consoleHref = env.CONSOLE_URL ? `${origin}/subscriber` : origin;
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale: isLocale(locale) ? locale : DEFAULT_LOCALE, namespace: "site.seo" });
+  return pageMetadata(isLocale(locale) ? locale : DEFAULT_LOCALE, "", t("title"), t("description"));
+}
 
+/** The public landing page (ai-agent.smartmanager.me/). */
+export default async function LandingPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale: raw } = await params;
+  const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
+  const plans = await loadPublicPlans();
+  const trialDays = announcedTrialDays(plans);
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-start justify-center gap-6 px-6 py-24">
-      <h1 className="text-4xl font-semibold tracking-tight">{t("title")}</h1>
-      <p className="text-xl text-neutral-600">{t("tagline")}</p>
-      <p className="max-w-xl text-neutral-500">{t("description")}</p>
-      <a
-        href={consoleHref}
-        className="rounded-md bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700"
-      >
-        {t("cta")}
-      </a>
-    </main>
+    <>
+      <Hero locale={locale} trialDays={trialDays} />
+      <Categories locale={locale} />
+      <Benefits />
+      <HowItWorks />
+      <PricingSection locale={locale} plans={plans} />
+      <Faq trialDays={trialDays} />
+    </>
   );
 }

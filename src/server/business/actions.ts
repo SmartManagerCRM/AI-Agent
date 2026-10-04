@@ -6,13 +6,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
 import { isValidTimeZone } from "@/lib/timezone";
-import { slugify } from "@/lib/slugify";
 import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
+import { generateUniqueSlug } from "@/server/business/slug";
 import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
-import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { actionT } from "@/server/i18n/action-messages";
 
@@ -33,20 +31,6 @@ const createBusinessSchema = z.object({
  * words, so a business can never be assigned a slug that would collide
  * with `/login`, `/super-admin`, etc.
  */
-async function generateUniqueSlug(supabase: TypedSupabaseClient, businessName: string): Promise<string> {
-  const base = slugify(businessName) || "business";
-  let candidate = base;
-  for (let attempt = 1; attempt <= 50; attempt++) {
-    if (!RESERVED_SLUGS.has(candidate)) {
-      const { data } = await supabase.from("tenants").select("id").eq("slug", candidate).maybeSingle();
-      if (!data) return candidate;
-    }
-    const suffix = `-${attempt + 1}`;
-    candidate = `${base.slice(0, 48 - suffix.length)}${suffix}`;
-  }
-  return `${base.slice(0, 40)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export async function createBusinessAction(
   _prevState: string | undefined,
   formData: FormData,

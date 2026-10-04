@@ -1952,7 +1952,10 @@
       "isDefault": "Par défaut",
       "makeDefault": "Définir par défaut",
       "limits": "Limites d’utilisation des formules payantes (par période ; les essais ne sont pas concernés)",
-      "none": "Aucune formule pour l’instant."
+      "none": "Aucune formule pour l’instant.",
+      "badgePopular": "La plus populaire",
+      "badgeHidden": "Pas sur le site",
+      "badgeFamily": "version annuelle de « {family} »"
     },
     "planForm": {
       "key": "Clé",
@@ -1966,7 +1969,16 @@
       "trialDays": "Jours d’essai",
       "sortOrder": "Ordre d’affichage",
       "save": "Enregistrer",
-      "add": "Ajouter la formule"
+      "add": "Ajouter la formule",
+      "description": "Description courte ({lang})",
+      "descriptionPlaceholder": "ex. Idéale pour les petites entreprises",
+      "family": "Famille de formule",
+      "familyPlaceholder": "ex. growth",
+      "features": "Fonctionnalités sur la page Tarifs ({lang})",
+      "featuresPlaceholder": "Agent IA 24h/24, 7j/7\nCommandes et réservations en ligne",
+      "featuresHint": "Une fonctionnalité par ligne. Le nombre de conversations est ajouté automatiquement. Une formule mensuelle et sa version annuelle partagent une famille (ex. « growth »), pour que le sélecteur Mensuel / Annuel du site les affiche ensemble.",
+      "isPublic": "Affichée sur le site",
+      "isPopular": "La plus populaire"
     },
     "payments": {
       "title": "Paiements et revenus",
@@ -2223,6 +2235,18 @@
         "keyPlaceholder": "ex. bakery",
         "name": "Nom ({lang})",
         "add": "Ajouter"
+      },
+      "site": {
+        "title": "Entreprise et contact (site public)",
+        "intro": "Affichés dans le pied de page du site, la page Contact et les pages légales.",
+        "companyName": "Raison sociale",
+        "companyCountry": "Pays",
+        "supportEmail": "E-mail du support",
+        "contactEmail": "E-mail de l’entreprise",
+        "contactPhone": "Téléphone",
+        "social": "Réseaux sociaux",
+        "hint": "Un champ vide n’apparaît pas sur le site. Les liens doivent commencer par https://.",
+        "save": "Enregistrer"
       }
     },
     "roles": {
@@ -3217,7 +3241,8 @@
       },
       "planCreateFailed": "Impossible de créer ce forfait — veuillez réessayer.",
       "translateFailed": "Impossible de lancer la traduction — veuillez réessayer.",
-      "translateQueued": "{n, plural, =0 {Rien à traduire.} one {# élément vérifié — les langues manquantes sont en cours d’ajout.} other {# éléments vérifiés — les langues manquantes sont en cours d’ajout.}}"
+      "translateQueued": "{n, plural, =0 {Rien à traduire.} one {# élément vérifié — les langues manquantes sont en cours d’ajout.} other {# éléments vérifiés — les langues manquantes sont en cours d’ajout.}}",
+      "socialUrl": "Les liens doivent être des adresses complètes en https://."
     },
     "auth": {
       "signInInvalid": "Saisissez une adresse e-mail et un mot de passe valides.",
@@ -3250,5 +3275,549 @@
     "signInAccept": "Se connecter et accepter",
     "signUpAccept": "Créer un compte et accepter",
     "accept": "Accepter l’invitation"
+  },
+  "site": {
+    "header": {
+      "features": "Fonctionnalités",
+      "howItWorks": "Comment ça marche",
+      "pricing": "Tarifs",
+      "faq": "FAQ",
+      "signIn": "Se connecter",
+      "startTrial": "Essai gratuit",
+      "mainNav": "Navigation principale",
+      "openMenu": "Ouvrir le menu",
+      "closeMenu": "Fermer le menu",
+      "menu": "Menu",
+      "language": "Langue",
+      "currency": "Devise",
+      "skip": "Aller au contenu"
+    },
+    "footer": {
+      "description": "Interaction client, commandes, réservations et assistance propulsées par l’IA pour les entreprises modernes.",
+      "contactTitle": "Contact",
+      "country": "{country}",
+      "company": "Entreprise",
+      "about": "À propos de SmartManager",
+      "contact": "Contact",
+      "faq": "FAQ",
+      "product": "Produit",
+      "features": "Fonctionnalités",
+      "howItWorks": "Comment ça marche",
+      "pricing": "Tarifs",
+      "legal": "Mentions légales",
+      "terms": "Conditions d’utilisation",
+      "refund": "Politique de remboursement",
+      "privacy": "Politique de confidentialité",
+      "social": "Réseaux sociaux",
+      "copyright": "© {year} SmartManager. Tous droits réservés.",
+      "attribution": "SmartManager est un produit créé par {company}."
+    },
+    "seo": {
+      "title": "SmartManager AI Agent — Caissier IA et assistant d’entreprise IA",
+      "description": "Commandes, réservations, service client et assistance propulsés par l’IA pour restaurants, boutiques, salons, salles de sport, cliniques et plus."
+    },
+    "hero": {
+      "eyebrow": "Agent IA pour toutes les entreprises",
+      "titleLine1": "Votre caissier IA",
+      "titleLine2": "et assistant de commande",
+      "titleAccent": "pour toutes les entreprises",
+      "subtitle1": "Répond aux questions, présente vos produits ou services, prend commandes, réservations et paiements — 24h/24, 7j/7.",
+      "subtitle2": "Moins d’attente. Plus de commandes. Des clients plus heureux.",
+      "startTrial": "Commencer l’essai gratuit",
+      "watchDemo": "Voir la démo",
+      "opensNewTab": "(ouvre l’agent SmartManager AI Agent en direct dans un nouvel onglet)",
+      "trial": "Essai gratuit de {days} jours",
+      "noCard": "Sans carte bancaire",
+      "easySetup": "Mise en place facile",
+      "visualLabel": "L’agent SmartManager AI Agent répondant à un client sur téléphone",
+      "phone": {
+        "online": "En ligne",
+        "hello": "Bonjour ! Je suis votre assistant IA.",
+        "help": "Comment puis-je vous aider aujourd’hui ?",
+        "ask": "J’aimerais voir vos services",
+        "answer": "Bien sûr ! Voici nos principales catégories :",
+        "tiles": {
+          "food": "Plats et boissons",
+          "products": "Produits",
+          "book": "Réserver",
+          "offers": "Offres spéciales"
+        },
+        "type": "Écrivez un message…"
+      },
+      "floating": {
+        "sales": "Plus de ventes et de revenus",
+        "customers": "Des clients plus heureux",
+        "time": "Vous fait gagner du temps",
+        "languages": "Fonctionne en plusieurs langues"
+      }
+    },
+    "categories": {
+      "title": "Pour tous les types d’entreprises",
+      "tryDemo": "Essayer la démo",
+      "startTrial": "Essai gratuit",
+      "items": {
+        "restaurants": {
+          "name": "Restaurants\n& cafés",
+          "title": "Pour les restaurants et cafés",
+          "p1": "Présente votre menu avec photos et prix",
+          "p2": "Prend les commandes à emporter, en livraison ou à table",
+          "p3": "Les QR codes de table ouvrent votre Agent instantanément"
+        },
+        "retail": {
+          "name": "Boutiques\n& commerce",
+          "title": "Pour les boutiques et le commerce",
+          "p1": "Répond aux questions sur vos produits",
+          "p2": "Aide les clients à trouver le bon article",
+          "p3": "Prend commandes et paiements dans la conversation"
+        },
+        "salons": {
+          "name": "Salons & spas",
+          "title": "Pour les salons et spas",
+          "p1": "Présente vos prestations et tarifs",
+          "p2": "Permet aux clients de réserver date et heure",
+          "p3": "Vous pouvez confirmer chaque réservation vous-même"
+        },
+        "fitness": {
+          "name": "Salles de sport",
+          "title": "Pour les salles de sport et le fitness",
+          "p1": "Présente vos abonnements et cours",
+          "p2": "Réserve cours et séances",
+          "p3": "Répond aux membres à toute heure"
+        },
+        "clinics": {
+          "name": "Cliniques & santé",
+          "title": "Pour les cliniques et la santé",
+          "p1": "Indique vos services, horaires et adresse",
+          "p2": "Prend les demandes de rendez-vous",
+          "p3": "Laisse votre équipe se consacrer aux patients"
+        },
+        "hotels": {
+          "name": "Hôtels & voyages",
+          "title": "Pour les hôtels et voyages",
+          "p1": "Répond aux clients dans leur langue",
+          "p2": "Présente chambres, services et offres",
+          "p3": "Prend demandes de service et réservations"
+        },
+        "events": {
+          "name": "Événements & services",
+          "title": "Pour les événements et services",
+          "p1": "Présente vos formules et tarifs",
+          "p2": "Recueille les demandes de réservation avec tous les détails",
+          "p3": "Assure le suivi pour ne perdre aucun prospect"
+        },
+        "more": {
+          "name": "Et plus…",
+          "title": "Pour toute entreprise qui sert des clients",
+          "p1": "Apprend votre activité à partir de votre site et de votre menu",
+          "p2": "Fonctionne via un lien, un QR code ou votre site",
+          "p3": "Parle anglais, arabe et français"
+        }
+      }
+    },
+    "benefits": {
+      "title": "Pourquoi les entreprises choisissent SmartManager AI Agent",
+      "sales": {
+        "title": "Plus de ventes",
+        "text": "Transformez les conversations en vraies commandes et réservations, automatiquement."
+      },
+      "available": {
+        "title": "Toujours disponible",
+        "text": "Votre agent IA travaille 24h/24, même quand vous êtes occupé."
+      },
+      "delighted": {
+        "title": "Des clients ravis",
+        "text": "Des réponses rapides, précises et chaleureuses, dans toutes les langues."
+      },
+      "simple": {
+        "title": "Simple à utiliser",
+        "text": "Démarrez en quelques minutes. Aucune compétence technique requise."
+      }
+    },
+    "how": {
+      "eyebrow": "Comment ça marche",
+      "title1": "Votre agent IA",
+      "title2": "en 4 étapes simples",
+      "subtitle": "Configurez votre assistant IA en quelques minutes et servez plus de clients dès maintenant.",
+      "steps": {
+        "signUp": {
+          "title": "Inscription",
+          "text": "Créez votre compte"
+        },
+        "brain": {
+          "title": "Business Brain",
+          "text": "Nous analysons votre menu, vos produits, services et contenus"
+        },
+        "customize": {
+          "title": "Personnalisez",
+          "text": "Réglez vos préférences et activez commandes, réservations et paiements"
+        },
+        "goLive": {
+          "title": "Mise en ligne",
+          "text": "Partagez votre QR code ou widget et accueillez vos clients"
+        }
+      },
+      "qr": {
+        "scan": "Scannez pour commander",
+        "label": "QR code : ouvre l’agent SmartManager AI Agent en direct"
+      },
+      "phone": {
+        "online": "En ligne",
+        "hello": "Bonjour ! Comment puis-je vous aider ?",
+        "menu": {
+          "menu": "Voir le menu / produits",
+          "order": "Passer commande",
+          "book": "Réserver un service",
+          "availability": "Vérifier la disponibilité",
+          "offers": "Offres spéciales"
+        }
+      }
+    },
+    "pricing": {
+      "metaTitle": "Tarifs — SmartManager AI Agent",
+      "offer": "Offre à durée limitée",
+      "title": "Des tarifs simples et transparents",
+      "subtitle": "Tout ce qu’il faut pour développer votre activité. Choisissez la formule qui vous convient.",
+      "none": "Les formules seront bientôt disponibles ici. Contactez-nous en attendant.",
+      "billing": "Période de facturation",
+      "monthly": "Mensuel",
+      "annual": "Annuel",
+      "save": "Économisez {percent} %",
+      "popular": "La plus populaire",
+      "perMonth": "/ mois",
+      "perYear": "/ an",
+      "perMonthEquivalent": "{price} / mois",
+      "monthsFree": "{n, plural, one {# mois offert} other {# mois offerts}}",
+      "billedIn": "facturé {price}",
+      "conversationsMonth": "Jusqu’à {n} conversations clients par mois",
+      "conversationsYear": "Jusqu’à {n} conversations clients par an",
+      "startTrial": "Commencer l’essai gratuit",
+      "trialNote": "Essai gratuit de {days} jours · sans carte bancaire"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Questions fréquentes",
+      "items": {
+        "what": {
+          "q": "Qu’est-ce que SmartManager AI Agent ?",
+          "a": "Un assistant IA pour votre entreprise. Il répond à vos clients, présente vos produits ou services et prend commandes, réservations et paiements 24h/24 — via un lien, un QR code ou votre site."
+        },
+        "who": {
+          "q": "Quelles entreprises peuvent l’utiliser ?",
+          "a": "Toute entreprise qui sert des clients : restaurants et cafés, boutiques, salons et spas, salles de sport, cliniques, hôtels, événements et services."
+        },
+        "restaurants": {
+          "q": "Fonctionne-t-il pour les restaurants ?",
+          "a": "Oui. Il présente votre menu avec photos et prix, répond aux questions sur vos plats et prend les commandes à emporter, en livraison ou à table."
+        },
+        "shops": {
+          "q": "Fonctionne-t-il pour les boutiques ?",
+          "a": "Oui. Il présente vos produits, répond aux questions des clients et prend les commandes directement dans la conversation."
+        },
+        "salons": {
+          "q": "Fonctionne-t-il pour les salons ?",
+          "a": "Oui. Il présente vos prestations et tarifs et permet aux clients de réserver date et heure. Les réservations sont confirmées automatiquement ou par vous."
+        },
+        "order": {
+          "q": "Les clients peuvent-ils commander ?",
+          "a": "Oui. Les clients ajoutent des articles au panier dans la conversation et passent commande. Vous êtes prévenu instantanément dans votre tableau de bord, avec une alerte sonore."
+        },
+        "book": {
+          "q": "Les clients peuvent-ils réserver ?",
+          "a": "Oui. Ils choisissent un service, une date et une heure. Vous décidez si les réservations sont confirmées automatiquement ou validées par vous."
+        },
+        "pay": {
+          "q": "Les clients peuvent-ils payer ?",
+          "a": "Oui, avec les moyens de paiement que vous activez : paiement en ligne par carte (via Moyasar ou Tap), paiement à la livraison ou à table."
+        },
+        "qr": {
+          "q": "Puis-je utiliser un QR code ?",
+          "a": "Oui. Votre entreprise dispose de QR codes qui ouvrent votre agent IA — imprimez-les pour les tables, le comptoir, la vitrine ou les flyers."
+        },
+        "website": {
+          "q": "Puis-je l’ajouter à mon site ?",
+          "a": "Oui. Ajoutez le widget avec un court extrait de code, ou mettez simplement un lien vers la page de votre agent."
+        },
+        "languages": {
+          "q": "Prend-il en charge plusieurs langues ?",
+          "a": "Oui. Votre agent IA parle anglais, arabe et français, et les clients peuvent changer de langue à tout moment. Les noms de vos produits et services sont traduits automatiquement."
+        },
+        "trial": {
+          "q": "Comment fonctionne l’essai gratuit ?",
+          "a": "Choisissez une formule et créez votre compte — votre essai gratuit de {days} jours commence aussitôt, sans carte bancaire."
+        },
+        "afterTrial": {
+          "q": "Que se passe-t-il après l’essai ?",
+          "a": "Pour que votre agent IA continue de servir vos clients, abonnez-vous depuis la page Facturation de votre tableau de bord. Rien n’est prélevé automatiquement à la fin de l’essai."
+        },
+        "changePlan": {
+          "q": "Puis-je changer de formule ?",
+          "a": "Oui. Passez à une formule supérieure ou inférieure à tout moment depuis la page Facturation — la différence est facturée ou créditée au prorata."
+        }
+      }
+    },
+    "signup": {
+      "metaTitle": "Commencez votre essai gratuit — SmartManager AI Agent",
+      "title": "Créez votre compte",
+      "subtitle": "Configurez votre entreprise et démarrez votre essai gratuit — en une minute.",
+      "yourPlan": "Votre formule",
+      "monthly": "Mensuel",
+      "annual": "Annuel",
+      "perMonth": "/ mois",
+      "perYear": "/ an",
+      "trial": "Essai gratuit de {days} jours",
+      "noCharge": "Sans carte bancaire. Rien n’est prélevé pendant l’essai.",
+      "changePlan": "Changer de formule",
+      "fullName": "Nom complet",
+      "businessName": "Nom de l’entreprise",
+      "businessType": "Type d’activité",
+      "choose": "Choisir…",
+      "country": "Pays",
+      "phone": "Téléphone",
+      "optional": "Facultatif",
+      "currency": "Devise de votre entreprise",
+      "currencyHint": "La devise dans laquelle vos clients vous paient. Modifiable plus tard.",
+      "email": "E-mail",
+      "password": "Mot de passe",
+      "passwordHint": "Au moins 8 caractères.",
+      "confirmPassword": "Confirmer le mot de passe",
+      "showPassword": "Afficher les mots de passe",
+      "terms": "J’accepte les <terms>Conditions d’utilisation</terms> et la <privacy>Politique de confidentialité</privacy>.",
+      "submit": "Créer le compte et démarrer l’essai",
+      "creating": "Création de votre compte…",
+      "haveAccount": "Vous avez déjà un compte ?",
+      "signIn": "Se connecter",
+      "signedInAs": "Vous êtes connecté en tant que {email} — votre entreprise sera créée sur ce compte.",
+      "checkEmail": {
+        "title": "Confirmez votre e-mail",
+        "text": "Nous avons envoyé un lien de confirmation à {email}. Ouvrez-le puis connectez-vous — votre entreprise et votre essai gratuit seront prêts aussitôt.",
+        "signIn": "Se connecter"
+      },
+      "errors": {
+        "checkFields": "Veuillez vérifier les champs indiqués.",
+        "phone": "Veuillez saisir un numéro valide (chiffres, espaces et + uniquement).",
+        "terms": "Veuillez accepter les Conditions d’utilisation et la Politique de confidentialité.",
+        "planUnavailable": "Cette formule n’est plus disponible — veuillez en choisir une autre.",
+        "passwordsDiffer": "Les deux mots de passe ne correspondent pas.",
+        "passwordShort": "Votre mot de passe doit contenir au moins 8 caractères.",
+        "email": "Veuillez saisir une adresse e-mail valide.",
+        "tooMany": "Trop de tentatives. Patientez quelques minutes puis réessayez.",
+        "alreadyRegistered": "Un compte existe déjà avec cet e-mail — veuillez vous connecter.",
+        "weakPassword": "Veuillez choisir un mot de passe plus robuste.",
+        "signUpFailed": "Impossible de créer votre compte. Veuillez réessayer.",
+        "createFailed": "Votre compte est prêt, mais la création de l’entreprise a échoué. Veuillez réessayer.",
+        "signInFirst": "Veuillez d’abord vous connecter.",
+        "nothingPending": "Aucune inscription en attente — choisissez une formule pour commencer."
+      }
+    },
+    "welcome": {
+      "metaTitle": "Bienvenue — SmartManager AI Agent",
+      "title": "Bienvenue sur SmartManager AI Agent",
+      "created": "Votre compte a été créé avec succès.",
+      "business": "Entreprise",
+      "plan": "Votre formule",
+      "monthly": "Mensuel",
+      "annual": "Annuel",
+      "trialReady": "Votre essai gratuit est prêt — jusqu’au {date}.",
+      "dashboard": "Accéder à votre tableau de bord",
+      "confirmTitle": "Presque terminé",
+      "confirmText": "Confirmez votre e-mail avec le lien envoyé, puis connectez-vous pour terminer la création de votre entreprise.",
+      "signIn": "Se connecter",
+      "noBusinessTitle": "Créons votre entreprise",
+      "noBusinessText": "Choisissez une formule pour démarrer votre essai gratuit.",
+      "choosePlan": "Choisir une formule",
+      "finishing": "Création de votre entreprise…",
+      "linkExpired": "Ce lien de confirmation a expiré ou a déjà été utilisé. Veuillez vous connecter.",
+      "failed": "Une erreur est survenue. Veuillez réessayer."
+    },
+    "contact": {
+      "metaTitle": "Contact — SmartManager AI Agent",
+      "title": "Contactez-nous",
+      "subtitle": "Une question sur SmartManager AI Agent, votre formule ou votre compte ? Nous sommes là pour vous aider.",
+      "support": "Support client",
+      "company": "Entreprise",
+      "phone": "Téléphone",
+      "location": "Adresse",
+      "demoTitle": "Voyez-le en action",
+      "demoText": "Discutez avec l’agent SmartManager AI Agent en direct.",
+      "demoCta": "Ouvrir la démo"
+    },
+    "legal": {
+      "eyebrow": "Mentions légales",
+      "updated": "Dernière mise à jour : {date}",
+      "other": "Autres politiques",
+      "links": {
+        "terms": "Conditions d’utilisation",
+        "refund": "Politique de remboursement",
+        "privacy": "Politique de confidentialité"
+      },
+      "terms": {
+        "metaTitle": "Conditions d’utilisation — SmartManager AI Agent",
+        "metaDescription": "Les conditions applicables à l’utilisation de SmartManager AI Agent.",
+        "title": "Conditions d’utilisation",
+        "intro": "Les présentes Conditions d’utilisation régissent votre utilisation de {product}, un produit de {company} ({country}) — notre site, tableau de bord, agent IA et services associés (le « Service »). En créant un compte ou en utilisant le Service, vous acceptez ces Conditions.",
+        "sections": {
+          "s1": {
+            "title": "Le Service",
+            "body": "{product} fournit à votre entreprise un agent IA qui répond à vos clients, présente vos produits ou services et prend commandes, réservations et paiements, ainsi qu’un tableau de bord pour les gérer.\nL’agent IA génère ses réponses automatiquement. Malgré notre attention à leur exactitude, elles peuvent parfois être incomplètes ou erronées : vous restez responsable des informations de votre entreprise et de la vérification de vos commandes et réservations."
+          },
+          "s2": {
+            "title": "Votre compte",
+            "body": "Vous devez avoir au moins 18 ans et être habilité à agir pour votre entreprise. Gardez vos identifiants en sécurité : vous êtes responsable de tout ce qui est fait avec votre compte. Fournissez des informations exactes et tenez-les à jour."
+          },
+          "s3": {
+            "title": "Essai gratuit",
+            "body": "Chaque formule commence par un essai gratuit dont la durée figure sur la page Tarifs. Aucune donnée de paiement n’est requise et rien n’est prélevé pendant l’essai. Pour continuer après l’essai, abonnez-vous depuis la page Facturation. Nous pouvons limiter l’essai gratuit à un par entreprise."
+          },
+          "s4": {
+            "title": "Abonnements et paiements",
+            "body": "Les formules sont facturées d’avance, chaque mois ou chaque année, aux prix indiqués sur la page Tarifs. Notre processus de commande est assuré par notre revendeur en ligne Paddle.com, Merchant of Record de toutes nos commandes, qui gère paiements, taxes, factures et questions de facturation.\nLes abonnements se renouvellent automatiquement à la fin de chaque période jusqu’à leur résiliation. En cas de changement de formule, la différence est facturée ou créditée au prorata."
+          },
+          "s5": {
+            "title": "Résiliation",
+            "body": "Vous pouvez résilier à tout moment depuis la page Facturation. Votre formule reste active jusqu’à la fin de la période payée, sans aucun autre prélèvement. Les remboursements relèvent de notre Politique de remboursement."
+          },
+          "s6": {
+            "title": "Utilisation raisonnable",
+            "body": "Chaque formule comprend un nombre de conversations clients par période, indiqué sur la page Tarifs. Pour garantir la fiabilité du Service pour tous, l’usage de l’IA est soumis à des limites raisonnables ; nous vous prévenons à l’approche de celles-ci."
+          },
+          "s7": {
+            "title": "Vos contenus et vos clients",
+            "body": "Vous restez propriétaire des contenus que vous ajoutez — menus, produits, prix, photos et textes — et vous nous autorisez à les héberger, traiter et afficher pour fournir le Service. Vous êtes responsable de leur exactitude et de leur licéité, de l’exécution de vos commandes et réservations, ainsi que de vos propres conditions et remboursements envers vos clients."
+          },
+          "s8": {
+            "title": "Usage acceptable",
+            "body": "N’utilisez pas le Service à des fins illégales, nuisibles ou trompeuses ; n’essayez pas d’accéder aux données d’autres entreprises, de perturber le Service, ni de le copier ou de le rétro-concevoir."
+          },
+          "s9": {
+            "title": "Disponibilité et évolutions",
+            "body": "Nous veillons à la disponibilité et à la sécurité du Service, sans pouvoir garantir qu’il soit ininterrompu. Nous pouvons faire évoluer ses fonctionnalités et vous informerons de toute modification importante des présentes Conditions avant son entrée en vigueur."
+          },
+          "s10": {
+            "title": "Responsabilité",
+            "body": "Dans les limites permises par la loi, le Service est fourni « en l’état » et nous ne sommes pas responsables des pertes indirectes ou consécutives. Notre responsabilité totale est limitée aux montants payés au cours des 12 mois précédant la réclamation."
+          },
+          "s11": {
+            "title": "Suspension et clôture",
+            "body": "Vous pouvez fermer votre compte à tout moment. Nous pouvons suspendre ou fermer un compte qui enfreint ces Conditions, après préavis lorsque c’est possible."
+          },
+          "s12": {
+            "title": "Droit applicable",
+            "body": "Les présentes Conditions sont régies par le droit de {country} et relèvent des tribunaux compétents de {country}, sans préjudice des protections impératives des consommateurs qui vous sont applicables."
+          },
+          "s13": {
+            "title": "Contact",
+            "body": "Des questions sur ces Conditions ? Écrivez à {supportEmail} ou {contactEmail}."
+          }
+        }
+      },
+      "refund": {
+        "metaTitle": "Politique de remboursement — SmartManager AI Agent",
+        "metaDescription": "Résiliations et remboursements des abonnements SmartManager AI Agent.",
+        "title": "Politique de remboursement",
+        "intro": "Nous voulons que {product} vous satisfasse. Cette politique explique les résiliations et remboursements des abonnements à {product}, fourni par {company}.",
+        "sections": {
+          "s1": {
+            "title": "Essayez d’abord gratuitement",
+            "body": "Chaque formule commence par un essai gratuit : vous testez {product} avant de payer. Rien n’est prélevé pendant l’essai."
+          },
+          "s2": {
+            "title": "Satisfait ou remboursé pendant 14 jours",
+            "body": "Si vous n’êtes pas satisfait, vous pouvez demander le remboursement intégral de votre premier paiement pour une formule dans les 14 jours suivant ce paiement."
+          },
+          "s3": {
+            "title": "Renouvellements",
+            "body": "Vous pouvez résilier à tout moment avant la date de renouvellement pour éviter le prélèvement suivant. Si un abonnement annuel a été renouvelé sans que vous souhaitiez le garder, contactez-nous dans les 14 jours suivant le prélèvement et nous le rembourserons intégralement. Les renouvellements mensuels ne sont pas remboursés une fois le nouveau mois commencé, sauf obligation légale."
+          },
+          "s4": {
+            "title": "Changements de formule",
+            "body": "En cas de montée en gamme, la différence pour le reste de la période est facturée au prorata. En cas de descente en gamme, elle est créditée au prorata sur vos prochains paiements."
+          },
+          "s5": {
+            "title": "Demander un remboursement",
+            "body": "Écrivez à {supportEmail} depuis l’adresse e-mail de votre compte en indiquant le nom de votre entreprise. Les remboursements sont effectués par Paddle, notre Merchant of Record, sur votre moyen de paiement d’origine — généralement sous 5 à 10 jours ouvrés."
+          },
+          "s6": {
+            "title": "Les paiements de vos clients",
+            "body": "Les commandes et paiements entre votre entreprise et vos propres clients relèvent de votre responsabilité ; cette politique ne couvre que votre abonnement {product}."
+          }
+        }
+      },
+      "privacy": {
+        "metaTitle": "Politique de confidentialité — SmartManager AI Agent",
+        "metaDescription": "Les données personnelles collectées par SmartManager AI Agent, pourquoi, et vos droits.",
+        "title": "Politique de confidentialité",
+        "intro": "{company} exploite {product}. Cette politique explique quelles données personnelles nous collectons, pourquoi, avec qui nous les partageons, et quels sont vos droits.",
+        "sections": {
+          "s1": {
+            "title": "Responsable du traitement",
+            "body": "{company}, {country}, est responsable des données personnelles décrites ici. Vous pouvez nous joindre à {contactEmail}."
+          },
+          "s2": {
+            "title": "Ce que nous collectons",
+            "body": "Données de compte (nom, e-mail et téléphone ; votre mot de passe est stocké de façon sécurisée par notre fournisseur d’authentification). Informations sur votre entreprise et contenus ajoutés. Conversations, commandes et réservations traitées par votre agent IA. Données techniques : journaux, appareil et navigateur. Les données de paiement sont gérées par Paddle — nous ne voyons ni ne stockons jamais votre numéro de carte."
+          },
+          "s3": {
+            "title": "Utilisation",
+            "body": "Pour fournir et améliorer le Service, faire fonctionner votre agent IA, traiter commandes et réservations, envoyer des e-mails de service (comme les mises à jour d’abonnement), sécuriser les comptes, prévenir les abus et respecter nos obligations légales."
+          },
+          "s4": {
+            "title": "Traitement par l’IA",
+            "body": "Les messages des clients sont traités par des fournisseurs d’IA pour générer les réponses de votre agent, dans le cadre d’accords protégeant les données. Nous ne vendons pas de données personnelles."
+          },
+          "s5": {
+            "title": "Les données de vos clients",
+            "body": "Pour les données que votre agent IA recueille auprès de vos clients, votre entreprise est responsable du traitement et nous les traitons pour votre compte, uniquement pour fournir le Service."
+          },
+          "s6": {
+            "title": "Partage",
+            "body": "Uniquement avec les prestataires qui font fonctionner le Service — base de données et hébergement, paiements (Paddle), envoi d’e-mails, services d’IA, de voix et de traduction — et avec les autorités lorsque la loi l’exige."
+          },
+          "s7": {
+            "title": "Durée de conservation",
+            "body": "Tant que votre compte est actif. Après sa clôture, nous supprimons ou anonymisons vos données dans un délai raisonnable, sauf obligation légale de conservation plus longue."
+          },
+          "s8": {
+            "title": "Sécurité",
+            "body": "Les données sont chiffrées en transit, l’accès est restreint et les données de chaque entreprise sont isolées de celles des autres."
+          },
+          "s9": {
+            "title": "Vos droits",
+            "body": "Vous pouvez demander l’accès, la rectification, l’export ou la suppression de vos données, ou vous opposer à leur utilisation. Écrivez à {supportEmail}."
+          },
+          "s10": {
+            "title": "Cookies",
+            "body": "Nous n’utilisons que les cookies nécessaires au site et au tableau de bord : maintenir votre session et retenir votre langue et votre devise. Aucun cookie publicitaire."
+          },
+          "s11": {
+            "title": "Modifications",
+            "body": "Nous pouvons mettre à jour cette politique et vous informerons de toute modification importante avant son application."
+          }
+        }
+      },
+      "about": {
+        "metaTitle": "À propos de SmartManager — SmartManager AI Agent",
+        "metaDescription": "SmartManager AI Agent est un produit créé par Millennium Leaders.",
+        "title": "À propos de SmartManager",
+        "intro": "{product} est un produit créé par {company}. Nous aidons les entreprises à servir chaque client instantanément — dans sa langue, à toute heure.",
+        "sections": {
+          "s1": {
+            "title": "Notre mission",
+            "body": "Offrir à chaque entreprise, quelle que soit sa taille, un assistant IA qui répond aux clients, prend commandes et réservations, et laisse l’équipe se consacrer à un service d’excellence."
+          },
+          "s2": {
+            "title": "Ce que nous construisons",
+            "body": "{product} apprend votre activité à partir de votre menu, vos produits, services et site, puis sert vos clients via un lien, un QR code ou votre site — en anglais, arabe et français."
+          },
+          "s3": {
+            "title": "Pour qui",
+            "body": "Restaurants et cafés, boutiques, salons et spas, salles de sport, cliniques, hôtels, événements et services — toute entreprise qui sert des clients."
+          },
+          "s4": {
+            "title": "Contact",
+            "body": "{company} — {country}\n{supportEmail} · {contactEmail} · {phone}"
+          }
+        }
+      }
+    }
   }
 }

@@ -17,10 +17,11 @@ export type ConsoleRouteDecision =
  * one — never silently rewritten — so the address bar always shows the
  * canonical URL and nothing generates the old shape going forward.
  *
- * A `{ kind: "site" }` result only ever happens for the bare root
- * (`rest === ""`, the marketing homepage) — every other single top-level
- * segment is either one of the fixed console paths above or, if it isn't
- * reserved, treated as a tenant slug lookup (which itself 404s server-side
+ * A `{ kind: "site" }` result happens for the bare root (`rest === ""`,
+ * the marketing homepage) and the public site's own reserved pages
+ * (`/pricing`, `/signup`, … — src/lib/site/config.ts) — every other single
+ * top-level segment is either one of the fixed console paths above or, if
+ * it isn't reserved, treated as a tenant slug lookup (which itself 404s server-side
  * in `requireTenantMember` if no such tenant exists — this function never
  * touches the database, same as `classifyHost`).
  */

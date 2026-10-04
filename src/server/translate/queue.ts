@@ -32,7 +32,7 @@ export const TRANSLATABLE: Record<string, TableConfig> = {
   categories: { key: "id", fields: ["name"] },
   bookable_services: { key: "id", fields: ["name", "description"] },
   membership_plans: { key: "id", fields: ["name", "description"] },
-  subscription_plans: { key: "key", fields: ["name"] },
+  subscription_plans: { key: "key", fields: ["name", "description", "features"] },
   business_types: { key: "key", fields: ["name"] },
   platform_announcements: { key: "id", fields: ["message_translations"], announcement: true },
 };

@@ -1,4 +1,5 @@
 import { LOCALES } from "@/i18n/locales";
+import { SITE_PAGES } from "@/lib/site/config";
 
 /**
  * Top-level path segments a tenant slug must never collide with — checked
@@ -22,4 +23,6 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set<string>([
   "checkout",
   "admin",
   "www",
+  // The public website's pages (/en/pricing, /en/signup, …): src/app/site/[locale].
+  ...SITE_PAGES,
 ]);

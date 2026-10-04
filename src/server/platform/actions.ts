@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
 
@@ -8,6 +8,8 @@ import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { DISPLAY_CURRENCY_COOKIE } from "@/server/platform/display-currency";
+import { SOCIAL_NETWORKS } from "@/lib/site/social";
+import { PUBLIC_SITE_TAG } from "@/server/site/public-data";
 
 /**
  * Super Admin actions (spec §98 Phase 9). Most of these are plain
@@ -76,6 +78,61 @@ export async function updatePlatformSettingsAction(
   if (budgetError) return t("platform.budgetFailed");
 
   revalidatePath(`/${parsed.data.locale}/super-admin/settings`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
+}
+
+const optionalText = (max: number) => z.string().trim().max(max).optional().default("");
+const optionalEmail = z.union([z.email(), z.literal("")]).optional().default("");
+const siteContactSchema = z.object({
+  companyName: optionalText(120),
+  companyCountry: optionalText(80),
+  supportEmail: optionalEmail,
+  contactEmail: optionalEmail,
+  contactPhone: optionalText(40),
+  locale: z.string(),
+});
+const httpsUrl = z.union([z.url({ protocol: /^https$/ }), z.literal("")]);
+
+/** Company details on the public website (footer, Contact, legal pages). An empty field isn't shown. */
+export async function updateSiteContactAction(
+  _prevState: string | undefined,
+  formData: FormData,
+): Promise<string | undefined> {
+  const parsed = siteContactSchema.safeParse({
+    companyName: formData.get("companyName") ?? undefined,
+    companyCountry: formData.get("companyCountry") ?? undefined,
+    supportEmail: String(formData.get("supportEmail") ?? "").trim(),
+    contactEmail: String(formData.get("contactEmail") ?? "").trim(),
+    contactPhone: formData.get("contactPhone") ?? undefined,
+    locale: formData.get("locale"),
+  });
+  const t = await actionT(formData.get("locale"));
+  if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
+  const social: Record<string, string> = {};
+  for (const network of SOCIAL_NETWORKS) {
+    const raw = String(formData.get(`social_${network}`) ?? "").trim();
+    if (!httpsUrl.safeParse(raw).success) return t("platform.socialUrl");
+    if (raw) social[network] = raw;
+  }
+
+  await requireSuperAdmin(parsed.data.locale);
+  const supabase = await createUserClient();
+  const d = parsed.data;
+  const { error } = await supabase
+    .from("platform_settings")
+    .update({
+      company_name: d.companyName || null,
+      company_country: d.companyCountry || null,
+      support_email: d.supportEmail || null,
+      contact_email: d.contactEmail || null,
+      contact_phone: d.contactPhone || null,
+      social_links: social,
+    })
+    .eq("id", true);
+  if (error) return t("platform.settingsFailed");
+  revalidatePath(`/${d.locale}/super-admin/settings`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
+  return t("saved");
 }
 
 const tenantStatusSchema = z.object({

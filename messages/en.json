@@ -1952,7 +1952,10 @@
       "isDefault": "Default",
       "makeDefault": "Make default",
       "limits": "Paid-plan usage limits (per billing period; trials are not affected)",
-      "none": "No plans yet."
+      "none": "No plans yet.",
+      "badgePopular": "Most popular",
+      "badgeHidden": "Not on the website",
+      "badgeFamily": "annual version of “{family}”"
     },
     "planForm": {
       "key": "Key",
@@ -1966,7 +1969,16 @@
       "trialDays": "Trial days",
       "sortOrder": "Sort order",
       "save": "Save",
-      "add": "Add plan"
+      "add": "Add plan",
+      "description": "Short description ({lang})",
+      "descriptionPlaceholder": "e.g. Perfect for small businesses",
+      "family": "Plan family",
+      "familyPlaceholder": "e.g. growth",
+      "features": "Features on the pricing page ({lang})",
+      "featuresPlaceholder": "AI Agent 24/7\nOnline ordering & booking",
+      "featuresHint": "One feature per line. The conversation allowance is added automatically. A monthly plan and its annual version share one family (e.g. \"growth\"), so the website’s Monthly / Annual switch shows them together.",
+      "isPublic": "Shown on the website",
+      "isPopular": "Most popular"
     },
     "payments": {
       "title": "Payments & Revenue",
@@ -2223,6 +2235,18 @@
         "keyPlaceholder": "e.g. bakery",
         "name": "Name ({lang})",
         "add": "Add"
+      },
+      "site": {
+        "title": "Company & contact (public website)",
+        "intro": "Shown in the website’s footer, Contact page and legal pages.",
+        "companyName": "Legal company name",
+        "companyCountry": "Country",
+        "supportEmail": "Support email",
+        "contactEmail": "Company email",
+        "contactPhone": "Phone",
+        "social": "Social media links",
+        "hint": "An empty field isn’t shown on the website. Social links must start with https://.",
+        "save": "Save"
       }
     },
     "roles": {
@@ -3217,7 +3241,8 @@
       },
       "planCreateFailed": "Could not create that plan — please try again.",
       "translateFailed": "Could not start the translation — please try again.",
-      "translateQueued": "{n, plural, =0 {Nothing to translate.} one {# item checked — missing languages are being filled in.} other {# items checked — missing languages are being filled in.}}"
+      "translateQueued": "{n, plural, =0 {Nothing to translate.} one {# item checked — missing languages are being filled in.} other {# items checked — missing languages are being filled in.}}",
+      "socialUrl": "Social links must be full https:// addresses."
     },
     "auth": {
       "signInInvalid": "Enter a valid email and password.",
@@ -3250,5 +3275,549 @@
     "signInAccept": "Sign in & accept",
     "signUpAccept": "Create account & accept",
     "accept": "Accept invite"
+  },
+  "site": {
+    "header": {
+      "features": "Features",
+      "howItWorks": "How It Works",
+      "pricing": "Pricing",
+      "faq": "FAQ",
+      "signIn": "Sign In",
+      "startTrial": "Start Free Trial",
+      "mainNav": "Main navigation",
+      "openMenu": "Open menu",
+      "closeMenu": "Close menu",
+      "menu": "Menu",
+      "language": "Language",
+      "currency": "Currency",
+      "skip": "Skip to content"
+    },
+    "footer": {
+      "description": "AI-powered customer interaction, ordering, booking and business assistance for modern businesses.",
+      "contactTitle": "Contact",
+      "country": "{country}",
+      "company": "Company",
+      "about": "About SmartManager",
+      "contact": "Contact",
+      "faq": "FAQ",
+      "product": "Product",
+      "features": "Features",
+      "howItWorks": "How It Works",
+      "pricing": "Pricing",
+      "legal": "Legal",
+      "terms": "Terms of Service",
+      "refund": "Refund Policy",
+      "privacy": "Privacy Policy",
+      "social": "Social media",
+      "copyright": "© {year} SmartManager. All rights reserved.",
+      "attribution": "SmartManager is a product created by {company}."
+    },
+    "seo": {
+      "title": "SmartManager AI Agent — AI Cashier & AI Business Assistant",
+      "description": "AI-powered ordering, booking, customer support and business assistance for restaurants, shops, salons, gyms, clinics and more."
+    },
+    "hero": {
+      "eyebrow": "AI Agent for all businesses",
+      "titleLine1": "Your AI Cashier",
+      "titleLine2": "and Ordering Assistant",
+      "titleAccent": "for Every Business",
+      "subtitle1": "Answer questions, show products or services, take orders, bookings and payments — 24/7.",
+      "subtitle2": "Less waiting. More orders. Happier customers.",
+      "startTrial": "Start Free Trial",
+      "watchDemo": "Watch Demo",
+      "opensNewTab": "(opens the live SmartManager AI Agent in a new tab)",
+      "trial": "{days}-day free trial",
+      "noCard": "No credit card required",
+      "easySetup": "Easy setup",
+      "visualLabel": "The SmartManager AI Agent answering a customer on a phone",
+      "phone": {
+        "online": "Online",
+        "hello": "Hi! I’m your AI assistant.",
+        "help": "How can I help you today?",
+        "ask": "I would like to see your services",
+        "answer": "Sure! Here are our main categories:",
+        "tiles": {
+          "food": "Food & Drinks",
+          "products": "Products",
+          "book": "Book a Service",
+          "offers": "Special Offers"
+        },
+        "type": "Type a message…"
+      },
+      "floating": {
+        "sales": "Increases Sales & Revenue",
+        "customers": "Happier Customers",
+        "time": "Saves You Time",
+        "languages": "Works in Multiple Languages"
+      }
+    },
+    "categories": {
+      "title": "Works for all types of businesses",
+      "tryDemo": "Try the live demo",
+      "startTrial": "Start Free Trial",
+      "items": {
+        "restaurants": {
+          "name": "Restaurants\n& Cafés",
+          "title": "For restaurants & cafés",
+          "p1": "Shows your menu with photos and prices",
+          "p2": "Takes orders for pickup, delivery or at the table",
+          "p3": "Table QR codes open your Agent instantly"
+        },
+        "retail": {
+          "name": "Shops\n& Retail",
+          "title": "For shops & retail",
+          "p1": "Answers questions about your products",
+          "p2": "Helps customers find the right item",
+          "p3": "Takes orders and payments in the chat"
+        },
+        "salons": {
+          "name": "Salons & Spas",
+          "title": "For salons & spas",
+          "p1": "Presents your services and prices",
+          "p2": "Lets clients book a date and time",
+          "p3": "You can confirm each booking yourself"
+        },
+        "fitness": {
+          "name": "Gyms & Fitness",
+          "title": "For gyms & fitness",
+          "p1": "Explains your memberships and classes",
+          "p2": "Books classes and sessions",
+          "p3": "Answers members around the clock"
+        },
+        "clinics": {
+          "name": "Clinics & Health",
+          "title": "For clinics & health",
+          "p1": "Shares your services, hours and location",
+          "p2": "Takes appointment requests",
+          "p3": "Lets your team focus on patients"
+        },
+        "hotels": {
+          "name": "Hotels & Travel",
+          "title": "For hotels & travel",
+          "p1": "Answers guests in their language",
+          "p2": "Presents rooms, services and offers",
+          "p3": "Takes service requests and bookings"
+        },
+        "events": {
+          "name": "Events & Services",
+          "title": "For events & services",
+          "p1": "Explains your packages and prices",
+          "p2": "Collects booking requests with all the details",
+          "p3": "Follows up so no lead is lost"
+        },
+        "more": {
+          "name": "And More…",
+          "title": "For every business that serves customers",
+          "p1": "Learns your business from your website and menu",
+          "p2": "Works on a link, a QR code or your website",
+          "p3": "Speaks English, Arabic and French"
+        }
+      }
+    },
+    "benefits": {
+      "title": "Why businesses choose SmartManager AI Agent",
+      "sales": {
+        "title": "More Sales",
+        "text": "Turn conversations into real orders and bookings automatically."
+      },
+      "available": {
+        "title": "Always Available",
+        "text": "Your AI agent works 24/7, even when you’re busy."
+      },
+      "delighted": {
+        "title": "Delighted Customers",
+        "text": "Fast, accurate and friendly responses in any language."
+      },
+      "simple": {
+        "title": "Simple to Use",
+        "text": "Get started in minutes. No technical skills needed."
+      }
+    },
+    "how": {
+      "eyebrow": "How it works",
+      "title1": "Get Your AI Agent",
+      "title2": "in 4 Simple Steps",
+      "subtitle": "Set up your AI assistant in minutes and start serving more customers right away.",
+      "steps": {
+        "signUp": {
+          "title": "Sign Up",
+          "text": "Create your account"
+        },
+        "brain": {
+          "title": "Business Brain",
+          "text": "We analyze your menu, products, services and content"
+        },
+        "customize": {
+          "title": "Customize",
+          "text": "Set your preferences and activate ordering, booking & payments"
+        },
+        "goLive": {
+          "title": "Go Live",
+          "text": "Share your QR code or website widget and start receiving customers"
+        }
+      },
+      "qr": {
+        "scan": "Scan to order",
+        "label": "QR code: opens the live SmartManager AI Agent"
+      },
+      "phone": {
+        "online": "Online",
+        "hello": "Hi! How can I help you today?",
+        "menu": {
+          "menu": "View Menu / Products",
+          "order": "Place an Order",
+          "book": "Book a Service",
+          "availability": "Check Availability",
+          "offers": "Special Offers"
+        }
+      }
+    },
+    "pricing": {
+      "metaTitle": "Pricing — SmartManager AI Agent",
+      "offer": "Limited time offer",
+      "title": "Simple, Transparent Pricing",
+      "subtitle": "Everything you need to grow your business. Choose the plan that fits your needs.",
+      "none": "Plans will be available here soon. Please contact us in the meantime.",
+      "billing": "Billing period",
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "save": "Save {percent}%",
+      "popular": "Most popular",
+      "perMonth": "/ month",
+      "perYear": "/ year",
+      "perMonthEquivalent": "{price} / month",
+      "monthsFree": "{n, plural, one {# month free} other {# months free}}",
+      "billedIn": "billed {price}",
+      "conversationsMonth": "Up to {n} customer conversations a month",
+      "conversationsYear": "Up to {n} customer conversations a year",
+      "startTrial": "Start Free Trial",
+      "trialNote": "{days}-day free trial · no credit card required"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "title": "Frequently Asked Questions",
+      "items": {
+        "what": {
+          "q": "What is SmartManager AI Agent?",
+          "a": "An AI assistant for your business. It answers your customers, shows your products or services, and takes orders, bookings and payments 24/7 — through a link, a QR code or your website."
+        },
+        "who": {
+          "q": "Which businesses can use it?",
+          "a": "Any business that serves customers: restaurants and cafés, shops, salons and spas, gyms, clinics, hotels, events and service businesses."
+        },
+        "restaurants": {
+          "q": "Does it work for restaurants?",
+          "a": "Yes. It shows your menu with photos and prices, answers questions about your dishes, and takes orders for pickup, delivery or at the table."
+        },
+        "shops": {
+          "q": "Does it work for shops?",
+          "a": "Yes. It presents your products, answers customers’ questions about them, and takes orders right in the conversation."
+        },
+        "salons": {
+          "q": "Does it work for salons?",
+          "a": "Yes. It shows your services and prices and lets clients book a date and time. Bookings can be confirmed automatically or by you."
+        },
+        "order": {
+          "q": "Can customers order?",
+          "a": "Yes. Customers add items to their cart in the chat and place their order. You’re notified instantly in your dashboard, with a sound alert."
+        },
+        "book": {
+          "q": "Can customers book?",
+          "a": "Yes. They choose a service, a date and a time. You decide whether bookings are confirmed automatically or approved by you."
+        },
+        "pay": {
+          "q": "Can customers pay?",
+          "a": "Yes, with the payment methods you enable: online card payment (through Moyasar or Tap), cash on delivery, or paying at the table."
+        },
+        "qr": {
+          "q": "Can I use a QR code?",
+          "a": "Yes. Your business gets QR codes that open your AI Agent — print them for tables, counters, windows or flyers."
+        },
+        "website": {
+          "q": "Can I add it to my website?",
+          "a": "Yes. Add the website widget with a short code snippet, or simply link to your Agent page."
+        },
+        "languages": {
+          "q": "Does it support multiple languages?",
+          "a": "Yes. Your AI Agent speaks English, Arabic and French, and customers can switch at any time. Your product and service names are translated automatically."
+        },
+        "trial": {
+          "q": "How does the free trial work?",
+          "a": "Choose a plan and create your account — your {days}-day free trial starts right away, with no credit card required."
+        },
+        "afterTrial": {
+          "q": "What happens after the trial?",
+          "a": "To keep your AI Agent serving customers, subscribe to your plan from the Billing page in your dashboard. You’re never charged automatically at the end of the trial."
+        },
+        "changePlan": {
+          "q": "Can I change my plan?",
+          "a": "Yes. Upgrade or downgrade at any time from the Billing page — the price difference is charged or credited pro rata."
+        }
+      }
+    },
+    "signup": {
+      "metaTitle": "Start your free trial — SmartManager AI Agent",
+      "title": "Create your account",
+      "subtitle": "Set up your business and start your free trial — it only takes a minute.",
+      "yourPlan": "Your plan",
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "perMonth": "/ month",
+      "perYear": "/ year",
+      "trial": "{days}-Day Free Trial",
+      "noCharge": "No credit card required. Nothing is charged during the trial.",
+      "changePlan": "Change plan",
+      "fullName": "Full name",
+      "businessName": "Business name",
+      "businessType": "Type of business",
+      "choose": "Choose…",
+      "country": "Country",
+      "phone": "Phone",
+      "optional": "Optional",
+      "currency": "Your business’s currency",
+      "currencyHint": "The currency your customers pay you in. You can change it later.",
+      "email": "Email",
+      "password": "Password",
+      "passwordHint": "At least 8 characters.",
+      "confirmPassword": "Confirm password",
+      "showPassword": "Show passwords",
+      "terms": "I agree to the <terms>Terms of Service</terms> and the <privacy>Privacy Policy</privacy>.",
+      "submit": "Create account & start free trial",
+      "creating": "Creating your account…",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "signedInAs": "You’re signed in as {email} — your business will be created on this account.",
+      "checkEmail": {
+        "title": "Confirm your email",
+        "text": "We sent a confirmation link to {email}. Open it, then sign in — your business and free trial will be ready right away.",
+        "signIn": "Sign in"
+      },
+      "errors": {
+        "checkFields": "Please check the highlighted fields.",
+        "phone": "Please enter a valid phone number (digits, spaces and + only).",
+        "terms": "Please accept the Terms of Service and the Privacy Policy.",
+        "planUnavailable": "That plan isn’t available any more — please choose another one.",
+        "passwordsDiffer": "The two passwords don’t match.",
+        "passwordShort": "Your password needs at least 8 characters.",
+        "email": "Please enter a valid email address.",
+        "tooMany": "Too many attempts. Please wait a few minutes and try again.",
+        "alreadyRegistered": "An account with this email already exists — please sign in.",
+        "weakPassword": "Please choose a stronger password.",
+        "signUpFailed": "We couldn’t create your account. Please try again.",
+        "createFailed": "Your account is ready, but we couldn’t set up your business. Please try again.",
+        "signInFirst": "Please sign in first.",
+        "nothingPending": "There’s no sign-up waiting to be finished — please choose a plan to start."
+      }
+    },
+    "welcome": {
+      "metaTitle": "Welcome — SmartManager AI Agent",
+      "title": "Welcome to SmartManager AI Agent",
+      "created": "Your account has been created successfully.",
+      "business": "Business",
+      "plan": "Your selected plan",
+      "monthly": "Monthly",
+      "annual": "Annual",
+      "trialReady": "Your free trial is ready — it runs until {date}.",
+      "dashboard": "Continue to your dashboard",
+      "confirmTitle": "Almost there",
+      "confirmText": "Confirm your email with the link we sent you, then sign in to finish setting up your business.",
+      "signIn": "Sign in",
+      "noBusinessTitle": "Let’s set up your business",
+      "noBusinessText": "Choose a plan to start your free trial.",
+      "choosePlan": "Choose a plan",
+      "finishing": "Setting up your business…",
+      "linkExpired": "This confirmation link has expired or was already used. Please sign in.",
+      "failed": "Something went wrong. Please try again."
+    },
+    "contact": {
+      "metaTitle": "Contact — SmartManager AI Agent",
+      "title": "Contact us",
+      "subtitle": "Questions about SmartManager AI Agent, your plan or your account? We’re here to help.",
+      "support": "Customer support",
+      "company": "Company",
+      "phone": "Phone",
+      "location": "Location",
+      "demoTitle": "See it in action",
+      "demoText": "Chat with the live SmartManager AI Agent.",
+      "demoCta": "Open the live demo"
+    },
+    "legal": {
+      "eyebrow": "Legal",
+      "updated": "Last updated: {date}",
+      "other": "Other policies",
+      "links": {
+        "terms": "Terms of Service",
+        "refund": "Refund Policy",
+        "privacy": "Privacy Policy"
+      },
+      "terms": {
+        "metaTitle": "Terms of Service — SmartManager AI Agent",
+        "metaDescription": "The terms that apply when you use SmartManager AI Agent.",
+        "title": "Terms of Service",
+        "intro": "These Terms of Service govern your use of {product}, a product of {company} ({country}) — our website, dashboard, AI Agent and related services (the “Service”). By creating an account or using the Service, you agree to these Terms.",
+        "sections": {
+          "s1": {
+            "title": "The Service",
+            "body": "{product} gives your business an AI Agent that answers your customers, presents your products or services, and takes orders, bookings and payments, together with a dashboard to manage them.\nThe AI Agent generates answers automatically. Although we work to keep them accurate, they may occasionally be incomplete or wrong: you remain responsible for the information about your business and for reviewing your orders and bookings."
+          },
+          "s2": {
+            "title": "Your account",
+            "body": "You must be at least 18 and authorised to act for your business. Keep your sign-in details secure: you are responsible for everything done with your account. Please give accurate information and keep it up to date."
+          },
+          "s3": {
+            "title": "Free trial",
+            "body": "Each plan starts with a free trial of the length shown on the pricing page. No payment details are needed for the trial and nothing is charged during it. To keep using the Service after the trial, subscribe to a plan from the Billing page. We may limit free trials to one per business."
+          },
+          "s4": {
+            "title": "Subscriptions and payments",
+            "body": "Plans are billed in advance, monthly or annually, at the prices shown on the pricing page. Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our orders and handles payments, taxes, invoices and billing enquiries.\nSubscriptions renew automatically at the end of each billing period until you cancel. When you change plans, the difference is charged or credited pro rata."
+          },
+          "s5": {
+            "title": "Cancellation",
+            "body": "You can cancel at any time from the Billing page. Your plan stays active until the end of the period you’ve paid for, and nothing more is charged. Refunds are covered by our Refund Policy."
+          },
+          "s6": {
+            "title": "Usage and fair use",
+            "body": "Each plan includes a number of customer conversations per billing period, shown on the pricing page. To keep the Service reliable for everyone, AI usage is subject to fair-use limits; we’ll let you know if you approach them."
+          },
+          "s7": {
+            "title": "Your content and your customers",
+            "body": "You keep ownership of the content you add — menus, products, prices, photos and texts — and you allow us to host, process and display it to provide the Service. You are responsible for its accuracy and lawfulness, for fulfilling your orders and bookings, and for your own terms and refunds toward your customers."
+          },
+          "s8": {
+            "title": "Acceptable use",
+            "body": "Don’t use the Service for anything illegal, harmful or misleading; don’t try to access other businesses’ data, disrupt the Service, or copy or reverse-engineer it."
+          },
+          "s9": {
+            "title": "Availability and changes",
+            "body": "We work to keep the Service available and secure, but we can’t guarantee it will be uninterrupted. We may improve or change features over time, and we’ll tell you about material changes to these Terms before they apply."
+          },
+          "s10": {
+            "title": "Liability",
+            "body": "To the extent permitted by law, the Service is provided “as is”, and we are not liable for indirect or consequential losses. Our total liability is limited to the amounts you paid us in the 12 months before the claim."
+          },
+          "s11": {
+            "title": "Suspension and closing",
+            "body": "You can close your account at any time. We may suspend or close an account that breaches these Terms, after notice where possible."
+          },
+          "s12": {
+            "title": "Governing law",
+            "body": "These Terms are governed by the laws of {country}, and the competent courts of {country} have jurisdiction, without prejudice to any mandatory consumer protection that applies to you."
+          },
+          "s13": {
+            "title": "Contact",
+            "body": "Questions about these Terms? Write to {supportEmail} or {contactEmail}."
+          }
+        }
+      },
+      "refund": {
+        "metaTitle": "Refund Policy — SmartManager AI Agent",
+        "metaDescription": "How cancellations and refunds work for SmartManager AI Agent subscriptions.",
+        "title": "Refund Policy",
+        "intro": "We want you to be happy with {product}. This policy explains cancellations and refunds for subscriptions to {product}, provided by {company}.",
+        "sections": {
+          "s1": {
+            "title": "Try it free first",
+            "body": "Every plan starts with a free trial, so you can try {product} before paying. Nothing is charged during the trial."
+          },
+          "s2": {
+            "title": "14-day money-back guarantee",
+            "body": "If you’re not satisfied, you can request a full refund of your first payment for a plan within 14 days of that payment."
+          },
+          "s3": {
+            "title": "Renewals",
+            "body": "You can cancel at any time before your renewal date to avoid the next charge. If an annual subscription renewed and you didn’t mean to keep it, contact us within 14 days of the renewal charge and we will refund it in full. Monthly renewals are not refunded once the new month has started, except where the law requires it."
+          },
+          "s4": {
+            "title": "Plan changes",
+            "body": "When you upgrade, the difference for the rest of the current period is charged pro rata. When you downgrade, the difference is credited pro rata against your next payments."
+          },
+          "s5": {
+            "title": "How to request a refund",
+            "body": "Email {supportEmail} from your account’s email address with your business name. Refunds are processed by Paddle, our Merchant of Record, to your original payment method — usually within 5–10 business days."
+          },
+          "s6": {
+            "title": "Your customers’ payments",
+            "body": "Orders and payments between your business and your own customers are your responsibility; this policy only covers your {product} subscription."
+          }
+        }
+      },
+      "privacy": {
+        "metaTitle": "Privacy Policy — SmartManager AI Agent",
+        "metaDescription": "What personal data SmartManager AI Agent collects, why, and your rights.",
+        "title": "Privacy Policy",
+        "intro": "{company} operates {product}. This policy explains what personal data we collect, why we use it, who we share it with, and your rights.",
+        "sections": {
+          "s1": {
+            "title": "Who is responsible",
+            "body": "{company}, {country}, is responsible for the personal data described here. You can reach us at {contactEmail}."
+          },
+          "s2": {
+            "title": "What we collect",
+            "body": "Account details (your name, email and phone; your password is stored securely by our authentication provider). Business information and the content you add. Conversations, orders and bookings handled by your AI Agent. Technical data such as logs, device and browser information. Payment details are handled by Paddle — we never see or store your card number."
+          },
+          "s3": {
+            "title": "How we use it",
+            "body": "To provide and improve the Service, run your AI Agent, process orders and bookings, send service emails (such as subscription updates), keep accounts secure and prevent abuse, and meet legal obligations."
+          },
+          "s4": {
+            "title": "AI processing",
+            "body": "Customer messages are processed by AI service providers to generate your Agent’s answers, under agreements that protect the data. We do not sell personal data."
+          },
+          "s5": {
+            "title": "Your customers’ data",
+            "body": "For the data your AI Agent collects from your customers, your business is the controller and we process it on your behalf, only to provide the Service."
+          },
+          "s6": {
+            "title": "Who we share it with",
+            "body": "Only with the providers that run the Service — database and hosting, payments (Paddle), email delivery, and AI, voice and translation services — and with authorities where the law requires it."
+          },
+          "s7": {
+            "title": "How long we keep it",
+            "body": "As long as your account is active. After it closes, we delete or anonymise your data within a reasonable time, unless the law requires us to keep it longer."
+          },
+          "s8": {
+            "title": "Security",
+            "body": "Data is encrypted in transit, access is restricted, and each business’s data is kept separate from every other business’s."
+          },
+          "s9": {
+            "title": "Your rights",
+            "body": "You can ask to access, correct, export or delete your personal data, or object to its use. Write to {supportEmail}."
+          },
+          "s10": {
+            "title": "Cookies",
+            "body": "We use only the cookies needed to run the website and dashboard: keeping you signed in and remembering your language and currency. No advertising cookies."
+          },
+          "s11": {
+            "title": "Changes",
+            "body": "We may update this policy; we’ll tell you about material changes before they apply."
+          }
+        }
+      },
+      "about": {
+        "metaTitle": "About SmartManager — SmartManager AI Agent",
+        "metaDescription": "SmartManager AI Agent is a product created by Millennium Leaders.",
+        "title": "About SmartManager",
+        "intro": "{product} is a product created by {company}. We help businesses serve every customer instantly — in their language, at any hour.",
+        "sections": {
+          "s1": {
+            "title": "Our mission",
+            "body": "Give every business, whatever its size, an AI assistant that answers customers, takes orders and bookings, and leaves the team free to focus on great service."
+          },
+          "s2": {
+            "title": "What we build",
+            "body": "{product} learns your business from your menu, products, services and website, then serves your customers through a link, a QR code or your website — in English, Arabic and French."
+          },
+          "s3": {
+            "title": "Who it’s for",
+            "body": "Restaurants and cafés, shops, salons and spas, gyms, clinics, hotels, events and service businesses — any business that serves customers."
+          },
+          "s4": {
+            "title": "Contact",
+            "body": "{company} — {country}\n{supportEmail} · {contactEmail} · {phone}"
+          }
+        }
+      }
+    }
   }
 }

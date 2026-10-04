@@ -10,10 +10,10 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; redirectTo?: string }>;
 }) {
   const { locale } = await params;
-  const { mode } = await searchParams;
+  const { mode, redirectTo } = await searchParams;
   const t = await getTranslations("auth");
   const isSignUp = mode === "signup";
 
@@ -27,8 +27,11 @@ export default async function LoginPage({
         emailLabel={t("email")}
         passwordLabel={t("password")}
         submitLabel={t("submit")}
+        // Back to where sign-in was asked for (e.g. the Welcome page after confirming an email) — checked server-side.
+        redirectTo={redirectTo}
       />
-      <Link href={`/${locale}/login?mode=${isSignUp ? "signin" : "signup"}`} className="text-sm text-neutral-600 underline">
+      {/* New accounts start from a plan (Pricing → Sign up); signing in stays here. */}
+      <Link href={isSignUp ? `/${locale}/login` : `/${locale}/pricing`} className="text-sm text-neutral-600 underline">
         {isSignUp ? t("switchToSignIn") : t("switchToSignUp")}
       </Link>
     </main>

@@ -158,9 +158,29 @@ export async function proxy(request: NextRequest) {
       const decision = resolveConsolePath(rest);
       if (decision.kind === "redirect") return withCsp(redirectToCanonical(decision.to), csp);
       if (decision.kind === "rewrite") return withCsp(await renderConsole(decision.internalPath), csp);
+      requestHeaders.set("x-site-area", "platform");
+      // The bare root is the landing page itself (its canonical URL), in the negotiated language — no redirect.
+      if (!pathLocale && rest === "") {
+        const locale = negotiateLocale({ allowed: LOCALES, fallback: "en", cookie: cookieLocale, acceptLanguage });
+        const response = rewrite(`/site/${locale}`, locale);
+        response.headers.set("Vary", "Cookie, Accept-Language");
+        return withCsp(response, csp);
+      }
       const { redirect, locale } = withLocale();
       if (redirect) return withCsp(redirect, csp);
-      requestHeaders.set("x-site-area", "platform");
+      // Sign-up and its confirmation work with the visitor's session (kept fresh like the console's).
+      if (/^\/(?:signup|welcome)(?:\/|$)/.test(rest)) {
+        return withCsp(
+          await refreshSession(request, requestHeaders, (headers) => {
+            headers.set("x-next-intl-locale", locale);
+            const url = request.nextUrl.clone();
+            url.pathname = `/site/${locale}${rest}`;
+            url.search = search;
+            return NextResponse.rewrite(url, { request: { headers } });
+          }),
+          csp,
+        );
+      }
       return withCsp(rewrite(`/site/${locale}${rest}`, locale), csp);
     }
 

@@ -35,7 +35,7 @@ export default async function PlansPage({
     supabase
       .from("subscription_plans")
       .select(
-        "key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order, conversation_limit, grace_period_hours",
+        "key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order, conversation_limit, grace_period_hours, description, features, plan_family, is_popular, is_public",
       )
       .order("sort_order"),
     supabase.from("currencies").select("code, name").order("code"),
@@ -114,6 +114,11 @@ export default async function PlansPage({
                       billingInterval: p.billing_interval as "month" | "year",
                       trialDays: p.trial_days,
                       sortOrder: p.sort_order,
+                      description: (p.description as Record<string, string> | null)?.[locale] ?? "",
+                      features: (p.features as Record<string, string> | null)?.[locale] ?? "",
+                      family: p.plan_family ?? "",
+                      isPopular: p.is_popular,
+                      isPublic: p.is_public,
                     }}
                   />
                   <Link
@@ -134,6 +139,15 @@ export default async function PlansPage({
                     <p className="font-medium text-slate-900">
                       {p.name[locale] ?? p.name.en ?? p.key}{" "}
                       <span className="font-mono text-xs text-slate-400">({p.key})</span>
+                      {p.is_popular && (
+                        <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{t("badgePopular")}</span>
+                      )}
+                      {!p.is_public && (
+                        <span className="ms-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{t("badgeHidden")}</span>
+                      )}
+                      {p.plan_family && p.plan_family !== p.key && (
+                        <span className="ms-2 text-xs text-slate-400">{t("badgeFamily", { family: p.plan_family })}</span>
+                      )}
                     </p>
                     <p className="text-slate-500">
                       {t("summary", {

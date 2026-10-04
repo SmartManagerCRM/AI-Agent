@@ -1,17 +1,19 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { PUBLIC_SITE_TAG } from "@/server/site/public-data";
 import { translateSoon } from "@/server/translate/queue";
 
 /**
  * Super Admin Master Spec, Phase 3 — Subscriptions & Plans management.
  * Real, currently-used fields only (name, price, currency, billing
- * interval, trial length, active/default, sort order). `limits` is a real
+ * interval, trial length, active/default, sort order — plus what the public
+ * pricing page shows: description, features, family, popular, public). `limits` is a real
  * jsonb column but no consumer in the app reads it yet (see
  * src/components/console/trial-card.tsx's own doc comment) — same class
  * of "real column but not surfaced in UI yet" as `products.description`,
@@ -27,6 +29,39 @@ const planKeySchema = z
   .max(40)
   .regex(/^[a-z][a-z0-9_-]*$/, "@platform.keyFormat");
 
+// What the public pricing page shows (src/app/site/[locale]/pricing).
+const publicFields = {
+  description: z.string().trim().max(160).optional().default(""),
+  features: z.string().max(2000).optional().default(""),
+  family: z.union([planKeySchema, z.literal("")]).optional().default(""),
+  isPopular: z.literal("on").optional(),
+  isPublic: z.literal("on").optional(),
+};
+
+const readPublicFields = (formData: FormData) => ({
+  description: formData.get("description") ?? undefined,
+  features: formData.get("features") ?? undefined,
+  family: formData.get("family") ?? undefined,
+  isPopular: formData.get("isPopular") ?? undefined,
+  isPublic: formData.get("isPublic") ?? undefined,
+});
+
+/** One feature per line, blank lines dropped. */
+const cleanFeatures = (text: string) =>
+  text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join("\n");
+
+/** Sets this language's text in a per-language field (an empty text removes it). */
+function withLocaleText(existing: unknown, locale: string, text: string): Record<string, string> {
+  const next = { ...((existing && typeof existing === "object" ? existing : {}) as Record<string, string>) };
+  if (text) next[locale] = text;
+  else delete next[locale];
+  return next;
+}
+
 const createPlanSchema = z.object({
   key: planKeySchema,
   name: z.string().trim().min(1).max(80),
@@ -36,6 +71,7 @@ const createPlanSchema = z.object({
   trialDays: z.coerce.number().int().min(0).max(365),
   sortOrder: z.coerce.number().int().min(0).max(999),
   locale: z.string(),
+  ...publicFields,
 });
 
 async function currencyExponent(supabase: Awaited<ReturnType<typeof createUserClient>>, code: string) {
@@ -56,6 +92,7 @@ export async function createPlanAction(
     trialDays: formData.get("trialDays"),
     sortOrder: formData.get("sortOrder"),
     locale: formData.get("locale"),
+    ...readPublicFields(formData),
   });
   const t = await actionT(formData.get("locale"));
   if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
@@ -73,6 +110,11 @@ export async function createPlanAction(
     billing_interval: parsed.data.billingInterval,
     trial_days: parsed.data.trialDays,
     sort_order: parsed.data.sortOrder,
+    description: withLocaleText({}, parsed.data.locale, parsed.data.description),
+    features: withLocaleText({}, parsed.data.locale, cleanFeatures(parsed.data.features)),
+    plan_family: parsed.data.family || null,
+    is_popular: parsed.data.isPopular === "on",
+    is_public: parsed.data.isPublic === "on",
   });
   if (error) {
     return error.code === "23505"
@@ -82,6 +124,7 @@ export async function createPlanAction(
   translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
 }
 
 const updatePlanSchema = z.object({
@@ -93,6 +136,7 @@ const updatePlanSchema = z.object({
   trialDays: z.coerce.number().int().min(0).max(365),
   sortOrder: z.coerce.number().int().min(0).max(999),
   locale: z.string(),
+  ...publicFields,
 });
 
 export async function updatePlanAction(
@@ -108,6 +152,7 @@ export async function updatePlanAction(
     trialDays: formData.get("trialDays"),
     sortOrder: formData.get("sortOrder"),
     locale: formData.get("locale"),
+    ...readPublicFields(formData),
   });
   const t = await actionT(formData.get("locale"));
   if (!parsed.success) return issueMessage(t, parsed.error.issues, "checkFields");
@@ -119,7 +164,7 @@ export async function updatePlanAction(
   // this plan in one locale doesn't wipe out its name in the others.
   const { data: existing } = await supabase
     .from("subscription_plans")
-    .select("name")
+    .select("name, description, features")
     .eq("key", parsed.data.key)
     .maybeSingle();
   const mergedName = {
@@ -139,12 +184,18 @@ export async function updatePlanAction(
       billing_interval: parsed.data.billingInterval,
       trial_days: parsed.data.trialDays,
       sort_order: parsed.data.sortOrder,
+      description: withLocaleText(existing?.description, parsed.data.locale, parsed.data.description),
+      features: withLocaleText(existing?.features, parsed.data.locale, cleanFeatures(parsed.data.features)),
+      plan_family: parsed.data.family || null,
+      is_popular: parsed.data.isPopular === "on",
+      is_public: parsed.data.isPublic === "on",
     })
     .eq("key", parsed.data.key);
   if (error) return t("platform.planFailed");
   translateSoon();
 
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
 }
 
 const setActiveSchema = z.object({ key: z.string(), value: z.enum(["true", "false"]), locale: z.string() });
@@ -164,6 +215,7 @@ export async function setPlanActiveAction(formData: FormData): Promise<void> {
     .update({ is_active: parsed.data.value === "true" })
     .eq("key", parsed.data.key);
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
 }
 
 const setDefaultSchema = z.object({ key: z.string(), locale: z.string() });
@@ -180,4 +232,5 @@ export async function setDefaultPlanAction(formData: FormData): Promise<void> {
   await supabase.from("subscription_plans").update({ is_default: false }).eq("is_default", true);
   await supabase.from("subscription_plans").update({ is_default: true }).eq("key", parsed.data.key);
   revalidatePath(`/${parsed.data.locale}/super-admin/plans`);
+  revalidateTag(PUBLIC_SITE_TAG, { expire: 0 });
 }

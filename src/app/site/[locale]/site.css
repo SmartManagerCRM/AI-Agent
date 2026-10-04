@@ -1,0 +1,165 @@
+/*
+ * The public website's look (ai-agent.smartmanager.me): navy text, the
+ * SmartManager greens, white and light mint, rounded cards and soft
+ * shadows. In the `components` layer, so Tailwind utilities still override.
+ * Fonts are self-hosted (Plus Jakarta Sans; Cairo for Arabic).
+ */
+@layer components {
+  .site {
+    --site-navy: #0c1a33;
+    --site-ink: #33415c;
+    --site-green: #0e8a5c;
+    --site-green-dark: #0a6a47;
+    --site-mint: #effaf5;
+    font-family: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--site-navy);
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+  .site:lang(ar),
+  .site [lang="ar"] {
+    font-family: "Cairo Variable", "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  }
+  .site [lang="en"],
+  .site [lang="fr"] {
+    font-family: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .site-wordmark {
+    background: linear-gradient(90deg, #0f7a52 0%, #0f7a52 42%, #0c1a33 42%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .site-focus:focus-visible {
+    outline: 3px solid #34d399;
+    outline-offset: 2px;
+  }
+
+  .site-btn-primary,
+  .site-btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      background-color 0.18s ease,
+      border-color 0.18s ease;
+  }
+  .site-btn-primary {
+    color: #fff;
+    background: linear-gradient(180deg, #13985f 0%, #0b6a47 100%);
+    box-shadow:
+      0 10px 22px -10px rgba(10, 106, 71, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .site-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 14px 26px -10px rgba(10, 106, 71, 0.7),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  .site-btn-outline {
+    color: var(--site-navy);
+    background: #fff;
+    border: 2px solid #129060;
+  }
+  .site-btn-outline:hover {
+    background: var(--site-mint);
+    transform: translateY(-1px);
+  }
+
+  .site-card {
+    background: #fff;
+    border: 1px solid rgba(15, 23, 42, 0.07);
+    box-shadow:
+      0 1px 2px rgba(15, 23, 42, 0.04),
+      0 12px 32px -18px rgba(15, 23, 42, 0.18);
+  }
+
+  .site-hero-bg {
+    background:
+      radial-gradient(60% 70% at 85% 30%, rgba(52, 211, 153, 0.16) 0%, rgba(52, 211, 153, 0) 70%),
+      radial-gradient(45% 60% at 0% 0%, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0) 70%),
+      linear-gradient(180deg, #f7fcfa 0%, #ffffff 100%);
+  }
+  .site-mint-bg {
+    background: linear-gradient(180deg, #f2fbf7 0%, #e9f8f1 100%);
+  }
+
+  .site-pop {
+    animation: site-pop 0.16s ease-out both;
+  }
+  .site-fade {
+    animation: site-fade 0.2s ease-out both;
+  }
+  .site-drawer {
+    animation: site-drawer 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  [dir="rtl"] .site-drawer {
+    animation-name: site-drawer-rtl;
+  }
+  .site-rise {
+    animation: site-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .site-float {
+    animation: site-float 6s ease-in-out infinite;
+  }
+}
+
+html:has(.site) {
+  scroll-behavior: smooth;
+  scroll-padding-top: 88px;
+}
+
+@keyframes site-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes site-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes site-drawer {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes site-drawer-rtl {
+  from {
+    transform: translateX(-100%);
+  }
+}
+@keyframes site-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+@keyframes site-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.site) {
+    scroll-behavior: auto;
+  }
+  .site *,
+  .site *::before,
+  .site *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
