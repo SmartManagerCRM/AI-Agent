@@ -12,6 +12,12 @@ const hostname = z
   .toLowerCase()
   .regex(/^[a-z0-9.-]+$/, "must be a bare hostname without scheme or port");
 
+/** An optional key: a blank value counts as not set (so an empty variable never stops the app from starting). */
+const optionalSecret = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z.string().trim().min(10).optional(),
+);
+
 const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   /** Root domain of the platform (spec §21 multi-tenancy, §45 widget bootstrap). */
@@ -84,6 +90,17 @@ const serverEnvSchema = z.object({
    * `voice_profiles`, not environment variables.
    */
   ELEVENLABS_API_KEY: z.string().min(10).optional(),
+  /**
+   * Paddle Billing — subscribers pay their plan through Paddle, renewing
+   * automatically (src/server/billing/paddle/). All three are needed; without
+   * them subscription payments stay on the built-in test checkout. Sandbox or
+   * live is read from the keys themselves (`pdl_sdbx_…` / `test_…` vs
+   * `pdl_live_…` / `live_…`). The API key and webhook secret are server-side
+   * only; the client-side token is the one Paddle.js uses in the browser.
+   */
+  PADDLE_API_KEY: optionalSecret,
+  PADDLE_CLIENT_TOKEN: optionalSecret,
+  PADDLE_WEBHOOK_SECRET: optionalSecret,
   /**
    * `on` prints `[PERF] <operation>: <ms>` timing lines for the proxy,
    * auth/tenant resolution and the heaviest console queries (see

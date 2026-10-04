@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 
+import { PaddleCheckout } from "@/components/billing/paddle-checkout";
+import { formatMoney } from "@/lib/money";
 import { simulateMockSubscriptionPaymentAction } from "@/server/billing/actions";
+import { paddleConfig } from "@/server/billing/paddle/client";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
+import { currentUser, requireTenantMember } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +32,7 @@ export default async function SubscriptionPayPage({
 
   const { data: payment } = await supabase
     .from("subscription_payments")
-    .select("id, status, provider, plan_key, amount_minor, currency")
+    .select("id, status, provider, provider_intent_id, plan_key, amount_minor, currency")
     .eq("id", paymentId)
     .eq("tenant_id", tenant.id)
     .maybeSingle();
@@ -37,7 +40,10 @@ export default async function SubscriptionPayPage({
 
   const { data: currencyRow } = await supabase.from("currencies").select("exponent").eq("code", payment.currency).maybeSingle();
   const exponent = currencyRow?.exponent ?? 2;
-  const amount = (payment.amount_minor / 10 ** exponent).toFixed(exponent);
+  const amount = formatMoney(payment.amount_minor, payment.currency, exponent, locale);
+  // Real payments (Paddle) once set up; the test checkout only without them.
+  const paddle = paddleConfig();
+  const email = payment.provider === "paddle" && payment.status === "pending" ? ((await currentUser())?.email ?? null) : null;
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center gap-6 py-10 text-center">
@@ -48,11 +54,23 @@ export default async function SubscriptionPayPage({
 
       <div className="rounded-lg border border-neutral-200 px-8 py-6">
         <p className="text-3xl font-bold tracking-tight">
-          {amount} {payment.currency}
+          {amount}
         </p>
+        {payment.provider === "paddle" && <p className="mt-1 text-xs text-neutral-500">{t("renewsAutomatically")}</p>}
       </div>
 
-      {payment.status === "pending" && payment.provider === "mock" && (
+      {payment.status === "pending" && payment.provider === "paddle" && paddle && payment.provider_intent_id && (
+        <PaddleCheckout
+          clientToken={paddle.clientToken}
+          environment={paddle.environment}
+          locale={locale}
+          mode="console"
+          transactionId={payment.provider_intent_id}
+          email={email}
+        />
+      )}
+
+      {payment.status === "pending" && payment.provider === "mock" && !paddle && (
         <div className="flex flex-col items-center gap-3">
           <p className="max-w-xs text-xs text-neutral-400">
             {t("test")}

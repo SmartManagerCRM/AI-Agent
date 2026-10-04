@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { handlePaddleWebhook } from "@/server/billing/paddle/webhook";
 import { processSubscriptionProviderWebhook } from "@/server/billing/webhook";
 import { providers as PROVIDERS } from "@/server/payments/service";
 import { processProviderWebhook } from "@/server/payments/webhook";
@@ -26,6 +27,12 @@ import { processProviderWebhook } from "@/server/payments/webhook";
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: providerKey } = await params;
+  // Paddle (subscriptions renewing automatically) has its own events and
+  // signature scheme — src/server/billing/paddle/webhook.ts.
+  if (providerKey === "paddle") {
+    const outcome = await handlePaddleWebhook(await request.text(), request.headers.get("paddle-signature"));
+    return NextResponse.json(outcome.body, { status: outcome.status });
+  }
   const provider = PROVIDERS[providerKey];
   if (!provider) return NextResponse.json({ error: "unknown provider" }, { status: 404 });
 

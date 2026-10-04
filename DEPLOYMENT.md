@@ -124,6 +124,7 @@ identically across all three Node.js applications:
 | `AZURE_TRANSLATOR_KEY` / `AZURE_TRANSLATOR_REGION` | optional — Azure Translator resource on the **free F0** tier, for automatic translation of what owners and the Super Admin add (see "Automatic translation" below). Server-side only. |
 | `DEEPL_API_KEY` | optional — DeepL API **Free** key (ends in `:fx`), used once Azure's free characters are used up. Server-side only. |
 | `AZURE_TRANSLATOR_PAID_KEY` / `AZURE_TRANSLATOR_PAID_REGION` / `AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT` | optional — a second Azure Translator resource on a **paid** tier, used only after both free allowances; the limit caps its characters per month. Leave unset for none. |
+| `PADDLE_API_KEY` / `PADDLE_CLIENT_TOKEN` / `PADDLE_WEBHOOK_SECRET` | optional — Paddle Billing, for subscription payments that renew automatically (see "Subscription payments (Paddle)" below). All three or none; sandbox vs live is read from the keys (`pdl_sdbx_…`/`test_…` vs `pdl_live_…`/`live_…`). The API key and webhook secret are server-side only. |
 | `TRANSLATION_LOCAL_MODELS` | leave unset; set to `off` only if the server can't spare the memory for the in-app open-source translation models (the last fallback). |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | generate once with `openssl rand -base64 32`, reuse the same value everywhere — required correctness insurance for this three-instance setup (§3), even though a shared build artifact makes it unlikely to bite in practice; see `.env.example` |
 | `PORT` | set automatically by hPanel to whatever port it assigns your app — don't override it |
@@ -615,3 +616,30 @@ Setting up the free services:
 `npm ci` installs the optional model runtime with its CPU libraries only
 (`.npmrc`: `onnxruntime-node-install=skip`); if it can't be installed, the app
 still builds and runs — the in-app fallback is then simply unavailable.
+
+## Subscription payments (Paddle)
+
+Subscribers pay their plan through [Paddle Billing](https://www.paddle.com/billing),
+renewing every month or year until they cancel (`src/server/billing/paddle/`).
+Plan prices stay where they are — the Super Admin plans page — and are sent to
+Paddle with each checkout, so there are no products or prices to create in
+Paddle. Plans must be in a currency Paddle supports (USD, EUR, GBP, …).
+
+Set up once per Paddle account (sandbox first, then live):
+
+1. **Developer tools → Authentication**: create an API key (`PADDLE_API_KEY`)
+   and a client-side token (`PADDLE_CLIENT_TOKEN`).
+2. **Developer tools → Notifications → New destination**:
+   URL `https://<your domain>/api/payments/webhook/paddle`, events
+   `transaction.completed`, `transaction.payment_failed`, `subscription.created`,
+   `subscription.activated`, `subscription.updated`, `subscription.past_due`,
+   `subscription.canceled`. Its secret key is `PADDLE_WEBHOOK_SECRET`.
+3. **Checkout → Checkout settings**: default payment link
+   `https://<your domain>/checkout` (the page that opens Paddle's checkout —
+   e.g. from Paddle's emails).
+4. Live only: complete Paddle's business verification and website approval.
+
+Without the three variables, subscription payments use the built-in test
+checkout (no money involved). Paddle's signed webhooks are the only thing that
+marks a plan paid, renewed, past due or cancelled.
+

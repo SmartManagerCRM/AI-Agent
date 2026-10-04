@@ -1,7 +1,9 @@
+import { ConfirmForm } from "@/components/billing/confirm-submit";
 import { Button } from "@/components/console/button";
 import { daysUntil } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { subscribeAction } from "@/server/billing/actions";
+import { cancelSubscriptionAction, manageBillingAction, resumeSubscriptionAction, subscribeAction } from "@/server/billing/actions";
+import { paddleConfig } from "@/server/billing/paddle/client";
 import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { createUserClient } from "@/server/supabase/clients";
@@ -25,15 +27,30 @@ const STATUS_STYLE: Record<string, string> = {
  * SECURITY DEFINER function scopes the write" split every other console
  * page in this app already uses.
  */
-export default async function BillingPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+const PADDLE_NOTICES = ["planChanged", "canceled", "resumed", "notConfigured", "noPermission", "plan", "currency", "noSubscription", "failed"] as const;
+
+export default async function BillingPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ paddle?: string }>;
+}) {
   const { locale, slug } = await params;
+  const { paddle: paddleNotice } = await searchParams;
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.billing");
+  const tPaddle = await getTranslations("console.paddle");
   const tAll = await getTranslations();
+  const paddleOn = !!paddleConfig();
 
   const [{ data: subscription }, { data: plans }, { data: planCurrencies }] = await Promise.all([
-    supabase.from("subscriptions").select("plan_key, status, trial_ends_at, current_period_end").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase
+      .from("subscriptions")
+      .select("plan_key, status, trial_ends_at, current_period_end, paddle_subscription_id, cancel_at")
+      .eq("tenant_id", tenant.id)
+      .maybeSingle(),
     supabase.from("subscription_plans").select("key, name, price_minor, currency, billing_interval").eq("is_active", true).order("sort_order"),
     supabase.from("currencies").select("code, exponent"),
   ]);
@@ -43,10 +60,25 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
     subscription?.status === "active" || subscription?.status === "trialing"
       ? await loadSubscriberUsage(supabase, tenant.id)
       : null;
+  // A plan renewing through Paddle: switching plans changes it (pro rata) rather than starting a new checkout.
+  const renewing = paddleOn && !!subscription?.paddle_subscription_id && (subscription.status === "active" || subscription.status === "past_due");
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+  const notice = PADDLE_NOTICES.find((n) => n === paddleNotice);
+  const manageFields = { locale, slug };
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900">{t("title")}</h1>
+
+      {notice && (
+        <p
+          role="status"
+          data-testid="billing-notice"
+          className={`rounded-lg border px-3 py-2 text-sm ${["planChanged", "canceled", "resumed"].includes(notice) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}
+        >
+          {tPaddle(`notice.${notice}`)}
+        </p>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("current")}</h2>
@@ -63,14 +95,53 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
                 {t("trialLeft", { count: trialDaysRemaining })}
               </span>
             )}
-            {subscription.current_period_end && (
+            {subscription.current_period_end && !subscription.cancel_at && (
               <span className="text-sm text-slate-500">
-                {t(subscription.status === "active" ? "renews" : "expires", { date: new Date(subscription.current_period_end).toLocaleDateString(locale) })}
+                {renewing
+                  ? tPaddle("renewsAutomatically", { date: fmtDate(subscription.current_period_end) })
+                  : t(subscription.status === "active" ? "renews" : "expires", { date: new Date(subscription.current_period_end).toLocaleDateString(locale) })}
+              </span>
+            )}
+            {subscription.cancel_at && subscription.status !== "canceled" && (
+              <span className="text-sm font-medium text-amber-700" data-testid="cancels-on">
+                {tPaddle("cancelsOn", { date: fmtDate(subscription.cancel_at) })}
               </span>
             )}
           </div>
         ) : (
           <p className="text-sm text-slate-500">{t("noPlan")}</p>
+        )}
+        {renewing && subscription?.status === "past_due" && (
+          <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{tPaddle("pastDue")}</p>
+        )}
+        {renewing && (
+          <div className="mt-4 flex flex-wrap gap-2" data-testid="paddle-manage">
+            <form action={manageBillingAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="slug" value={slug} />
+              <Button type="submit" variant="secondary">
+                {tPaddle("manage")}
+              </Button>
+            </form>
+            {subscription?.cancel_at ? (
+              <form action={resumeSubscriptionAction}>
+                <input type="hidden" name="locale" value={locale} />
+                <input type="hidden" name="slug" value={slug} />
+                <Button type="submit">{tPaddle("resume")}</Button>
+              </form>
+            ) : (
+              <ConfirmForm
+                action={cancelSubscriptionAction}
+                hidden={manageFields}
+                confirm={tPaddle("cancelConfirm", { date: subscription?.current_period_end ? fmtDate(subscription.current_period_end) : "" })}
+                testId="cancel-subscription"
+              >
+                <Button type="submit" variant="secondary">
+                  {tPaddle("cancel")}
+                </Button>
+              </ConfirmForm>
+            )}
+          </div>
         )}
       </section>
 
@@ -94,6 +165,17 @@ export default async function BillingPage({ params }: { params: Promise<{ locale
                 </p>
                 {isCurrent ? (
                   <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">{t("currentPlan")}</span>
+                ) : renewing ? (
+                  <ConfirmForm
+                    action={subscribeAction}
+                    hidden={{ tenantId: tenant.id, planKey: plan.key, locale, slug }}
+                    confirm={tPaddle("switchConfirm", { plan: plan.name[locale] ?? plan.name.en ?? plan.key })}
+                    testId={`switch-${plan.key}`}
+                  >
+                    <Button type="submit" className="w-fit">
+                      {tPaddle("switch")}
+                    </Button>
+                  </ConfirmForm>
                 ) : (
                   <form action={subscribeAction}>
                     <input type="hidden" name="tenantId" value={tenant.id} />

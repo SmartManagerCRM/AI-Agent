@@ -1183,7 +1183,8 @@
       "simulateOk": "Simulate successful payment",
       "simulateFail": "Simulate failed payment",
       "received": "Payment received — subscription active!",
-      "failed": "This payment attempt failed — return to Billing to try again."
+      "failed": "This payment attempt failed — return to Billing to try again.",
+      "renewsAutomatically": "Renews automatically — cancel anytime from Billing."
     },
     "staff": {
       "title": "Staff",
@@ -1354,6 +1355,36 @@
       "usageLimit": "Usage limit",
       "startsAt": "Starts",
       "endsAt": "Ends"
+    },
+    "paddle": {
+      "opening": "Opening the secure checkout…",
+      "secure": "Complete your payment in the secure Paddle checkout.",
+      "confirming": "Payment complete — activating your plan…",
+      "thanks": "Thank you — your payment is complete. You can close this page.",
+      "closed": "The checkout was closed before paying.",
+      "reopen": "Open checkout again",
+      "unavailable": "The secure checkout couldn’t be opened. Please try again later.",
+      "linkTitle": "SmartManager AI Agent — payment",
+      "renewsAutomatically": "Renews automatically on {date}",
+      "cancelsOn": "Cancelled — stays active until {date}",
+      "pastDue": "Your last renewal payment didn’t go through. Update your payment method in “Manage billing” to keep your plan.",
+      "manage": "Manage billing",
+      "cancel": "Cancel subscription",
+      "cancelConfirm": "Cancel your subscription? It stays active until {date} and won’t renew.",
+      "resume": "Keep my subscription",
+      "switch": "Switch to this plan",
+      "switchConfirm": "Switch to {plan}? The price difference for the rest of this period is charged (or credited) now.",
+      "notice": {
+        "planChanged": "Your plan was changed.",
+        "canceled": "Your subscription is cancelled — it stays active until the end of the paid period.",
+        "resumed": "Your subscription will renew as usual.",
+        "notConfigured": "Online payments aren’t set up yet.",
+        "noPermission": "Only the business owner can manage billing.",
+        "plan": "That plan isn’t available.",
+        "currency": "This plan’s currency can’t be paid online yet — please contact us.",
+        "noSubscription": "There’s no active subscription to manage.",
+        "failed": "Something went wrong with the payment service — please try again."
+      }
     }
   },
   "platform": {

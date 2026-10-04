@@ -1136,6 +1136,10 @@ export type Database = {
           conversation_limit_grace_until: string | null;
           trial_limit_reached_at: string | null;
           trial_limit_reason: "conversation_limit" | "ai_cost_limit" | null;
+          paddle_subscription_id: string | null;
+          paddle_customer_id: string | null;
+          cancel_at: string | null;
+          paddle_event_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1687,6 +1691,46 @@ export type Database = {
       mark_subscription_payment_failed: {
         Args: { p_payment_id: string; p_provider_event_id: string; p_raw: Json; p_reason?: string | null };
         Returns: undefined;
+      };
+      record_paddle_payment: {
+        Args: {
+          p_event_id: string;
+          p_transaction_id: string;
+          p_paddle_subscription_id: string | null;
+          p_paddle_customer_id: string | null;
+          p_plan_key: string | null;
+          p_amount_minor: number;
+          p_currency: string;
+          p_check_amount: number | null;
+          p_period_start: string | null;
+          p_period_end: string | null;
+          p_raw: Json;
+        };
+        Returns: "recorded" | "duplicate" | "unknown" | "mismatch";
+      };
+      paddle_billing_subscription: {
+        Args: { p_tenant_id: string };
+        Returns: {
+          paddle_subscription_id: string | null;
+          paddle_customer_id: string | null;
+          status: "trialing" | "active" | "past_due" | "canceled";
+          plan_key: string;
+          cancel_at: string | null;
+        }[];
+      };
+      apply_paddle_subscription_event: {
+        Args: {
+          p_event_id: string;
+          p_occurred_at: string;
+          p_paddle_subscription_id: string;
+          p_transaction_id: string | null;
+          p_paddle_customer_id: string | null;
+          p_status: string;
+          p_cancel_at: string | null;
+          p_plan_key: string | null;
+          p_raw: Json;
+        };
+        Returns: "applied" | "duplicate" | "unknown" | "stale";
       };
       create_staff_invite: {
         Args: { p_tenant_id: string; p_email: string; p_role_key: string };

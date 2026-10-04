@@ -1183,7 +1183,8 @@
       "simulateOk": "Simuler un paiement réussi",
       "simulateFail": "Simuler un paiement échoué",
       "received": "Paiement reçu — abonnement actif !",
-      "failed": "Cette tentative de paiement a échoué — retournez à Facturation pour réessayer."
+      "failed": "Cette tentative de paiement a échoué — retournez à Facturation pour réessayer.",
+      "renewsAutomatically": "Renouvellement automatique — résiliable à tout moment depuis Facturation."
     },
     "staff": {
       "title": "Équipe",
@@ -1354,6 +1355,36 @@
       "usageLimit": "Limite d’utilisation",
       "startsAt": "Début",
       "endsAt": "Fin"
+    },
+    "paddle": {
+      "opening": "Ouverture du paiement sécurisé…",
+      "secure": "Finalisez votre paiement dans le paiement sécurisé Paddle.",
+      "confirming": "Paiement effectué — activation de votre forfait…",
+      "thanks": "Merci — votre paiement est effectué. Vous pouvez fermer cette page.",
+      "closed": "Le paiement a été fermé avant d’être finalisé.",
+      "reopen": "Rouvrir le paiement",
+      "unavailable": "Le paiement sécurisé n’a pas pu s’ouvrir. Veuillez réessayer plus tard.",
+      "linkTitle": "SmartManager AI Agent — paiement",
+      "renewsAutomatically": "Renouvellement automatique le {date}",
+      "cancelsOn": "Résilié — reste actif jusqu’au {date}",
+      "pastDue": "Le dernier paiement de renouvellement a échoué. Mettez à jour votre moyen de paiement dans « Gérer la facturation » pour conserver votre forfait.",
+      "manage": "Gérer la facturation",
+      "cancel": "Résilier l’abonnement",
+      "cancelConfirm": "Résilier votre abonnement ? Il reste actif jusqu’au {date} et ne sera pas renouvelé.",
+      "resume": "Conserver mon abonnement",
+      "switch": "Passer à ce forfait",
+      "switchConfirm": "Passer au forfait {plan} ? La différence de prix pour le reste de la période est facturée (ou créditée) maintenant.",
+      "notice": {
+        "planChanged": "Votre forfait a été modifié.",
+        "canceled": "Votre abonnement est résilié — il reste actif jusqu’à la fin de la période payée.",
+        "resumed": "Votre abonnement sera renouvelé normalement.",
+        "notConfigured": "Les paiements en ligne ne sont pas encore configurés.",
+        "noPermission": "Seul le propriétaire de l’entreprise peut gérer la facturation.",
+        "plan": "Ce forfait n’est pas disponible.",
+        "currency": "La devise de ce forfait ne peut pas encore être payée en ligne — contactez-nous.",
+        "noSubscription": "Aucun abonnement actif à gérer.",
+        "failed": "Le service de paiement a rencontré une erreur — veuillez réessayer."
+      }
     }
   },
   "platform": {
