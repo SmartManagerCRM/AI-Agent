@@ -1,6 +1,7 @@
 import "server-only";
 
 import { glossaryTranslate } from "./glossary";
+import { fromHtml, protect, termsIn } from "./keep";
 import { localTranslate } from "./local-models";
 import { azureTranslate, deeplTranslate } from "./services";
 import type { ContentLang, ServiceOutcome, TranslationJob, TranslationProvider, TranslationResult } from "./types";
@@ -17,6 +18,10 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
  *      capped by AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT when that is set;
  *   5. open-source models on this server (./local-models.ts).
  *
+ * Words to keep (the business's name, words the owner lists — ./keep.ts) are
+ * put in the target language's spelling and marked "don't translate" for the
+ * services; the local models get them already in place.
+ *
  * Each service's characters are counted in the database per calendar month
  * (translation_usage) before a request is sent, so a free allowance is never
  * exceeded; a service that answers "allowance used up" is skipped until the
@@ -32,10 +37,12 @@ const BATCH_TEXTS = 50;
 const BATCH_CHARACTERS = 20_000;
 
 type Service = {
-  provider: Exclude<TranslationProvider, "glossary" | "copy">;
+  provider: Exclude<TranslationProvider, "glossary" | "copy" | "split">;
   /** Monthly characters this app lets it use (null: no cap). */
   limit: number | null;
-  translate: (texts: string[], from: ContentLang, to: ContentLang) => Promise<ServiceOutcome>;
+  /** Whether it takes HTML with "don't translate" marks (the services do; the local models don't). */
+  markup: boolean;
+  translate: (texts: string[], from: ContentLang, to: ContentLang, html: boolean) => Promise<ServiceOutcome>;
 };
 
 function positiveInt(value: string | undefined): number | null {
@@ -49,11 +56,21 @@ export function configuredServices(env: NodeJS.ProcessEnv = process.env): Servic
   const azureKey = env.AZURE_TRANSLATOR_KEY?.trim();
   if (azureKey) {
     const region = env.AZURE_TRANSLATOR_REGION?.trim() || undefined;
-    services.push({ provider: "azure_free", limit: AZURE_FREE_MONTHLY_CHARACTERS, translate: (t, f, to) => azureTranslate({ key: azureKey, region }, t, f, to) });
+    services.push({
+      provider: "azure_free",
+      limit: AZURE_FREE_MONTHLY_CHARACTERS,
+      markup: true,
+      translate: (t, f, to, html) => azureTranslate({ key: azureKey, region }, t, f, to, { html }),
+    });
   }
   const deeplKey = env.DEEPL_API_KEY?.trim();
   if (deeplKey) {
-    services.push({ provider: "deepl_free", limit: DEEPL_FREE_MONTHLY_CHARACTERS, translate: (t, f, to) => deeplTranslate(deeplKey, t, f, to) });
+    services.push({
+      provider: "deepl_free",
+      limit: DEEPL_FREE_MONTHLY_CHARACTERS,
+      markup: true,
+      translate: (t, f, to, html) => deeplTranslate(deeplKey, t, f, to, { html }),
+    });
   }
   const paidKey = env.AZURE_TRANSLATOR_PAID_KEY?.trim();
   if (paidKey) {
@@ -61,10 +78,11 @@ export function configuredServices(env: NodeJS.ProcessEnv = process.env): Servic
     services.push({
       provider: "azure_paid",
       limit: positiveInt(env.AZURE_TRANSLATOR_PAID_MONTHLY_LIMIT),
-      translate: (t, f, to) => azureTranslate({ key: paidKey, region }, t, f, to),
+      markup: true,
+      translate: (t, f, to, html) => azureTranslate({ key: paidKey, region }, t, f, to, { html }),
     });
   }
-  services.push({ provider: "local", limit: null, translate: localTranslate });
+  services.push({ provider: "local", limit: null, markup: false, translate: (t, f, to) => localTranslate(t, f, to) });
   return services;
 }
 
@@ -94,6 +112,8 @@ export async function translateTexts(
   services: Service[] = configuredServices(),
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = jobs.map(() => null);
+  // Per job: the HTML (kept words marked) and plain versions sent out; groups per language pair and kind.
+  const prepared: { html: string; plain: string; marked: boolean }[] = jobs.map((job) => ({ html: job.text.trim(), plain: job.text.trim(), marked: false }));
   const remaining = new Map<string, number[]>();
   jobs.forEach((job, i) => {
     const text = job.text.trim();
@@ -102,24 +122,37 @@ export async function translateTexts(
       results[i] = { text, provider: "copy" };
       return;
     }
-    const fromList = glossaryTranslate(text, job.from, job.to);
-    if (fromList) {
-      results[i] = { text: fromList, provider: "glossary" };
-      return;
+    const kept = termsIn(text, job.keep);
+    if (kept.length) {
+      const p = protect(text, job.to, kept);
+      // The whole text is a kept word: its spelling in the other language, no service needed.
+      if (!/[\p{L}]/u.test(fromHtml(p.html.replace(/<span translate="no"[^>]*>[^<]*<\/span>/g, "")))) {
+        results[i] = { text: p.plain, provider: "glossary" };
+        return;
+      }
+      prepared[i] = { ...p, marked: true };
+    } else {
+      const fromList = glossaryTranslate(text, job.from, job.to);
+      if (fromList) {
+        results[i] = { text: fromList, provider: "glossary" };
+        return;
+      }
     }
-    const pair = `${job.from}>${job.to}`;
-    remaining.set(pair, [...(remaining.get(pair) ?? []), i]);
+    const group = `${job.from}>${job.to}>${prepared[i].marked ? 1 : 0}`;
+    remaining.set(group, [...(remaining.get(group) ?? []), i]);
   });
 
-  const texts = jobs.map((j) => j.text.trim());
+  const sizes = prepared.map((p) => p.html);
   const skipped = new Set<string>(); // services out of allowance / unavailable for the rest of this run
-  for (const [pair, indexes] of remaining) {
-    const [from, to] = pair.split(">") as [ContentLang, ContentLang];
-    for (const batch of batches(indexes, texts)) {
-      const batchTexts = batch.map((i) => texts[i]);
-      const characters = batchTexts.reduce((n, t) => n + t.length, 0);
+  for (const [group, indexes] of remaining) {
+    const [from, to, markedFlag] = group.split(">") as [ContentLang, ContentLang, string];
+    const marked = markedFlag === "1";
+    for (const batch of batches(indexes, sizes)) {
       for (const service of services) {
         if (skipped.has(service.provider)) continue;
+        const html = marked && service.markup;
+        const batchTexts = batch.map((i) => (html ? prepared[i].html : prepared[i].plain));
+        const characters = batchTexts.reduce((n, t) => n + t.length, 0);
         const { data: allowed, error } = await supabase.rpc("reserve_translation_characters", {
           p_provider: service.provider,
           p_characters: characters,
@@ -127,9 +160,9 @@ export async function translateTexts(
         });
         // Not enough of this month's allowance left for this batch: the next service takes it.
         if (error || !allowed) continue;
-        const outcome = await service.translate(batchTexts, from, to);
+        const outcome = await service.translate(batchTexts, from, to, html);
         if (outcome.ok) {
-          batch.forEach((i, k) => (results[i] = { text: outcome.texts[k].trim(), provider: service.provider }));
+          batch.forEach((i, k) => (results[i] = { text: html ? fromHtml(outcome.texts[k]) : outcome.texts[k].trim(), provider: service.provider }));
           break;
         }
         await supabase.rpc("settle_translation_characters", { p_provider: service.provider, p_refund: characters, p_exhausted: outcome.reason === "quota" });

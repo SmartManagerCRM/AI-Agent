@@ -1,5 +1,7 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { ManageControls } from "@/components/console/managed-item";
+import { deleteLeadAction, updateLeadAction } from "@/server/manage/actions";
 import { setLeadStatusAction } from "@/server/leads/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -83,6 +85,7 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
                         {new Date(lead.created_at).toLocaleDateString(locale)}
                       </td>
                       <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
                         {next && (
                           <form action={setLeadStatusAction}>
                             <input type="hidden" name="leadId" value={lead.id} />
@@ -97,6 +100,21 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
                             </button>
                           </form>
                         )}
+                        <ManageControls
+                          testId="lead-controls"
+                          heading={lead.customer_name ?? t("leads")}
+                          hidden={{ locale, slug, id: lead.id }}
+                          fields={[
+                            { name: "name", label: tAll("common.name"), defaultValue: lead.customer_name, maxLength: 120 },
+                            { name: "phone", label: tAll("common.phone"), type: "tel", defaultValue: lead.customer_phone, maxLength: 40 },
+                            { name: "email", label: tAll("common.email"), type: "email", defaultValue: lead.customer_email, maxLength: 200 },
+                            { name: "notes", label: tAll("console.manage.message"), type: "textarea", defaultValue: lead.message, required: true, maxLength: 2000 },
+                          ]}
+                          update={updateLeadAction}
+                          remove={deleteLeadAction}
+                          deleteConfirm={tAll("console.manage.deleteLead")}
+                        />
+                        </div>
                       </td>
                     </tr>
                   );

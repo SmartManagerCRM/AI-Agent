@@ -3,6 +3,7 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { PlanForm } from "@/components/platform/plan-form";
 import { PlanUsageLimitsForm } from "@/components/platform/usage-limits-forms";
 import { formatMoney } from "@/lib/money";
+import { displayMoney } from "@/server/platform/display-currency";
 import { setDefaultPlanAction, setPlanActiveAction } from "@/server/platform/plan-actions";
 import { loadPlanAiCostLimits } from "@/server/platform/usage";
 import { createUserClient } from "@/server/supabase/clients";
@@ -27,6 +28,7 @@ export default async function PlansPage({
   const { edit } = await searchParams;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
+  const dm = await displayMoney(supabase, locale);
   const t = await getTranslations("platform.plans");
 
   const [{ data: plans }, { data: currencies }, { data: subscriptions }, aiCostLimits] = await Promise.all([
@@ -135,7 +137,11 @@ export default async function PlansPage({
                     </p>
                     <p className="text-slate-500">
                       {t("summary", {
-                        price: formatMoney(p.price_minor, p.currency, exponent, locale),
+                        // The plan's own price; with a display currency chosen, also roughly in it.
+                        price:
+                          dm.code && dm.code !== p.currency
+                            ? `${formatMoney(p.price_minor, p.currency, exponent, locale)} ≈ ${dm.money(p.price_minor, p.currency, exponent)}`
+                            : formatMoney(p.price_minor, p.currency, exponent, locale),
                         interval: t.has(`interval.${p.billing_interval}`) ? t(`interval.${p.billing_interval}`) : p.billing_interval,
                         days: p.trial_days,
                         active: activeSubscriberCountByPlan.get(p.key) ?? 0,

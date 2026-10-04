@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Tabs, type Tab } from "@/components/console/tabs";
-import { formatMoney } from "@/lib/money";
+import { displayMoney, type DisplayMoney } from "@/server/platform/display-currency";
 import { setTenantAiBudgetAction } from "@/server/platform/actions";
 import { endImpersonationAction, startImpersonationAction } from "@/server/platform/impersonation-actions";
 import { SubscriberUsageOverridesForm } from "@/components/platform/usage-limits-forms";
@@ -64,8 +64,8 @@ export default async function BusinessDetailPage({
     .eq("code", detail.tenant.currency)
     .maybeSingle();
   const exponent = currencyRow?.exponent ?? 2;
-  const money = (minor: number, currency?: string | null) =>
-    formatMoney(minor, currency ?? detail.tenant.currency, exponent, locale);
+  const dm = await displayMoney(supabase, locale);
+  const money = (minor: number, currency?: string | null) => dm.money(minor, currency ?? detail.tenant.currency, exponent);
 
   const usage = tab === "usage" ? ((await loadPlatformUsage(supabase, detail.tenant.id))[0] ?? null) : null;
 
@@ -266,7 +266,7 @@ export default async function BusinessDetailPage({
             icon="billing"
             accent="orange"
             label={t("aiCost30")}
-            value={`$${detail.agent.costUsd30d.toFixed(4)}`}
+            value={dm.usd(detail.agent.costUsd30d, 4)}
             trend={null}
           href={`${baseHref}?tab=usage`}
         />
@@ -311,7 +311,7 @@ export default async function BusinessDetailPage({
 
       {tab === "usage" &&
         (usage ? (
-          <UsageLimitsSection usage={usage} locale={locale} slug={slug} />
+          <UsageLimitsSection usage={usage} locale={locale} slug={slug} usd={dm.usd} />
         ) : (
           <section className="rounded-xl border border-slate-200 bg-white p-4">
             <EmptyState
@@ -412,10 +412,8 @@ export default async function BusinessDetailPage({
   );
 }
 
-const usd = (v: number | null, digits = 2) => (v === null ? "—" : `$${v.toFixed(digits)}`);
-
 /** Super Admin only: this period's conversation and AI-cost usage, plan defaults vs overrides. */
-function UsageLimitsSection({ usage, locale, slug }: { usage: SubscriberUsageRow; locale: string; slug: string }) {
+function UsageLimitsSection({ usage, locale, slug, usd }: { usage: SubscriberUsageRow; locale: string; slug: string; usd: DisplayMoney["usd"] }) {
   const t = useTranslations("platform.business360");
   const tAll = useTranslations();
   const date = (iso: string | null) =>

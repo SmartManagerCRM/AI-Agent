@@ -8,6 +8,8 @@ import { EnrolForm, MemberActions, PlanRow, type PlanSummary } from "@/component
 import { NEW_PLAN, PlanForm, type PlanFormValues } from "@/components/memberships/plan-form";
 import { EXPIRING_DAYS, memberState, type MemberState } from "@/lib/membership-state";
 import { getTranslations } from "next-intl/server";
+import { ManageControls } from "@/components/console/managed-item";
+import { deleteMemberAction, updateMemberDetailsAction } from "@/server/manage/actions";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -50,6 +52,7 @@ export default async function MembershipsPage({
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.memberships");
+  const tAll = await getTranslations();
   const today = businessToday(tenant.timezone);
   const monthStart = `${today.slice(0, 8)}01`;
 
@@ -269,6 +272,20 @@ export default async function MembershipsPage({
                           canRenew={renewable}
                           unpaid={m.payment_status === "unpaid"}
                           checkIn={plan?.kind === "service" || !!plan?.visits_per_period}
+                        />
+                        <ManageControls
+                          testId="member-controls"
+                          heading={`#${m.member_number} · ${m.customer_name}`}
+                          hidden={{ locale, slug, id: m.id }}
+                          fields={[
+                            { name: "name", label: tAll("common.name"), defaultValue: m.customer_name, required: true, maxLength: 120 },
+                            { name: "phone", label: tAll("common.phone"), type: "tel", defaultValue: m.customer_phone, maxLength: 40 },
+                            { name: "email", label: tAll("common.email"), type: "email", defaultValue: m.customer_email, maxLength: 200 },
+                            { name: "notes", label: tAll("common.notes"), type: "textarea", defaultValue: m.notes, maxLength: 1000 },
+                          ]}
+                          update={updateMemberDetailsAction}
+                          remove={deleteMemberAction}
+                          deleteConfirm={tAll("console.manage.deleteMember", { name: m.customer_name })}
                         />
                       </td>
                     </tr>

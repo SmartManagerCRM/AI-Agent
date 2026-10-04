@@ -44,8 +44,9 @@ export function TopHeader({
         <WorkspaceSwitcher locale={locale} current={workspace} others={otherWorkspaces} />
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-        {currencyBar}
         <SoundToggle />
+        {/* The currency bar sits next to the language bar. */}
+        {currencyBar}
         <LocaleSwitcher locale={locale} />
         <InboxBell locale={locale} slug={workspace.slug} count={newConversationCount} />
         <AccountMenu

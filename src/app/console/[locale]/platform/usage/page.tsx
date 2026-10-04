@@ -6,12 +6,12 @@ import { loadPlatformUsage, loadUsageSettings } from "@/server/platform/usage";
 import { loadVoiceAccount } from "@/server/platform/voice-account";
 import { summarizePlatformUsage, USAGE_STATE_STYLE, type SubscriberUsageRow } from "@/server/platform/usage-analytics";
 import { createUserClient } from "@/server/supabase/clients";
+import { displayMoney } from "@/server/platform/display-currency";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
 import { RichMsg } from "@/components/i18n/msg";
 import { statusLabel } from "@/lib/i18n-labels";
 
-const usd = (v: number | null, digits = 2) => (v === null ? "—" : `$${v.toFixed(digits)}`);
 const pct = (v: number | null) => (v === null ? "—" : `${v.toFixed(1)}%`);
 
 /**
@@ -46,7 +46,12 @@ export default async function PlatformUsagePage({
   const supabase = await createUserClient();
   const t = await getTranslations("platform.usagePage");
   const tAll = await getTranslations();
-  const [rows, settings, voiceAccount] = await Promise.all([loadPlatformUsage(supabase), loadUsageSettings(supabase), loadVoiceAccount()]);
+  const [rows, settings, voiceAccount, { usd }] = await Promise.all([
+    loadPlatformUsage(supabase),
+    loadUsageSettings(supabase),
+    loadVoiceAccount(),
+    displayMoney(supabase, locale),
+  ]);
   const summary = summarizePlatformUsage(rows);
   const base = `/${locale}/super-admin/usage`;
   const sorted = [...(filter ? rows.filter(FILTERS[filter].match) : rows)].sort(

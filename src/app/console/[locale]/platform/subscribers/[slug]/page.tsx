@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AiAndVoiceCosts } from "@/components/platform/ai-and-voice-costs";
+import { displayMoney } from "@/server/platform/display-currency";
 import { MarkSubscriberChecked } from "@/components/platform/mark-subscriber-checked";
 import { BusinessEditForm, SubscriptionEditForm } from "@/components/platform/subscriber-edit-forms";
 import { SubscriberUsageOverridesForm } from "@/components/platform/usage-limits-forms";
@@ -184,7 +185,7 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
             {usage.isTrial ? t("costsTrial") : t("costsPeriod")}
           </h2>
-          <AiAndVoiceCosts usage={usage} account={voiceAccount} locale={locale} />
+          <AiAndVoiceCosts usage={usage} account={voiceAccount} locale={locale} usd={(await displayMoney(supabase, locale)).usd} />
         </section>
       )}
 

@@ -1,6 +1,8 @@
 import { CreateBranchForm } from "@/components/catalog/create-branch-form";
+import { ManageActionButton, ManagedItem } from "@/components/console/managed-item";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
+import { deleteBranchAction, setBranchActiveAction, setDefaultBranchAction, updateBranchAction } from "@/server/manage/actions";
 import { Msg } from "@/components/i18n/msg";
 import { getTranslations } from "next-intl/server";
 
@@ -10,21 +12,43 @@ export default async function BranchesPage({ params }: { params: Promise<{ local
   const supabase = await createUserClient();
   const tAll = await getTranslations();
   const { data: branches } = await supabase.from("branches").select("*").eq("tenant_id", tenant.id).order("created_at");
+  const shown = (text: Record<string, string> | null) => (text ? (text[locale] ?? Object.values(text)[0] ?? "") : "");
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-semibold"><Msg id="console.branches.branches" /></h1>
       <CreateBranchForm tenantId={tenant.id} slug={slug} locale={locale} />
-      <ul className="flex flex-col gap-2">
-        {(branches ?? []).map((branch) => (
-          <li key={branch.id} className="rounded-md border border-neutral-200 px-4 py-3 text-sm">
-            <p className="font-medium">
-              {branch.name[locale] ?? Object.values(branch.name)[0] ?? tAll("common.untitled")}
-              {branch.is_default && <span className="ms-2 text-xs text-neutral-400"><Msg id="console.branches.default" /></span>}
-            </p>
-            {branch.phone && <p className="text-neutral-500">{branch.phone}</p>}
-          </li>
-        ))}
+      <ul className="flex flex-col gap-2" data-testid="branch-list">
+        {(branches ?? []).map((branch) => {
+          const name = shown(branch.name) || tAll("common.untitled");
+          const address = shown(branch.address as Record<string, string> | null);
+          const hidden = { locale, slug, id: branch.id };
+          return (
+            <ManagedItem
+              key={branch.id}
+              testId="branch-row"
+              title={name}
+              badges={branch.is_default && <span className="ms-2 text-xs font-normal text-neutral-400"><Msg id="console.branches.default" /></span>}
+              details={[branch.phone, address].filter(Boolean).join(" · ") || undefined}
+              hidden={hidden}
+              fields={[
+                { name: "name", label: tAll("common.name"), defaultValue: name, required: true, maxLength: 120 },
+                { name: "phone", label: tAll("common.phone"), defaultValue: branch.phone, type: "tel", maxLength: 40 },
+                { name: "address", label: tAll("console.manage.address"), defaultValue: address, type: "textarea", maxLength: 300 },
+              ]}
+              update={updateBranchAction}
+              active={branch.is_active}
+              toggle={branch.is_default ? undefined : setBranchActiveAction}
+              remove={branch.is_default ? undefined : deleteBranchAction}
+              deleteConfirm={tAll("console.manage.deleteBranch", { name })}
+              extra={
+                !branch.is_default && branch.is_active ? (
+                  <ManageActionButton action={setDefaultBranchAction} hidden={hidden} icon="check" tone="emerald" label={tAll("console.manage.makeDefault")} />
+                ) : undefined
+              }
+            />
+          );
+        })}
         {(branches ?? []).length === 0 && <p className="text-sm text-neutral-400"><Msg id="console.branches.noBranchesYet" /></p>}
       </ul>
     </div>

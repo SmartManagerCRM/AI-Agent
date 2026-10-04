@@ -4,6 +4,7 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { getBusinessBrainOverview } from "@/server/platform/business-brain-overview";
 import { getIngestionEconomics } from "@/server/platform/ingestion-economics";
 import { createUserClient } from "@/server/supabase/clients";
+import { displayMoney } from "@/server/platform/display-currency";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
 
@@ -15,8 +16,8 @@ export default async function BusinessBrainOverviewPage({ params }: { params: Pr
   const t = await getTranslations("platform.brainOverview");
   const tAll = await getTranslations();
   const jobStatus = (s: string) => (tAll.has(`console.brain.jobStatus.${s}`) ? tAll(`console.brain.jobStatus.${s}`) : s.replace(/_/g, " "));
-  const [rows, economics] = await Promise.all([getBusinessBrainOverview(supabase), getIngestionEconomics(supabase)]);
-  const usd = (n: number) => `$${n < 1 ? n.toFixed(4) : n.toFixed(2)}`;
+  const [rows, economics, dm] = await Promise.all([getBusinessBrainOverview(supabase), getIngestionEconomics(supabase), displayMoney(supabase, locale)]);
+  const usd = (n: number) => dm.usd(n, n < 1 ? 4 : 2);
 
   const totalSources = rows.reduce((sum, r) => sum + r.sourceCount, 0);
   const totalPending = rows.reduce((sum, r) => sum + r.pendingReview, 0);

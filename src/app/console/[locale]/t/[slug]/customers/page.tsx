@@ -42,6 +42,12 @@ export default async function CustomersPage({
   const money = (minor: number) => formatMoney(minor, tenant.currency, exponent, locale);
 
   const customers = summary.rows;
+  // Which saved customers are suspended (the summary doesn't carry it).
+  const savedIds = customers.map((c) => c.customerId).filter((id): id is string => !!id);
+  const { data: activeRows } = savedIds.length
+    ? await supabase.from("customers").select("id, is_active").eq("tenant_id", tenant.id).in("id", savedIds)
+    : { data: [] };
+  const activeById = new Map((activeRows ?? []).map((r) => [r.id, r.is_active]));
   const totalCustomers = summary.customers;
   const totalSpentMinor = summary.totalSpentMinor;
   const repeatCustomers = summary.repeatCustomers;
@@ -114,6 +120,7 @@ export default async function CustomersPage({
                       phone: customer.phone,
                       birthday: customer.birthday,
                       notes: customer.notes,
+                      isActive: customer.customerId ? (activeById.get(customer.customerId) ?? true) : undefined,
                       orderCount: customer.orderCount,
                       totalSpent: money(customer.totalSpentMinor),
                       lastOrder: customer.lastOrderAt ? new Date(customer.lastOrderAt).toLocaleDateString(locale) : null,

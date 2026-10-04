@@ -1,5 +1,7 @@
 import { BrainSyncButton } from "@/components/catalog/brain-sync-button";
 import { CreateCategoryForm } from "@/components/catalog/create-category-form";
+import { ManagedItem } from "@/components/console/managed-item";
+import { deleteCategoryAction, setCategoryActiveAction, updateCategoryAction } from "@/server/manage/actions";
 import { CreateProductForm } from "@/components/catalog/create-product-form";
 import { FileImportForm } from "@/components/catalog/file-import-form";
 import { ProductCard } from "@/components/catalog/product-card";
@@ -100,7 +102,7 @@ export default async function ProductsPage({
   ] = await timed(
     "products.queries",
     Promise.all([
-      supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).order("position"),
+      supabase.from("categories").select("id, name, is_active").eq("tenant_id", tenant.id).order("position"),
       countProducts(),
       countProducts().eq("status", "active"),
       countProducts().eq("status", "draft"),
@@ -122,6 +124,7 @@ export default async function ProductsPage({
     autoTranslated(supabase, "categories", "name", locale, (categories ?? []).map((c) => ({ key: c.id, value: c.name[locale] }))),
   ]);
   const tCommon = await getTranslations("common");
+  const tManage = await getTranslations("console.manage");
 
   return (
     <div className="flex flex-col gap-6">
@@ -147,12 +150,21 @@ export default async function ProductsPage({
       <section id="categories" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.products.categories" /></h2>
         <CreateCategoryForm tenantId={tenant.id} slug={slug} locale={locale} />
-        <ul className="mt-3 flex flex-wrap gap-2 text-sm">
+        <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="category-list">
           {(categories ?? []).map((category) => (
-            <li key={category.id} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-slate-700">
-              {label(category.name)}
-              {autoCategories.has(category.id) && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />}
-            </li>
+            <ManagedItem
+              key={category.id}
+              testId="category-row"
+              title={label(category.name)}
+              badges={autoCategories.has(category.id) && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />}
+              hidden={{ locale, slug, id: category.id }}
+              fields={[{ name: "name", label: tCommon("name"), defaultValue: label(category.name), required: true, maxLength: 120 }]}
+              update={updateCategoryAction}
+              active={category.is_active}
+              toggle={setCategoryActiveAction}
+              remove={deleteCategoryAction}
+              deleteConfirm={tManage("deleteCategory", { name: label(category.name) })}
+            />
           ))}
         </ul>
       </section>

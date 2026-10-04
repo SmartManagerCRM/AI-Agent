@@ -1,5 +1,6 @@
 import { useTranslations } from "next-intl";
 
+import type { DisplayMoney } from "@/server/platform/display-currency";
 import type { VoiceAccount } from "@/server/platform/voice-account";
 
 type Usage = {
@@ -14,14 +15,12 @@ type Usage = {
   agentVoiceCharacters: number;
 };
 
-const usd = (v: number, digits = 2) => `$${v.toFixed(digits)}`;
-
 /**
  * One subscriber's spend this period, kept apart: the AI Agent (the only thing
  * the plan's AI cost cap covers) and the premium voice (ElevenLabs — reported
  * on its own, never part of the cap).
  */
-export function AiAndVoiceCosts({ usage, account, locale }: { usage: Usage; account: VoiceAccount; locale: string }) {
+export function AiAndVoiceCosts({ usage, account, locale, usd }: { usage: Usage; account: VoiceAccount; locale: string; usd: DisplayMoney["usd"] }) {
   const t = useTranslations("platform.costs");
   const metered = usage.isPaid || usage.isTrial;
   const aiUsed = metered ? usage.aiCostUsed : usage.agentAiCost;

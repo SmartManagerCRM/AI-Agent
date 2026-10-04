@@ -5,7 +5,9 @@ import { useActionState, useState } from "react";
 
 import { ActionIconForm, IconButton } from "@/components/catalog/item-controls";
 import { Button } from "@/components/console/button";
+import { ManageActionButton } from "@/components/console/managed-item";
 import { deleteCustomerAction, saveCustomerAction } from "@/server/customers/actions";
+import { setCustomerActiveAction } from "@/server/manage/actions";
 
 const input = "rounded-md border border-neutral-300 px-3 py-2";
 const hint = "text-xs font-normal text-slate-400";
@@ -100,6 +102,8 @@ export type CustomerListRow = {
   phone: string | null;
   birthday: string | null;
   notes: string | null;
+  /** Saved customers only: false once suspended. */
+  isActive?: boolean;
   orderCount: number;
   totalSpent: string;
   lastOrder: string | null;
@@ -113,7 +117,7 @@ const tCommon = useTranslations("common");
   const saved = row.customerId !== null;
   return (
     <>
-      <tr className="border-b border-slate-100 last:border-0" data-testid="customer-row">
+      <tr className={`border-b border-slate-100 last:border-0 ${row.isActive === false ? "bg-slate-50 text-slate-500" : ""}`} data-testid="customer-row">
         <td className="px-4 py-3">
           <div className="flex items-center gap-2 font-medium text-slate-900">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-500">
@@ -122,6 +126,9 @@ const tCommon = useTranslations("common");
             <span className="min-w-0">
               {row.name}
               {saved && <span className="ms-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">{t("saved")}</span>}
+              {row.isActive === false && (
+                <span className="ms-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{tCommon("suspended")}</span>
+              )}
               {row.notes && <span className="block truncate text-xs font-normal text-slate-500">{row.notes}</span>}
             </span>
           </div>
@@ -144,6 +151,14 @@ const tCommon = useTranslations("common");
             {saved ? (
               <>
                 <IconButton icon="edit" label={tCommon("edit")} onClick={() => setEditing((v) => !v)} />
+                <ManageActionButton
+                  action={setCustomerActiveAction}
+                  hidden={{ locale, slug, id: row.customerId!, value: row.isActive === false ? "true" : "false" }}
+                  icon={row.isActive === false ? "play" : "pause"}
+                  tone={row.isActive === false ? "emerald" : "amber"}
+                  label={row.isActive === false ? tCommon("activate") : tCommon("suspend")}
+                  testId="customer-toggle"
+                />
                 <ActionIconForm
                   action={deleteCustomerAction}
                   fields={{ locale, slug, customerId: row.customerId! }}

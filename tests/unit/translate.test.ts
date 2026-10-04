@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import { configuredServices, translateTexts } from "@/server/translate/engine";
 import { GLOSSARY_ENTRIES, glossaryTranslate } from "@/server/translate/glossary";
+import { fromHtml, parseKeepWords, protect, splitBilingual, termFromName } from "@/server/translate/keep";
 import { planRow, sourceHash, TRANSLATABLE } from "@/server/translate/queue";
 import { azureTranslate, deeplTranslate } from "@/server/translate/services";
 import type { ServiceOutcome } from "@/server/translate/types";
@@ -109,8 +110,9 @@ function service(provider: "azure_free" | "deepl_free" | "azure_paid" | "local",
   return {
     provider,
     limit,
-    translate: async (texts: string[]) => {
-      calls.push(`${provider}:${texts.join("|")}`);
+    markup: provider !== "local",
+    translate: async (texts: string[], _from: string, _to: string, html: boolean) => {
+      calls.push(`${provider}${html ? "(html)" : ""}:${texts.join("|")}`);
       return answer(texts);
     },
   };
@@ -217,3 +219,66 @@ describe("translation services", () => {
     expect(await deeplTranslate("abc:fx", ["Latte"], "en", "fr")).toEqual({ ok: false, reason: "quota" });
   });
 });
+
+describe("names already written in two languages", () => {
+  it("are split into their Arabic and Latin halves", () => {
+    expect(splitBilingual("مقبلات باردة / COLD APPETIZERS")).toEqual({ ar: "مقبلات باردة", latin: "COLD APPETIZERS" });
+    expect(splitBilingual("Breakfast | فطور")).toEqual({ ar: "فطور", latin: "Breakfast" });
+    expect(splitBilingual("Iced Latte - Large")).toBeNull();
+    expect(splitBilingual("شاي / قهوة")).toBeNull();
+  });
+
+  it("each language gets its own half; French is translated from the English half", () => {
+    const plan = planRow(TRANSLATABLE.categories, { id: "c1", name: { ar: "مقبلات باردة / COLD APPETIZERS" } }, []);
+    expect(plan.map((p) => `${p.to}:${p.from}:${p.text}:${p.preset ?? "-"}`).sort()).toEqual([
+      "en:ar:COLD APPETIZERS:COLD APPETIZERS",
+      "fr:en:COLD APPETIZERS:-",
+    ]);
+  });
+});
+
+describe("words kept as written", () => {
+  const khayal = parseKeepWords(["خيال = Khayal"]);
+
+  it("parses one term per line, with a spelling per script", () => {
+    expect(khayal).toEqual([{ forms: { ar: "خيال", en: "Khayal", fr: "Khayal" } }]);
+    expect(parseKeepWords(["Kunafa Nabulsia", "  ", "قهوة = Coffee = Café"])).toEqual([
+      { forms: { en: "Kunafa Nabulsia", fr: "Kunafa Nabulsia" } },
+      { forms: { ar: "قهوة", en: "Coffee", fr: "Café" } },
+    ]);
+    expect(termFromName({ en: "Khayal Restaurant", ar: "مطعم خيال" })).toEqual({ forms: { en: "Khayal Restaurant", ar: "مطعم خيال" } });
+  });
+
+  it("puts the target spelling in place, marked so the services leave it alone", () => {
+    const p = protect("شوربة خيال", "en", khayal);
+    expect(p.plain).toBe("شوربة Khayal");
+    expect(p.html).toBe('شوربة <span translate="no" class="notranslate">Khayal</span>');
+    expect(fromHtml('Khayal <span translate="no">Soup</span> &amp; bread')).toBe("Khayal Soup & bread");
+    // Whole words only: "خيالي" (imaginary) is not the name.
+    expect(protect("طبق خيالي", "en", khayal).plain).toBe("طبق خيالي");
+  });
+
+  it("a row whose text holds a kept word is redone when the list changes", () => {
+    const row = { id: "p1", name: { ar: "شوربة خيال" }, description: null };
+    const before = planRow(TRANSLATABLE.products, row, [])[0];
+    const after = planRow(TRANSLATABLE.products, row, [], khayal)[0];
+    expect(after.keep).toEqual(khayal);
+    expect(after.sourceHash).not.toBe(before.sourceHash);
+  });
+
+  it("services get HTML with the word marked; the local models get it already in place; a name that is only the word needs no service", async () => {
+    const calls: string[] = [];
+    const answer = (texts: string[]) => ({ ok: true as const, texts: texts.map(() => '<span translate="no" class="notranslate">Khayal</span> Soup') });
+    const out = await translateTexts(fakeDb() as never, [
+      { text: "شوربة خيال", from: "ar", to: "en", keep: khayal },
+      { text: "خيال", from: "ar", to: "fr", keep: khayal },
+    ], [service("azure_free", 2_000_000, answer, calls)]);
+    expect(out).toEqual([{ text: "Khayal Soup", provider: "azure_free" }, { text: "Khayal", provider: "glossary" }]);
+    expect(calls).toEqual(['azure_free(html):شوربة <span translate="no" class="notranslate">Khayal</span>']);
+    const local: string[] = [];
+    await translateTexts(fakeDb() as never, [{ text: "شوربة خيال", from: "ar", to: "en", keep: khayal }], [service("local", null, ok2, local)]);
+    expect(local).toEqual(["local:شوربة Khayal"]);
+  });
+});
+
+const ok2 = (texts: string[]) => ({ ok: true as const, texts });

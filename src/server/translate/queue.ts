@@ -5,7 +5,8 @@ import { createHash } from "node:crypto";
 import { after } from "next/server";
 
 import { configuredServices, translateTexts } from "./engine";
-import { CONTENT_LANGS, type ContentLang, type TranslationJob } from "./types";
+import { parseKeepWords, splitBilingual, termFromName, termsIn } from "./keep";
+import { CONTENT_LANGS, type ContentLang, type KeepTerm, type TranslationJob } from "./types";
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
@@ -61,10 +62,14 @@ function languagesOf(config: TableConfig, row: Row, field: string): Partial<Reco
   return values;
 }
 
-export type PlannedTranslation = TranslationJob & { field: string; expected: string | null; sourceHash: string };
+/** `preset`: known without translating (the other half of a name already written in two languages). */
+export type PlannedTranslation = TranslationJob & { field: string; expected: string | null; sourceHash: string; preset?: string };
 
-/** What a row needs translated (pure — tested in tests/unit/translate.test.ts). */
-export function planRow(config: TableConfig, row: Row, metas: Meta[]): PlannedTranslation[] {
+/**
+ * What a row needs translated (pure — tested in tests/unit/translate.test.ts).
+ * `keep`: words kept as written (the business name, the owner's list).
+ */
+export function planRow(config: TableConfig, row: Row, metas: Meta[], keep: KeepTerm[] = []): PlannedTranslation[] {
   const planned: PlannedTranslation[] = [];
   for (const field of config.fields) {
     const values = languagesOf(config, row, field);
@@ -79,7 +84,15 @@ export function planRow(config: TableConfig, row: Row, metas: Meta[]): PlannedTr
     const source = typed[0];
     if (!source) continue;
     const text = values[source]!;
-    const hash = sourceHash(source, text);
+    // "مقبلات باردة / COLD APPETIZERS": each half is that language's name already.
+    const split = splitBilingual(text);
+    const kept = termsIn(text, keep);
+    // What the translation depends on: the text, and how it is handled (so a change to either redoes it).
+    // Plain texts keep their earlier hash, so existing translations aren't redone for nothing.
+    const hash =
+      split || kept.length
+        ? sourceHash(source, [text, split ? "split" : "", kept.length ? JSON.stringify(kept.map((k) => k.forms)) : ""].join("\u0001"))
+        : sourceHash(source, text);
     for (const lang of CONTENT_LANGS) {
       if (lang === source || typed.includes(lang)) continue;
       const current = values[lang];
@@ -88,10 +101,36 @@ export function planRow(config: TableConfig, row: Row, metas: Meta[]): PlannedTr
         const meta = auto.get(lang)!;
         if (meta.source_hash === hash) continue; // up to date
       }
-      planned.push({ text, from: source, to: lang, field, expected: current ?? null, sourceHash: hash });
+      const base = { to: lang, field, expected: current ?? null, sourceHash: hash, keep: kept };
+      if (split && lang === "ar") planned.push({ ...base, text: split.ar, from: source, preset: split.ar });
+      else if (split && lang === "en") planned.push({ ...base, text: split.latin, from: source, preset: split.latin });
+      else if (split) planned.push({ ...base, text: split.latin, from: "en" });
+      else planned.push({ ...base, text, from: source });
     }
   }
   return planned;
+}
+
+/** A business's kept words (its name + its list in Settings), or the platform's name for platform texts. */
+async function keepTerms(supabase: TypedSupabaseClient, tenantId: string | null, cache: Map<string, KeepTerm[]>): Promise<KeepTerm[]> {
+  const key = tenantId ?? "platform";
+  const hit = cache.get(key);
+  if (hit) return hit;
+  let terms: KeepTerm[] = [];
+  if (tenantId) {
+    const [{ data: tenant }, { data: settings }] = await Promise.all([
+      supabase.from("tenants").select("business_name").eq("id", tenantId).maybeSingle(),
+      supabase.from("tenant_settings").select("translation").eq("tenant_id", tenantId).maybeSingle(),
+    ]);
+    const words = (settings?.translation as { keep_words?: unknown } | null)?.keep_words;
+    const name = termFromName(tenant?.business_name ?? null);
+    terms = [...(name ? [name] : []), ...parseKeepWords(Array.isArray(words) ? words.filter((w): w is string => typeof w === "string") : [])];
+  } else {
+    const { data } = await supabase.from("platform_settings").select("platform_name").eq("id", true).maybeSingle();
+    if (data?.platform_name) terms = parseKeepWords([data.platform_name]);
+  }
+  cache.set(key, terms);
+  return terms;
 }
 
 const RETRY_BASE_SECONDS = 15 * 60;
@@ -108,6 +147,7 @@ export async function processTranslationQueue(
 
   type Work = { job: (typeof jobs)[number]; planned: PlannedTranslation[] };
   const work: Work[] = [];
+  const keepCache = new Map<string, KeepTerm[]>(); // this run only
   const db = supabase as unknown as {
     from: (table: string) => {
       select: (cols: string) => { in: (col: string, values: string[]) => Promise<{ data: Row[] | null }> };
@@ -124,13 +164,17 @@ export async function processTranslationQueue(
     ]);
     for (const job of mine) {
       const row = (rows ?? []).find((r) => String(r[config.key]) === job.row_key);
-      work.push({ job, planned: row ? planRow(config, row, (metas ?? []).filter((m) => m.row_key === job.row_key)) : [] });
+      const keep = await keepTerms(supabase, job.tenant_id, keepCache);
+      work.push({ job, planned: row ? planRow(config, row, (metas ?? []).filter((m) => m.row_key === job.row_key), keep) : [] });
     }
   }
   for (const job of jobs.filter((j) => !TRANSLATABLE[j.table_name])) work.push({ job, planned: [] });
 
   const all = work.flatMap((w) => w.planned);
-  const results = all.length ? await translateTexts(supabase, all, options.services) : [];
+  const toTranslate = all.filter((p) => p.preset === undefined);
+  const translatedTexts = toTranslate.length ? await translateTexts(supabase, toTranslate, options.services) : [];
+  let next = 0;
+  const results = all.map((p) => (p.preset !== undefined ? { text: p.preset, provider: "split" as const } : translatedTexts[next++]));
   let translated = 0;
   let retried = 0;
   let offset = 0;

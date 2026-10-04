@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
-import { formatMoney } from "@/lib/money";
+import { displayMoney } from "@/server/platform/display-currency";
 import { getRecentPayments, getRevenueSummary } from "@/server/platform/revenue";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -48,8 +48,8 @@ export default async function PaymentsPage({
     ? await supabase.from("currencies").select("exponent").eq("code", summary.currency).maybeSingle()
     : { data: null };
   const exponent = currencyRow?.exponent ?? 2;
-  const money = (minor: number, currency?: string | null) =>
-    currency ? formatMoney(minor, currency, exponent, locale) : "—";
+  const dm = await displayMoney(supabase, locale);
+  const money = (minor: number, currency?: string | null) => (currency ? dm.money(minor, currency, exponent) : "—");
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
@@ -136,7 +136,7 @@ export default async function PaymentsPage({
                       )}
                     </td>
                     <td className="py-2 text-slate-600">{p.planLabel}</td>
-                    <td className="py-2 text-slate-600">{formatMoney(p.amountMinor, p.currency, exponent, locale)}</td>
+                    <td className="py-2 text-slate-600">{money(p.amountMinor, p.currency)}</td>
                     <td className="py-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[p.status]}`}

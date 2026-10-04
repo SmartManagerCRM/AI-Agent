@@ -1320,6 +1320,40 @@
       "body": "Cette page a rencontré un problème en chargeant vos données. C’est généralement temporaire — réessayez, et si cela persiste, prévenez-nous.",
       "reference": "Référence : {digest}",
       "retry": "Réessayer"
+    },
+    "keptWords": {
+      "title": "Traduction",
+      "intro": "Les noms que vous ajoutez sont traduits automatiquement dans les autres langues. Indiquez ici les mots à garder tels quels — votre marque et vos noms de plats — pour que « شوربة خيال » devienne « Soupe Khayal » et non « Soupe de fantaisie ».",
+      "placeholder": "خيال = Khayal\nKunafa Nabulsia",
+      "hint": "Un par ligne. Écrivez le même nom dans chaque langue avec « = », p. ex. « خيال = Khayal ». L’enregistrement retraduit les noms qui les contiennent.",
+      "save": "Enregistrer les mots"
+    },
+    "manage": {
+      "deleteCategory": "Supprimer la catégorie « {name} » ? Ses produits restent, sans catégorie.",
+      "deleteBranch": "Supprimer la succursale « {name} » ? Ses tables sont aussi supprimées.",
+      "makeDefault": "En faire la succursale principale",
+      "address": "Adresse",
+      "deliveryAddress": "Adresse de livraison",
+      "deleteOrder": "Supprimer définitivement la commande n° {number} ? Action irréversible. (Une commande payée peut seulement être annulée.)",
+      "editDetails": "Modifier les détails",
+      "label": "Libellé",
+      "deleteTable": "Supprimer la table « {name} » ? Son QR code ne fonctionnera plus.",
+      "deleteCoupon": "Supprimer le coupon {code} ? Les commandes qui l’ont utilisé gardent leur remise.",
+      "deleteLead": "Supprimer définitivement ce prospect ?",
+      "deleteBooking": "Supprimer définitivement cette réservation ? (Pour en garder une trace, annulez-la plutôt.)",
+      "deleteMember": "Supprimer le membre « {name} » ? Ses visites et paiements sont aussi supprimés.",
+      "removeStaff": "Retirer {name} de cette entreprise ? L’accès est retiré immédiatement.",
+      "remove": "Retirer",
+      "message": "Message",
+      "description": "Description",
+      "discountType": "Type de remise",
+      "percentage": "Pourcentage (%)",
+      "fixed": "Montant fixe",
+      "discountValue": "Remise",
+      "minOrder": "Commande minimum",
+      "usageLimit": "Limite d’utilisation",
+      "startsAt": "Début",
+      "endsAt": "Fin"
     }
   },
   "platform": {
@@ -2187,6 +2221,13 @@
       "translated": "{n, plural, =0 {Aucune traduction automatique pour l’instant.} one {# traduction automatique jusqu’ici.} other {# traductions automatiques jusqu’ici.}}",
       "translateMissing": "Traduire le contenu manquant maintenant",
       "keysHint": "Les services se configurent par variables d’environnement sur le serveur (voir DEPLOYMENT.md). Les clés ne sont jamais affichées ici."
+    },
+    "displayCurrency": {
+      "asRecorded": "Telles qu’enregistrées",
+      "asRecordedHint": "Chaque montant dans sa propre devise",
+      "buttonLabel": "Afficher les montants en : {name}",
+      "choose": "Afficher les montants en",
+      "hint": "Converti aux taux de change publics du jour, pour l’affichage uniquement — rien d’enregistré ne change."
     }
   },
   "agent": {
@@ -2825,7 +2866,10 @@
       "staff": "Équipe"
     },
     "autoTranslated": "Traduit automatiquement",
-    "autoTranslatedHint": "Traduit automatiquement — modifiez-le pour le corriger ; votre formulation sera alors conservée."
+    "autoTranslatedHint": "Traduit automatiquement — modifiez-le pour le corriger ; votre formulation sera alors conservée.",
+    "suspend": "Suspendre",
+    "activate": "Activer",
+    "suspended": "Suspendu"
   },
   "actions": {
     "reload": "Rechargez la page et réessayez.",
@@ -2942,7 +2986,9 @@
       "logoSaveFailed": "Le logo n’a pas pu être enregistré — veuillez réessayer.",
       "logoNoPermission": "Seul le propriétaire ou un admin peut changer le logo.",
       "logoSaved": "Logo enregistré — il s’affiche maintenant dans votre console et sur votre Agent.",
-      "logoRemoved": "Logo retiré."
+      "logoRemoved": "Logo retiré.",
+      "keptWordsFailed": "Impossible d’enregistrer les mots — veuillez réessayer.",
+      "keptWordsSaved": "{n, plural, =0 {Enregistré — aucun mot gardé.} one {Enregistré — # mot gardé ; les noms sont en cours de retraduction.} other {Enregistré — # mots gardés ; les noms sont en cours de retraduction.}}"
     },
     "agent": {
       "settingsFailed": "Impossible d’enregistrer les paramètres de l’Agent — veuillez réessayer.",
@@ -3150,6 +3196,17 @@
       "alreadyRegistered": "Un compte existe déjà avec cet e-mail — connectez-vous plutôt.",
       "weakPassword": "Ce mot de passe est trop faible — choisissez-en un plus long et moins courant.",
       "signUpFailed": "Impossible de créer le compte — veuillez réessayer."
+    },
+    "manage": {
+      "noPermission": "Vous ne pouvez pas modifier cet élément (pas d’autorisation ou il a été supprimé). Rechargez la page.",
+      "defaultBranch": "La succursale principale ne peut être ni suspendue ni supprimée — définissez d’abord une autre succursale comme principale.",
+      "activateFirst": "Activez cette succursale avant d’en faire la principale.",
+      "branchHasOrders": "Cette succursale a des commandes et ne peut pas être supprimée — suspendez-la plutôt.",
+      "paidOrder": "Une commande payée ne peut pas être supprimée — annulez-la plutôt.",
+      "owner": "Le propriétaire de l’entreprise ne peut être ni suspendu ni retiré.",
+      "failed": "Impossible d’enregistrer — veuillez réessayer.",
+      "email": "Saisissez une adresse e-mail valide.",
+      "deliveryAddress": "Une commande en livraison nécessite une adresse de livraison."
     }
   },
   "invite": {

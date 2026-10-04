@@ -2,7 +2,8 @@ import { CreateCouponForm } from "@/components/marketing/create-coupon-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { formatMoney } from "@/lib/money";
-import { toggleCouponAction } from "@/server/marketing/actions";
+import { ManageControls } from "@/components/console/managed-item";
+import { deleteCouponAction, setCouponActiveAction, updateCouponAction } from "@/server/manage/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
@@ -110,15 +111,42 @@ export default async function MarketingPage({ params }: { params: Promise<{ loca
                       </span>
                     </td>
                     <td className="py-2">
-                      <form action={toggleCouponAction}>
-                        <input type="hidden" name="couponId" value={coupon.id} />
-                        <input type="hidden" name="status" value={coupon.status === "active" ? "disabled" : "active"} />
-                        <input type="hidden" name="slug" value={slug} />
-                        <input type="hidden" name="locale" value={locale} />
-                        <button type="submit" className="text-xs font-medium text-slate-600 hover:underline">
-                          {coupon.status === "active" ? t("disable") : t("enable")}
-                        </button>
-                      </form>
+                      <ManageControls
+                        testId="coupon-controls"
+                        heading={coupon.code}
+                        hidden={{ locale, slug, id: coupon.id, currencyExponent: String(exponent) }}
+                        fields={[
+                          { name: "description", label: tAll("console.manage.description"), defaultValue: coupon.description, maxLength: 200 },
+                          {
+                            name: "discountType",
+                            label: tAll("console.manage.discountType"),
+                            type: "select",
+                            defaultValue: coupon.discount_type,
+                            options: [
+                              { value: "percentage", label: tAll("console.manage.percentage") },
+                              { value: "fixed", label: tAll("console.manage.fixed") },
+                            ],
+                          },
+                          {
+                            name: "discountValue",
+                            label: tAll("console.manage.discountValue"),
+                            type: "number",
+                            required: true,
+                            min: 0,
+                            step: "any",
+                            defaultValue: coupon.discount_type === "percentage" ? coupon.discount_value / 100 : coupon.discount_value / 10 ** exponent,
+                          },
+                          { name: "minOrderMajor", label: tAll("console.manage.minOrder"), type: "number", min: 0, step: "any", defaultValue: coupon.min_order_minor / 10 ** exponent },
+                          { name: "usageLimit", label: tAll("console.manage.usageLimit"), type: "number", min: 1, step: "1", defaultValue: coupon.usage_limit },
+                          { name: "startsAt", label: tAll("console.manage.startsAt"), type: "date", defaultValue: coupon.starts_at?.slice(0, 10) },
+                          { name: "endsAt", label: tAll("console.manage.endsAt"), type: "date", defaultValue: coupon.ends_at?.slice(0, 10) },
+                        ]}
+                        update={updateCouponAction}
+                        active={coupon.status === "active"}
+                        toggle={setCouponActiveAction}
+                        remove={deleteCouponAction}
+                        deleteConfirm={tAll("console.manage.deleteCoupon", { code: coupon.code })}
+                      />
                     </td>
                   </tr>
                 ))}

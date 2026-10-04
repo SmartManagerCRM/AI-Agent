@@ -7,6 +7,9 @@ import { Icon, NAV_ICON_PATHS, type NavIconKey } from "@/components/console/icon
 import { PlatformNav } from "@/components/console/platform-nav";
 import { NotificationCenter, SoundToggle } from "@/components/notifications/notification-center";
 import { PlatformAccountMenu } from "@/components/platform/account-menu";
+import { DisplayCurrencyBar } from "@/components/platform/display-currency-bar";
+import { MENA_CURRENCIES } from "@/lib/currencies";
+import { readDisplayCurrency } from "@/server/platform/display-currency";
 import { PlatformSearchForm } from "@/components/platform/search-form";
 import { signOutAction } from "@/server/auth/actions";
 import { notificationLabels } from "@/server/notifications/labels";
@@ -34,7 +37,7 @@ export default async function PlatformLayout({
   const supabase = await createUserClient();
   const t = await getTranslations("platform.shell");
 
-  const [{ data: profile }, alerts, { data: unchecked }] = await timed(
+  const [{ data: profile }, alerts, { data: unchecked }, { data: currencies }, displayCurrency] = await timed(
     "layout.superAdmin",
     Promise.all([
       user
@@ -43,9 +46,12 @@ export default async function PlatformLayout({
       getPlatformAlerts(supabase),
       // New subscribers no Super Admin has opened yet.
       supabase.rpc("unchecked_subscribers"),
+      supabase.from("currencies").select("code, name").order("code"),
+      readDisplayCurrency(),
     ]),
   );
   const uncheckedCount = (unchecked ?? []).length;
+  const currencyOptions = (currencies ?? []).map((c) => ({ code: c.code, name: c.name[locale] ?? c.name.en ?? c.code, mena: MENA_CURRENCIES.has(c.code) }));
   const name = profile?.full_name ?? profile?.email ?? user?.email ?? t("superAdmin");
 
   const groups: NavGroup[] = [
@@ -139,6 +145,7 @@ export default async function PlatformLayout({
             </div>
             <div className="flex shrink-0 items-center gap-3">
               <SoundToggle />
+              <DisplayCurrencyBar current={displayCurrency} options={currencyOptions} locale={locale} />
               <LocaleSwitcher locale={isLocale(locale) ? locale : "en"} />
               <PlatformAccountMenu locale={locale} name={name} alerts={alerts} />
             </div>

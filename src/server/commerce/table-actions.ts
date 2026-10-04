@@ -46,26 +46,3 @@ export async function createTableAction(
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/tables`);
 }
-
-const setActiveSchema = z.object({
-  tableId: z.uuid(),
-  value: z.enum(["true", "false"]),
-  locale: z.string(),
-  slug: z.string().min(1),
-});
-
-export async function setTableActiveAction(formData: FormData): Promise<void> {
-  const parsed = setActiveSchema.safeParse({
-    tableId: formData.get("tableId"),
-    value: formData.get("value"),
-    locale: formData.get("locale"),
-    slug: formData.get("slug"),
-  });
-  if (!parsed.success) return;
-
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
-  const supabase = await createUserClient();
-  await supabase.from("branch_tables").update({ is_active: parsed.data.value === "true" }).eq("id", parsed.data.tableId);
-
-  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/tables`);
-}

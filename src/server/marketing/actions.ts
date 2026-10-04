@@ -80,25 +80,3 @@ export async function createCouponAction(
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/marketing`);
 }
-
-const toggleCouponSchema = z.object({
-  couponId: z.uuid(),
-  status: z.enum(["active", "disabled"]),
-  slug: z.string().min(1),
-  locale: z.string(),
-});
-
-export async function toggleCouponAction(formData: FormData): Promise<void> {
-  const parsed = toggleCouponSchema.safeParse({
-    couponId: formData.get("couponId"),
-    status: formData.get("status"),
-    slug: formData.get("slug"),
-    locale: formData.get("locale"),
-  });
-  if (!parsed.success) return;
-
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
-  const supabase = await createUserClient();
-  await supabase.from("coupons").update({ status: parsed.data.status }).eq("id", parsed.data.couponId);
-  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/marketing`);
-}

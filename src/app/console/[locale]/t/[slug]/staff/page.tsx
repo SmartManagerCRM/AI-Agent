@@ -1,7 +1,9 @@
 import { InviteStaffForm } from "@/components/staff/invite-staff-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
-import { revokeInviteAction, setMemberStatusAction, updateMemberRoleAction } from "@/server/staff/actions";
+import { ManageControls } from "@/components/console/managed-item";
+import { removeStaffMemberAction, setStaffActiveAction } from "@/server/manage/actions";
+import { revokeInviteAction, updateMemberRoleAction } from "@/server/staff/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
@@ -126,19 +128,16 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                                 {t("change")}
                               </button>
                             </form>
-                            <form action={setMemberStatusAction}>
-                              <input type="hidden" name="memberId" value={member.id} />
-                              <input
-                                type="hidden"
-                                name="status"
-                                value={member.status === "active" ? "disabled" : "active"}
-                              />
-                              <input type="hidden" name="locale" value={locale} />
-                              <input type="hidden" name="slug" value={slug} />
-                              <button type="submit" className="text-xs font-medium text-slate-500 hover:underline">
-                                {member.status === "active" ? t("disable") : t("reenable")}
-                              </button>
-                            </form>
+                            <ManageControls
+                              testId="staff-controls"
+                              heading={profile?.full_name ?? profile?.email ?? ""}
+                              hidden={{ locale, slug, id: member.id }}
+                              active={member.status === "active"}
+                              toggle={setStaffActiveAction}
+                              remove={removeStaffMemberAction}
+                              removeLabel={tAll("console.manage.remove")}
+                              deleteConfirm={tAll("console.manage.removeStaff", { name: profile?.full_name ?? profile?.email ?? "" })}
+                            />
                           </div>
                         )}
                       </td>

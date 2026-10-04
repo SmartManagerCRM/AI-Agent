@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
-import { formatMoney } from "@/lib/money";
+import { displayMoney } from "@/server/platform/display-currency";
 import { getRecentSubscribers } from "@/server/platform/dashboard-stats";
 import { markAllSubscribersCheckedAction } from "@/server/platform/subscriber-checks";
 import { createUserClient } from "@/server/supabase/clients";
@@ -44,6 +44,7 @@ export default async function SubscribersPage({
   // New subscribers no Super Admin has opened yet (opening one checks it).
   const uncheckedSlugs = new Set((unchecked ?? []).map((u) => u.slug));
   const exponentByCode = new Map((currencies ?? []).map((c) => [c.code, c.exponent]));
+  const dm = await displayMoney(supabase, locale);
 
   const activeCount = subscribers.filter((s) => s.status === "active").length;
   const trialCount = subscribers.filter((s) => s.status === "trialing").length;
@@ -181,7 +182,7 @@ export default async function SubscribersPage({
                     </td>
                     <td className="py-2 text-slate-600">{new Date(s.joinedAt).toLocaleDateString(locale)}</td>
                     <td className="py-2 text-slate-600">
-                      {formatMoney(s.revenueMinor, s.currency, exponentByCode.get(s.currency) ?? 2, locale)}
+                      {dm.money(s.revenueMinor, s.currency, exponentByCode.get(s.currency) ?? 2)}
                     </td>
                     <td className="py-2 text-end">
                       <Link

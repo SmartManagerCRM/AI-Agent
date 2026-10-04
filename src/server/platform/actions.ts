@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
+import { DISPLAY_CURRENCY_COOKIE } from "@/server/platform/display-currency";
 
 /**
  * Super Admin actions (spec §98 Phase 9). Most of these are plain
@@ -269,4 +271,15 @@ export async function removePlatformAdminAction(formData: FormData): Promise<voi
   const supabase = await createUserClient();
   await supabase.rpc("remove_platform_admin", { p_user_id: parsed.data.userId });
   revalidatePath(`/${parsed.data.locale}/super-admin/admins`);
+}
+
+/** Super Admin header currency bar: which currency amounts are shown in (this viewer only). */
+export async function setDisplayCurrencyAction(code: string | null, locale: string): Promise<void> {
+  await requireSuperAdmin(locale);
+  const store = await cookies();
+  if (code && /^[A-Z]{3}$/.test(code)) {
+    store.set(DISPLAY_CURRENCY_COOKIE, code, { path: "/", sameSite: "lax", secure: process.env.NODE_ENV === "production", httpOnly: true, maxAge: 60 * 60 * 24 * 365 });
+  } else {
+    store.delete(DISPLAY_CURRENCY_COOKIE);
+  }
 }

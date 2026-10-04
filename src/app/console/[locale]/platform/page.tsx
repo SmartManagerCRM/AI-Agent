@@ -7,7 +7,7 @@ import { Icon, NAV_ICON_PATHS } from "@/components/console/icons";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { LineChart } from "@/components/charts/line-chart";
 import { Tabs, type Tab } from "@/components/console/tabs";
-import { formatMoney } from "@/lib/money";
+import { displayMoney } from "@/server/platform/display-currency";
 import {
   getGeographicDistribution,
   getPlatformGrowthSeries,
@@ -97,6 +97,9 @@ export default async function SuperAdminDashboard({
     ? await supabase.from("currencies").select("exponent").eq("code", kpis.monthlyRevenueCurrency).maybeSingle()
     : { data: null };
   const revenueExponent = currencyRow?.exponent ?? 2;
+  // Amounts in the header's display currency (as recorded when none is chosen).
+  const dm = await displayMoney(supabase, locale);
+  const revenueShown = dm.convert(0, kpis.monthlyRevenueCurrency ?? "USD", revenueExponent);
   const firstName = profile?.full_name?.split(" ")[0] ?? tAll("platform.shell.superAdmin");
   const status = overallHealth(health);
 
@@ -168,7 +171,7 @@ export default async function SuperAdminDashboard({
           label={t("kpi.revenue")}
           value={
             kpis.monthlyRevenueCurrency
-              ? formatMoney(kpis.monthlyRevenueMinor, kpis.monthlyRevenueCurrency, revenueExponent, locale)
+              ? dm.money(kpis.monthlyRevenueMinor, kpis.monthlyRevenueCurrency, revenueExponent)
               : "—"
           }
           trend={kpis.monthlyRevenueTrend}
@@ -206,14 +209,18 @@ export default async function SuperAdminDashboard({
           <div className="mt-3">
             {growthSeries.some((p) => p.count > 0) ? (
               <LineChart
-                data={growthSeries}
+                data={
+                  metric === "revenue"
+                    ? growthSeries.map((p) => ({ ...p, count: dm.convert(p.count, kpis.monthlyRevenueCurrency ?? "USD", revenueExponent).minor }))
+                    : growthSeries
+                }
                 label={t(`metric.${metric}`)}
                 format={
                   metric === "revenue"
                     ? {
                         kind: "currency",
-                        currency: kpis.monthlyRevenueCurrency ?? "USD",
-                        exponent: revenueExponent,
+                        currency: revenueShown.currency,
+                        exponent: revenueShown.exponent,
                         locale,
                       }
                     : { kind: "number" }
@@ -320,7 +327,7 @@ export default async function SuperAdminDashboard({
             </div>
             <div className="flex items-baseline justify-between">
               <dt className="text-slate-500">{t("aiCost")}</dt>
-              <dd className="text-lg font-semibold text-slate-900">${aiUsage.totalCostUsd.toFixed(4)}</dd>
+              <dd className="text-lg font-semibold text-slate-900">{dm.usd(aiUsage.totalCostUsd, 4)}</dd>
             </div>
           </dl>
         </section>

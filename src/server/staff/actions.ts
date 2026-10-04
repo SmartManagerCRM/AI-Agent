@@ -107,28 +107,6 @@ export async function updateMemberRoleAction(formData: FormData): Promise<void> 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
 }
 
-const statusSchema = z.object({
-  memberId: z.uuid(),
-  status: z.enum(["active", "disabled"]),
-  locale: z.string(),
-  slug: z.string().min(1),
-});
-
-export async function setMemberStatusAction(formData: FormData): Promise<void> {
-  const parsed = statusSchema.safeParse({
-    memberId: formData.get("memberId"),
-    status: formData.get("status"),
-    locale: formData.get("locale"),
-    slug: formData.get("slug"),
-  });
-  if (!parsed.success) return;
-
-  await requireTenantMember(parsed.data.locale, parsed.data.slug);
-  const supabase = await createUserClient();
-  await supabase.rpc("set_staff_member_status", { p_member_id: parsed.data.memberId, p_status: parsed.data.status });
-  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
-}
-
 const acceptSchema = z.object({ token: z.string().min(1), locale: z.string() });
 
 export type AcceptInviteState = string | undefined;

@@ -11,6 +11,8 @@ import { NewBookingForm } from "@/components/booking/new-booking-form";
 import { DecideBooking, WhatsAppButton } from "@/components/booking/booking-request-controls";
 import { bookingMessage, whatsappLink, whatsappNumber, type MessageLocale } from "@/lib/booking-whatsapp";
 import { cancelBookingAction, completeBookingAction } from "@/server/booking/actions";
+import { ManageControls } from "@/components/console/managed-item";
+import { deleteBookingAction, updateBookingDetailsAction } from "@/server/manage/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { autoTranslated } from "@/server/translate/marks";
@@ -52,6 +54,7 @@ export default async function BookingsPage({
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.bookings");
+  const tAll = await getTranslations();
 
   const now = new Date().toISOString();
   // Counts are exact (counted in Postgres), and the list is paged — every booking is reachable.
@@ -63,7 +66,7 @@ export default async function BookingsPage({
       .order("created_at"),
     supabase
       .from("bookings")
-      .select("id, service_id, customer_name, customer_phone, starts_at, ends_at, party_size, source, notes, status, customer_locale, created_at")
+      .select("id, service_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, source, notes, status, customer_locale, created_at")
       .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
       .order("id", { ascending: false })
@@ -330,6 +333,20 @@ export default async function BookingsPage({
                           </button>
                         </form>
                       )}
+                      <ManageControls
+                        testId="booking-controls"
+                        heading={`${serviceNameById.get(b.service_id) ?? ""} · ${day(b.starts_at)} ${clock(b.starts_at)}`}
+                        hidden={{ locale, slug, id: b.id }}
+                        fields={[
+                          { name: "name", label: tAll("common.name"), defaultValue: b.customer_name, maxLength: 120 },
+                          { name: "phone", label: tAll("common.phone"), type: "tel", defaultValue: b.customer_phone, maxLength: 40 },
+                          { name: "email", label: tAll("common.email"), type: "email", defaultValue: b.customer_email, maxLength: 200 },
+                          { name: "notes", label: tAll("common.notes"), type: "textarea", defaultValue: b.notes, maxLength: 1000 },
+                        ]}
+                        update={updateBookingDetailsAction}
+                        remove={deleteBookingAction}
+                        deleteConfirm={tAll("console.manage.deleteBooking")}
+                      />
                       </div>
                     </td>
                   </tr>

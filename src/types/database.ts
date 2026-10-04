@@ -140,6 +140,8 @@ export type Database = {
             tax_included: boolean;
           };
           ai_monthly_budget_usd: number | null;
+          /** Automatic translation: words kept as written ("خيال = Khayal"), one per entry. */
+          translation: { keep_words?: string[] };
           created_at: string;
           updated_at: string;
         };
@@ -529,6 +531,8 @@ export type Database = {
           /** Generated: how orders are matched to this customer. */
           email_key: string | null;
           phone_key: string | null;
+          /** Suspended customers stay on file but aren't offered when adding orders or bookings. */
+          is_active: boolean;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -541,7 +545,7 @@ export type Database = {
           birthday?: string | null;
           notes?: string | null;
         };
-        Update: { name?: string; phone?: string | null; email?: string | null; birthday?: string | null; notes?: string | null };
+        Update: { name?: string; phone?: string | null; email?: string | null; birthday?: string | null; notes?: string | null; is_active?: boolean };
         Relationships: [];
       };
       membership_plans: {
@@ -1262,6 +1266,29 @@ export type Database = {
       };
       settle_translation_characters: {
         Args: { p_provider: string; p_refund: number; p_exhausted: boolean };
+        Returns: undefined;
+      };
+      queue_tenant_translations: {
+        Args: { p_tenant_id: string };
+        Returns: number;
+      };
+      update_order_details: {
+        Args: {
+          p_order_id: string;
+          p_customer_name: string | null;
+          p_customer_phone: string | null;
+          p_customer_email: string | null;
+          p_delivery_address: string | null;
+          p_notes: string | null;
+        };
+        Returns: undefined;
+      };
+      delete_order: {
+        Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      remove_staff_member: {
+        Args: { p_member_id: string };
         Returns: undefined;
       };
       queue_all_translations: {

@@ -1,6 +1,6 @@
 import { DonutChart } from "@/components/console/donut-chart";
 import { KpiTile } from "@/components/console/kpi-tile";
-import { formatMoney } from "@/lib/money";
+import { displayMoney } from "@/server/platform/display-currency";
 import { getDeepAnalytics } from "@/server/platform/deep-analytics";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
@@ -27,6 +27,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
     ? await supabase.from("currencies").select("exponent").eq("code", analytics.arpuCurrency).maybeSingle()
     : { data: null };
   const exponent = currencyRow?.exponent ?? 2;
+  const dm = await displayMoney(supabase, locale);
 
   const segments = analytics.subscriptionsByStatus.map((s) => ({
     label: statusLabel(tAll, s.status),
@@ -56,7 +57,7 @@ export default async function AnalyticsPage({ params }: { params: Promise<{ loca
           accent="orange"
           label={t("arpu")}
           value={
-            analytics.arpuCurrency ? formatMoney(analytics.arpuMinor, analytics.arpuCurrency, exponent, locale) : "—"
+            analytics.arpuCurrency ? dm.money(analytics.arpuMinor, analytics.arpuCurrency, exponent) : "—"
           }
           trend={null}
           href={`/${locale}/super-admin/payments`}

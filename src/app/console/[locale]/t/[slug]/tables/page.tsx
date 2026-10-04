@@ -3,7 +3,8 @@ import QRCode from "qrcode";
 import { CreateTableForm } from "@/components/commerce/create-table-form";
 import { EmptyState } from "@/components/console/empty-state";
 import { publicAgentUrls } from "@/server/agent-public/urls";
-import { setTableActiveAction } from "@/server/commerce/table-actions";
+import { ManagedItem } from "@/components/console/managed-item";
+import { deleteTableAction, setTableActiveAction, updateTableAction } from "@/server/manage/actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { Msg } from "@/components/i18n/msg";
@@ -68,30 +69,29 @@ export default async function TablesPage({ params }: { params: Promise<{ locale:
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900"><Msg id="console.tables.yourTables" /></h2>
         {tablesWithQr.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="table-list">
             {tablesWithQr.map((t) => (
-              <div
+              <ManagedItem
                 key={t.id}
-                className="flex flex-col items-center gap-2 rounded-lg border border-slate-100 p-3 text-center"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
-                <img src={t.qrDataUrl} alt={tr("qrAlt", { label: t.label })} width={120} height={120} />
-                <p className="text-sm font-medium text-slate-900">
-                  {tr("table", { label: t.label })}{" "}
-                  <span className="font-normal text-slate-400">— {branchNameById.get(t.branch_id)}</span>
-                </p>
-                <form action={setTableActiveAction}>
-                  <input type="hidden" name="tableId" value={t.id} />
-                  <input type="hidden" name="value" value={(!t.is_active).toString()} />
-                  <input type="hidden" name="locale" value={locale} />
-                  <input type="hidden" name="slug" value={slug} />
-                  <button type="submit" className="text-xs font-medium text-emerald-600 hover:underline">
-                    {t.is_active ? tAll("common.active") : tAll("common.inactive")}
-                  </button>
-                </form>
-              </div>
+                testId="table-row"
+                title={tr("table", { label: t.label })}
+                details={
+                  <div className="flex flex-col items-start gap-2">
+                    <span>{branchNameById.get(t.branch_id)}</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a data: URI generated locally by the `qrcode` package, not a project asset */}
+                    <img src={t.qrDataUrl} alt={tr("qrAlt", { label: t.label })} width={120} height={120} />
+                  </div>
+                }
+                hidden={{ locale, slug, id: t.id }}
+                fields={[{ name: "label", label: tAll("console.manage.label"), defaultValue: t.label, required: true, maxLength: 40 }]}
+                update={updateTableAction}
+                active={t.is_active}
+                toggle={setTableActiveAction}
+                remove={deleteTableAction}
+                deleteConfirm={tAll("console.manage.deleteTable", { name: t.label })}
+              />
             ))}
-          </div>
+          </ul>
         ) : (
           <EmptyState title={tr("emptyTitle")} description={tr("emptyDescription")} />
         )}

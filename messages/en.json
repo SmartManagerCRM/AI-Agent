@@ -1320,6 +1320,40 @@
       "body": "This page hit a problem loading your data. It’s usually temporary — try again, and if it keeps happening let us know.",
       "reference": "Reference: {digest}",
       "retry": "Try again"
+    },
+    "keptWords": {
+      "title": "Translation",
+      "intro": "Names you add are translated into the other languages automatically. List here the words to keep as written — your brand and dish names — so “شوربة خيال” becomes “Khayal Soup”, not “Fantasy soup”.",
+      "placeholder": "خيال = Khayal\nKunafa Nabulsia",
+      "hint": "One per line. Write the same name in each language with “=”, e.g. “خيال = Khayal”. Saving re-translates the names that contain them.",
+      "save": "Save words"
+    },
+    "manage": {
+      "deleteCategory": "Delete the category “{name}”? Its products stay, without a category.",
+      "deleteBranch": "Delete the branch “{name}”? Its tables are deleted too.",
+      "makeDefault": "Make it the main branch",
+      "address": "Address",
+      "deliveryAddress": "Delivery address",
+      "deleteOrder": "Delete order #{number} permanently? This can’t be undone. (A paid order can only be cancelled.)",
+      "editDetails": "Edit details",
+      "label": "Label",
+      "deleteTable": "Delete the table “{name}”? Its QR code will stop working.",
+      "deleteCoupon": "Delete the coupon {code}? Orders that used it keep their discount.",
+      "deleteLead": "Delete this lead permanently?",
+      "deleteBooking": "Delete this booking permanently? (To keep a record, cancel it instead.)",
+      "deleteMember": "Delete the member “{name}”? Their visits and payments are deleted too.",
+      "removeStaff": "Remove {name} from this business? They lose access right away.",
+      "remove": "Remove",
+      "message": "Message",
+      "description": "Description",
+      "discountType": "Discount type",
+      "percentage": "Percentage (%)",
+      "fixed": "Fixed amount",
+      "discountValue": "Discount",
+      "minOrder": "Minimum order",
+      "usageLimit": "Usage limit",
+      "startsAt": "Starts",
+      "endsAt": "Ends"
     }
   },
   "platform": {
@@ -2187,6 +2221,13 @@
       "translated": "{n, plural, =0 {No automatic translations yet.} one {# automatic translation so far.} other {# automatic translations so far.}}",
       "translateMissing": "Translate missing content now",
       "keysHint": "Services are set up with environment variables on the server (see DEPLOYMENT.md). Keys are never shown here."
+    },
+    "displayCurrency": {
+      "asRecorded": "As recorded",
+      "asRecordedHint": "Each amount in its own currency",
+      "buttonLabel": "Show amounts in: {name}",
+      "choose": "Show amounts in",
+      "hint": "Converted at today’s public exchange rates, for viewing only — nothing stored changes."
     }
   },
   "agent": {
@@ -2825,7 +2866,10 @@
       "staff": "Staff"
     },
     "autoTranslated": "Auto-translated",
-    "autoTranslatedHint": "Translated automatically — edit it to correct it; your wording is then kept."
+    "autoTranslatedHint": "Translated automatically — edit it to correct it; your wording is then kept.",
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "suspended": "Suspended"
   },
   "actions": {
     "reload": "Reload the page and try again.",
@@ -2942,7 +2986,9 @@
       "logoSaveFailed": "The logo couldn’t be saved — please try again.",
       "logoNoPermission": "Only the business owner or an admin can change the logo.",
       "logoSaved": "Logo saved — it now shows in your console and on your Agent.",
-      "logoRemoved": "Logo removed."
+      "logoRemoved": "Logo removed.",
+      "keptWordsFailed": "Could not save the words — please try again.",
+      "keptWordsSaved": "{n, plural, =0 {Saved — no words kept.} one {Saved — # word kept; names are being re-translated.} other {Saved — # words kept; names are being re-translated.}}"
     },
     "agent": {
       "settingsFailed": "Couldn’t save Agent settings — please try again.",
@@ -3150,6 +3196,17 @@
       "alreadyRegistered": "An account with this email already exists — sign in instead.",
       "weakPassword": "This password is too weak — choose a longer, less common one.",
       "signUpFailed": "Could not create the account — please try again."
+    },
+    "manage": {
+      "noPermission": "You can’t change this item (no permission, or it was removed). Reload the page.",
+      "defaultBranch": "The main branch can’t be suspended or deleted — make another branch the main one first.",
+      "activateFirst": "Activate this branch before making it the main one.",
+      "branchHasOrders": "This branch has orders, so it can’t be deleted — suspend it instead.",
+      "paidOrder": "A paid order can’t be deleted — cancel it instead.",
+      "owner": "The business owner can’t be suspended or removed.",
+      "failed": "This couldn’t be saved — please try again.",
+      "email": "Enter a valid email address.",
+      "deliveryAddress": "A delivery order needs a delivery address."
     }
   },
   "invite": {

@@ -2,6 +2,7 @@ import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { ManualOrders } from "@/components/commerce/manual-orders";
+import { OrderControls } from "@/components/commerce/order-controls";
 import { NewOrderBadge } from "@/components/notifications/notification-center";
 import { SearchInput } from "@/components/console/search-input";
 import { StatusPill } from "@/components/console/status-pill";
@@ -68,7 +69,7 @@ export default async function OrdersPage({
   };
   let query = supabase
     .from("orders")
-    .select("id, order_number, status, fulfillment_type, customer_name, total_minor, currency, placed_at, created_via")
+    .select("id, order_number, status, fulfillment_type, customer_name, customer_phone, customer_email, delivery_address, notes, total_minor, currency, placed_at, created_via")
     .eq("tenant_id", tenant.id)
     .order("placed_at", { ascending: false })
     .order("id", { ascending: false })
@@ -192,7 +193,7 @@ export default async function OrdersPage({
                       {statusLabel(tAll, latestPaymentByOrder.get(order.id)?.status)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {(NEXT_STATUSES[order.status] ?? []).map((next) => (
                           <form key={next} action={updateOrderStatusAction}>
                             <input type="hidden" name="orderId" value={order.id} />
@@ -225,6 +226,20 @@ export default async function OrdersPage({
                             </form>
                           );
                         })()}
+                        <OrderControls
+                          locale={locale}
+                          slug={slug}
+                          order={{
+                            id: order.id,
+                            number: order.order_number,
+                            name: order.customer_name ?? "",
+                            phone: order.customer_phone ?? "",
+                            email: order.customer_email ?? "",
+                            address: (order.delivery_address as { formatted?: string } | null)?.formatted ?? "",
+                            notes: order.notes ?? "",
+                            delivery: order.fulfillment_type === "delivery",
+                          }}
+                        />
                       </div>
                     </td>
                   </tr>

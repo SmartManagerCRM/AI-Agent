@@ -4,6 +4,9 @@ import type { ContentLang, ServiceOutcome } from "./types";
 
 /**
  * Machine-translation services (no AI): Microsoft Azure Translator and DeepL.
+ * With `html`, the texts are HTML and words wrapped in
+ * `<span translate="no" class="notranslate">` are left as they are (both
+ * services honour it) — how brand and dish names are kept.
  * Keys are server-side only (environment) and are never logged or sent
  * anywhere but the service itself; only the texts to translate leave.
  */
@@ -16,12 +19,13 @@ export async function azureTranslate(
   texts: string[],
   from: ContentLang,
   to: ContentLang,
+  options: { html?: boolean } = {},
 ): Promise<ServiceOutcome> {
   const headers: Record<string, string> = { "Ocp-Apim-Subscription-Key": credentials.key, "Content-Type": "application/json" };
   if (credentials.region) headers["Ocp-Apim-Subscription-Region"] = credentials.region;
   let res: Response;
   try {
-    res = await fetch(`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${from}&to=${to}&textType=plain`, {
+    res = await fetch(`https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${from}&to=${to}&textType=${options.html ? "html" : "plain"}`, {
       method: "POST",
       headers,
       body: JSON.stringify(texts.map((text) => ({ Text: text }))),
@@ -45,14 +49,19 @@ const DEEPL_SOURCE: Record<ContentLang, string> = { en: "EN", ar: "AR", fr: "FR"
 const DEEPL_TARGET: Record<ContentLang, string> = { en: "EN-US", ar: "AR", fr: "FR" };
 
 /** DeepL API (Free keys end in ":fx" and use the free endpoint). */
-export async function deeplTranslate(key: string, texts: string[], from: ContentLang, to: ContentLang): Promise<ServiceOutcome> {
+export async function deeplTranslate(key: string, texts: string[], from: ContentLang, to: ContentLang, options: { html?: boolean } = {}): Promise<ServiceOutcome> {
   const host = key.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
   let res: Response;
   try {
     res = await fetch(`${host}/v2/translate`, {
       method: "POST",
       headers: { Authorization: `DeepL-Auth-Key ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ text: texts, source_lang: DEEPL_SOURCE[from], target_lang: DEEPL_TARGET[to] }),
+      body: JSON.stringify({
+        text: texts,
+        source_lang: DEEPL_SOURCE[from],
+        target_lang: DEEPL_TARGET[to],
+        ...(options.html ? { tag_handling: "html" } : {}),
+      }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch {

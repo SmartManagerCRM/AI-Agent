@@ -6,6 +6,7 @@ import { jobReasonLabel } from "@/lib/i18n-labels";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
+import { displayMoney } from "@/server/platform/display-currency";
 
 const LEVEL_STYLE: Record<string, string> = {
   info: "bg-slate-300",
@@ -39,6 +40,7 @@ export default async function IngestionJobPage({ params }: { params: Promise<{ l
   const { data: tenant } = await supabase.from("tenants").select("slug, business_name").eq("id", job.tenant_id).maybeSingle();
 
   const total = Number(job.google_cost_usd) + Number(job.ai_cost_usd);
+  const { usd } = await displayMoney(supabase, locale);
   const warnings = Array.isArray(job.warnings) ? (job.warnings as string[]) : [];
   const errors = Array.isArray(job.errors) ? (job.errors as { step: string; message: string }[]) : [];
   const duration =
@@ -77,10 +79,10 @@ export default async function IngestionJobPage({ params }: { params: Promise<{ l
           [t("c.facts"), String(job.facts_proposed)],
           [t("c.conflicts"), String(job.conflicts_detected)],
           [t("c.sources"), String(job.sources_processed)],
-          [t("c.google"), `${job.google_calls} · $${Number(job.google_cost_usd).toFixed(4)}`],
-          [t("c.ai"), `${job.ai_calls} · $${Number(job.ai_cost_usd).toFixed(4)}`],
+          [t("c.google"), `${job.google_calls} · ${usd(Number(job.google_cost_usd), 4)}`],
+          [t("c.ai"), `${job.ai_calls} · ${usd(Number(job.ai_cost_usd), 4)}`],
           [t("c.tokens"), `${job.ai_input_tokens.toLocaleString(locale)} / ${job.ai_output_tokens.toLocaleString(locale)}`],
-          [t("c.total"), `$${total.toFixed(4)} / $${Number(job.budget_usd).toFixed(2)}`],
+          [t("c.total"), `${usd(total, 4)} / ${usd(Number(job.budget_usd))}`],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
             <p className="text-xs text-slate-500">{label}</p>
@@ -145,7 +147,7 @@ export default async function IngestionJobPage({ params }: { params: Promise<{ l
                       {c.input_tokens} / {c.output_tokens}
                     </td>
                     <td className="py-1.5 text-slate-600">{c.latency_ms !== null ? t("ms", { n: c.latency_ms }) : "—"}</td>
-                    <td className="py-1.5 text-slate-600">${Number(c.estimated_cost_usd).toFixed(5)}</td>
+                    <td className="py-1.5 text-slate-600">{usd(Number(c.estimated_cost_usd), 5)}</td>
                     <td className={`py-1.5 ${c.success ? "text-emerald-700" : "text-red-600"}`}>{c.success ? t("ok") : (c.error_message ?? t("failed"))}</td>
                   </tr>
                 ))}
