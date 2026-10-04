@@ -645,6 +645,28 @@ Without the three variables, subscription payments use the built-in test
 checkout (no money involved). Paddle's signed webhooks are the only thing that
 marks a plan paid, renewed, past due or cancelled.
 
+Once any Paddle variable is set, the test checkout is gone for good: if the
+keys are incomplete or mismatched (a sandbox key with a live token), the
+Billing page says online payments aren't set up yet — it never falls back to
+a checkout that could mark a plan paid without money.
+
+### Going live (sandbox → live)
+
+1. In Paddle **live**: finish business verification, and get the website
+   (`ai-agent.smartmanager.me`) approved — live checkouts open only then.
+2. Repeat steps 1–3 above in the live dashboard: an API key (`pdl_live_…`),
+   a client-side token (`live_…`), a notification destination (same URL and
+   events; its secret key is the new `PADDLE_WEBHOOK_SECRET`) and the default
+   payment link.
+3. In hPanel, replace **all three** `PADDLE_*` values with the live ones in one
+   save (sandbox vs live is read from the keys).
+4. In the sandbox, deactivate the old notification destination (its events
+   would be refused anyway — they're signed with the sandbox secret).
+
+Subscriptions paid in the sandbox don't exist in the live account: Paddle
+answers `not_found` for them, so the Billing page doesn't offer to manage them
+and subscribing opens a new live checkout. Its payment replaces the old link.
+
 ## Subscription emails (support@smartmanager.me)
 
 The business owner gets an email, in their language (English, Arabic or

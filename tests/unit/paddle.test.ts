@@ -1,7 +1,7 @@
 import { Webhooks } from "@paddle/paddle-node-sdk";
 import { describe, expect, it } from "vitest";
 
-import { readPaddleConfig } from "@/server/billing/paddle/config";
+import { paddleKeysPresent, readPaddleConfig } from "@/server/billing/paddle/config";
 import { paddleAction } from "@/server/billing/paddle/events";
 import { PADDLE_CURRENCIES, checkoutItem, planChangeItem } from "@/server/billing/paddle/prices";
 import { signPaddleBody, verifyPaddleSignature } from "@/server/billing/paddle/signature";
@@ -23,6 +23,12 @@ describe("Paddle settings", () => {
       ok: false,
       reason: "mismatch",
     });
+  });
+  it("a key set means Paddle is meant to take payments (so no test checkout), even if the keys don't work", () => {
+    expect(paddleKeysPresent({})).toBe(false);
+    expect(paddleKeysPresent({ PADDLE_API_KEY: " " })).toBe(false);
+    expect(paddleKeysPresent({ PADDLE_WEBHOOK_SECRET: SECRET })).toBe(true);
+    expect(paddleKeysPresent({ PADDLE_API_KEY: "pdl_sdbx_apikey_abc", PADDLE_CLIENT_TOKEN: "live_abc", PADDLE_WEBHOOK_SECRET: SECRET })).toBe(true);
   });
   it("falls back to the client token for an older API key", () => {
     const result = readPaddleConfig({ PADDLE_API_KEY: "0123456789abcdef0123", PADDLE_CLIENT_TOKEN: "test_abc", PADDLE_WEBHOOK_SECRET: SECRET });

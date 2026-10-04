@@ -28,6 +28,14 @@ export type BillingResult<T = object> = ({ ok: true } & T) | { ok: false; reason
 
 const PLAN_COLUMNS = "key, name, price_minor, currency, billing_interval";
 
+/**
+ * Paddle doesn't know this subscription or customer: it belongs to another
+ * Paddle account — e.g. one made in the sandbox, after switching to live.
+ * The link is then ignored (a new checkout makes a new one, replacing it).
+ * Paddle answers 404 `not_found` (https://developer.paddle.com/errors/shared/not_found).
+ */
+export const notInThisPaddleAccount = (error: unknown) => error instanceof ApiError && error.code === "not_found";
+
 function logPaddleError(operation: string, error: unknown) {
   // Paddle's error code only — never request bodies or customer details.
   console.error(`[paddle] ${operation} failed:`, error instanceof ApiError ? `${error.code} (${error.type})` : error instanceof Error ? error.name : "error");
@@ -88,9 +96,19 @@ export async function startPaddleCheckout(
   if (error || !payment) return { ok: false, reason: error?.code === "42501" ? "noPermission" : "failed" };
 
   try {
-    const transaction = await paddleClient(config).transactions.create({
+    const paddle = paddleClient(config);
+    let customerId = current.paddle_customer_id ?? undefined;
+    if (customerId) {
+      try {
+        await paddle.customers.get(customerId);
+      } catch (err) {
+        if (!notInThisPaddleAccount(err)) throw err;
+        customerId = undefined;
+      }
+    }
+    const transaction = await paddle.transactions.create({
       items: [checkoutItem(plan)],
-      customerId: current.paddle_customer_id ?? undefined,
+      customerId,
       customData: { tenant_id: tenantId, plan_key: plan.key, subscription_payment_id: payment.payment_id },
     });
     const { error: recordError } = await serviceClient().rpc("record_subscription_payment_provider_intent", {
@@ -124,6 +142,7 @@ export async function changePaddlePlan(supabase: TypedSupabaseClient, tenantId: 
     await applyFromPaddle(sub);
     return { ok: true };
   } catch (err) {
+    if (notInThisPaddleAccount(err)) return { ok: false, reason: "noSubscription" };
     logPaddleError("subscriptions.update", err);
     return { ok: false, reason: "failed" };
   }
@@ -141,6 +160,7 @@ export async function cancelPaddleSubscription(supabase: TypedSupabaseClient, te
     await applyFromPaddle(sub);
     return { ok: true };
   } catch (err) {
+    if (notInThisPaddleAccount(err)) return { ok: false, reason: "noSubscription" };
     logPaddleError("subscriptions.cancel", err);
     return { ok: false, reason: "failed" };
   }
@@ -158,8 +178,27 @@ export async function resumePaddleSubscription(supabase: TypedSupabaseClient, te
     await applyFromPaddle(sub);
     return { ok: true };
   } catch (err) {
+    if (notInThisPaddleAccount(err)) return { ok: false, reason: "noSubscription" };
     logPaddleError("subscriptions.update", err);
     return { ok: false, reason: "failed" };
+  }
+}
+
+/**
+ * Whether a linked Paddle subscription exists in this Paddle account (the
+ * Billing page shows its renewal and management only then). Unsure (Paddle
+ * unreachable) counts as yes.
+ */
+export async function paddleSubscriptionKnown(subscriptionId: string): Promise<boolean> {
+  const config = paddleConfig();
+  if (!config) return false;
+  try {
+    await paddleClient(config).subscriptions.get(subscriptionId);
+    return true;
+  } catch (err) {
+    if (notInThisPaddleAccount(err)) return false;
+    logPaddleError("subscriptions.get", err);
+    return true;
   }
 }
 
@@ -177,6 +216,7 @@ export async function paddlePortalUrl(supabase: TypedSupabaseClient, tenantId: s
     );
     return { ok: true, url: session.urls.general.overview };
   } catch (err) {
+    if (notInThisPaddleAccount(err)) return { ok: false, reason: "noSubscription" };
     logPaddleError("customerPortalSessions.create", err);
     return { ok: false, reason: "failed" };
   }

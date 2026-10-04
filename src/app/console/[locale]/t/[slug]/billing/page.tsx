@@ -4,6 +4,7 @@ import { daysUntil } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { cancelSubscriptionAction, manageBillingAction, resumeSubscriptionAction, subscribeAction } from "@/server/billing/actions";
 import { paddleConfig } from "@/server/billing/paddle/client";
+import { paddleSubscriptionKnown } from "@/server/billing/paddle/subscriptions";
 import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { createUserClient } from "@/server/supabase/clients";
@@ -61,7 +62,12 @@ export default async function BillingPage({
       ? await loadSubscriberUsage(supabase, tenant.id)
       : null;
   // A plan renewing through Paddle: switching plans changes it (pro rata) rather than starting a new checkout.
-  const renewing = paddleOn && !!subscription?.paddle_subscription_id && (subscription.status === "active" || subscription.status === "past_due");
+  // (Only if this Paddle account knows it — a sandbox subscription doesn't exist once Paddle is live.)
+  const renewing =
+    paddleOn &&
+    !!subscription?.paddle_subscription_id &&
+    (subscription.status === "active" || subscription.status === "past_due") &&
+    (await paddleSubscriptionKnown(subscription.paddle_subscription_id));
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
   const notice = PADDLE_NOTICES.find((n) => n === paddleNotice);
   const manageFields = { locale, slug };

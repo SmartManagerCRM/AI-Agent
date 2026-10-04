@@ -30,6 +30,15 @@ function fromClientToken(token: string): PaddleEnvironmentName | null {
   return null;
 }
 
+/**
+ * Whether any Paddle key is set. Then Paddle is meant to take payments, so a
+ * missing or mismatched key must stop payments, never fall back to the
+ * built-in test checkout (which can mark a plan paid without money).
+ */
+export function paddleKeysPresent(env: { PADDLE_API_KEY?: string; PADDLE_CLIENT_TOKEN?: string; PADDLE_WEBHOOK_SECRET?: string }): boolean {
+  return !!(env.PADDLE_API_KEY?.trim() || env.PADDLE_CLIENT_TOKEN?.trim() || env.PADDLE_WEBHOOK_SECRET?.trim());
+}
+
 export function readPaddleConfig(env: {
   PADDLE_API_KEY?: string;
   PADDLE_CLIENT_TOKEN?: string;

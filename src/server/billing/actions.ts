@@ -9,7 +9,7 @@ import { mockPaymentProvider, signMockWebhookPayload } from "@/server/payments/m
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 
-import { paddleConfig } from "./paddle/client";
+import { paddleConfig, paddleIntended } from "./paddle/client";
 import {
   cancelPaddleSubscription,
   changePaddlePlan,
@@ -52,12 +52,15 @@ export async function subscribeAction(formData: FormData): Promise<void> {
     if (renewsThroughPaddle(current?.[0] ?? null)) {
       const changed = await changePaddlePlan(supabase, tenant.id, parsed.data.planKey);
       if (changed.ok) sendSubscriptionEmailsSoon();
-      redirect(`${billing}?paddle=${changed.ok ? "planChanged" : changed.reason}`);
+      // "noSubscription": the linked one isn't in this Paddle account (e.g. a sandbox one after going live) — subscribe anew.
+      if (changed.ok || changed.reason !== "noSubscription") redirect(`${billing}?paddle=${changed.ok ? "planChanged" : changed.reason}`);
     }
     const checkout = await startPaddleCheckout(supabase, tenant.id, parsed.data.planKey);
     if (!checkout.ok) redirect(`${billing}?paddle=${checkout.reason}`);
     redirect(`${billing}/pay/${checkout.paymentId}`);
   }
+  // Paddle keys set but not usable (missing or mismatched): no payments — never the test checkout.
+  if (paddleIntended()) redirect(`${billing}?paddle=notConfigured`);
 
   const result = await initiateSubscriptionPayment(supabase, parsed.data.tenantId, parsed.data.planKey);
   if (!result.ok) return;
@@ -118,8 +121,8 @@ export async function simulateMockSubscriptionPaymentAction(formData: FormData):
     slug: formData.get("slug"),
   });
   if (!parsed.success) return;
-  // Once real payments (Paddle) are set up, the test checkout can never mark a plan paid.
-  if (paddleConfig()) return;
+  // Once real payments (Paddle) are set up — even misconfigured — the test checkout can never mark a plan paid.
+  if (paddleIntended()) return;
 
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();

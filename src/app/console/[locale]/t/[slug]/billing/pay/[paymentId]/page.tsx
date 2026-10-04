@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PaddleCheckout } from "@/components/billing/paddle-checkout";
 import { formatMoney } from "@/lib/money";
 import { simulateMockSubscriptionPaymentAction } from "@/server/billing/actions";
-import { paddleConfig } from "@/server/billing/paddle/client";
+import { paddleConfig, paddleIntended } from "@/server/billing/paddle/client";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireTenantMember } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
@@ -70,7 +70,7 @@ export default async function SubscriptionPayPage({
         />
       )}
 
-      {payment.status === "pending" && payment.provider === "mock" && !paddle && (
+      {payment.status === "pending" && payment.provider === "mock" && !paddleIntended() && (
         <div className="flex flex-col items-center gap-3">
           <p className="max-w-xs text-xs text-neutral-400">
             {t("test")}
