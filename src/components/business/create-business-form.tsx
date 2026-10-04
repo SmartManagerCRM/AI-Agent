@@ -23,7 +23,7 @@ type Props = {
 // The tenant's console/web address (its slug) is a system-generated
 // identifier, not something the subscriber types during onboarding — the
 // server derives it from the business name and guarantees it's unique
-// (see generateUniqueSlug in src/server/business/actions.ts). It was
+// (see generateUniqueSlug in src/server/business/slug.ts). It was
 // previously a manually-typed field here, labeled "Console URL" in the
 // translations, which conflated "pick an identifier" with "type the
 // platform's own console address" and led people to type a real URL into

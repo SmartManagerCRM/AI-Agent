@@ -73,7 +73,7 @@ export const requireTenantMember = cache(async (locale: string, slug: string) =>
   // RLS already scopes this to tenants the user belongs to (or Super Admin);
   // a null result here means "not found or not a member" — never distinguish
   // the two to an unauthenticated caller.
-  if (!tenant) redirect(`/${locale}`);
+  if (!tenant) redirect(`/${locale}/subscriber`);
 
   const memberships = await myTenantMemberships();
   const membership = memberships.find((m) => m.tenant_id === tenant.id);
@@ -90,12 +90,12 @@ export const requireTenantMember = cache(async (locale: string, slug: string) =>
     return { tenant, membership: null, impersonating: true as const };
   }
 
-  redirect(grant ? `/${locale}/super-admin/businesses/${slug}` : `/${locale}`);
+  redirect(grant ? `/${locale}/super-admin/businesses/${slug}` : `/${locale}/subscriber`);
 });
 
 export const requireSuperAdmin = cache(async (locale: string) => {
   const user = await requireUser(locale);
-  if (!(await isSuperAdmin(user.id))) redirect(`/${locale}`);
+  if (!(await isSuperAdmin(user.id))) redirect(`/${locale}/subscriber`);
   return user;
 });
 

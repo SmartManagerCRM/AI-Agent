@@ -34,7 +34,8 @@ function localeOrDefault(value: FormDataEntryValue | null): string {
 function safeRedirectTarget(locale: string, redirectTo: string | undefined): string {
   // Browsers read "/\host" like "//host", so a backslash anywhere is refused too.
   if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") && !redirectTo.includes("\\")) return redirectTo;
-  return `/${locale}`;
+  // The console's entry (it sends the owner to their business). `/${locale}` alone is the public website's home.
+  return `/${locale}/subscriber`;
 }
 
 export async function signInAction(_prevState: string | undefined, formData: FormData): Promise<string | undefined> {

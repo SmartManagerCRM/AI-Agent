@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { isValidTimeZone } from "@/lib/timezone";
 import { bucketWriter, normalizeImage } from "@/server/catalog/product-images";
-import { generateUniqueSlug } from "@/server/business/slug";
+import { withFreeSlug } from "@/server/business/slug";
 import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
@@ -45,15 +45,15 @@ export async function createBusinessAction(
   if (!parsed.success) return (await actionT(formData.get("locale")))("checkFields");
 
   const supabase = await createUserClient();
-  const slug = await generateUniqueSlug(supabase, parsed.data.businessName);
-
-  const { error } = await supabase.rpc("create_business", {
-    p_business_name: { [parsed.data.defaultLanguage]: parsed.data.businessName },
-    p_business_type_key: parsed.data.businessTypeKey,
-    p_slug: slug,
-    p_default_language: parsed.data.defaultLanguage,
-    p_currency: parsed.data.currency,
-  });
+  const { slug, error } = await withFreeSlug(supabase, parsed.data.businessName, (candidate) =>
+    supabase.rpc("create_business", {
+      p_business_name: { [parsed.data.defaultLanguage]: parsed.data.businessName },
+      p_business_type_key: parsed.data.businessTypeKey,
+      p_slug: candidate,
+      p_default_language: parsed.data.defaultLanguage,
+      p_currency: parsed.data.currency,
+    }),
+  );
   if (error) return (await actionT(parsed.data.locale))("business.createFailed");
   sendSubscriptionEmailsSoon();
 

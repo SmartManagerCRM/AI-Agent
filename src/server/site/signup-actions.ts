@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { consoleOrigin } from "@/lib/hosts";
-import { generateUniqueSlug } from "@/server/business/slug";
+import { withFreeSlug } from "@/server/business/slug";
 import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { serverEnv } from "@/server/env";
 import { isRateLimited } from "@/server/shared/rate-limit";
@@ -72,18 +72,19 @@ async function errors(locale: Locale) {
 
 /** Creates the business on its plan; returns null when done, else an error message key. */
 async function createBusiness(supabase: TypedSupabaseClient, fullName: string, p: PendingSignup): Promise<string | null> {
-  const slug = await generateUniqueSlug(supabase, p.business_name);
-  const { error } = await supabase.rpc("create_business", {
-    p_business_name: { [p.locale]: p.business_name },
-    p_business_type_key: p.business_type,
-    p_slug: slug,
-    p_default_language: p.locale,
-    p_currency: p.currency,
-    p_plan_key: p.plan,
-    p_country: p.country,
-    p_contact_phone: p.phone || undefined,
-    p_owner_name: fullName,
-  });
+  const { error } = await withFreeSlug(supabase, p.business_name, (slug) =>
+    supabase.rpc("create_business", {
+      p_business_name: { [p.locale]: p.business_name },
+      p_business_type_key: p.business_type,
+      p_slug: slug,
+      p_default_language: p.locale,
+      p_currency: p.currency,
+      p_plan_key: p.plan,
+      p_country: p.country,
+      p_contact_phone: p.phone || undefined,
+      p_owner_name: fullName,
+    }),
+  );
   if (error) return error.code === "22023" ? "planUnavailable" : "createFailed";
   sendSubscriptionEmailsSoon();
   return null;
