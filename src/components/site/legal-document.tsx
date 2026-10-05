@@ -32,7 +32,7 @@ export async function LegalDocument({ locale, doc, info }: { locale: Locale; doc
         <div className="mx-auto max-w-[860px] px-4 py-12 sm:px-6 sm:py-16">
           <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">{tc("eyebrow")}</p>
           <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-[#0c1a33] sm:text-[2.6rem]">{t("title")}</h1>
-          {doc !== "about" && <p className="mt-3 text-sm text-slate-500">{tc("updated", { date: new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date("2026-10-04")) })}</p>}
+          {doc !== "about" && <p className="mt-3 text-sm text-slate-500">{tc("updated", { date: new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date("2026-10-05")) })}</p>}
           <p className="mt-5 text-lg leading-relaxed text-[#33415c]">{t("intro", values)}</p>
         </div>
       </header>

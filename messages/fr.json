@@ -1372,10 +1372,7 @@
       "cancel": "Résilier l’abonnement",
       "cancelConfirm": "Résilier votre abonnement ? Il reste actif jusqu’au {date} et ne sera pas renouvelé.",
       "resume": "Conserver mon abonnement",
-      "switch": "Passer à ce forfait",
-      "switchConfirm": "Passer au forfait {plan} ? La différence de prix pour le reste de la période est facturée (ou créditée) maintenant.",
       "notice": {
-        "planChanged": "Votre forfait a été modifié.",
         "canceled": "Votre abonnement est résilié — il reste actif jusqu’à la fin de la période payée.",
         "resumed": "Votre abonnement sera renouvelé normalement.",
         "notConfigured": "Les paiements en ligne ne sont pas encore configurés.",
@@ -1383,7 +1380,42 @@
         "plan": "Ce forfait n’est pas disponible.",
         "currency": "La devise de ce forfait ne peut pas encore être payée en ligne — contactez-nous.",
         "noSubscription": "Aucun abonnement actif à gérer.",
-        "failed": "Le service de paiement a rencontré une erreur — veuillez réessayer."
+        "failed": "Le service de paiement a rencontré une erreur — veuillez réessayer.",
+        "upgraded": "Paiement reçu — votre formule est mise à niveau.",
+        "downgradeScheduled": "Votre changement de formule est programmé : il prendra effet au début de votre prochain cycle de facturation.",
+        "downgradeCanceled": "Vous conservez votre formule actuelle.",
+        "paymentDeclined": "Le paiement a été refusé : votre formule n'a pas changé.",
+        "changePending": "Annulez d'abord le changement programmé (ou la résiliation), puis choisissez une autre formule.",
+        "wrongDirection": "Ce changement de formule n'a pas pu être effectué ici — veuillez choisir à nouveau la formule ci-dessous."
+      },
+      "upgrade": "Passer à cette formule",
+      "downgrade": "Passer à cette formule",
+      "downgradeConfirm": "Passer à la formule {plan} ? Vous conservez votre formule actuelle jusqu'au {date}, et votre prochain cycle de facturation commence avec {plan}. Aucun remboursement ni avoir n'est accordé pour le reste de la période en cours.",
+      "scheduled": "Votre formule passera à {plan} le {date}. D'ici là, vous conservez {current}.",
+      "keepPlan": "Conserver ma formule actuelle",
+      "blockedScheduled": "Un changement de formule est déjà programmé. Conservez d'abord votre formule actuelle pour en choisir une autre.",
+      "blockedCanceled": "Votre abonnement est résilié à la fin de la période. Conservez d'abord votre abonnement pour changer de formule.",
+      "rules": "Les passages à une formule supérieure s'appliquent immédiatement : la différence de prix pour le reste de la période en cours est facturée maintenant, au prorata, et le changement prend effet dès que ce paiement est accepté. Les passages à une formule inférieure prennent effet au prochain cycle de facturation (mensuel ou annuel), sans remboursement pour le reste de la période en cours.",
+      "refundPolicy": "Politique de remboursement",
+      "change": {
+        "title": "Passer à la formule {plan}",
+        "from": "Formule actuelle",
+        "to": "Nouvelle formule",
+        "credit": "Crédit pour la partie non utilisée de votre formule actuelle",
+        "charge": "Nouvelle formule pour le reste de la période",
+        "dueNow": "Facturé maintenant (taxes comprises)",
+        "until": "Couvre la période jusqu'au {date} ; ensuite votre formule est renouvelée à {price}.",
+        "method": "Le montant est prélevé sur le moyen de paiement enregistré. Pour payer avec une autre carte ou un autre moyen de paiement, mettez-le d'abord à jour, puis revenez sur cette page.",
+        "otherMethod": "Utiliser un autre moyen de paiement",
+        "pay": "Payer {amount} et changer de formule",
+        "onlyIfPaid": "Votre formule n'est changée qu'une fois ce paiement accepté. S'il est refusé, rien ne change.",
+        "back": "Retour à la facturation",
+        "declined": "Votre moyen de paiement a été refusé : votre formule n'a pas changé. Mettez à jour votre moyen de paiement, puis réessayez.",
+        "confirming": "Paiement en cours…",
+        "cycle": {
+          "month": "Mensuelle",
+          "year": "Annuelle"
+        }
       }
     }
   },
@@ -1593,7 +1625,8 @@
         "invited": "Abonnement créé. Le propriétaire a reçu un lien de support@smartmanager.me pour choisir son mot de passe.",
         "inviteFailed": "Abonnement créé, mais l’e-mail du mot de passe n’a pas pu être envoyé. Demandez au propriétaire d’écrire à support@smartmanager.me pour un nouveau lien.",
         "existing": "Abonnement créé pour le compte existant avec cet e-mail — le propriétaire se connecte comme d’habitude."
-      }
+      },
+      "scheduledDowngrade": "Changement de formule programmé par l'abonné : {plan} à partir du prochain cycle de facturation ({date}). Paddle facturera {plan} lors de ce renouvellement."
     },
     "costs": {
       "aiTitle": "Coût de l’Agent IA",
@@ -3605,7 +3638,7 @@
         },
         "changePlan": {
           "q": "Puis-je changer de formule ?",
-          "a": "Oui. Passez à une formule supérieure ou inférieure à tout moment depuis la page Facturation — la différence est facturée ou créditée au prorata."
+          "a": "Oui, depuis la page Facturation. Le passage à une formule supérieure s'applique immédiatement : la différence de prix pour le reste de votre période de facturation est facturée au prorata, et le changement prend effet dès que ce paiement est accepté. Le passage à une formule inférieure prend effet au prochain cycle de facturation, sans remboursement de la période en cours."
         }
       }
     },
@@ -3729,41 +3762,49 @@
           },
           "s4": {
             "title": "Abonnements et paiements",
-            "body": "Les formules sont facturées d’avance, chaque mois ou chaque année, aux prix indiqués sur la page Tarifs. Notre processus de commande est assuré par notre revendeur en ligne Paddle.com, Merchant of Record de toutes nos commandes, qui gère paiements, taxes, factures et questions de facturation.\nLes abonnements se renouvellent automatiquement à la fin de chaque période jusqu’à leur résiliation. En cas de changement de formule, la différence est facturée ou créditée au prorata."
+            "body": "Les formules sont facturées d'avance, mensuellement ou annuellement, aux prix indiqués sur la page Tarifs. Notre processus de commande est assuré par notre revendeur en ligne Paddle.com, qui est le Merchant of Record de toutes nos commandes et gère les paiements, les taxes, les factures et les demandes liées à la facturation.\nLes abonnements sont renouvelés automatiquement à la fin de chaque période de facturation jusqu'à leur résiliation."
           },
           "s5": {
-            "title": "Résiliation",
-            "body": "Vous pouvez résilier à tout moment depuis la page Facturation. Votre formule reste active jusqu’à la fin de la période payée, sans aucun autre prélèvement. Les remboursements relèvent de notre Politique de remboursement."
+            "title": "Passage à une formule supérieure ou inférieure",
+            "body": "Le passage à une formule supérieure prend effet immédiatement. Lorsque vous passez à une formule supérieure (ou d'une formule mensuelle à la formule annuelle du même niveau), la différence de prix pour le reste de la période de facturation en cours est calculée au prorata et prélevée immédiatement sur votre moyen de paiement enregistré, ou sur un autre moyen de paiement de votre choix. Le changement ne prend effet qu'une fois ce paiement accepté ; si le paiement échoue, votre formule ne change pas.\nLe passage à une formule inférieure prend effet au prochain cycle de facturation. Lorsque vous passez à une formule inférieure (ou d'une formule annuelle à une formule mensuelle), vous conservez votre formule actuelle jusqu'à la fin de la période de facturation déjà payée, mensuelle ou annuelle. Aucun remboursement ni avoir n'est accordé pour le reste de cette période, et votre prochain cycle de facturation commence — et est facturé — avec la nouvelle formule. Vous pouvez annuler un changement programmé depuis la page Facturation avant qu'il ne prenne effet."
           },
           "s6": {
+            "title": "Résiliation",
+            "body": "Vous pouvez résilier à tout moment depuis la page Facturation. Votre formule reste active jusqu'à la fin de la période payée, et rien de plus n'est prélevé. Aucun remboursement n'est accordé pour le reste de cette période — voir notre Politique de remboursement."
+          },
+          "s7": {
             "title": "Utilisation raisonnable",
             "body": "Chaque formule comprend un nombre de conversations clients par période, indiqué sur la page Tarifs. Pour garantir la fiabilité du Service pour tous, l’usage de l’IA est soumis à des limites raisonnables ; nous vous prévenons à l’approche de celles-ci."
           },
-          "s7": {
+          "s8": {
             "title": "Vos contenus et vos clients",
             "body": "Vous restez propriétaire des contenus que vous ajoutez — menus, produits, prix, photos et textes — et vous nous autorisez à les héberger, traiter et afficher pour fournir le Service. Vous êtes responsable de leur exactitude et de leur licéité, de l’exécution de vos commandes et réservations, ainsi que de vos propres conditions et remboursements envers vos clients."
           },
-          "s8": {
+          "s9": {
+            "title": "Activités, produits et services interdits",
+            "body": "{product} et {company} n'acceptent pas les entreprises qui vendent des boissons alcoolisées, des produits du tabac, ou tout produit ou service interdit par les lois locales ou internationales. Vous ne pouvez pas utiliser le Service — y compris l'Agent IA, le catalogue, les commandes, les réservations et les paiements — pour les proposer, les promouvoir ou les vendre.\n{product} et {company} disposent du plein droit de suspendre et de bloquer tout compte d'abonnement qui enfreint cette règle, et de supprimer le contenu concerné."
+          },
+          "s10": {
             "title": "Usage acceptable",
             "body": "N’utilisez pas le Service à des fins illégales, nuisibles ou trompeuses ; n’essayez pas d’accéder aux données d’autres entreprises, de perturber le Service, ni de le copier ou de le rétro-concevoir."
           },
-          "s9": {
+          "s11": {
             "title": "Disponibilité et évolutions",
             "body": "Nous veillons à la disponibilité et à la sécurité du Service, sans pouvoir garantir qu’il soit ininterrompu. Nous pouvons faire évoluer ses fonctionnalités et vous informerons de toute modification importante des présentes Conditions avant son entrée en vigueur."
           },
-          "s10": {
+          "s12": {
             "title": "Responsabilité",
             "body": "Dans les limites permises par la loi, le Service est fourni « en l’état » et nous ne sommes pas responsables des pertes indirectes ou consécutives. Notre responsabilité totale est limitée aux montants payés au cours des 12 mois précédant la réclamation."
           },
-          "s11": {
-            "title": "Suspension et clôture",
-            "body": "Vous pouvez fermer votre compte à tout moment. Nous pouvons suspendre ou fermer un compte qui enfreint ces Conditions, après préavis lorsque c’est possible."
+          "s13": {
+            "title": "Suspension et fermeture",
+            "body": "Vous pouvez fermer votre compte à tout moment. Nous pouvons suspendre ou fermer un compte qui enfreint les présentes Conditions — immédiatement dans le cas des activités, produits et services interdits décrits ci-dessus, et après préavis lorsque c'est possible dans les autres cas. Aucun remboursement n'est accordé pour un compte suspendu ou bloqué."
           },
-          "s12": {
+          "s14": {
             "title": "Droit applicable",
             "body": "Les présentes Conditions sont régies par le droit de {country} et relèvent des tribunaux compétents de {country}, sans préjudice des protections impératives des consommateurs qui vous sont applicables."
           },
-          "s13": {
+          "s15": {
             "title": "Contact",
             "body": "Des questions sur ces Conditions ? Écrivez à {supportEmail} ou {contactEmail}."
           }
@@ -3773,29 +3814,37 @@
         "metaTitle": "Politique de remboursement — SmartManager AI Agent",
         "metaDescription": "Résiliations et remboursements des abonnements SmartManager AI Agent.",
         "title": "Politique de remboursement",
-        "intro": "Nous voulons que {product} vous satisfasse. Cette politique explique les résiliations et remboursements des abonnements à {product}, fourni par {company}.",
+        "intro": "Cette politique explique le fonctionnement des remboursements pour les abonnements à {product}, fourni par {company}.",
         "sections": {
           "s1": {
-            "title": "Essayez d’abord gratuitement",
-            "body": "Chaque formule commence par un essai gratuit : vous testez {product} avant de payer. Rien n’est prélevé pendant l’essai."
+            "title": "Essai gratuit de 7 jours",
+            "body": "Chaque formule commence par un essai gratuit de 7 jours, pour que vous puissiez essayer {product} pleinement avant de payer quoi que ce soit. Rien n'est prélevé pendant l'essai."
           },
           "s2": {
-            "title": "Satisfait ou remboursé pendant 14 jours",
-            "body": "Si vous n’êtes pas satisfait, vous pouvez demander le remboursement intégral de votre premier paiement pour une formule dans les 14 jours suivant ce paiement."
+            "title": "Pas de remboursement des abonnements payés",
+            "body": "Parce que nous offrons un essai gratuit de 7 jours, et parce qu'un compte payant (après passage à une formule payante ou supérieure) a déjà utilisé et consommé des services d'IA, nous ne remboursons pas les paiements d'abonnement — premier paiement, renouvellements et passages à une formule supérieure.\nLa seule exception est un problème critique causé par {product} lui-même. Dans ce cas, vous pouvez demander un remboursement comme indiqué ci-dessous."
           },
           "s3": {
-            "title": "Renouvellements",
-            "body": "Vous pouvez résilier à tout moment avant la date de renouvellement pour éviter le prélèvement suivant. Si un abonnement annuel a été renouvelé sans que vous souhaitiez le garder, contactez-nous dans les 14 jours suivant le prélèvement et nous le rembourserons intégralement. Les renouvellements mensuels ne sont pas remboursés une fois le nouveau mois commencé, sauf obligation légale."
+            "title": "Renouvellements et résiliation",
+            "body": "Les abonnements sont renouvelés automatiquement. Vous pouvez résilier à tout moment avant la date de renouvellement depuis la page Facturation pour éviter le prochain prélèvement ; votre formule reste active jusqu'à la fin de la période déjà payée. Aucun remboursement n'est accordé pour le reste de cette période."
           },
           "s4": {
-            "title": "Changements de formule",
-            "body": "En cas de montée en gamme, la différence pour le reste de la période est facturée au prorata. En cas de descente en gamme, elle est créditée au prorata sur vos prochains paiements."
+            "title": "Passage à une formule inférieure",
+            "body": "Le passage à une formule inférieure prend effet au prochain cycle de facturation, mensuel ou annuel. Vous conservez votre formule actuelle jusqu'à la fin de la période de facturation en cours, aucun remboursement ni avoir n'est accordé pour le reste de cette période, et votre prochain cycle de facturation commence avec la nouvelle formule."
           },
           "s5": {
-            "title": "Demander un remboursement",
-            "body": "Écrivez à {supportEmail} depuis l’adresse e-mail de votre compte en indiquant le nom de votre entreprise. Les remboursements sont effectués par Paddle, notre Merchant of Record, sur votre moyen de paiement d’origine — généralement sous 5 à 10 jours ouvrés."
+            "title": "Passage à une formule supérieure",
+            "body": "Le passage à une formule supérieure prend effet immédiatement. La différence de prix pour le reste de la période de facturation en cours est calculée au prorata et prélevée immédiatement sur votre moyen de paiement enregistré, ou sur un autre moyen de paiement de votre choix. Le changement ne prend effet qu'une fois ce paiement accepté."
           },
           "s6": {
+            "title": "Comment demander un remboursement",
+            "body": "Envoyez votre demande de remboursement à notre adresse d'assistance, {supportEmail}, depuis l'adresse e-mail de votre compte, avec le nom de votre entreprise et une description du problème. Vous recevrez une réponse sous 48 heures. Les remboursements acceptés sont effectués par Paddle, notre Merchant of Record, sur votre moyen de paiement d'origine."
+          },
+          "s7": {
+            "title": "Comptes suspendus ou bloqués",
+            "body": "Les comptes suspendus ou bloqués pour non-respect de nos Conditions d'utilisation — y compris les entreprises qui vendent de l'alcool, du tabac ou d'autres produits ou services interdits par les lois locales ou internationales — ne sont pas remboursés."
+          },
+          "s8": {
             "title": "Les paiements de vos clients",
             "body": "Les commandes et paiements entre votre entreprise et vos propres clients relèvent de votre responsabilité ; cette politique ne couvre que votre abonnement {product}."
           }

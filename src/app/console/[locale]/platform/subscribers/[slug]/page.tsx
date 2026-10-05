@@ -57,7 +57,7 @@ export default async function EditSubscriberPage({
   ] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("plan_key, status, trial_ends_at, current_period_start, current_period_end, conversation_limit_override")
+      .select("plan_key, status, trial_ends_at, current_period_start, current_period_end, conversation_limit_override, scheduled_plan_key, scheduled_change_at")
       .eq("tenant_id", tenant.id)
       .maybeSingle(),
     supabase.from("subscription_plans").select("key, name, is_active, conversation_limit").order("sort_order"),
@@ -172,6 +172,17 @@ export default async function EditSubscriberPage({
 
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("subscription")}</h2>
+        {subscription?.scheduled_plan_key && subscription.scheduled_change_at && (
+          <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900" data-testid="admin-scheduled-change">
+            {t("scheduledDowngrade", {
+              plan: (() => {
+                const next = (plans ?? []).find((p) => p.key === subscription.scheduled_plan_key);
+                return next?.name[locale] ?? next?.name.en ?? subscription.scheduled_plan_key;
+              })(),
+              date: new Date(subscription.scheduled_change_at).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" }),
+            })}
+          </p>
+        )}
         {subscription ? (
           <SubscriptionEditForm
             locale={locale}

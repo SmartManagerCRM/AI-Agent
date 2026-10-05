@@ -11,12 +11,15 @@ import { requireTenantMember } from "@/server/tenant/context";
 
 import { paddleConfig, paddleIntended } from "./paddle/client";
 import {
+  cancelPaddleDowngrade,
   cancelPaddleSubscription,
-  changePaddlePlan,
   paddlePortalUrl,
+  planChangeDirectionFor,
   renewsThroughPaddle,
   resumePaddleSubscription,
+  schedulePaddleDowngrade,
   startPaddleCheckout,
+  upgradePaddlePlan,
 } from "./paddle/subscriptions";
 import { processSubscriptionProviderWebhook } from "./webhook";
 import { initiateSubscriptionPayment } from "./service";
@@ -31,8 +34,9 @@ const subscribeSchema = z.object({
 /**
  * Starts a subscription payment for the chosen plan and sends the owner to its
  * checkout page. With Paddle set up: a Paddle checkout — or, for a plan already
- * renewing through Paddle, a plan change (charged pro rata). Without it: the
- * built-in test checkout.
+ * renewing through Paddle, a plan change: an upgrade goes to its confirmation
+ * page (the pro-rata amount charged now), a downgrade is scheduled for the
+ * next billing cycle. Without it: the built-in test checkout.
  */
 export async function subscribeAction(formData: FormData): Promise<void> {
   const parsed = subscribeSchema.safeParse({
@@ -49,11 +53,15 @@ export async function subscribeAction(formData: FormData): Promise<void> {
 
   if (paddleConfig()) {
     const { data: current } = await supabase.rpc("paddle_billing_subscription", { p_tenant_id: tenant.id });
-    if (renewsThroughPaddle(current?.[0] ?? null)) {
-      const changed = await changePaddlePlan(supabase, tenant.id, parsed.data.planKey);
-      if (changed.ok) sendSubscriptionEmailsSoon();
+    const sub = current?.[0] ?? null;
+    if (sub && renewsThroughPaddle(sub)) {
+      const direction = await planChangeDirectionFor(supabase, sub.plan_key, parsed.data.planKey);
+      if (direction === "same") redirect(billing);
+      if (direction === "upgrade") redirect(`${billing}/change/${encodeURIComponent(parsed.data.planKey)}`);
+      const scheduled = await schedulePaddleDowngrade(supabase, tenant.id, parsed.data.planKey);
+      if (scheduled.ok) sendSubscriptionEmailsSoon();
       // "noSubscription": the linked one isn't in this Paddle account (e.g. a sandbox one after going live) — subscribe anew.
-      if (changed.ok || changed.reason !== "noSubscription") redirect(`${billing}?paddle=${changed.ok ? "planChanged" : changed.reason}`);
+      if (scheduled.ok || scheduled.reason !== "noSubscription") redirect(`${billing}?paddle=${scheduled.ok ? "downgradeScheduled" : scheduled.reason}`);
     }
     const checkout = await startPaddleCheckout(supabase, tenant.id, parsed.data.planKey);
     if (!checkout.ok) redirect(`${billing}?paddle=${checkout.reason}`);
@@ -66,6 +74,29 @@ export async function subscribeAction(formData: FormData): Promise<void> {
   if (!result.ok) return;
 
   redirect(`/${parsed.data.locale}/${parsed.data.slug}/${result.checkoutPath}`);
+}
+
+/**
+ * The upgrade's confirmation page → "Pay and upgrade": the pro-rata difference
+ * is charged to the payment method on file; the plan changes only if it is paid.
+ */
+export async function confirmUpgradeAction(formData: FormData): Promise<void> {
+  const parsed = subscribeSchema.omit({ tenantId: true }).safeParse({
+    planKey: formData.get("planKey"),
+    locale: formData.get("locale"),
+    slug: formData.get("slug"),
+  });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const billing = `/${parsed.data.locale}/${parsed.data.slug}/billing`;
+  const result = await upgradePaddlePlan(supabase, tenant.id, parsed.data.planKey);
+  if (result.ok) {
+    sendSubscriptionEmailsSoon();
+    redirect(`${billing}?paddle=upgraded`);
+  }
+  if (result.reason === "paymentDeclined") redirect(`${billing}/change/${encodeURIComponent(parsed.data.planKey)}?declined=1`);
+  redirect(`${billing}?paddle=${result.reason}`);
 }
 
 const manageSchema = z.object({ locale: z.string(), slug: z.string().min(1) });
@@ -96,6 +127,17 @@ export async function resumeSubscriptionAction(formData: FormData): Promise<void
 
 export async function manageBillingAction(formData: FormData): Promise<void> {
   await manage(formData, "portal");
+}
+
+/** Withdraws a scheduled downgrade: the current plan renews as it is. */
+export async function keepCurrentPlanAction(formData: FormData): Promise<void> {
+  const parsed = manageSchema.safeParse({ locale: formData.get("locale"), slug: formData.get("slug") });
+  if (!parsed.success) return;
+  const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const result = await cancelPaddleDowngrade(supabase, tenant.id);
+  if (result.ok) sendSubscriptionEmailsSoon();
+  redirect(`/${parsed.data.locale}/${parsed.data.slug}/billing?paddle=${result.ok ? "downgradeCanceled" : result.reason}`);
 }
 
 const simulateSchema = z.object({

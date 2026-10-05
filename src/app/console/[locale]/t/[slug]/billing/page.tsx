@@ -1,8 +1,17 @@
+import Link from "next/link";
+
 import { ConfirmForm } from "@/components/billing/confirm-submit";
 import { Button } from "@/components/console/button";
+import { planChangeDirection, type PlanForChange } from "@/lib/billing/plan-change";
 import { daysUntil } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
-import { cancelSubscriptionAction, manageBillingAction, resumeSubscriptionAction, subscribeAction } from "@/server/billing/actions";
+import {
+  cancelSubscriptionAction,
+  keepCurrentPlanAction,
+  manageBillingAction,
+  resumeSubscriptionAction,
+  subscribeAction,
+} from "@/server/billing/actions";
 import { paddleConfig } from "@/server/billing/paddle/client";
 import { paddleSubscriptionKnown } from "@/server/billing/paddle/subscriptions";
 import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
@@ -28,7 +37,23 @@ const STATUS_STYLE: Record<string, string> = {
  * SECURITY DEFINER function scopes the write" split every other console
  * page in this app already uses.
  */
-const PADDLE_NOTICES = ["planChanged", "canceled", "resumed", "notConfigured", "noPermission", "plan", "currency", "noSubscription", "failed"] as const;
+const PADDLE_NOTICES = [
+  "upgraded",
+  "downgradeScheduled",
+  "downgradeCanceled",
+  "canceled",
+  "resumed",
+  "notConfigured",
+  "noPermission",
+  "plan",
+  "currency",
+  "noSubscription",
+  "failed",
+  "paymentDeclined",
+  "changePending",
+  "wrongDirection",
+] as const;
+const GOOD_NOTICES: readonly string[] = ["upgraded", "downgradeScheduled", "downgradeCanceled", "canceled", "resumed"];
 
 export default async function BillingPage({
   params,
@@ -49,10 +74,10 @@ export default async function BillingPage({
   const [{ data: subscription }, { data: plans }, { data: planCurrencies }] = await Promise.all([
     supabase
       .from("subscriptions")
-      .select("plan_key, status, trial_ends_at, current_period_end, paddle_subscription_id, cancel_at")
+      .select("plan_key, status, trial_ends_at, current_period_end, paddle_subscription_id, cancel_at, scheduled_plan_key, scheduled_change_at")
       .eq("tenant_id", tenant.id)
       .maybeSingle(),
-    supabase.from("subscription_plans").select("key, name, price_minor, currency, billing_interval").eq("is_active", true).order("sort_order"),
+    supabase.from("subscription_plans").select("key, name, price_minor, currency, billing_interval, plan_family, is_active").order("sort_order"),
     supabase.from("currencies").select("code, exponent"),
   ]);
   const exponentByCode = new Map((planCurrencies ?? []).map((c) => [c.code, c.exponent]));
@@ -71,6 +96,15 @@ export default async function BillingPage({
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
   const notice = PADDLE_NOTICES.find((n) => n === paddleNotice);
   const manageFields = { locale, slug };
+  const allPlans = plans ?? [];
+  const activePlans = allPlans.filter((p) => p.is_active);
+  const planName = (key: string | null | undefined) => {
+    const plan = allPlans.find((p) => p.key === key);
+    return plan ? (plan.name[locale] ?? plan.name.en ?? plan.key) : (key ?? "");
+  };
+  // Upgrades apply now (charged pro rata), downgrades at the next billing cycle; one change at a time.
+  const scheduledPlan = subscription?.scheduled_plan_key ?? null;
+  const changeBlocked = renewing && (!!scheduledPlan || !!subscription?.cancel_at);
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -80,7 +114,7 @@ export default async function BillingPage({
         <p
           role="status"
           data-testid="billing-notice"
-          className={`rounded-lg border px-3 py-2 text-sm ${["planChanged", "canceled", "resumed"].includes(notice) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}
+          className={`rounded-lg border px-3 py-2 text-sm ${GOOD_NOTICES.includes(notice) ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}
         >
           {tPaddle(`notice.${notice}`)}
         </p>
@@ -116,6 +150,27 @@ export default async function BillingPage({
           </div>
         ) : (
           <p className="text-sm text-slate-500">{t("noPlan")}</p>
+        )}
+        {scheduledPlan && subscription?.scheduled_change_at && subscription.status !== "canceled" && (
+          <div
+            className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900"
+            data-testid="scheduled-change"
+          >
+            <span>
+              {tPaddle("scheduled", {
+                plan: planName(scheduledPlan),
+                date: fmtDate(subscription.scheduled_change_at),
+                current: planName(subscription.plan_key),
+              })}
+            </span>
+            <form action={keepCurrentPlanAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="slug" value={slug} />
+              <Button type="submit" variant="secondary" data-testid="keep-plan">
+                {tPaddle("keepPlan")}
+              </Button>
+            </form>
+          </div>
         )}
         {renewing && subscription?.status === "past_due" && (
           <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{tPaddle("pastDue")}</p>
@@ -155,10 +210,24 @@ export default async function BillingPage({
 
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold text-slate-900">{t("plans")}</h2>
+        {renewing && (
+          <p className="text-xs leading-relaxed text-slate-500" data-testid="plan-change-rules">
+            {tPaddle("rules")}{" "}
+            <a href={`/${locale}/refund-policy`} className="font-medium text-emerald-700 underline underline-offset-2">
+              {tPaddle("refundPolicy")}
+            </a>
+          </p>
+        )}
+        {changeBlocked && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {tPaddle(scheduledPlan ? "blockedScheduled" : "blockedCanceled")}
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {(plans ?? []).map((plan) => {
+          {activePlans.map((plan) => {
             const exponent = exponentByCode.get(plan.currency) ?? 2;
-            const isCurrent = subscription?.plan_key === plan.key && subscription.status === "active";
+            const isCurrent = subscription?.plan_key === plan.key && (subscription.status === "active" || (renewing && subscription.status === "past_due"));
+            const direction = subscription ? planChangeDirection(subscription.plan_key, plan.key, allPlans as PlanForChange[]) : "upgrade";
             return (
               <div
                 key={plan.key}
@@ -171,17 +240,34 @@ export default async function BillingPage({
                 </p>
                 {isCurrent ? (
                   <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">{t("currentPlan")}</span>
-                ) : renewing ? (
-                  <ConfirmForm
-                    action={subscribeAction}
-                    hidden={{ tenantId: tenant.id, planKey: plan.key, locale, slug }}
-                    confirm={tPaddle("switchConfirm", { plan: plan.name[locale] ?? plan.name.en ?? plan.key })}
-                    testId={`switch-${plan.key}`}
-                  >
-                    <Button type="submit" className="w-fit">
-                      {tPaddle("switch")}
+                ) : renewing && subscription ? (
+                  changeBlocked ? (
+                    <Button type="button" className="w-fit" disabled>
+                      {tPaddle(direction === "downgrade" ? "downgrade" : "upgrade")}
                     </Button>
-                  </ConfirmForm>
+                  ) : direction === "downgrade" ? (
+                    <ConfirmForm
+                      action={subscribeAction}
+                      hidden={{ tenantId: tenant.id, planKey: plan.key, locale, slug }}
+                      confirm={tPaddle("downgradeConfirm", {
+                        plan: plan.name[locale] ?? plan.name.en ?? plan.key,
+                        date: subscription.current_period_end ? fmtDate(subscription.current_period_end) : "",
+                      })}
+                      testId={`downgrade-${plan.key}`}
+                    >
+                      <Button type="submit" variant="secondary" className="w-fit">
+                        {tPaddle("downgrade")}
+                      </Button>
+                    </ConfirmForm>
+                  ) : (
+                    <Link
+                      href={`/${locale}/${slug}/billing/change/${encodeURIComponent(plan.key)}`}
+                      data-testid={`upgrade-${plan.key}`}
+                      className="inline-flex w-fit items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+                    >
+                      {tPaddle("upgrade")}
+                    </Link>
+                  )
                 ) : (
                   <form action={subscribeAction}>
                     <input type="hidden" name="tenantId" value={tenant.id} />

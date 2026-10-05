@@ -58,6 +58,8 @@ describe("subscription emails", () => {
       "canceled",
       "paused",
       "payment_failed",
+      "downgrade_scheduled",
+      "downgrade_canceled",
     ];
     for (const kind of kinds) {
       const yearly = renderSubscriptionEmail(input(kind, { plan_key: "growth_year", from_plan: "growth", amount_minor: 149000, currency: "USD" }));
@@ -82,6 +84,21 @@ describe("subscription emails", () => {
     const down = renderSubscriptionEmail(input("downgraded", { plan_key: "starter", from_plan: "growth_year" }));
     expect(down.text).toContain("from Growth (annual) to Starter");
     expect(down.text).toContain("- Previous plan: Growth (annual) (Annual)");
+  });
+
+  it("a scheduled downgrade: the current plan until then, the new one from the next billing cycle, no refund", () => {
+    const email = renderSubscriptionEmail(
+      input("downgrade_scheduled", { plan_key: "starter", from_plan: "growth", effective_at: "2026-11-04T12:00:00Z" }),
+    );
+    expect(email.subject).toBe("Your plan changes to Starter on November 4, 2026 — Khayal Café");
+    expect(email.text).toContain("- Current plan (until then): Growth (Monthly)");
+    expect(email.text).toContain("- Plan: Starter");
+    expect(email.text).toContain("- New plan starts on: November 4, 2026");
+    expect(email.text).toContain("No refund or credit");
+    const ar = renderSubscriptionEmail(input("downgrade_scheduled", { plan_key: "starter", from_plan: "growth", effective_at: "2026-11-04T12:00:00Z" }, { lang: "ar" }));
+    expect(ar.text).toContain("لا يُصرف أي استرداد");
+    const fr = renderSubscriptionEmail(input("downgrade_canceled", { plan_key: "growth", was_scheduled: "starter" }, { lang: "fr" }));
+    expect(fr.subject).toBe("Vous conservez la formule Croissance — Khayal Café");
   });
 
   it("a scheduled cancellation gives the last day; dates follow the business's time zone", () => {

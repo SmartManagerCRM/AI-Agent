@@ -1372,10 +1372,7 @@
       "cancel": "Cancel subscription",
       "cancelConfirm": "Cancel your subscription? It stays active until {date} and won’t renew.",
       "resume": "Keep my subscription",
-      "switch": "Switch to this plan",
-      "switchConfirm": "Switch to {plan}? The price difference for the rest of this period is charged (or credited) now.",
       "notice": {
-        "planChanged": "Your plan was changed.",
         "canceled": "Your subscription is cancelled — it stays active until the end of the paid period.",
         "resumed": "Your subscription will renew as usual.",
         "notConfigured": "Online payments aren’t set up yet.",
@@ -1383,7 +1380,42 @@
         "plan": "That plan isn’t available.",
         "currency": "This plan’s currency can’t be paid online yet — please contact us.",
         "noSubscription": "There’s no active subscription to manage.",
-        "failed": "Something went wrong with the payment service — please try again."
+        "failed": "Something went wrong with the payment service — please try again.",
+        "upgraded": "Payment received — your plan is upgraded.",
+        "downgradeScheduled": "Your downgrade is scheduled: it takes effect at the start of your next billing cycle.",
+        "downgradeCanceled": "You're keeping your current plan.",
+        "paymentDeclined": "The payment was declined, so your plan didn't change.",
+        "changePending": "Withdraw the scheduled change (or the cancellation) first, then choose another plan.",
+        "wrongDirection": "That plan change couldn't be made from here — please choose the plan again below."
+      },
+      "upgrade": "Upgrade",
+      "downgrade": "Downgrade",
+      "downgradeConfirm": "Downgrade to {plan}? You keep your current plan until {date}, and your next billing cycle starts on {plan}. No refund or credit is issued for the rest of the current period.",
+      "scheduled": "Your plan changes to {plan} on {date}. Until then you keep {current}.",
+      "keepPlan": "Keep my current plan",
+      "blockedScheduled": "A plan change is already scheduled. Keep your current plan first to choose another one.",
+      "blockedCanceled": "Your subscription is cancelled at the end of the period. Keep your subscription first to change plans.",
+      "rules": "Upgrades apply right away: the price difference for the rest of the current period is charged now, and the upgrade takes effect once that payment succeeds. Downgrades take effect from your next billing cycle (monthly or annual), with no refund for the rest of the current period.",
+      "refundPolicy": "Refund policy",
+      "change": {
+        "title": "Upgrade to {plan}",
+        "from": "Current plan",
+        "to": "New plan",
+        "credit": "Credit for the unused part of your current plan",
+        "charge": "New plan for the rest of the period",
+        "dueNow": "Charged now (tax included)",
+        "until": "Covers the period until {date}; then your plan renews at {price}.",
+        "method": "The amount is charged to the payment method on file. To pay with another card or payment method, update it first, then come back to this page.",
+        "otherMethod": "Use another payment method",
+        "pay": "Pay {amount} and upgrade",
+        "onlyIfPaid": "Your plan is upgraded only once this payment succeeds. If it's declined, nothing changes.",
+        "back": "Back to billing",
+        "declined": "Your payment method was declined, so your plan didn't change. Update your payment method, then try again.",
+        "confirming": "Processing the payment…",
+        "cycle": {
+          "month": "Monthly",
+          "year": "Annual"
+        }
       }
     }
   },
@@ -1593,7 +1625,8 @@
         "invited": "Subscription created. The owner was emailed a link from support@smartmanager.me to choose their password.",
         "inviteFailed": "Subscription created, but the password email couldn’t be sent. Ask the owner to write to support@smartmanager.me for a new link.",
         "existing": "Subscription created for the existing account with this email — the owner signs in as usual."
-      }
+      },
+      "scheduledDowngrade": "Downgrade scheduled by the subscriber: {plan} from the next billing cycle ({date}). Paddle bills {plan} at that renewal."
     },
     "costs": {
       "aiTitle": "AI Agent cost",
@@ -3605,7 +3638,7 @@
         },
         "changePlan": {
           "q": "Can I change my plan?",
-          "a": "Yes. Upgrade or downgrade at any time from the Billing page — the price difference is charged or credited pro rata."
+          "a": "Yes, from the Billing page. An upgrade applies right away: the price difference for the rest of your billing period is charged pro rata, and the upgrade takes effect once that payment succeeds. A downgrade takes effect from your next billing cycle, with no refund for the current one."
         }
       }
     },
@@ -3729,41 +3762,49 @@
           },
           "s4": {
             "title": "Subscriptions and payments",
-            "body": "Plans are billed in advance, monthly or annually, at the prices shown on the pricing page. Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our orders and handles payments, taxes, invoices and billing enquiries.\nSubscriptions renew automatically at the end of each billing period until you cancel. When you change plans, the difference is charged or credited pro rata."
+            "body": "Plans are billed in advance, monthly or annually, at the prices shown on the pricing page. Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our orders and handles payments, taxes, invoices and billing enquiries.\nSubscriptions renew automatically at the end of each billing period until you cancel."
           },
           "s5": {
-            "title": "Cancellation",
-            "body": "You can cancel at any time from the Billing page. Your plan stays active until the end of the period you’ve paid for, and nothing more is charged. Refunds are covered by our Refund Policy."
+            "title": "Upgrades and downgrades",
+            "body": "Upgrades take effect immediately. When you move to a higher plan (or from a monthly plan to the annual plan of the same tier), the price difference for the rest of the current billing period is calculated pro rata and charged right away to your registered payment method, or to another payment method you choose. The upgrade takes effect only once that payment is successful; if the payment fails, your plan does not change.\nDowngrades take effect from your next billing cycle. When you move to a lower plan (or from an annual plan to a monthly plan), you keep your current plan until the end of the billing period you have already paid for, whether monthly or annual. No refund or credit is issued for the rest of that period, and your next billing cycle starts, and is billed, on the new plan. You can withdraw a scheduled downgrade from the Billing page before it takes effect."
           },
           "s6": {
+            "title": "Cancellation",
+            "body": "You can cancel at any time from the Billing page. Your plan stays active until the end of the period you’ve paid for, and nothing more is charged. No refund is issued for the rest of that period — see our Refund Policy."
+          },
+          "s7": {
             "title": "Usage and fair use",
             "body": "Each plan includes a number of customer conversations per billing period, shown on the pricing page. To keep the Service reliable for everyone, AI usage is subject to fair-use limits; we’ll let you know if you approach them."
           },
-          "s7": {
+          "s8": {
             "title": "Your content and your customers",
             "body": "You keep ownership of the content you add — menus, products, prices, photos and texts — and you allow us to host, process and display it to provide the Service. You are responsible for its accuracy and lawfulness, for fulfilling your orders and bookings, and for your own terms and refunds toward your customers."
           },
-          "s8": {
+          "s9": {
+            "title": "Prohibited businesses, products and services",
+            "body": "{product} and {company} do not support businesses that sell alcohol products, tobacco products, or any products or services prohibited by local or international laws. You may not use the Service — including the AI Agent, catalog, orders, bookings and payments — to offer, promote or sell them.\n{product} and {company} have full rights to suspend and block any subscription account that breaks this rule, and to remove the related content."
+          },
+          "s10": {
             "title": "Acceptable use",
             "body": "Don’t use the Service for anything illegal, harmful or misleading; don’t try to access other businesses’ data, disrupt the Service, or copy or reverse-engineer it."
           },
-          "s9": {
+          "s11": {
             "title": "Availability and changes",
             "body": "We work to keep the Service available and secure, but we can’t guarantee it will be uninterrupted. We may improve or change features over time, and we’ll tell you about material changes to these Terms before they apply."
           },
-          "s10": {
+          "s12": {
             "title": "Liability",
             "body": "To the extent permitted by law, the Service is provided “as is”, and we are not liable for indirect or consequential losses. Our total liability is limited to the amounts you paid us in the 12 months before the claim."
           },
-          "s11": {
+          "s13": {
             "title": "Suspension and closing",
-            "body": "You can close your account at any time. We may suspend or close an account that breaches these Terms, after notice where possible."
+            "body": "You can close your account at any time. We may suspend or close an account that breaches these Terms — immediately in the case of the prohibited businesses, products and services described above, and after notice where possible in other cases. No refund is issued for a suspended or blocked account."
           },
-          "s12": {
+          "s14": {
             "title": "Governing law",
             "body": "These Terms are governed by the laws of {country}, and the competent courts of {country} have jurisdiction, without prejudice to any mandatory consumer protection that applies to you."
           },
-          "s13": {
+          "s15": {
             "title": "Contact",
             "body": "Questions about these Terms? Write to {supportEmail} or {contactEmail}."
           }
@@ -3773,29 +3814,37 @@
         "metaTitle": "Refund Policy — SmartManager AI Agent",
         "metaDescription": "How cancellations and refunds work for SmartManager AI Agent subscriptions.",
         "title": "Refund Policy",
-        "intro": "We want you to be happy with {product}. This policy explains cancellations and refunds for subscriptions to {product}, provided by {company}.",
+        "intro": "This policy explains how refunds work for subscriptions to {product}, provided by {company}.",
         "sections": {
           "s1": {
-            "title": "Try it free first",
-            "body": "Every plan starts with a free trial, so you can try {product} before paying. Nothing is charged during the trial."
+            "title": "Try it free for 7 days",
+            "body": "Every plan starts with a 7-day free trial, so you can fully try {product} before paying anything. Nothing is charged during the trial."
           },
           "s2": {
-            "title": "14-day money-back guarantee",
-            "body": "If you’re not satisfied, you can request a full refund of your first payment for a plan within 14 days of that payment."
+            "title": "No refunds on paid subscriptions",
+            "body": "Because we offer a 7-day free trial, and because a paid (upgraded) account has already used and consumed AI services, we do not offer refunds on subscription payments — first payments, renewals and upgrades alike.\nThe only exception is a critical issue caused by {product} itself. In that case, you can request a refund as described below."
           },
           "s3": {
-            "title": "Renewals",
-            "body": "You can cancel at any time before your renewal date to avoid the next charge. If an annual subscription renewed and you didn’t mean to keep it, contact us within 14 days of the renewal charge and we will refund it in full. Monthly renewals are not refunded once the new month has started, except where the law requires it."
+            "title": "Renewals and cancellation",
+            "body": "Subscriptions renew automatically. You can cancel at any time before your renewal date from the Billing page to avoid the next charge; your plan stays active until the end of the period already paid. No refund is issued for the rest of that period."
           },
           "s4": {
-            "title": "Plan changes",
-            "body": "When you upgrade, the difference for the rest of the current period is charged pro rata. When you downgrade, the difference is credited pro rata against your next payments."
+            "title": "Downgrades",
+            "body": "A downgrade takes effect from your next billing cycle, monthly or annual. You keep your current plan until the end of the current billing period, no refund or credit is issued for the rest of that period, and your next billing cycle starts on the new plan."
           },
           "s5": {
-            "title": "How to request a refund",
-            "body": "Email {supportEmail} from your account’s email address with your business name. Refunds are processed by Paddle, our Merchant of Record, to your original payment method — usually within 5–10 business days."
+            "title": "Upgrades",
+            "body": "An upgrade takes effect immediately. The price difference for the rest of the current billing period is calculated pro rata and charged right away to your registered payment method, or to another payment method you choose. The upgrade takes effect only once that payment is successful."
           },
           "s6": {
+            "title": "How to request a refund",
+            "body": "Send your refund request to our support email, {supportEmail}, from your account’s email address, with your business name and a description of the issue. You will receive an answer within 48 hours. Approved refunds are processed by Paddle, our Merchant of Record, to your original payment method."
+          },
+          "s7": {
+            "title": "Suspended or blocked accounts",
+            "body": "Accounts suspended or blocked for breaking our Terms of Service — including businesses selling alcohol, tobacco or other products or services prohibited by local or international laws — are not refunded."
+          },
+          "s8": {
             "title": "Your customers’ payments",
             "body": "Orders and payments between your business and your own customers are your responsibility; this policy only covers your {product} subscription."
           }

@@ -21,7 +21,9 @@ export type SubscriptionEmailKind =
   | "renewal_resumed"
   | "canceled"
   | "paused"
-  | "payment_failed";
+  | "payment_failed"
+  | "downgrade_scheduled"
+  | "downgrade_canceled";
 
 export type EmailPlan = {
   name: Record<string, string> | null;
@@ -73,6 +75,8 @@ type Strings = {
   trialEnds: string;
   activeUntil: string;
   endedOn: string;
+  currentPlan: string;
+  changesOn: string;
   button: string;
   footer: string;
   /** After the first payment (the trial becomes a paid subscription): our onboarding help. */
@@ -100,6 +104,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     trialEnds: "Trial ends",
     activeUntil: "Active until",
     endedOn: "Ended on",
+    currentPlan: "Current plan (until then)",
+    changesOn: "New plan starts on",
     button: "View billing",
     footer:
       "You are receiving this email because you own {business} on SmartManager AI Agent. Questions? Reply to this email or write to support@smartmanager.me.",
@@ -119,6 +125,16 @@ const STRINGS: Record<EmailLang, Strings> = {
         subject: "Payment received: {amount} — {business}",
         intro: "Thank you! We received your payment of {amount} for {business}. Your subscription is active.",
         note: "Paddle, our payment provider, sends the receipt with the tax details separately.",
+      },
+      downgrade_scheduled: {
+        subject: "Your plan changes to {plan} on {date} — {business}",
+        intro:
+          "We received your request to move {business} from {from} to {plan}. You keep {from} until the end of your current billing period; your next billing cycle starts on {plan} on {date}.",
+        note: "No refund or credit is issued for the rest of the current period. Changed your mind? You can keep your current plan from the Billing page before {date}.",
+      },
+      downgrade_canceled: {
+        subject: "You are keeping the {plan} plan — {business}",
+        intro: "The plan change you requested for {business} was withdrawn. It stays on {plan} and renews as usual.",
       },
       upgraded: {
         subject: "Your plan was upgraded to {plan} — {business}",
@@ -173,6 +189,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     trialEnds: "تنتهي التجربة في",
     activeUntil: "فعّال حتى",
     endedOn: "انتهى في",
+    currentPlan: "الباقة الحالية (حتى ذلك التاريخ)",
+    changesOn: "تبدأ الباقة الجديدة في",
     button: "عرض الفوترة",
     footer:
       "تصلك هذه الرسالة لأنك مالك {business} على SmartManager AI Agent. لديك أسئلة؟ رُدّ على هذه الرسالة أو راسلنا على support@smartmanager.me.",
@@ -192,6 +210,16 @@ const STRINGS: Record<EmailLang, Strings> = {
         subject: "تم استلام الدفعة: {amount} — {business}",
         intro: "شكرًا لك! استلمنا دفعتك بقيمة {amount} لـ {business}. اشتراكك فعّال.",
         note: "يرسل Paddle، مزوّد الدفع لدينا، الإيصال مع تفاصيل الضريبة بشكل منفصل.",
+      },
+      downgrade_scheduled: {
+        subject: "ستتغيّر باقتك إلى {plan} في {date} — {business}",
+        intro:
+          "استلمنا طلبك لنقل {business} من باقة {from} إلى باقة {plan}. تحتفظ بباقة {from} حتى نهاية فترة الفوترة الحالية، وتبدأ دورة الفوترة التالية بباقة {plan} في {date}.",
+        note: "لا يُصرف أي استرداد أو رصيد عن بقية الفترة الحالية. غيّرت رأيك؟ يمكنك الإبقاء على باقتك الحالية من صفحة الفوترة قبل {date}.",
+      },
+      downgrade_canceled: {
+        subject: "ستحتفظ بباقة {plan} — {business}",
+        intro: "تم التراجع عن تغيير الباقة الذي طلبته لـ {business}. يبقى الاشتراك على باقة {plan} ويتجدد كالمعتاد.",
       },
       upgraded: {
         subject: "تمت ترقية باقتك إلى {plan} — {business}",
@@ -246,6 +274,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     trialEnds: "Fin de l'essai",
     activeUntil: "Actif jusqu'au",
     endedOn: "Terminé le",
+    currentPlan: "Formule actuelle (jusque-là)",
+    changesOn: "Nouvelle formule à partir du",
     button: "Voir la facturation",
     footer:
       "Vous recevez cet e-mail car vous êtes propriétaire de {business} sur SmartManager AI Agent. Des questions ? Répondez à cet e-mail ou écrivez à support@smartmanager.me.",
@@ -265,6 +295,16 @@ const STRINGS: Record<EmailLang, Strings> = {
         subject: "Paiement reçu : {amount} — {business}",
         intro: "Merci ! Nous avons bien reçu votre paiement de {amount} pour {business}. Votre abonnement est actif.",
         note: "Paddle, notre prestataire de paiement, vous envoie séparément le reçu avec le détail des taxes.",
+      },
+      downgrade_scheduled: {
+        subject: "Votre formule passera à {plan} le {date} — {business}",
+        intro:
+          "Nous avons bien reçu votre demande de passer {business} de la formule {from} à la formule {plan}. Vous conservez {from} jusqu'à la fin de la période de facturation en cours ; votre prochain cycle de facturation commence avec {plan} le {date}.",
+        note: "Aucun remboursement ni avoir n'est accordé pour le reste de la période en cours. Vous avez changé d'avis ? Vous pouvez conserver votre formule actuelle depuis la page Facturation avant le {date}.",
+      },
+      downgrade_canceled: {
+        subject: "Vous conservez la formule {plan} — {business}",
+        intro: "Le changement de formule demandé pour {business} a été annulé. L'abonnement reste sur {plan} et se renouvelle normalement.",
       },
       upgraded: {
         subject: "Formule améliorée : {plan} — {business}",
@@ -390,13 +430,14 @@ export function renderSubscriptionEmail(input: SubscriptionEmailInput): Rendered
     plan: planName(planKey, plan),
     from: planName(fromKey, fromPlan),
     amount: amount ?? "",
-    date: date(details.cancel_at) ?? "",
+    date: date(details.cancel_at) ?? date(details.effective_at) ?? "",
   };
 
   const rows: [string, string][] = [];
   if (kind === "payment_received" && amount) rows.push([s.amountPaid, amount]);
   rows.push([s.business, input.businessName]);
   if (fromKey && (kind === "upgraded" || kind === "downgraded")) rows.push([s.previousPlan, `${values.from} (${cycleOf(fromPlan)})`]);
+  if (fromKey && kind === "downgrade_scheduled") rows.push([s.currentPlan, `${values.from} (${cycleOf(fromPlan)})`]);
   rows.push([s.plan, values.plan]);
   // Always: monthly or annual.
   rows.push([s.cycle, cycleOf(plan)]);
@@ -427,6 +468,14 @@ export function renderSubscriptionEmail(input: SubscriptionEmailInput): Rendered
     case "cancel_scheduled":
       if (values.date) rows.push([s.activeUntil, values.date]);
       break;
+    case "downgrade_scheduled":
+      if (values.date) rows.push([s.changesOn, values.date]);
+      break;
+    case "downgrade_canceled": {
+      const end = date(periodEnd);
+      if (end && renews) rows.push([s.nextRenewal, end]);
+      break;
+    }
     case "canceled": {
       const ended = date(details.ended_at);
       if (ended) rows.push([s.endedOn, ended]);

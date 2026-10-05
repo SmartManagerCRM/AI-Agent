@@ -1151,6 +1151,8 @@ export type Database = {
           paddle_customer_id: string | null;
           cancel_at: string | null;
           paddle_event_at: string | null;
+          scheduled_plan_key: string | null;
+          scheduled_change_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1826,7 +1828,18 @@ export type Database = {
           status: "trialing" | "active" | "past_due" | "canceled";
           plan_key: string;
           cancel_at: string | null;
+          current_period_end: string | null;
+          scheduled_plan_key: string | null;
+          scheduled_change_at: string | null;
         }[];
+      };
+      schedule_plan_downgrade: {
+        Args: { p_tenant_id: string; p_plan_key: string };
+        Returns: string;
+      };
+      cancel_plan_downgrade: {
+        Args: { p_tenant_id: string };
+        Returns: string | null;
       };
       apply_paddle_subscription_event: {
         Args: {
