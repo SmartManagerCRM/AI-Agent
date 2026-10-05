@@ -3251,7 +3251,8 @@
       "incorrect": "Incorrect email or password.",
       "alreadyRegistered": "An account with this email already exists — sign in instead.",
       "weakPassword": "This password is too weak — choose a longer, less common one.",
-      "signUpFailed": "Could not create the account — please try again."
+      "signUpFailed": "Could not create the account — please try again.",
+      "emailNotConfirmed": "Please confirm your email first — open the link we sent you. No email? Sign up again with the same address to get a new link."
     },
     "manage": {
       "noPermission": "You can’t change this item (no permission, or it was removed). Reload the page.",
@@ -3627,7 +3628,12 @@
       "choosePlan": "Choose a plan",
       "finishing": "Setting up your business…",
       "linkExpired": "This confirmation link has expired or was already used. Please sign in.",
-      "failed": "Something went wrong. Please try again."
+      "failed": "Something went wrong. Please try again.",
+      "confirmedTitle": "Your email is confirmed",
+      "confirmedText": "Sign in to finish setting up your business.",
+      "linkExpiredTitle": "This link can’t be used",
+      "linkExpiredText": "The confirmation link has expired or was already used. Sign in if you already confirmed your email; otherwise sign up again with the same address to get a new link.",
+      "signUpAgain": "Sign up again"
     },
     "contact": {
       "metaTitle": "Contact — SmartManager AI Agent",

@@ -32,13 +32,38 @@ function Panel({ children }: { children: React.ReactNode }) {
  * and the trial — read from the database, never assumed. Also where the
  * email-confirmation link lands, finishing a sign-up that had to wait for it.
  */
-export default async function WelcomePage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ code?: string }> }) {
-  const [{ locale: raw }, { code }] = await Promise.all([params, searchParams]);
+export default async function WelcomePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ code?: string; error?: string; error_code?: string }>;
+}) {
+  const [{ locale: raw }, { code, error, error_code: errorCode }] = await Promise.all([params, searchParams]);
   const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   const t = await getTranslations("site.welcome");
   const user = await currentUser();
 
   if (!user) {
+    const signIn = `/${locale}/login?redirectTo=${encodeURIComponent(`/${locale}/welcome`)}`;
+    // Supabase sends the visitor back with an error instead of a code when the link has expired or was already used.
+    if (!code && (error || errorCode)) {
+      return (
+        <Panel>
+          <SiteIcon name="mail" size={40} className="text-emerald-600" />
+          <h1 className="text-2xl font-extrabold text-[#0c1a33]">{t("linkExpiredTitle")}</h1>
+          <p className="text-[15px] text-[#33415c]">{t("linkExpiredText")}</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link href={signIn} className="site-btn-primary site-focus h-12 rounded-2xl px-6">
+              {t("signIn")}
+            </Link>
+            <Link href={`/${locale}/pricing`} className="site-btn-outline site-focus h-12 rounded-2xl px-6">
+              {t("signUpAgain")}
+            </Link>
+          </div>
+        </Panel>
+      );
+    }
     return (
       <Panel>
         {code ? (
@@ -48,7 +73,7 @@ export default async function WelcomePage({ params, searchParams }: { params: Pr
             <SiteIcon name="mail" size={40} className="text-emerald-600" />
             <h1 className="text-2xl font-extrabold text-[#0c1a33]">{t("confirmTitle")}</h1>
             <p className="text-[15px] text-[#33415c]">{t("confirmText")}</p>
-            <Link href={`/${locale}/login?redirectTo=${encodeURIComponent(`/${locale}/welcome`)}`} className="site-btn-primary site-focus h-12 rounded-2xl px-6">
+            <Link href={signIn} className="site-btn-primary site-focus h-12 rounded-2xl px-6">
               {t("signIn")}
             </Link>
           </>

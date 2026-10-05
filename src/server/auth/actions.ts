@@ -56,7 +56,7 @@ export async function signInAction(_prevState: string | undefined, formData: For
     email: parsed.data.email,
     password: parsed.data.password,
   });
-  if (error) return t("auth.incorrect");
+  if (error) return t(error.code === "email_not_confirmed" ? "auth.emailNotConfirmed" : "auth.incorrect");
   redirect(safeRedirectTarget(parsed.data.locale, parsed.data.redirectTo));
 }
 

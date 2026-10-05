@@ -3251,7 +3251,8 @@
       "incorrect": "E-mail ou mot de passe incorrect.",
       "alreadyRegistered": "Un compte existe déjà avec cet e-mail — connectez-vous plutôt.",
       "weakPassword": "Ce mot de passe est trop faible — choisissez-en un plus long et moins courant.",
-      "signUpFailed": "Impossible de créer le compte — veuillez réessayer."
+      "signUpFailed": "Impossible de créer le compte — veuillez réessayer.",
+      "emailNotConfirmed": "Veuillez d’abord confirmer votre e-mail avec le lien que nous vous avons envoyé. Pas reçu ? Inscrivez-vous à nouveau avec la même adresse pour recevoir un nouveau lien."
     },
     "manage": {
       "noPermission": "Vous ne pouvez pas modifier cet élément (pas d’autorisation ou il a été supprimé). Rechargez la page.",
@@ -3627,7 +3628,12 @@
       "choosePlan": "Choisir une formule",
       "finishing": "Création de votre entreprise…",
       "linkExpired": "Ce lien de confirmation a expiré ou a déjà été utilisé. Veuillez vous connecter.",
-      "failed": "Une erreur est survenue. Veuillez réessayer."
+      "failed": "Une erreur est survenue. Veuillez réessayer.",
+      "confirmedTitle": "Votre e-mail est confirmé",
+      "confirmedText": "Connectez-vous pour terminer la création de votre entreprise.",
+      "linkExpiredTitle": "Ce lien ne peut pas être utilisé",
+      "linkExpiredText": "Le lien de confirmation a expiré ou a déjà été utilisé. Connectez-vous si vous avez déjà confirmé votre e-mail ; sinon, inscrivez-vous à nouveau avec la même adresse pour recevoir un nouveau lien.",
+      "signUpAgain": "S’inscrire à nouveau"
     },
     "contact": {
       "metaTitle": "Contact — SmartManager AI Agent",
