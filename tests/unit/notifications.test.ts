@@ -277,6 +277,6 @@ describe("order sound repeats", () => {
     const { soundRepeats } = await import("@/lib/notifications/core");
     expect(soundRepeats("new-order")).toBe(3);
     expect(soundRepeats("order-reminder")).toBe(1);
-    expect(soundRepeats("new-subscriber")).toBe(1);
+    expect(soundRepeats("new-subscriber")).toBe(3);
   });
 });

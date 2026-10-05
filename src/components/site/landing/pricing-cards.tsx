@@ -127,7 +127,7 @@ export function PricingCards({
                 {plan.conversations && (
                   <li className="flex gap-2.5">
                     <Check />
-                    {plan.interval === "year" ? t("conversationsYear", { n: plan.conversations }) : t("conversationsMonth", { n: plan.conversations })}
+                    {t("conversationsMonth", { n: plan.conversations })}
                   </li>
                 )}
                 {plan.features.map((f) => (

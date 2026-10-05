@@ -25,7 +25,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     subject: "Confirm your email — SmartManager AI Agent",
     hello: "Hello,",
     helloNamed: "Hello {name},",
-    intro: "Thanks for signing up for SmartManager AI Agent. Confirm your email address to finish setting up {business} and start your free trial.",
+    intro:
+      "Thanks for signing up for SmartManager AI Agent. Confirm your email address to finish setting up {business} and start your free trial.",
     button: "Confirm my email",
     fallback: "If the button doesn’t work, copy this link into your browser:",
     expiry: "This link can be used only once and expires after a short time.",
@@ -36,7 +37,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     subject: "أكّد بريدك الإلكتروني — SmartManager AI Agent",
     hello: "مرحبًا،",
     helloNamed: "مرحبًا {name}،",
-    intro: "شكرًا لتسجيلك في SmartManager AI Agent. أكّد عنوان بريدك الإلكتروني لإكمال إعداد {business} وبدء تجربتك المجانية.",
+    intro:
+      "شكرًا لتسجيلك في SmartManager AI Agent. أكّد عنوان بريدك الإلكتروني لإكمال إعداد {business} وبدء تجربتك المجانية.",
     button: "تأكيد بريدي الإلكتروني",
     fallback: "إذا لم يعمل الزر، انسخ هذا الرابط في متصفحك:",
     expiry: "يمكن استخدام هذا الرابط مرة واحدة فقط، وتنتهي صلاحيته بعد مدة قصيرة.",
@@ -47,7 +49,8 @@ const STRINGS: Record<EmailLang, Strings> = {
     subject: "Confirmez votre e-mail — SmartManager AI Agent",
     hello: "Bonjour,",
     helloNamed: "Bonjour {name},",
-    intro: "Merci de votre inscription à SmartManager AI Agent. Confirmez votre adresse e-mail pour terminer la création de {business} et démarrer votre essai gratuit.",
+    intro:
+      "Merci de votre inscription à SmartManager AI Agent. Confirmez votre adresse e-mail pour terminer la création de {business} et démarrer votre essai gratuit.",
     button: "Confirmer mon e-mail",
     fallback: "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :",
     expiry: "Ce lien ne peut être utilisé qu’une seule fois et expire au bout d’un certain temps.",
@@ -56,15 +59,23 @@ const STRINGS: Record<EmailLang, Strings> = {
   },
 };
 
-const fill = (template: string, values: Record<string, string>) => template.replace(/\{(\w+)\}/g, (m, k: string) => values[k] ?? m);
+const fill = (template: string, values: Record<string, string>) =>
+  template.replace(/\{(\w+)\}/g, (m, k: string) => values[k] ?? m);
 
-export function renderSignupConfirmationEmail(input: { lang: EmailLang; name: string; businessName: string; link: string }): RenderedEmail {
+export function renderSignupConfirmationEmail(input: {
+  lang: EmailLang;
+  name: string;
+  businessName: string;
+  link: string;
+}): RenderedEmail {
   const s = STRINGS[input.lang];
   const name = input.name.trim();
   const greeting = name ? fill(s.helloNamed, { name }) : s.hello;
   const intro = fill(s.intro, { business: input.businessName.trim() || "SmartManager" });
 
-  const text = [greeting, "", intro, "", `${s.button}: ${input.link}`, "", s.expiry, s.ignore, "", "—", s.footer].join("\n");
+  const text = [greeting, "", intro, "", `${s.button}: ${input.link}`, "", s.expiry, s.ignore, "", "—", s.footer].join(
+    "\n",
+  );
 
   const dir = input.lang === "ar" ? "rtl" : "ltr";
   const align = input.lang === "ar" ? "right" : "left";

@@ -1535,14 +1535,29 @@
         "plan": "Plan",
         "status": "Status",
         "joined": "Joined",
-        "revenue": "Revenue"
+        "revenue": "Revenue",
+        "aiUse": "AI use (month)"
       },
       "new": "New",
       "edit": "Edit",
       "noStatus": "No subscribers with this status",
       "tryAnother": "Try another filter.",
       "empty": "No subscribers yet",
-      "emptyDescription": "They’ll appear here once the first business signs up."
+      "emptyDescription": "They’ll appear here once the first business signs up.",
+      "aiLegend": "Row color — AI Agent cost this month vs the subscriber’s own cap:",
+      "aiBand": {
+        "green": "up to 50%",
+        "yellow": "51–70%",
+        "orange": "71–90%",
+        "red": "91–100% and over"
+      },
+      "aiOfCap": "{used} of {cap} this month",
+      "newOpen": "+ New subscription",
+      "newClose": "Close",
+      "newTitle": "New subscription",
+      "newText": "Creates the business, its owner and its subscription. A new owner gets an email from support@smartmanager.me to choose their password; an existing account simply becomes the owner.",
+      "newPerMonth": "month",
+      "newPerYear": "year"
     },
     "usageState": {
       "ACTIVE": "Active",
@@ -1567,13 +1582,18 @@
       "costsTrial": "Costs this trial",
       "costsPeriod": "Costs this billing period",
       "thresholds": "Usage thresholds (this subscriber only)",
-      "planDefaults": "{plan} plan defaults: {conversations} conversations{cap} per billing period. Leave a field empty to use the plan default; Reset to Plan Defaults clears both.",
+      "planDefaults": "{plan} plan defaults: {conversations} conversations{cap} per month (annual plans reset each month on the subscription’s day). Leave a field empty to use the plan default; Reset to Plan Defaults clears both.",
       "noLimit": "no limit",
       "cap": " and a ${amount} AI cost cap",
       "now": " Now: {conversations} conversations and ${cost} AI Agent cost this {period} (premium voice is not part of the cap).",
       "periodTrial": "trial",
       "periodBilling": "period",
-      "trialing": " While trialing, the trial limits (Usage & AI Cost) apply; these take effect once the subscription is paid."
+      "trialing": " While trialing, the trial limits (Usage & AI Cost) apply; these take effect once the subscription is paid.",
+      "created": {
+        "invited": "Subscription created. The owner was emailed a link from support@smartmanager.me to choose their password.",
+        "inviteFailed": "Subscription created, but the password email couldn’t be sent. Ask the owner to write to support@smartmanager.me for a new link.",
+        "existing": "Subscription created for the existing account with this email — the owner signs in as usual."
+      }
     },
     "costs": {
       "aiTitle": "AI Agent cost",
@@ -1951,7 +1971,7 @@
       "isInactive": "Inactive",
       "isDefault": "Default",
       "makeDefault": "Make default",
-      "limits": "Paid-plan usage limits (per billing period; trials are not affected)",
+      "limits": "Usage limits per month (annual plans too: they reset each month on the subscription’s day; trials are not affected)",
       "none": "No plans yet.",
       "badgePopular": "Most popular",
       "badgeHidden": "Not on the website",
@@ -2283,6 +2303,30 @@
       "buttonLabel": "Show amounts in: {name}",
       "choose": "Show amounts in",
       "hint": "Converted at today’s public exchange rates, for viewing only — nothing stored changes."
+    },
+    "newSubscription": {
+      "ownerEmail": "Owner’s email",
+      "ownerEmailHint": "An existing account with this email becomes the owner; otherwise one is created.",
+      "ownerName": "Owner’s full name",
+      "businessName": "Business name",
+      "businessType": "Business type",
+      "choose": "Choose…",
+      "language": "Language",
+      "languageHint": "The business’s language and the owner’s emails.",
+      "currency": "Currency",
+      "country": "Country (optional)",
+      "phone": "Phone (optional)",
+      "subscription": "Subscription",
+      "plan": "Plan (monthly or annual)",
+      "status": "Status",
+      "status_trialing": "Free trial",
+      "status_active": "Active (paid outside the platform)",
+      "trialDays": "Trial days",
+      "periodEnd": "Paid until (optional)",
+      "periodEndHintMonth": "Empty: one month from today.",
+      "periodEndHintYear": "Empty: one year from today. Limits still reset every month.",
+      "create": "Create subscription",
+      "creating": "Creating…"
     }
   },
   "agent": {
@@ -3242,7 +3286,16 @@
       "planCreateFailed": "Could not create that plan — please try again.",
       "translateFailed": "Could not start the translation — please try again.",
       "translateQueued": "{n, plural, =0 {Nothing to translate.} one {# item checked — missing languages are being filled in.} other {# items checked — missing languages are being filled in.}}",
-      "socialUrl": "Social links must be full https:// addresses."
+      "socialUrl": "Social links must be full https:// addresses.",
+      "newSubscription": {
+        "email": "Enter the owner’s email address.",
+        "phone": "Check the phone number (digits, spaces and + only).",
+        "noServiceRole": "The server isn’t configured to create accounts (service role missing).",
+        "noEmail": "Email sending isn’t configured, so a new owner couldn’t receive their password link.",
+        "ownerFailed": "Couldn’t create the owner’s account — please try again.",
+        "invalid": "Check the plan, trial days and dates.",
+        "failed": "Couldn’t create the subscription — please try again."
+      }
     },
     "auth": {
       "signInInvalid": "Enter a valid email and password.",
@@ -3823,6 +3876,30 @@
             "body": "{company} — {country}\n{supportEmail} · {contactEmail} · {phone}"
           }
         }
+      }
+    },
+    "setPassword": {
+      "metaTitle": "Choose your password",
+      "title": "Choose your password",
+      "text": "You’ll use it with your email to sign in to your dashboard.",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "hint": "At least 8 characters.",
+      "submit": "Save and open my dashboard",
+      "verifying": "Checking your link…",
+      "linkInvalidTitle": "This link can’t be used",
+      "linkInvalidText": "It has expired or was already used. Write to support@smartmanager.me and we will send you a new one.",
+      "signInTitle": "Sign in first",
+      "signInText": "Open the link from your email, or sign in to change your password.",
+      "signIn": "Sign in",
+      "errors": {
+        "signInFirst": "Your session has ended — open the link from your email again.",
+        "short": "Choose a password of at least 8 characters.",
+        "differ": "The two passwords don’t match.",
+        "weak": "This password is too weak — choose a longer, less common one.",
+        "same": "Choose a password different from your current one.",
+        "tooMany": "Too many attempts — please wait a few minutes.",
+        "failed": "Something went wrong. Please try again."
       }
     }
   }

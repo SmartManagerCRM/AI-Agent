@@ -42,9 +42,9 @@ export const SOUND_URLS: Record<SoundName, string> = {
 };
 
 /** Sound for an event's first alert. */
-/** A new order rings three times, so it's heard over a busy counter; other alerts play once. */
+/** A new order rings three times, so it's heard over a busy counter; so does a new subscriber (Super Admin). Other alerts play once. */
 export function soundRepeats(sound: SoundName): number {
-  return sound === "new-order" ? 3 : 1;
+  return sound === "new-order" || sound === "new-subscriber" ? 3 : 1;
 }
 
 export function soundFor(kind: NotificationKind): SoundName {

@@ -6,8 +6,9 @@ import { consoleOrigin } from "@/lib/hosts";
 import { serverEnv } from "@/server/env";
 import { serviceClient } from "@/server/supabase/clients";
 
-import { emailConfigured, sendPlatformEmail } from "./resend";
-import { emailLanguage, localized, renderSubscriptionEmail, type EmailPlan, type SubscriptionEmailKind } from "./subscription-templates";
+import { renderNewSubscriberAdminEmail } from "./admin-templates";
+import { emailConfigured, sendPlatformEmail, type SendResult } from "./resend";
+import { emailLanguage, formatDate, localized, renderSubscriptionEmail, type EmailPlan, type SubscriptionEmailKind } from "./subscription-templates";
 
 /**
  * Sends the subscription emails the database queued (subscription_emails):
@@ -25,9 +26,9 @@ const BATCH = 20;
 
 export const retryDelaySeconds = (attempts: number) => RETRY_BASE_SECONDS * 2 ** Math.max(0, attempts - 1);
 
-function billingUrl(lang: string, slug: string): string {
+function consoleBase(): string {
   const env = serverEnv();
-  const origin = consoleOrigin({
+  return consoleOrigin({
     rootDomain: env.PLATFORM_ROOT_DOMAIN,
     consoleSubdomain: env.CONSOLE_SUBDOMAIN,
     agentSubdomain: env.AGENT_SUBDOMAIN,
@@ -35,7 +36,63 @@ function billingUrl(lang: string, slug: string): string {
     port: env.PUBLIC_URL_PORT,
     consoleUrl: env.CONSOLE_URL,
   });
-  return `${origin}/${lang}/${slug}/billing`;
+}
+
+const billingUrl = (lang: string, slug: string) => `${consoleBase()}/${lang}/${slug}/billing`;
+
+type ClaimedEmail = {
+  id: number;
+  details: unknown;
+  tenant_id: string;
+  tenant_slug: string;
+  business_name: unknown;
+  owner_email: string | null;
+  owner_name: string | null;
+  plans: unknown;
+};
+type TypedService = ReturnType<typeof serviceClient>;
+
+/**
+ * A new subscriber, announced to every Super Admin (their account email, in
+ * their language). One send per Super Admin; a retried row re-sends with the
+ * same idempotency keys, so nobody gets it twice.
+ */
+async function sendNewSubscriberAlert(supabase: TypedService, row: ClaimedEmail): Promise<SendResult | "no recipients"> {
+  const { data: admins } = await supabase.rpc("super_admin_recipients");
+  if (!admins?.length) return "no recipients";
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("country, contact_phone, business_type_key")
+    .eq("id", row.tenant_id)
+    .maybeSingle();
+  const { data: type } = tenant?.business_type_key
+    ? await supabase.from("business_types").select("name").eq("key", tenant.business_type_key).maybeSingle()
+    : { data: null };
+  const details = (row.details ?? {}) as Record<string, unknown>;
+  const plans = (row.plans ?? {}) as Record<string, EmailPlan>;
+  const planKey = typeof details.plan_key === "string" ? details.plan_key : "";
+  let last: SendResult = { ok: true, id: "" };
+  for (const admin of admins) {
+    const lang = emailLanguage(admin.preferred_language);
+    const email = renderNewSubscriberAdminEmail({
+      lang,
+      businessName: localized(row.business_name, lang) || row.tenant_slug,
+      ownerName: row.owner_name,
+      ownerEmail: row.owner_email,
+      planName: localized(plans[planKey]?.name, lang) || planKey,
+      annual: plans[planKey]?.billing_interval === "year",
+      status: typeof details.status === "string" ? details.status : "",
+      trialEnds: details.status === "trialing" ? formatDate(details.trial_ends_at, lang, null) : null,
+      country: tenant?.country ?? null,
+      phone: tenant?.contact_phone ?? null,
+      businessType: type ? localized(type.name, lang) || null : null,
+      adminUrl: `${consoleBase()}/${lang}/super-admin/subscribers/${row.tenant_slug}`,
+    });
+    const result = await sendPlatformEmail({ to: admin.email, ...email, idempotencyKey: `subscription-email-${row.id}-${admin.email}` });
+    if (!result.ok) return result;
+    last = result;
+  }
+  return last;
 }
 
 export async function processSubscriptionEmails(): Promise<{ claimed: number; sent: number }> {
@@ -50,6 +107,28 @@ export async function processSubscriptionEmails(): Promise<{ claimed: number; se
     const finish = (status: "sent" | "skipped" | "retry" | "failed", reason: string | null = null, retryIn: number | null = null) =>
       supabase.rpc("finish_subscription_email", { p_id: row.id, p_status: status, p_error: reason ?? undefined, p_retry_in_seconds: retryIn ?? undefined });
 
+    if (row.kind === "new_subscriber_admin") {
+      if (Date.now() - new Date(row.created_at).getTime() > STALE_MS) {
+        await finish("skipped", "too old");
+        continue;
+      }
+      try {
+        const result = await sendNewSubscriberAlert(supabase, row);
+        if (result === "no recipients") await finish("skipped", "no super admin address");
+        else if (result.ok) {
+          sent++;
+          await finish("sent");
+        } else if (result.retry && row.attempts < MAX_ATTEMPTS) await finish("retry", result.error, retryDelaySeconds(row.attempts));
+        else {
+          console.error(`[email] new-subscriber alert ${row.id} not sent: ${result.error}`);
+          await finish("failed", result.error);
+        }
+      } catch (err) {
+        const reason = err instanceof Error ? err.name : "error";
+        await finish(row.attempts < MAX_ATTEMPTS ? "retry" : "failed", reason, row.attempts < MAX_ATTEMPTS ? retryDelaySeconds(row.attempts) : null);
+      }
+      continue;
+    }
     if (!row.owner_email) {
       await finish("skipped", "no address");
       continue;

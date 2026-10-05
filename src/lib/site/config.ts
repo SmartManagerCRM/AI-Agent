@@ -8,7 +8,7 @@ export const SITE_ORIGIN = "https://ai-agent.smartmanager.me";
 export const DEMO_AGENT_SLUG = "smartmanager";
 
 /** Top-level pages of the public site (reserved: never a business slug). */
-export const SITE_PAGES = ["pricing", "signup", "welcome", "terms", "refund-policy", "privacy-policy", "about", "contact"] as const;
+export const SITE_PAGES = ["pricing", "signup", "welcome", "set-password", "terms", "refund-policy", "privacy-policy", "about", "contact"] as const;
 
 /** The landing page's sections (header links and footer). */
 export const SECTION_IDS = { features: "features", howItWorks: "how-it-works", pricing: "pricing", faq: "faq" } as const;

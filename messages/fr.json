@@ -1535,14 +1535,29 @@
         "plan": "Formule",
         "status": "Statut",
         "joined": "Inscrit le",
-        "revenue": "Revenus"
+        "revenue": "Revenus",
+        "aiUse": "Usage IA (mois)"
       },
       "new": "Nouveau",
       "edit": "Modifier",
       "noStatus": "Aucun abonné avec ce statut",
       "tryAnother": "Essayez un autre filtre.",
       "empty": "Aucun abonné pour l’instant",
-      "emptyDescription": "Ils apparaîtront ici dès la première inscription."
+      "emptyDescription": "Ils apparaîtront ici dès la première inscription.",
+      "aiLegend": "Couleur de ligne — coût de l’Agent IA ce mois-ci par rapport au plafond propre de l’abonné :",
+      "aiBand": {
+        "green": "jusqu’à 50 %",
+        "yellow": "51–70 %",
+        "orange": "71–90 %",
+        "red": "91–100 % et plus"
+      },
+      "aiOfCap": "{used} sur {cap} ce mois-ci",
+      "newOpen": "+ Nouvel abonnement",
+      "newClose": "Fermer",
+      "newTitle": "Nouvel abonnement",
+      "newText": "Crée l’entreprise, son propriétaire et son abonnement. Un nouveau propriétaire reçoit un e-mail de support@smartmanager.me pour choisir son mot de passe ; un compte existant devient simplement propriétaire.",
+      "newPerMonth": "mois",
+      "newPerYear": "an"
     },
     "usageState": {
       "ACTIVE": "Actif",
@@ -1567,13 +1582,18 @@
       "costsTrial": "Coûts de cet essai",
       "costsPeriod": "Coûts de cette période de facturation",
       "thresholds": "Seuils d’utilisation (cet abonné uniquement)",
-      "planDefaults": "Valeurs par défaut de la formule {plan} : {conversations} conversations{cap} par période de facturation. Laissez un champ vide pour utiliser la valeur par défaut ; « Rétablir les valeurs de la formule » efface les deux.",
+      "planDefaults": "Valeurs par défaut de la formule {plan} : {conversations} conversations{cap} par mois (les formules annuelles repartent chaque mois au jour de l’abonnement). Laissez un champ vide pour utiliser la valeur par défaut ; « Rétablir les valeurs de la formule » efface les deux.",
       "noLimit": "sans limite",
       "cap": " et un plafond de coût IA de {amount} $",
       "now": " Actuellement : {conversations} conversations et {cost} $ de coût Agent IA sur cette {period} (la voix premium ne compte pas dans le plafond).",
       "periodTrial": "période d’essai",
       "periodBilling": "période",
-      "trialing": " Pendant l’essai, les limites d’essai (Utilisation et coût IA) s’appliquent ; celles-ci prennent effet une fois l’abonnement payé."
+      "trialing": " Pendant l’essai, les limites d’essai (Utilisation et coût IA) s’appliquent ; celles-ci prennent effet une fois l’abonnement payé.",
+      "created": {
+        "invited": "Abonnement créé. Le propriétaire a reçu un lien de support@smartmanager.me pour choisir son mot de passe.",
+        "inviteFailed": "Abonnement créé, mais l’e-mail du mot de passe n’a pas pu être envoyé. Demandez au propriétaire d’écrire à support@smartmanager.me pour un nouveau lien.",
+        "existing": "Abonnement créé pour le compte existant avec cet e-mail — le propriétaire se connecte comme d’habitude."
+      }
     },
     "costs": {
       "aiTitle": "Coût de l’Agent IA",
@@ -1951,7 +1971,7 @@
       "isInactive": "Inactive",
       "isDefault": "Par défaut",
       "makeDefault": "Définir par défaut",
-      "limits": "Limites d’utilisation des formules payantes (par période ; les essais ne sont pas concernés)",
+      "limits": "Limites d’utilisation des formules payantes, par mois (formules annuelles comprises : elles repartent chaque mois au jour de l’abonnement ; les essais ne sont pas concernés)",
       "none": "Aucune formule pour l’instant.",
       "badgePopular": "La plus populaire",
       "badgeHidden": "Pas sur le site",
@@ -2283,6 +2303,30 @@
       "buttonLabel": "Afficher les montants en : {name}",
       "choose": "Afficher les montants en",
       "hint": "Converti aux taux de change publics du jour, pour l’affichage uniquement — rien d’enregistré ne change."
+    },
+    "newSubscription": {
+      "ownerEmail": "E-mail du propriétaire",
+      "ownerEmailHint": "Un compte existant avec cet e-mail devient propriétaire ; sinon un compte est créé.",
+      "ownerName": "Nom complet du propriétaire",
+      "businessName": "Nom de l’entreprise",
+      "businessType": "Type d’activité",
+      "choose": "Choisir…",
+      "language": "Langue",
+      "languageHint": "La langue de l’entreprise et des e-mails du propriétaire.",
+      "currency": "Devise",
+      "country": "Pays (facultatif)",
+      "phone": "Téléphone (facultatif)",
+      "subscription": "Abonnement",
+      "plan": "Formule (mensuelle ou annuelle)",
+      "status": "Statut",
+      "status_trialing": "Essai gratuit",
+      "status_active": "Actif (payé hors plateforme)",
+      "trialDays": "Jours d’essai",
+      "periodEnd": "Payé jusqu’au (facultatif)",
+      "periodEndHintMonth": "Vide : un mois à partir d’aujourd’hui.",
+      "periodEndHintYear": "Vide : un an à partir d’aujourd’hui. Les limites repartent quand même chaque mois.",
+      "create": "Créer l’abonnement",
+      "creating": "Création…"
     }
   },
   "agent": {
@@ -3242,7 +3286,16 @@
       "planCreateFailed": "Impossible de créer ce forfait — veuillez réessayer.",
       "translateFailed": "Impossible de lancer la traduction — veuillez réessayer.",
       "translateQueued": "{n, plural, =0 {Rien à traduire.} one {# élément vérifié — les langues manquantes sont en cours d’ajout.} other {# éléments vérifiés — les langues manquantes sont en cours d’ajout.}}",
-      "socialUrl": "Les liens doivent être des adresses complètes en https://."
+      "socialUrl": "Les liens doivent être des adresses complètes en https://.",
+      "newSubscription": {
+        "email": "Saisissez l’adresse e-mail du propriétaire.",
+        "phone": "Vérifiez le numéro (chiffres, espaces et + uniquement).",
+        "noServiceRole": "Le serveur n’est pas configuré pour créer des comptes (rôle de service manquant).",
+        "noEmail": "L’envoi d’e-mails n’est pas configuré : le nouveau propriétaire ne pourrait pas recevoir son lien.",
+        "ownerFailed": "Impossible de créer le compte du propriétaire — veuillez réessayer.",
+        "invalid": "Vérifiez la formule, les jours d’essai et les dates.",
+        "failed": "Impossible de créer l’abonnement — veuillez réessayer."
+      }
     },
     "auth": {
       "signInInvalid": "Saisissez une adresse e-mail et un mot de passe valides.",
@@ -3823,6 +3876,30 @@
             "body": "{company} — {country}\n{supportEmail} · {contactEmail} · {phone}"
           }
         }
+      }
+    },
+    "setPassword": {
+      "metaTitle": "Choisissez votre mot de passe",
+      "title": "Choisissez votre mot de passe",
+      "text": "Vous l’utiliserez avec votre e-mail pour vous connecter à votre tableau de bord.",
+      "password": "Nouveau mot de passe",
+      "confirm": "Confirmer le mot de passe",
+      "hint": "Au moins 8 caractères.",
+      "submit": "Enregistrer et ouvrir mon tableau de bord",
+      "verifying": "Vérification de votre lien…",
+      "linkInvalidTitle": "Ce lien ne peut pas être utilisé",
+      "linkInvalidText": "Il a expiré ou a déjà été utilisé. Écrivez à support@smartmanager.me et nous vous en enverrons un nouveau.",
+      "signInTitle": "Connectez-vous d’abord",
+      "signInText": "Ouvrez le lien reçu par e-mail, ou connectez-vous pour changer votre mot de passe.",
+      "signIn": "Se connecter",
+      "errors": {
+        "signInFirst": "Votre session a expiré — rouvrez le lien reçu par e-mail.",
+        "short": "Choisissez un mot de passe d’au moins 8 caractères.",
+        "differ": "Les deux mots de passe ne correspondent pas.",
+        "weak": "Ce mot de passe est trop faible — choisissez-en un plus long et moins courant.",
+        "same": "Choisissez un mot de passe différent de l’actuel.",
+        "tooMany": "Trop de tentatives — veuillez patienter quelques minutes.",
+        "failed": "Une erreur est survenue. Veuillez réessayer."
       }
     }
   }

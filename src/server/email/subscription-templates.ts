@@ -75,6 +75,8 @@ type Strings = {
   endedOn: string;
   button: string;
   footer: string;
+  /** After the first payment (the trial becomes a paid subscription): our onboarding help. */
+  onboarding: { title: string; intro: string; items: string[]; promise: string };
   kinds: Record<SubscriptionEmailKind, Copy>;
 };
 
@@ -101,6 +103,12 @@ const STRINGS: Record<EmailLang, Strings> = {
     button: "View billing",
     footer:
       "You are receiving this email because you own {business} on SmartManager AI Agent. Questions? Reply to this email or write to support@smartmanager.me.",
+    onboarding: {
+      title: "We’ll set everything up for you",
+      intro: "We are ready to assist you through the full onboarding process. Please reply to this email with:",
+      items: ["Your menu or product list (PDF or CSV file)", "Your website, if you have one", "Your Google Maps link"],
+      promise: "Your onboarding will be fully delivered within 24 hours at most.",
+    },
     kinds: {
       trial_started: {
         subject: "Your free trial has started — {business}",
@@ -168,6 +176,12 @@ const STRINGS: Record<EmailLang, Strings> = {
     button: "عرض الفوترة",
     footer:
       "تصلك هذه الرسالة لأنك مالك {business} على SmartManager AI Agent. لديك أسئلة؟ رُدّ على هذه الرسالة أو راسلنا على support@smartmanager.me.",
+    onboarding: {
+      title: "سنتولى إعداد كل شيء نيابةً عنك",
+      intro: "نحن جاهزون لمساعدتك خلال عملية الإعداد الكاملة. يُرجى الرد على هذه الرسالة وإرسال:",
+      items: ["قائمتك أو قائمة منتجاتك (ملف PDF أو CSV)", "موقعك الإلكتروني إن وُجد", "رابط موقعك على خرائط Google"],
+      promise: "سيتم تسليم عملية الإعداد كاملةً خلال 24 ساعة كحد أقصى.",
+    },
     kinds: {
       trial_started: {
         subject: "بدأت تجربتك المجانية — {business}",
@@ -235,6 +249,12 @@ const STRINGS: Record<EmailLang, Strings> = {
     button: "Voir la facturation",
     footer:
       "Vous recevez cet e-mail car vous êtes propriétaire de {business} sur SmartManager AI Agent. Des questions ? Répondez à cet e-mail ou écrivez à support@smartmanager.me.",
+    onboarding: {
+      title: "Nous nous occupons de tout",
+      intro: "Nous sommes prêts à vous accompagner tout au long de la mise en service. Merci de répondre à cet e-mail en nous envoyant :",
+      items: ["Votre menu ou votre liste de produits (fichier PDF ou CSV)", "Votre site web, si vous en avez un", "Votre lien Google Maps"],
+      promise: "Votre mise en service sera entièrement réalisée sous 24 heures maximum.",
+    },
     kinds: {
       trial_started: {
         subject: "Votre essai gratuit a commencé — {business}",
@@ -420,6 +440,8 @@ export function renderSubscriptionEmail(input: SubscriptionEmailInput): Rendered
   const greeting = input.ownerName?.trim() ? fill(s.helloNamed, { name: input.ownerName.trim() }) : s.hello;
   const intro = fill(copy.intro, values);
   const note = copy.note ? fill(copy.note, values) : null;
+  // The first real payment (from the trial to a paid plan): offer the onboarding help.
+  const onboarding = kind === "payment_received" && details.first_payment === true ? s.onboarding : null;
   const footer = fill(s.footer, values);
 
   const text = [
@@ -430,6 +452,7 @@ export function renderSubscriptionEmail(input: SubscriptionEmailInput): Rendered
     `${s.heading}:`,
     ...rows.map(([label, value]) => `- ${label}: ${value}`),
     ...(note ? ["", note] : []),
+    ...(onboarding ? ["", onboarding.title, onboarding.intro, ...onboarding.items.map((item) => `- ${item}`), onboarding.promise] : []),
     "",
     `${s.button}: ${input.billingUrl}`,
     "",
@@ -460,6 +483,15 @@ export function renderSubscriptionEmail(input: SubscriptionEmailInput): Rendered
 <p style="margin:0 0 8px;font-weight:700">${e(s.heading)}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;font-size:14px;text-align:${align}">${rowHtml}</table>
 ${note ? `<p style="margin:16px 0 0">${e(note)}</p>` : ""}
+${
+  onboarding
+    ? `<div style="margin:20px 0 0;padding:16px;border-radius:8px;background:#ecfdf5;border:1px solid #a7f3d0">` +
+      `<p style="margin:0 0 8px;font-weight:700;color:#065f46">${e(onboarding.title)}</p>` +
+      `<p style="margin:0 0 8px">${e(onboarding.intro)}</p>` +
+      `<ul style="margin:0 0 8px;padding-${align}:20px">${onboarding.items.map((item) => `<li>${e(item)}</li>`).join("")}</ul>` +
+      `<p style="margin:0;font-weight:600">${e(onboarding.promise)}</p></div>`
+    : ""
+}
 <p style="margin:24px 0 8px"><a href="${e(input.billingUrl)}" style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600">${e(s.button)}</a></p>
 </td></tr>
 <tr><td style="padding:16px 24px 24px;font-size:12px;line-height:1.5;color:#64748b">${e(footer)}</td></tr>

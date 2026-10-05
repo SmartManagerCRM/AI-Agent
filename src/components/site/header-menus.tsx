@@ -11,7 +11,21 @@ import { setSiteCurrencyAction } from "@/server/site/actions";
 import { SiteIcon } from "./icons";
 
 /** A small pill menu (language, currency): button + list, closes on outside click / Escape. */
-function PillMenu({ label, value, children, testId, align = "end" }: { label: string; value: string; children: (close: () => void) => ReactNode; testId: string; align?: "start" | "end" }) {
+function PillMenu({
+  label,
+  value,
+  children,
+  testId,
+  align = "end",
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  children: (close: () => void) => ReactNode;
+  testId: string;
+  align?: "start" | "end";
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -36,17 +50,23 @@ function PillMenu({ label, value, children, testId, align = "end" }: { label: st
         aria-controls={id}
         aria-label={`${label}: ${value}`}
         onClick={() => setOpen((v) => !v)}
-        className="site-focus flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50"
+        className={`site-focus flex items-center rounded-full border border-slate-200 bg-white font-semibold text-slate-800 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition hover:border-slate-300 hover:bg-slate-50 ${
+          compact ? "h-9 gap-1 px-2.5 text-[13px] max-[399px]:px-2" : "h-10 gap-1.5 px-3.5 text-sm"
+        }`}
       >
         {value}
-        <SiteIcon name="chevronDown" size={15} className={`text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        <SiteIcon
+          name="chevronDown"
+          size={compact ? 13 : 15}
+          className={`text-slate-500 transition-transform ${open ? "rotate-180" : ""} ${compact ? "max-[399px]:hidden" : ""}`}
+        />
       </button>
       {open && (
         <div
           id={id}
           role="listbox"
           aria-label={label}
-          className={`site-pop absolute top-12 z-50 max-h-80 min-w-40 overflow-y-auto rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl ${align === "end" ? "end-0" : "start-0"}`}
+          className={`site-pop absolute z-50 max-h-80 min-w-40 overflow-y-auto ${compact ? "top-11" : "top-12"} rounded-2xl border border-slate-100 bg-white py-1.5 shadow-xl ${align === "end" ? "end-0" : "start-0"}`}
         >
           {children(() => setOpen(false))}
         </div>
@@ -58,11 +78,11 @@ function PillMenu({ label, value, children, testId, align = "end" }: { label: st
 const optionClass = (selected: boolean) =>
   `site-focus flex w-full items-center justify-between gap-3 px-4 py-2 text-start text-sm transition ${selected ? "bg-emerald-50 font-semibold text-emerald-800" : "text-slate-700 hover:bg-slate-50"}`;
 
-export function LocaleMenu({ locale, align }: { locale: Locale; align?: "start" | "end" }) {
+export function LocaleMenu({ locale, align, compact }: { locale: Locale; align?: "start" | "end"; compact?: boolean }) {
   const t = useTranslations("site.header");
   const pathname = usePathname();
   return (
-    <PillMenu label={t("language")} value={locale.toUpperCase()} testId="site-locale-menu" align={align}>
+    <PillMenu label={t("language")} value={locale.toUpperCase()} testId="site-locale-menu" align={align} compact={compact}>
       {() =>
         LOCALES.map((l) => (
           <a
@@ -87,12 +107,12 @@ export function LocaleMenu({ locale, align }: { locale: Locale; align?: "start" 
   );
 }
 
-export function CurrencyMenu({ currencies, current, align }: { currencies: string[]; current: string; align?: "start" | "end" }) {
+export function CurrencyMenu({ currencies, current, align, compact }: { currencies: string[]; current: string; align?: "start" | "end"; compact?: boolean }) {
   const t = useTranslations("site.header");
   const router = useRouter();
   const [pending, start] = useTransition();
   return (
-    <PillMenu label={t("currency")} value={pending ? "…" : current} testId="site-currency-menu" align={align}>
+    <PillMenu label={t("currency")} value={pending ? "…" : current} testId="site-currency-menu" align={align} compact={compact}>
       {(close) =>
         currencies.map((code) => (
           <button

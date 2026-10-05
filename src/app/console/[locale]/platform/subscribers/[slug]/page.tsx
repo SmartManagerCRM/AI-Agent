@@ -21,8 +21,15 @@ const utcInput = (iso: string | null | undefined) => (iso ? new Date(iso).toISOS
  * subscription (plan, status, trial end, billing period) and its own usage
  * thresholds. Every write is Super-Admin-only in the database itself.
  */
-export default async function EditSubscriberPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+export default async function EditSubscriberPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ created?: string }>;
+}) {
   const { locale, slug } = await params;
+  const { created } = await searchParams;
   await requireSuperAdmin(locale);
   const supabase = await createUserClient();
   const t = await getTranslations("platform.subscriber");
@@ -95,6 +102,15 @@ export default async function EditSubscriberPage({ params }: { params: Promise<{
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <MarkSubscriberChecked locale={locale} tenantId={tenant.id} />
+      {(created === "invited" || created === "inviteFailed" || created === "existing") && (
+        <p
+          className={`rounded-xl border px-4 py-3 text-sm ${created === "inviteFailed" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}
+          role="status"
+          data-testid="subscription-created"
+        >
+          {t(`created.${created}`)}
+        </p>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link

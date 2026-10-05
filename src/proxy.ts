@@ -169,7 +169,7 @@ export async function proxy(request: NextRequest) {
       const { redirect, locale } = withLocale();
       if (redirect) return withCsp(redirect, csp);
       // Sign-up and its confirmation work with the visitor's session (kept fresh like the console's).
-      if (/^\/(?:signup|welcome)(?:\/|$)/.test(rest)) {
+      if (/^\/(?:signup|welcome|set-password)(?:\/|$)/.test(rest)) {
         return withCsp(
           await refreshSession(request, requestHeaders, (headers) => {
             headers.set("x-next-intl-locale", locale);

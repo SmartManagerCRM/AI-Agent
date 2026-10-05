@@ -1291,6 +1291,28 @@ export type Database = {
           plans: Json | null;
         }[];
       };
+      super_admin_recipients: {
+        Args: Record<string, never>;
+        Returns: { email: string; full_name: string | null; preferred_language: string | null }[];
+      };
+      admin_create_subscriber: {
+        Args: {
+          p_owner_id: string;
+          p_business_name: LocalizedText;
+          p_business_type_key: string;
+          p_slug: string;
+          p_default_language: string;
+          p_currency: string;
+          p_plan_key: string;
+          p_status: string;
+          p_trial_days?: number;
+          p_period_end?: string;
+          p_country?: string;
+          p_contact_phone?: string;
+          p_owner_name?: string;
+        };
+        Returns: string;
+      };
       finish_subscription_email: {
         Args: { p_id: number; p_status: string; p_error?: string; p_retry_in_seconds?: number };
         Returns: undefined;

@@ -26,7 +26,8 @@ do $$ begin
   end if;
 end $$;
 create temp view mails as
-  select kind, details from public.subscription_emails where tenant_id = '00000000-0000-4000-8000-0000000c0bb1' order by id;
+  select kind, details from public.subscription_emails
+   where tenant_id = '00000000-0000-4000-8000-0000000c0bb1' and kind <> 'new_subscriber_admin' order by id;
 grant select on mails to authenticated, service_role;
 
 -- ── A ───────────────────────────────────────────────────────────────────
@@ -85,6 +86,8 @@ select is((select string_agg(kind, ',') from mails),
   'trial_started,payment_received,upgraded,downgraded,cancel_scheduled,renewal_resumed,payment_failed,paused,canceled', 'one email per change, in order');
 
 -- ── D: the sender ───────────────────────────────────────────────────────
+-- (The Super Admins' "new subscriber" email is tested in 032.)
+update public.subscription_emails set status = 'skipped' where kind = 'new_subscriber_admin';
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000c0aa1","role":"authenticated"}';
 select is((select count(*)::int from public.subscription_emails), 0, 'a subscriber cannot read the email queue');

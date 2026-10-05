@@ -36,9 +36,9 @@ select is((select a.price_minor from public.subscription_plans a where a.key = '
           (select m.price_minor * 10 from public.subscription_plans m where m.key = 'growth'), 'annual Growth costs 10 months of monthly Growth');
 select is((select billing_interval || ' ' || plan_family from public.subscription_plans where key = 'starter_annual'), 'year starter', 'annual Starter is yearly, in the Starter family');
 select is((select a.conversation_limit from public.subscription_plans a where a.key = 'pro_annual'),
-          (select m.conversation_limit * 12 from public.subscription_plans m where m.key = 'pro'), 'annual Pro: 12 months of conversations');
+          (select m.conversation_limit from public.subscription_plans m where m.key = 'pro'), 'annual Pro: the monthly conversation limit (counted month by month — 032)');
 select is((select limit_usd from public.ai_cost_limits where plan_key = 'starter_annual'),
-          (select limit_usd * 12 from public.ai_cost_limits where plan_key = 'starter'), '… and 12 months of AI cost cap');
+          (select limit_usd from public.ai_cost_limits where plan_key = 'starter'), '… and the monthly AI cost cap');
 select ok((select features ->> 'en' from public.subscription_plans where key = 'pro') like '%Dedicated onboarding%', 'plans carry their feature list');
 
 -- ── C ───────────────────────────────────────────────────────────────────
