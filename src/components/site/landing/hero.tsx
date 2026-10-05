@@ -108,7 +108,8 @@ function HeroVisual({ t }: { t: T }) {
           className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:w-[38%] xl:w-[44%]"
         />
 
-        <Phone className="absolute start-[33%] top-2 z-10 h-[400px] w-[205px] rotate-[4deg] sm:start-[30%] sm:h-[470px] sm:w-[240px] lg:start-[13%] xl:start-[29%] lg:h-[500px] lg:w-[250px]">
+        {/* Phones and tablets only: on wider screens the café owner in the photo takes this place. */}
+        <Phone className="absolute start-[33%] top-2 z-10 h-[400px] w-[205px] rotate-[4deg] sm:start-[30%] sm:h-[470px] sm:w-[240px] lg:hidden">
           <PhoneAgentBar title="SmartManager AI Agent" online={t("phone.online")} onClose={false} />
           <div className="flex flex-1 flex-col gap-2.5 bg-gradient-to-b from-white to-emerald-50/40 px-3 py-3 text-[10.5px] leading-snug">
             <p className="max-w-[85%] rounded-2xl rounded-ss-sm bg-slate-100 px-3 py-2 text-slate-800">
