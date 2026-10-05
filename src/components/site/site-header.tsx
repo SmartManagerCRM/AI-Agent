@@ -86,13 +86,12 @@ export function SiteHeader({
     <>
       <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/85 backdrop-blur-md supports-[backdrop-filter]:bg-white/75">
         <div className="mx-auto flex h-[68px] max-w-[1240px] items-center justify-between gap-2 px-4 sm:px-6 lg:h-[76px] lg:gap-4 lg:px-8">
-          {/* Phones and tablets: the currency and language menus sit next to the logo. */}
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <SiteLogo locale={locale} responsive />
-            <div className="flex items-center gap-1.5 lg:hidden">
-              <CurrencyMenu currencies={currencies} current={currency} align="start" compact />
-              <LocaleMenu locale={locale} align="start" compact />
-            </div>
+          <SiteLogo locale={locale} responsive />
+
+          {/* Phones and tablets: the currency and language menus, centred between the logo and the menu button. */}
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5 lg:hidden">
+            <CurrencyMenu currencies={currencies} current={currency} align="start" compact />
+            <LocaleMenu locale={locale} align="end" compact />
           </div>
 
           <nav aria-label={t("mainNav")} className="hidden items-center gap-8 lg:flex">
