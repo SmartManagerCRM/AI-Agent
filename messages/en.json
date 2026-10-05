@@ -1303,7 +1303,42 @@
       "cod": "Cash on Delivery",
       "pot": "Pay on Table",
       "cashNote": "Cash on Delivery and Pay on Table need no setup: the order is confirmed immediately and the customer pays in person — mark it collected from the Orders page once they do.",
-      "save": "Save"
+      "save": "Save",
+      "intro": "Connect your own account with any of these gateways — payments go straight to it. Turn a gateway on to offer it at checkout.",
+      "connected": "Connected",
+      "notConnected": "Not connected",
+      "setup": "Set up",
+      "hide": "Hide",
+      "testMode": "Test mode (test account, no real charges)",
+      "webhookUrl": "Webhook URL to add in the gateway's dashboard:",
+      "stripe": "Stripe (cards, Apple Pay, Google Pay)",
+      "stripeKey": "Stripe secret key (sk_live_… or sk_test_…)",
+      "stripeWebhookSecret": "Webhook signing secret (whsec_…)",
+      "stripeHint": "In Stripe → Developers → Webhooks, add the URL above with the events checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and checkout.session.expired.",
+      "paypal": "PayPal (PayPal balance, cards)",
+      "paypalClientId": "PayPal REST app client ID",
+      "paypalClientSecret": "PayPal REST app secret",
+      "paypalSandbox": "Sandbox (PayPal test account)",
+      "paypalHint": "PayPal only accepts some currencies (e.g. USD, EUR, GBP) — not SAR, AED, KWD or QAR. Optionally add the webhook URL above for the events CHECKOUT.ORDER.APPROVED and PAYMENT.CAPTURE.COMPLETED.",
+      "hyperpay": "HyperPay (mada, Visa, Mastercard)",
+      "hyperpayToken": "HyperPay access token",
+      "hyperpayEntity": "Entity ID (Visa / Mastercard)",
+      "hyperpayMadaEntity": "Entity ID (mada) — optional",
+      "hyperpayHint": "HyperPay gives mada its own entity ID in Saudi Arabia; with it, customers choose mada or Visa / Mastercard on the payment page.",
+      "myfatoorah": "MyFatoorah (KNET, mada, cards, Apple Pay)",
+      "myfatoorahToken": "MyFatoorah API token",
+      "myfatoorahCountry": "Your MyFatoorah account's country",
+      "myfatoorahHint": "Optionally add the webhook URL above in MyFatoorah → Integration settings → Webhook (event: transaction status changed).",
+      "country": {
+        "KWT": "Kuwait",
+        "SAU": "Saudi Arabia",
+        "ARE": "United Arab Emirates",
+        "QAT": "Qatar",
+        "BHR": "Bahrain",
+        "OMN": "Oman",
+        "JOR": "Jordan",
+        "EGY": "Egypt"
+      }
     },
     "alertDevice": {
       "title": "Order alerts on this device",
@@ -2078,19 +2113,18 @@
       "title": "Integrations",
       "subtitle": "Payment gateway connection status across every business. AI provider status is on the AI Models page.",
       "total": "Total businesses",
-      "moyasar": "Moyasar connected",
-      "tap": "Tap connected",
       "none": "No gateway connected",
       "col": {
         "business": "Business",
-        "moyasar": "Moyasar",
-        "tap": "Tap",
-        "methods": "Enabled methods"
+        "methods": "Enabled methods",
+        "connected": "Connected gateways"
       },
       "connected": "Connected",
       "notConnected": "Not connected",
       "empty": "No businesses yet",
-      "emptyDescription": "Businesses will appear here as they sign up."
+      "emptyDescription": "Businesses will appear here as they sign up.",
+      "anyConnected": "With a gateway connected",
+      "businessesCount": "{count, plural, one {# business} other {# businesses}}"
     },
     "health": {
       "status": {
@@ -2501,13 +2535,21 @@
         "moyasar": "Card / Apple Pay",
         "tap": "Card / Apple Pay",
         "cash_on_delivery": "Cash on delivery",
-        "pay_on_table": "Pay at the table"
+        "pay_on_table": "Pay at the table",
+        "stripe": "Card / Apple Pay",
+        "paypal": "PayPal",
+        "hyperpay": "mada / Card",
+        "myfatoorah": "KNET / mada / Card"
       },
       "paymentSub": {
         "moyasar": "Secure online payment (Moyasar)",
         "tap": "Secure online payment (Tap)",
         "cash_on_delivery": "Pay in cash when you receive it",
-        "pay_on_table": "Pay your server at the table"
+        "pay_on_table": "Pay your server at the table",
+        "stripe": "Secure online payment (Stripe)",
+        "paypal": "Pay with your PayPal account or a card",
+        "hyperpay": "Secure online payment (HyperPay)",
+        "myfatoorah": "Secure online payment (MyFatoorah)"
       },
       "summaryTitle": "Order summary",
       "placeOrder": "Place order",
@@ -2568,7 +2610,10 @@
       "pending": "Confirming your payment — this can take a moment. Refresh to check again.",
       "succeeded": "Payment received — thank you!",
       "failed": "This payment attempt failed — return to the chat to try again.",
-      "secure": "Payments are processed securely."
+      "secure": "Payments are processed securely.",
+      "chooseCard": "Choose your card",
+      "mada": "mada",
+      "visaMastercard": "Visa / Mastercard"
     },
     "voice": {
       "speak": "Speak your message",
@@ -2902,7 +2947,11 @@
       "tap": "Tap",
       "mock": "Test payment",
       "cash_on_delivery": "Cash on delivery",
-      "pay_on_table": "Pay at the table"
+      "pay_on_table": "Pay at the table",
+      "stripe": "Stripe",
+      "paypal": "PayPal",
+      "hyperpay": "HyperPay",
+      "myfatoorah": "MyFatoorah"
     },
     "auditAction": {
       "admin__business_updated": "Business updated by Super Admin",
@@ -3201,7 +3250,14 @@
       "saveFailed": "Couldn’t save checkout settings — please try again.",
       "tableExists": "That branch already has a table with this label.",
       "tableFailed": "Couldn’t create that table — please try again.",
-      "paymentsFailed": "Couldn’t save payment settings — please try again."
+      "paymentsFailed": "Couldn’t save payment settings — please try again.",
+      "gatewayNeedsKeys": "Add the {gateway} keys before turning it on.",
+      "gateway": {
+        "stripe": "Stripe",
+        "paypal": "PayPal",
+        "hyperpay": "HyperPay",
+        "myfatoorah": "MyFatoorah"
+      }
     },
     "marketing": {
       "codeChars": "Use letters, numbers and hyphens only.",

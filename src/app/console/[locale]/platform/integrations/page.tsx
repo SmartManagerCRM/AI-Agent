@@ -32,9 +32,13 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
     status: statusByTenant.get(t.id),
   }));
 
-  const moyasarCount = rows.filter((r) => r.status?.moyasar_connected).length;
-  const tapCount = rows.filter((r) => r.status?.tap_connected).length;
-  const noneCount = rows.filter((r) => !r.status?.moyasar_connected && !r.status?.tap_connected).length;
+  const GATEWAYS = ["moyasar", "tap", "stripe", "paypal", "hyperpay", "myfatoorah"] as const;
+  type Status = NonNullable<(typeof rows)[number]["status"]>;
+  const connected = (status: Status | undefined) => GATEWAYS.filter((g) => status?.[`${g}_connected`]);
+  const anyCount = rows.filter((r) => connected(r.status).length > 0).length;
+  const noneCount = rows.length - anyCount;
+  const perGateway = GATEWAYS.map((g) => ({ gateway: g, count: rows.filter((r) => r.status?.[`${g}_connected`]).length }));
+  const gatewayName = (g: string) => (tAll.has(`common.paymentProvider.${g}`) ? tAll(`common.paymentProvider.${g}`) : g);
 
   return (
     <div className="flex max-w-5xl flex-col gap-6">
@@ -43,12 +47,19 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
         {tr("subtitle")}
       </p>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <KpiTile icon="building" accent="emerald" label={tr("total")} value={String(rows.length)} trend={null} href={`/${locale}/super-admin/businesses`} />
-        <KpiTile icon="billing" accent="blue" label={tr("moyasar")} value={String(moyasarCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
-        <KpiTile icon="billing" accent="orange" label={tr("tap")} value={String(tapCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
+        <KpiTile icon="billing" accent="blue" label={tr("anyConnected")} value={String(anyCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
         <KpiTile icon="alert" accent="purple" label={tr("none")} value={String(noneCount)} trend={null} href={`/${locale}/super-admin/integrations#gateways`} />
       </div>
+
+      <ul className="flex flex-wrap gap-2" data-testid="gateway-counts">
+        {perGateway.map(({ gateway, count }) => (
+          <li key={gateway} className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600">
+            <span className="font-medium text-slate-900">{gatewayName(gateway)}</span> · {tr("businessesCount", { count })}
+          </li>
+        ))}
+      </ul>
 
       <section id="gateways" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         {rows.length > 0 ? (
@@ -56,49 +67,44 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
             <table className="w-full text-start text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="py-2 text-start font-medium">{tr("col.business")}</th>
-                  <th className="py-2 text-start font-medium">{tr("col.moyasar")}</th>
-                  <th className="py-2 text-start font-medium">{tr("col.tap")}</th>
+                  <th className="py-2 pe-3 text-start font-medium">{tr("col.business")}</th>
+                  <th className="py-2 pe-3 text-start font-medium">{tr("col.connected")}</th>
                   <th className="py-2 text-start font-medium">{tr("col.methods")}</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                    <td className="py-2">
-                      <Link
-                        href={`/${locale}/super-admin/businesses/${row.slug}`}
-                        prefetch={false}
-                        className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
-                      >
-                        {row.businessName}
-                      </Link>
-                    </td>
-                    <td className="py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          row.status?.moyasar_connected
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {row.status?.moyasar_connected ? tr("connected") : tr("notConnected")}
-                      </span>
-                    </td>
-                    <td className="py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          row.status?.tap_connected ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
-                        {row.status?.tap_connected ? tr("connected") : tr("notConnected")}
-                      </span>
-                    </td>
-                    <td className="py-2 text-slate-600">
-                      {(row.status?.enabled_methods ?? []).map((m) => (tAll.has(`common.paymentProvider.${m}`) ? tAll(`common.paymentProvider.${m}`) : m)).join(", ") || "—"}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((row) => {
+                  const list = connected(row.status);
+                  return (
+                    <tr key={row.id} className="border-b border-slate-100 last:border-0">
+                      <td className="py-2 pe-3">
+                        <Link
+                          href={`/${locale}/super-admin/businesses/${row.slug}`}
+                          prefetch={false}
+                          className="font-medium text-slate-900 hover:text-emerald-600 hover:underline"
+                        >
+                          {row.businessName}
+                        </Link>
+                      </td>
+                      <td className="py-2 pe-3">
+                        {list.length > 0 ? (
+                          <span className="flex flex-wrap gap-1">
+                            {list.map((g) => (
+                              <span key={g} className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                {gatewayName(g)}
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">{tr("notConnected")}</span>
+                        )}
+                      </td>
+                      <td className="py-2 text-slate-600">
+                        {(row.status?.enabled_methods ?? []).map(gatewayName).join(", ") || "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

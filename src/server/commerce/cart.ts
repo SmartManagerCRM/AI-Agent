@@ -13,7 +13,10 @@ import type { TypedSupabaseClient } from "@/server/supabase/clients";
  * compile time) so nothing here actually depends on the guarded client
  * module at runtime.
  */
-export type PaymentMethod = "moyasar" | "tap" | "cash_on_delivery" | "pay_on_table";
+/** Online gateways a business can connect (its own merchant account), then the two paid in person. */
+export const ONLINE_PAYMENT_METHODS = ["moyasar", "tap", "stripe", "paypal", "hyperpay", "myfatoorah"] as const;
+export const PAYMENT_METHODS = [...ONLINE_PAYMENT_METHODS, "cash_on_delivery", "pay_on_table"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
 export type CartRow = {
   id: string;

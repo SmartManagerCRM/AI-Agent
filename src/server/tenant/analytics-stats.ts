@@ -11,6 +11,10 @@ export type AnalyticsRangeDays = (typeof ANALYTICS_RANGES)[number];
 const PAYMENT_METHOD_COLOR: Record<string, string> = {
   moyasar: "#3b82f6",
   tap: "#8b5cf6",
+  stripe: "#6366f1",
+  paypal: "#0ea5e9",
+  hyperpay: "#f59e0b",
+  myfatoorah: "#ec4899",
   cash: "#10b981",
 };
 

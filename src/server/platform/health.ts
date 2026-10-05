@@ -131,7 +131,9 @@ async function checkPaymentGateway(supabase: TypedSupabaseClient): Promise<Healt
     const result = await supabase
       .from("tenant_payment_config")
       .select("tenant_id")
-      .or("moyasar_secret_key.not.is.null,tap_secret_key.not.is.null")
+      .or(
+        "moyasar_secret_key.not.is.null,tap_secret_key.not.is.null,stripe_secret_key.not.is.null,paypal_client_secret.not.is.null,hyperpay_access_token.not.is.null,myfatoorah_api_token.not.is.null",
+      )
       .limit(1)
       .abortSignal(AbortSignal.timeout(CHECK_TIMEOUT_MS));
     if (result.error) error = result.error.message;

@@ -1,5 +1,6 @@
 "use server";
 
+import { offeredPaymentMethods } from "@/lib/payments/offered";
 import { z } from "zod";
 
 import { type AgentErrorCode, orderErrorCode } from "@/lib/agent-errors";
@@ -13,6 +14,7 @@ import {
   setCouponCode,
   setCustomerDetails,
   setFulfillment,
+  PAYMENT_METHODS,
   setPaymentMethod,
   viewCart,
   type CartView,
@@ -82,7 +84,7 @@ async function loadContext(slug: string, surface: Surface = "external_agent") {
     cart,
     orderingEnabled: checkout.ordering_enabled,
     fulfillmentTypes: checkout.fulfillment_types,
-    paymentMethods: (paymentConfig?.enabled_methods ?? []) as PaymentMethod[],
+    paymentMethods: offeredPaymentMethods((paymentConfig?.enabled_methods ?? []) as PaymentMethod[], tenant.currency),
   };
 }
 
@@ -195,7 +197,7 @@ export async function setFulfillmentTypeAction(
   return { ok: true, cart };
 }
 
-const paymentMethodSchema = z.object({ paymentMethod: z.enum(["moyasar", "tap", "cash_on_delivery", "pay_on_table"]) });
+const paymentMethodSchema = z.object({ paymentMethod: z.enum(PAYMENT_METHODS) });
 
 export async function setPaymentMethodAction(
   slug: string,

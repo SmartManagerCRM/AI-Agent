@@ -43,7 +43,7 @@ export async function processSubscriptionProviderWebhook(
   if (!payment) return { ok: false, error: "NOT_FOUND: no subscription payment matches this provider intent." };
 
   const { data: currencyRow } = await supabase.from("currencies").select("exponent").eq("code", payment.currency).maybeSingle();
-  const verification = provider.verifyWebhook(rawBody, signatureHeader, {}, { currencyExponent: currencyRow?.exponent ?? 2 });
+  const verification = await provider.verifyWebhook(rawBody, signatureHeader, {}, { currencyExponent: currencyRow?.exponent ?? 2 });
   if (!verification) return { ok: false, error: "INVALID_SIGNATURE: webhook could not be verified." };
 
   if (payment.amount_minor !== verification.amountMinor || payment.currency !== verification.currency) {

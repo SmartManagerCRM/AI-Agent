@@ -2,9 +2,14 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import { HyperpayForm } from "@/components/agent-public/hyperpay-form";
 import { formatMoney } from "@/lib/money";
 import { isLocale, localeDirection } from "@/i18n/locales";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { simulateMockPaymentAction } from "@/server/payments/actions";
+import { hyperpayBase, parseHyperpayIntent } from "@/server/payments/hyperpay";
+import { loadCredentials } from "@/server/payments/service";
+import { syncPaymentStatus } from "@/server/payments/webhook";
 import { serviceClient } from "@/server/supabase/clients";
 
 export const dynamic = "force-dynamic";
@@ -19,17 +24,49 @@ export const dynamic = "force-dynamic";
  * (`src/server/payments/webhook.ts`). Styled with the Customer Agent's
  * visual system; the interface language is the one the agent host
  * negotiated for this request.
+ *
+ * It is also where real gateways send the customer back: a pending payment's
+ * outcome is then read from the gateway's own API (`syncPaymentStatus` —
+ * Stripe, PayPal, HyperPay, MyFatoorah), never from the redirect itself. For
+ * HyperPay, which has no hosted page, HyperPay's own payment form is shown
+ * here (mada, or Visa / Mastercard).
  */
-export default async function PayPage({ params }: { params: Promise<{ paymentId: string }> }) {
+export default async function PayPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ paymentId: string }>;
+  searchParams: Promise<{ method?: string }>;
+}) {
   const { paymentId } = await params;
+  const { method } = await searchParams;
   const supabase = serviceClient();
 
-  const { data: payment } = await supabase
-    .from("payments")
-    .select("id, status, provider, amount_minor, currency, order_id, tenant_id")
-    .eq("id", paymentId)
-    .maybeSingle();
-  if (!payment) notFound();
+  const select = "id, status, provider, provider_intent_id, amount_minor, currency, order_id, tenant_id";
+  const { data: row } = await supabase.from("payments").select(select).eq("id", paymentId).maybeSingle();
+  if (!row) notFound();
+  let payment = row;
+  if (payment.status === "pending" && payment.provider !== "mock" && payment.provider_intent_id) {
+    // The outcome just recorded (a second read of the same row would be memoized within this render).
+    const synced = await syncPaymentStatus(payment.id);
+    if (synced === "succeeded" || synced === "failed") payment = { ...payment, status: synced };
+  }
+
+  // HyperPay: its payment form, for the checkout the customer chose (mada first when the business has it).
+  let hyperpay: { scriptBase: string; checkoutId: string; brands: string; options: { brand: "mada" | "cards"; href: string; active: boolean }[] } | null = null;
+  if (payment.provider === "hyperpay" && payment.status === "pending") {
+    const checkouts = parseHyperpayIntent(payment.provider_intent_id);
+    const chosen = checkouts.find((c) => c.brand === method) ?? checkouts[0];
+    if (chosen) {
+      const credentials = await loadCredentials(supabase, payment.tenant_id);
+      hyperpay = {
+        scriptBase: hyperpayBase(credentials),
+        checkoutId: chosen.checkoutId,
+        brands: chosen.brand === "mada" ? "MADA" : "VISA MASTER",
+        options: checkouts.length > 1 ? checkouts.map((c) => ({ brand: c.brand, href: `?method=${c.brand}`, active: c === chosen })) : [],
+      };
+    }
+  }
 
   const [{ data: order }, { data: tenant }, { data: currencyRow }] = await Promise.all([
     supabase.from("orders").select("order_number").eq("id", payment.order_id).maybeSingle(),
@@ -87,7 +124,34 @@ export default async function PayPage({ params }: { params: Promise<{ paymentId:
             </>
           )}
 
-          {payment.status === "pending" && payment.provider !== "mock" && <p className="text-sm text-slate-600">{t("pending")}</p>}
+          {hyperpay && (
+            <div className="flex w-full flex-col gap-3">
+              {hyperpay.options.length > 0 && (
+                <div className="flex justify-center gap-2" role="tablist" aria-label={t("chooseCard")}>
+                  {hyperpay.options.map((o) => (
+                    <a
+                      key={o.brand}
+                      href={o.href}
+                      role="tab"
+                      aria-selected={o.active}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold ring-1 ${o.active ? "bg-agent-700 text-white ring-agent-700" : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50"}`}
+                    >
+                      {t(o.brand === "mada" ? "mada" : "visaMastercard")}
+                    </a>
+                  ))}
+                </div>
+              )}
+              <HyperpayForm
+                key={hyperpay.checkoutId}
+                scriptBase={hyperpay.scriptBase}
+                checkoutId={hyperpay.checkoutId}
+                brands={hyperpay.brands}
+                resultUrl={publicAgentUrls().path(`/pay/${payment.id}`)}
+                locale={locale}
+              />
+            </div>
+          )}
+          {payment.status === "pending" && payment.provider !== "mock" && !hyperpay && <p className="text-sm text-slate-600">{t("pending")}</p>}
           {payment.status === "succeeded" && (
             <p className="flex items-center gap-2 text-base font-bold text-agent-700">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-agent-500 text-white" aria-hidden="true">

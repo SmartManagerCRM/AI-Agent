@@ -1,14 +1,19 @@
 import { publicAgentUrls } from "@/server/agent-public/urls";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
+import { hyperpayProvider } from "./hyperpay";
 import { mockPaymentProvider } from "./mock";
 import { moyasarProvider } from "./moyasar";
+import { myfatoorahProvider } from "./myfatoorah";
+import { paypalProvider } from "./paypal";
 import type { PaymentCredentials, PaymentProvider } from "./provider";
+import { stripeProvider } from "./stripe";
 import { tapProvider } from "./tap";
 
 /**
  * Every payment provider wired in. Credentials are per-tenant (each
- * business connects its own Moyasar/Tap merchant account — money goes
+ * business connects its own Moyasar/Tap/Stripe/PayPal/HyperPay/MyFatoorah
+ * merchant account — money goes
  * straight to that business, never pools in one platform account), loaded
  * from `tenant_payment_config` inside `initiatePayment` below and passed
  * into whichever of these the order's chosen payment method names — never
@@ -21,6 +26,10 @@ export const providers: Record<string, PaymentProvider> = {
   mock: mockPaymentProvider,
   moyasar: moyasarProvider,
   tap: tapProvider,
+  stripe: stripeProvider,
+  paypal: paypalProvider,
+  hyperpay: hyperpayProvider,
+  myfatoorah: myfatoorahProvider,
 };
 
 const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
@@ -93,7 +102,7 @@ export async function initiatePayment(
 }
 
 /**
- * Reads one tenant's stored Moyasar/Tap secret keys. Callers only ever
+ * Reads one tenant's stored gateway credentials. Callers only ever
  * come from server-side payment code (`initiatePayment` above, and the
  * webhook route via `loadCredentialsForTenant`) — never exposed to a
  * client, and never read through anything but a service-role client, since
@@ -103,10 +112,27 @@ export async function initiatePayment(
 export async function loadCredentials(supabase: TypedSupabaseClient, tenantId: string): Promise<PaymentCredentials> {
   const { data } = await supabase
     .from("tenant_payment_config")
-    .select("moyasar_secret_key, tap_secret_key")
+    .select(
+      "moyasar_secret_key, tap_secret_key, stripe_secret_key, stripe_webhook_secret, paypal_client_id, paypal_client_secret, paypal_test_mode, hyperpay_access_token, hyperpay_entity_id, hyperpay_mada_entity_id, hyperpay_test_mode, myfatoorah_api_token, myfatoorah_country, myfatoorah_test_mode",
+    )
     .eq("tenant_id", tenantId)
     .maybeSingle();
-  return { moyasarSecretKey: data?.moyasar_secret_key ?? null, tapSecretKey: data?.tap_secret_key ?? null };
+  return {
+    moyasarSecretKey: data?.moyasar_secret_key ?? null,
+    tapSecretKey: data?.tap_secret_key ?? null,
+    stripeSecretKey: data?.stripe_secret_key ?? null,
+    stripeWebhookSecret: data?.stripe_webhook_secret ?? null,
+    paypalClientId: data?.paypal_client_id ?? null,
+    paypalClientSecret: data?.paypal_client_secret ?? null,
+    paypalTestMode: data?.paypal_test_mode ?? false,
+    hyperpayAccessToken: data?.hyperpay_access_token ?? null,
+    hyperpayEntityId: data?.hyperpay_entity_id ?? null,
+    hyperpayMadaEntityId: data?.hyperpay_mada_entity_id ?? null,
+    hyperpayTestMode: data?.hyperpay_test_mode ?? false,
+    myfatoorahApiToken: data?.myfatoorah_api_token ?? null,
+    myfatoorahCountry: data?.myfatoorah_country ?? null,
+    myfatoorahTestMode: data?.myfatoorah_test_mode ?? false,
+  };
 }
 
 function toAbsoluteAgentUrl(path: string): string {

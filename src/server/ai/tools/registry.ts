@@ -84,10 +84,12 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   {
     name: "set_payment_method",
     description:
-      "Set how the customer will pay: an online gateway (moyasar, tap), or in person later (cash_on_delivery, pay_on_table). Only offer methods the business actually has enabled — check what's available first if unsure.",
+      "Set how the customer will pay: an online gateway (moyasar, tap, stripe, paypal, hyperpay, myfatoorah), or in person later (cash_on_delivery, pay_on_table). Only offer methods the business actually has enabled — check what's available first if unsure.",
     parameters: {
       type: "object",
-      properties: { payment_method: { type: "string", enum: ["moyasar", "tap", "cash_on_delivery", "pay_on_table"] } },
+      properties: {
+        payment_method: { type: "string", enum: ["moyasar", "tap", "stripe", "paypal", "hyperpay", "myfatoorah", "cash_on_delivery", "pay_on_table"] },
+      },
       required: ["payment_method"],
     },
   },

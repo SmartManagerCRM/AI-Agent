@@ -22,6 +22,10 @@ const FULFILLMENT_ICONS: Record<FulfillmentType, React.ReactNode> = {
 const PAYMENT_ICONS: Record<PaymentMethod, React.ReactNode> = {
   moyasar: <CardIcon size={22} />,
   tap: <CardIcon size={22} />,
+  stripe: <CardIcon size={22} />,
+  paypal: <CardIcon size={22} />,
+  hyperpay: <CardIcon size={22} />,
+  myfatoorah: <CardIcon size={22} />,
   cash_on_delivery: <CashIcon size={22} />,
   pay_on_table: <TableIcon size={22} />,
 };

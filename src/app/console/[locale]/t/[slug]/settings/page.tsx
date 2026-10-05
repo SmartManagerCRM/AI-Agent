@@ -4,8 +4,10 @@ import { BusinessProfileForm } from "@/components/business/business-profile-form
 import { KeptWordsForm } from "@/components/business/kept-words-form";
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
 import { PaymentSettingsForm } from "@/components/commerce/payment-settings-form";
+import { consoleOrigin } from "@/lib/hosts";
 import { productImageUrl } from "@/lib/product-image";
 import { timeZoneOptions } from "@/lib/timezone";
+import { serverEnv } from "@/server/env";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireTenantMember } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
@@ -22,7 +24,13 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
     // Read on its own, so the checkout settings never depend on it.
     supabase.from("tenant_settings").select("translation").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
-    supabase.from("tenant_payment_config").select("enabled_methods, moyasar_secret_key, tap_secret_key").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase
+      .from("tenant_payment_config")
+      .select(
+        "enabled_methods, moyasar_secret_key, tap_secret_key, stripe_secret_key, stripe_webhook_secret, paypal_client_id, paypal_client_secret, paypal_test_mode, hyperpay_access_token, hyperpay_entity_id, hyperpay_mada_entity_id, hyperpay_test_mode, myfatoorah_api_token, myfatoorah_country, myfatoorah_test_mode",
+      )
+      .eq("tenant_id", tenant.id)
+      .maybeSingle(),
   ]);
 
   return (
@@ -91,14 +99,40 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
             tenantId={tenant.id}
             slug={slug}
             locale={locale}
+            webhookBase={`${webhookOrigin()}/api/payments/webhook`}
             current={{
               enabled_methods: paymentConfig.enabled_methods,
               hasMoyasarKey: Boolean(paymentConfig.moyasar_secret_key),
               hasTapKey: Boolean(paymentConfig.tap_secret_key),
+              hasStripeKey: Boolean(paymentConfig.stripe_secret_key),
+              hasStripeWebhookSecret: Boolean(paymentConfig.stripe_webhook_secret),
+              hasPaypalClientId: Boolean(paymentConfig.paypal_client_id),
+              hasPaypalSecret: Boolean(paymentConfig.paypal_client_secret),
+              paypalTestMode: paymentConfig.paypal_test_mode,
+              hasHyperpayToken: Boolean(paymentConfig.hyperpay_access_token),
+              hasHyperpayEntity: Boolean(paymentConfig.hyperpay_entity_id),
+              hasHyperpayMadaEntity: Boolean(paymentConfig.hyperpay_mada_entity_id),
+              hyperpayTestMode: paymentConfig.hyperpay_test_mode,
+              hasMyfatoorahToken: Boolean(paymentConfig.myfatoorah_api_token),
+              myfatoorahCountry: paymentConfig.myfatoorah_country,
+              myfatoorahTestMode: paymentConfig.myfatoorah_test_mode,
             }}
           />
         </section>
       )}
     </div>
   );
+}
+
+/** The app's public address, where payment gateways send their webhooks. */
+function webhookOrigin(): string {
+  const env = serverEnv();
+  return consoleOrigin({
+    rootDomain: env.PLATFORM_ROOT_DOMAIN,
+    consoleSubdomain: env.CONSOLE_SUBDOMAIN,
+    agentSubdomain: env.AGENT_SUBDOMAIN,
+    scheme: env.PUBLIC_URL_SCHEME,
+    port: env.PUBLIC_URL_PORT,
+    consoleUrl: env.CONSOLE_URL,
+  });
 }

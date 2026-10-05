@@ -13,6 +13,18 @@
 export type PaymentCredentials = {
   moyasarSecretKey?: string | null;
   tapSecretKey?: string | null;
+  stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
+  paypalClientId?: string | null;
+  paypalClientSecret?: string | null;
+  paypalTestMode?: boolean;
+  hyperpayAccessToken?: string | null;
+  hyperpayEntityId?: string | null;
+  hyperpayMadaEntityId?: string | null;
+  hyperpayTestMode?: boolean;
+  myfatoorahApiToken?: string | null;
+  myfatoorahCountry?: string | null;
+  myfatoorahTestMode?: boolean;
 };
 
 export type PaymentIntent = {
@@ -29,6 +41,16 @@ export type PaymentVerification = {
   amountMinor: number;
   currency: string;
   failureReason?: string;
+};
+
+/** What a provider is told about the payment it is verifying: never trusted input, our own record. */
+export type PaymentContext = {
+  /** Minor-unit exponent of the payment's currency. */
+  currencyExponent: number;
+  /** Our payment id (providers that bound their payment to it check it). */
+  paymentId?: string;
+  /** The currency we recorded for the payment. */
+  orderCurrency?: string;
 };
 
 export type PaymentProviderResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -73,6 +95,19 @@ export type PaymentProvider = {
     rawBody: string,
     signatureHeader: string | null,
     credentials: PaymentCredentials,
-    context: { currencyExponent: number },
-  ): PaymentVerification | null;
+    context: PaymentContext,
+  ): PaymentVerification | null | Promise<PaymentVerification | null>;
+  /**
+   * Asks the provider's own API (with this tenant's credentials) for the
+   * payment's outcome — the authoritative answer, used when the customer
+   * comes back from the provider's page and, for providers whose webhooks
+   * carry no signature we can check, as their webhook verification too.
+   * Completes what the provider needs completing on our side first (PayPal:
+   * capturing an approved order). `null` while there is no final outcome.
+   */
+  syncStatus?(
+    providerIntentId: string,
+    credentials: PaymentCredentials,
+    context: PaymentContext,
+  ): Promise<PaymentVerification | null>;
 };

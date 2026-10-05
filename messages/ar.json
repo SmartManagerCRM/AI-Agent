@@ -1303,7 +1303,42 @@
       "cod": "الدفع عند الاستلام",
       "pot": "الدفع على الطاولة",
       "cashNote": "الدفع عند الاستلام والدفع على الطاولة لا يحتاجان إلى إعداد: يُؤكَّد الطلب فورًا ويدفع العميل حضوريًا — حدّده كمحصَّل من صفحة الطلبات بعد الدفع.",
-      "save": "حفظ"
+      "save": "حفظ",
+      "intro": "اربط حسابك الخاص بأي من بوابات الدفع هذه — تذهب المدفوعات مباشرةً إليه. فعّل البوابة لعرضها عند الدفع.",
+      "connected": "متصل",
+      "notConnected": "غير متصل",
+      "setup": "إعداد",
+      "hide": "إخفاء",
+      "testMode": "وضع الاختبار (حساب تجريبي، دون خصم حقيقي)",
+      "webhookUrl": "رابط الإشعارات (Webhook) لإضافته في لوحة تحكم البوابة:",
+      "stripe": "Stripe (البطاقات، Apple Pay، Google Pay)",
+      "stripeKey": "المفتاح السري لـ Stripe (sk_live_… أو sk_test_…)",
+      "stripeWebhookSecret": "سر توقيع الإشعارات (whsec_…)",
+      "stripeHint": "في Stripe ← المطورون ← Webhooks، أضف الرابط أعلاه مع الأحداث checkout.session.completed وcheckout.session.async_payment_succeeded وcheckout.session.async_payment_failed وcheckout.session.expired.",
+      "paypal": "PayPal (رصيد PayPal، البطاقات)",
+      "paypalClientId": "معرّف العميل (Client ID) لتطبيق PayPal",
+      "paypalClientSecret": "السر (Secret) لتطبيق PayPal",
+      "paypalSandbox": "بيئة الاختبار Sandbox (حساب PayPal تجريبي)",
+      "paypalHint": "يقبل PayPal بعض العملات فقط (مثل USD وEUR وGBP) — وليس SAR أو AED أو KWD أو QAR. يمكنك اختياريًا إضافة رابط الإشعارات أعلاه للحدثين CHECKOUT.ORDER.APPROVED وPAYMENT.CAPTURE.COMPLETED.",
+      "hyperpay": "HyperPay (مدى، Visa، Mastercard)",
+      "hyperpayToken": "رمز الوصول (Access Token) لـ HyperPay",
+      "hyperpayEntity": "معرّف الكيان (Entity ID) لـ Visa / Mastercard",
+      "hyperpayMadaEntity": "معرّف الكيان (Entity ID) لمدى — اختياري",
+      "hyperpayHint": "تمنح HyperPay مدى معرّف كيان خاصًا في السعودية؛ عند إضافته يختار العميل مدى أو Visa / Mastercard في صفحة الدفع.",
+      "myfatoorah": "ماي فاتورة MyFatoorah (كي نت، مدى، البطاقات، Apple Pay)",
+      "myfatoorahToken": "رمز واجهة برمجة التطبيقات (API Token) لماي فاتورة",
+      "myfatoorahCountry": "دولة حسابك في ماي فاتورة",
+      "myfatoorahHint": "يمكنك اختياريًا إضافة رابط الإشعارات أعلاه في ماي فاتورة ← إعدادات الربط ← Webhook (حدث: تغيّر حالة المعاملة).",
+      "country": {
+        "KWT": "الكويت",
+        "SAU": "السعودية",
+        "ARE": "الإمارات",
+        "QAT": "قطر",
+        "BHR": "البحرين",
+        "OMN": "عُمان",
+        "JOR": "الأردن",
+        "EGY": "مصر"
+      }
     },
     "alertDevice": {
       "title": "تنبيهات الطلبات على هذا الجهاز",
@@ -2078,19 +2113,18 @@
       "title": "التكاملات",
       "subtitle": "حالة ربط بوابات الدفع لكل الأنشطة. حالة مزوّد الذكاء الاصطناعي في صفحة نماذج الذكاء الاصطناعي.",
       "total": "إجمالي الأنشطة",
-      "moyasar": "ميسر متصل",
-      "tap": "Tap متصل",
       "none": "لا بوابة متصلة",
       "col": {
         "business": "النشاط",
-        "moyasar": "ميسر",
-        "tap": "Tap",
-        "methods": "الطرق المفعّلة"
+        "methods": "الطرق المفعّلة",
+        "connected": "بوابات الدفع المتصلة"
       },
       "connected": "متصل",
       "notConnected": "غير متصل",
       "empty": "لا توجد أنشطة بعد",
-      "emptyDescription": "ستظهر الأنشطة هنا عند تسجيلها."
+      "emptyDescription": "ستظهر الأنشطة هنا عند تسجيلها.",
+      "anyConnected": "لديها بوابة دفع متصلة",
+      "businessesCount": "{count, plural, zero {لا أنشطة} one {نشاط واحد} two {نشاطان} few {# أنشطة} many {# نشاطًا} other {# نشاط}}"
     },
     "health": {
       "status": {
@@ -2501,13 +2535,21 @@
         "moyasar": "بطاقة / Apple Pay",
         "tap": "بطاقة / Apple Pay",
         "cash_on_delivery": "الدفع عند الاستلام",
-        "pay_on_table": "الدفع على الطاولة"
+        "pay_on_table": "الدفع على الطاولة",
+        "stripe": "بطاقة / Apple Pay",
+        "paypal": "PayPal",
+        "hyperpay": "مدى / بطاقة",
+        "myfatoorah": "كي نت / مدى / بطاقة"
       },
       "paymentSub": {
         "moyasar": "دفع إلكتروني آمن (ميسّر)",
         "tap": "دفع إلكتروني آمن (Tap)",
         "cash_on_delivery": "ادفع نقداً عند الاستلام",
-        "pay_on_table": "ادفع للنادل على الطاولة"
+        "pay_on_table": "ادفع للنادل على الطاولة",
+        "stripe": "دفع إلكتروني آمن (Stripe)",
+        "paypal": "ادفع بحساب PayPal أو ببطاقة",
+        "hyperpay": "دفع إلكتروني آمن (HyperPay)",
+        "myfatoorah": "دفع إلكتروني آمن (ماي فاتورة)"
       },
       "summaryTitle": "ملخص الطلب",
       "placeOrder": "تأكيد الطلب",
@@ -2568,7 +2610,10 @@
       "pending": "جارٍ تأكيد الدفع — قد يستغرق ذلك لحظات. حدّث الصفحة للتحقق مجدداً.",
       "succeeded": "تم استلام الدفع — شكراً لك!",
       "failed": "فشلت محاولة الدفع هذه — عد إلى المحادثة للمحاولة مجدداً.",
-      "secure": "تتم معالجة المدفوعات بشكل آمن."
+      "secure": "تتم معالجة المدفوعات بشكل آمن.",
+      "chooseCard": "اختر بطاقتك",
+      "mada": "مدى",
+      "visaMastercard": "Visa / Mastercard"
     },
     "voice": {
       "speak": "تحدّث برسالتك",
@@ -2902,7 +2947,11 @@
       "tap": "Tap",
       "mock": "دفع تجريبي",
       "cash_on_delivery": "الدفع عند الاستلام",
-      "pay_on_table": "الدفع على الطاولة"
+      "pay_on_table": "الدفع على الطاولة",
+      "stripe": "Stripe",
+      "paypal": "PayPal",
+      "hyperpay": "HyperPay",
+      "myfatoorah": "ماي فاتورة"
     },
     "auditAction": {
       "admin__business_updated": "تحديث النشاط بواسطة المشرف العام",
@@ -3201,7 +3250,14 @@
       "saveFailed": "تعذّر حفظ إعدادات الدفع — يُرجى المحاولة مرة أخرى.",
       "tableExists": "يوجد بالفعل طاولة بهذا الرقم في هذا الفرع.",
       "tableFailed": "تعذّر إنشاء هذه الطاولة — يُرجى المحاولة مرة أخرى.",
-      "paymentsFailed": "تعذّر حفظ إعدادات الدفع — يُرجى المحاولة مرة أخرى."
+      "paymentsFailed": "تعذّر حفظ إعدادات الدفع — يُرجى المحاولة مرة أخرى.",
+      "gatewayNeedsKeys": "أضف مفاتيح {gateway} قبل تفعيلها.",
+      "gateway": {
+        "stripe": "Stripe",
+        "paypal": "PayPal",
+        "hyperpay": "HyperPay",
+        "myfatoorah": "ماي فاتورة"
+      }
     },
     "marketing": {
       "codeChars": "استخدم الحروف والأرقام والشرطات فقط.",

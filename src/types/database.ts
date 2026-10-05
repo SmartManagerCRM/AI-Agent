@@ -928,7 +928,7 @@ export type Database = {
           conversation_id: string;
           status: "active" | "converted" | "abandoned";
           fulfillment_type: "pickup" | "delivery" | "dine_in" | null;
-          payment_method: "moyasar" | "tap" | "cash_on_delivery" | "pay_on_table" | null;
+          payment_method: "moyasar" | "tap" | "stripe" | "paypal" | "hyperpay" | "myfatoorah" | "cash_on_delivery" | "pay_on_table" | null;
           branch_id: string | null;
           table_id: string | null;
           customer_name: string | null;
@@ -947,9 +947,21 @@ export type Database = {
       tenant_payment_config: {
         Row: {
           tenant_id: string;
-          enabled_methods: ("moyasar" | "tap" | "cash_on_delivery" | "pay_on_table")[];
+          enabled_methods: ("moyasar" | "tap" | "stripe" | "paypal" | "hyperpay" | "myfatoorah" | "cash_on_delivery" | "pay_on_table")[];
           moyasar_secret_key: string | null;
           tap_secret_key: string | null;
+          stripe_secret_key: string | null;
+          stripe_webhook_secret: string | null;
+          paypal_client_id: string | null;
+          paypal_client_secret: string | null;
+          paypal_test_mode: boolean;
+          hyperpay_access_token: string | null;
+          hyperpay_entity_id: string | null;
+          hyperpay_mada_entity_id: string | null;
+          hyperpay_test_mode: boolean;
+          myfatoorah_api_token: string | null;
+          myfatoorah_country: "KWT" | "SAU" | "ARE" | "QAT" | "BHR" | "OMN" | "JOR" | "EGY";
+          myfatoorah_test_mode: boolean;
           updated_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["tenant_payment_config"]["Row"]> & { tenant_id: string };
@@ -1893,7 +1905,16 @@ export type Database = {
       };
       tenant_payment_integration_status: {
         Args: Record<string, never>;
-        Returns: { tenant_id: string; moyasar_connected: boolean; tap_connected: boolean; enabled_methods: string[] }[];
+        Returns: {
+          tenant_id: string;
+          moyasar_connected: boolean;
+          tap_connected: boolean;
+          stripe_connected: boolean;
+          paypal_connected: boolean;
+          hyperpay_connected: boolean;
+          myfatoorah_connected: boolean;
+          enabled_methods: string[];
+        }[];
       };
     };
     Enums: Record<string, never>;

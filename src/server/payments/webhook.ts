@@ -1,9 +1,11 @@
 import "server-only";
 
-import { loadCredentials } from "@/server/payments/service";
+import { loadCredentials, providers } from "@/server/payments/service";
 import { serviceClient } from "@/server/supabase/clients";
+import type { Json } from "@/types/database";
 
-import type { PaymentProvider } from "./provider";
+import { parseJson } from "./amounts";
+import type { PaymentProvider, PaymentVerification } from "./provider";
 
 export type WebhookOutcome =
   | { ok: true; result: "succeeded" | "failed" | "ignored" }
@@ -50,22 +52,35 @@ export async function processProviderWebhook(
   const currencyExponent = currencyRow?.exponent ?? 2;
 
   const credentials = await loadCredentials(supabase, payment.tenant_id);
-  const verification = provider.verifyWebhook(rawBody, signatureHeader, credentials, { currencyExponent });
+  const verification = await provider.verifyWebhook(rawBody, signatureHeader, credentials, {
+    currencyExponent,
+    paymentId: payment.id,
+    orderCurrency: payment.currency.trim(),
+  });
   if (!verification) return { ok: false, error: "INVALID_SIGNATURE: webhook could not be verified." };
 
-  // Defense in depth: even a validly-signed webhook should never be
-  // trusted to report the amount/currency that was actually authorized
-  // without cross-checking it against what we ourselves recorded when the
-  // intent was created.
-  if (payment.amount_minor !== verification.amountMinor || payment.currency !== verification.currency) {
+  return recordVerification(payment, verification, parseJson(rawBody) ?? { provider: provider.name });
+}
+
+type RecordedPayment = { id: string; amount_minor: number; currency: string };
+
+/**
+ * Records a verified outcome (a provider's signed webhook, or its own API's
+ * answer). Defense in depth: a payment is never marked paid unless the
+ * amount/currency the provider reports is exactly what we recorded when the
+ * intent was created (a failure moves no money, and some providers report
+ * no amount for a cancelled invoice).
+ */
+async function recordVerification(payment: RecordedPayment, verification: PaymentVerification, raw: unknown): Promise<WebhookOutcome> {
+  const supabase = serviceClient();
+  if (verification.status === "succeeded" && (payment.amount_minor !== verification.amountMinor || payment.currency.trim() !== verification.currency)) {
     return { ok: false, error: "MISMATCH: webhook amount/currency does not match the recorded payment." };
   }
-
   if (verification.status === "succeeded") {
     const { error } = await supabase.rpc("mark_payment_succeeded", {
       p_payment_id: payment.id,
       p_provider_event_id: verification.providerEventId,
-      p_raw: JSON.parse(rawBody),
+      p_raw: raw as Json,
     });
     // Raw `error.message` is never returned here (spec §61 hardening): this
     // route is public and unauthenticated — a provider's own retried
@@ -77,9 +92,44 @@ export async function processProviderWebhook(
   const { error } = await supabase.rpc("mark_payment_failed", {
     p_payment_id: payment.id,
     p_provider_event_id: verification.providerEventId,
-    p_raw: JSON.parse(rawBody),
+    p_raw: raw as Json,
     p_reason: verification.failureReason ?? null,
   });
   if (error) return { ok: false, error: "INTERNAL_ERROR: could not record payment outcome." };
   return { ok: true, result: "failed" };
+}
+
+/**
+ * Asks the payment's provider for its outcome (its own API, this business's
+ * credentials) and records it — when the customer comes back to the payment
+ * page. Only providers with a status API (Stripe, PayPal, HyperPay,
+ * MyFatoorah) take part; a pending payment with no final outcome yet stays
+ * pending. Safe to call repeatedly: an outcome is recorded once.
+ */
+export async function syncPaymentStatus(paymentId: string): Promise<"succeeded" | "failed" | "pending" | "unchanged"> {
+  const supabase = serviceClient();
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("id, tenant_id, provider, provider_intent_id, status, amount_minor, currency")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!payment || payment.status !== "pending" || !payment.provider_intent_id) return "unchanged";
+  const provider = providers[payment.provider];
+  if (!provider?.syncStatus) return "unchanged";
+
+  const { data: currencyRow } = await supabase.from("currencies").select("exponent").eq("code", payment.currency).maybeSingle();
+  const credentials = await loadCredentials(supabase, payment.tenant_id);
+  if (!provider.configured(credentials)) return "unchanged";
+  const verification = await provider.syncStatus(payment.provider_intent_id, credentials, {
+    currencyExponent: currencyRow?.exponent ?? 2,
+    paymentId: payment.id,
+    orderCurrency: payment.currency.trim(),
+  });
+  if (!verification) return "pending";
+  const outcome = await recordVerification(payment, verification, { source: "status_check", provider: payment.provider, status: verification.status });
+  if (!outcome.ok) {
+    console.error(`[payments] ${payment.provider} status not recorded: ${outcome.error.split(":")[0]}`);
+    return "unchanged";
+  }
+  return outcome.result === "ignored" ? "unchanged" : outcome.result;
 }

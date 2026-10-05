@@ -1303,7 +1303,42 @@
       "cod": "Paiement à la livraison",
       "pot": "Paiement à table",
       "cashNote": "Le paiement à la livraison et à table ne nécessitent aucune configuration : la commande est confirmée immédiatement et le client paie en personne — marquez-la encaissée depuis la page Commandes une fois payée.",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "intro": "Connectez votre propre compte à l’une de ces passerelles — les paiements y arrivent directement. Activez une passerelle pour la proposer au paiement.",
+      "connected": "Connecté",
+      "notConnected": "Non connecté",
+      "setup": "Configurer",
+      "hide": "Masquer",
+      "testMode": "Mode test (compte de test, aucun débit réel)",
+      "webhookUrl": "URL de webhook à ajouter dans le tableau de bord de la passerelle :",
+      "stripe": "Stripe (cartes, Apple Pay, Google Pay)",
+      "stripeKey": "Clé secrète Stripe (sk_live_… ou sk_test_…)",
+      "stripeWebhookSecret": "Secret de signature du webhook (whsec_…)",
+      "stripeHint": "Dans Stripe → Développeurs → Webhooks, ajoutez l’URL ci-dessus avec les événements checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed et checkout.session.expired.",
+      "paypal": "PayPal (solde PayPal, cartes)",
+      "paypalClientId": "Client ID de l’application REST PayPal",
+      "paypalClientSecret": "Secret de l’application REST PayPal",
+      "paypalSandbox": "Sandbox (compte de test PayPal)",
+      "paypalHint": "PayPal n’accepte que certaines devises (p. ex. USD, EUR, GBP) — pas SAR, AED, KWD ni QAR. Ajoutez si vous le souhaitez l’URL de webhook ci-dessus pour les événements CHECKOUT.ORDER.APPROVED et PAYMENT.CAPTURE.COMPLETED.",
+      "hyperpay": "HyperPay (mada, Visa, Mastercard)",
+      "hyperpayToken": "Jeton d’accès HyperPay",
+      "hyperpayEntity": "Entity ID (Visa / Mastercard)",
+      "hyperpayMadaEntity": "Entity ID (mada) — facultatif",
+      "hyperpayHint": "En Arabie saoudite, HyperPay attribue à mada son propre Entity ID ; avec celui-ci, le client choisit mada ou Visa / Mastercard sur la page de paiement.",
+      "myfatoorah": "MyFatoorah (KNET, mada, cartes, Apple Pay)",
+      "myfatoorahToken": "Jeton d’API MyFatoorah",
+      "myfatoorahCountry": "Pays de votre compte MyFatoorah",
+      "myfatoorahHint": "Ajoutez si vous le souhaitez l’URL de webhook ci-dessus dans MyFatoorah → Paramètres d’intégration → Webhook (événement : changement de statut de transaction).",
+      "country": {
+        "KWT": "Koweït",
+        "SAU": "Arabie saoudite",
+        "ARE": "Émirats arabes unis",
+        "QAT": "Qatar",
+        "BHR": "Bahreïn",
+        "OMN": "Oman",
+        "JOR": "Jordanie",
+        "EGY": "Égypte"
+      }
     },
     "alertDevice": {
       "title": "Alertes de commande sur cet appareil",
@@ -2078,19 +2113,18 @@
       "title": "Intégrations",
       "subtitle": "État de connexion des passerelles de paiement pour chaque activité. L’état du fournisseur IA est sur la page Modèles IA.",
       "total": "Total des activités",
-      "moyasar": "Moyasar connecté",
-      "tap": "Tap connecté",
       "none": "Aucune passerelle connectée",
       "col": {
         "business": "Activité",
-        "moyasar": "Moyasar",
-        "tap": "Tap",
-        "methods": "Moyens activés"
+        "methods": "Moyens activés",
+        "connected": "Passerelles connectées"
       },
       "connected": "Connecté",
       "notConnected": "Non connecté",
       "empty": "Aucune activité pour l’instant",
-      "emptyDescription": "Les activités apparaîtront ici à leur inscription."
+      "emptyDescription": "Les activités apparaîtront ici à leur inscription.",
+      "anyConnected": "Avec une passerelle connectée",
+      "businessesCount": "{count, plural, one {# entreprise} other {# entreprises}}"
     },
     "health": {
       "status": {
@@ -2501,13 +2535,21 @@
         "moyasar": "Carte / Apple Pay",
         "tap": "Carte / Apple Pay",
         "cash_on_delivery": "Paiement à la réception",
-        "pay_on_table": "Payer à table"
+        "pay_on_table": "Payer à table",
+        "stripe": "Carte / Apple Pay",
+        "paypal": "PayPal",
+        "hyperpay": "mada / Carte",
+        "myfatoorah": "KNET / mada / Carte"
       },
       "paymentSub": {
         "moyasar": "Paiement en ligne sécurisé (Moyasar)",
         "tap": "Paiement en ligne sécurisé (Tap)",
         "cash_on_delivery": "Payez en espèces à la réception",
-        "pay_on_table": "Réglez auprès du serveur"
+        "pay_on_table": "Réglez auprès du serveur",
+        "stripe": "Paiement en ligne sécurisé (Stripe)",
+        "paypal": "Payez avec votre compte PayPal ou une carte",
+        "hyperpay": "Paiement en ligne sécurisé (HyperPay)",
+        "myfatoorah": "Paiement en ligne sécurisé (MyFatoorah)"
       },
       "summaryTitle": "Récapitulatif",
       "placeOrder": "Commander",
@@ -2568,7 +2610,10 @@
       "pending": "Confirmation de votre paiement en cours — cela peut prendre un instant. Actualisez pour vérifier.",
       "succeeded": "Paiement reçu — merci !",
       "failed": "Cette tentative de paiement a échoué — revenez à la conversation pour réessayer.",
-      "secure": "Les paiements sont traités de manière sécurisée."
+      "secure": "Les paiements sont traités de manière sécurisée.",
+      "chooseCard": "Choisissez votre carte",
+      "mada": "mada",
+      "visaMastercard": "Visa / Mastercard"
     },
     "voice": {
       "speak": "Dicter votre message",
@@ -2902,7 +2947,11 @@
       "tap": "Tap",
       "mock": "Paiement test",
       "cash_on_delivery": "Paiement à la livraison",
-      "pay_on_table": "Paiement à table"
+      "pay_on_table": "Paiement à table",
+      "stripe": "Stripe",
+      "paypal": "PayPal",
+      "hyperpay": "HyperPay",
+      "myfatoorah": "MyFatoorah"
     },
     "auditAction": {
       "admin__business_updated": "Activité modifiée par le Super Admin",
@@ -3201,7 +3250,14 @@
       "saveFailed": "Impossible d’enregistrer les paramètres de paiement — veuillez réessayer.",
       "tableExists": "Cette succursale a déjà une table avec ce libellé.",
       "tableFailed": "Impossible de créer cette table — veuillez réessayer.",
-      "paymentsFailed": "Impossible d’enregistrer les paramètres de paiement — veuillez réessayer."
+      "paymentsFailed": "Impossible d’enregistrer les paramètres de paiement — veuillez réessayer.",
+      "gatewayNeedsKeys": "Ajoutez les clés {gateway} avant de l’activer.",
+      "gateway": {
+        "stripe": "Stripe",
+        "paypal": "PayPal",
+        "hyperpay": "HyperPay",
+        "myfatoorah": "MyFatoorah"
+      }
     },
     "marketing": {
       "codeChars": "Utilisez uniquement des lettres, chiffres et tirets.",

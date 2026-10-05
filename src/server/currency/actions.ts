@@ -82,7 +82,8 @@ export async function previewCurrencySwitchAction(raw: { locale: string; slug: s
   const priced = (products ?? []).filter((p) => !p.source_price);
   const label = (n: Record<string, string>) => n[parsed.data.locale] ?? Object.values(n)[0] ?? "";
   const fee = (settings?.checkout as { delivery_fee_minor?: number } | null)?.delivery_fee_minor;
-  const online = (payment?.enabled_methods ?? []).filter((m) => m === "moyasar" || m === "tap");
+  const GATEWAY_NAMES: Record<string, string> = { moyasar: "Moyasar", tap: "Tap", stripe: "Stripe", paypal: "PayPal", hyperpay: "HyperPay", myfatoorah: "MyFatoorah" };
+  const online = (payment?.enabled_methods ?? []).filter((m) => m in GATEWAY_NAMES);
   return {
     ok: true,
     from: tenant.currency,
@@ -102,7 +103,7 @@ export async function previewCurrencySwitchAction(raw: { locale: string; slug: s
     deliveryFee: typeof fee === "number" && fee > 0 ? { beforeMinor: fee, afterMinor: convertMinor(fee, rate, fromExp, toExp) } : null,
     fromExponent: fromExp,
     toExponent: toExp,
-    paymentProvider: online.length > 0 ? online.map((m) => (m === "tap" ? "Tap" : "Moyasar")).join(" / ") : null,
+    paymentProvider: online.length > 0 ? online.map((m) => GATEWAY_NAMES[m]).join(" / ") : null,
   };
 }
 

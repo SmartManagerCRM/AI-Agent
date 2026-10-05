@@ -10,6 +10,7 @@ import { premiumVoiceExhausted } from "@/server/voice/availability";
 import { productImageUrl } from "@/lib/product-image";
 import { getPopularityByProduct } from "@/server/agent-public/recommendations";
 import type { PublicTenant } from "@/server/agent-public/tenant";
+import { offeredPaymentMethods } from "@/lib/payments/offered";
 import type { PaymentMethod } from "@/server/commerce/cart";
 import { findActiveTable } from "@/server/commerce/tables";
 import { serviceClient } from "@/server/supabase/clients";
@@ -169,7 +170,7 @@ export async function loadAgentExperience(
       currencyExponent: currencyRow?.exponent ?? 2,
       orderingEnabled: settings.checkout?.ordering_enabled ?? false,
       fulfillmentTypes: settings.checkout?.fulfillment_types ?? ["pickup"],
-      paymentMethods: (paymentConfig?.enabled_methods ?? []) as PaymentMethod[],
+      paymentMethods: offeredPaymentMethods((paymentConfig?.enabled_methods ?? []) as PaymentMethod[], tenant.currency),
       activeTable: activeTable ? { id: activeTable.id, label: activeTable.label } : null,
     },
   };
