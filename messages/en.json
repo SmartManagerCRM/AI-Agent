@@ -3590,7 +3590,7 @@
         },
         "who": {
           "q": "Which businesses can use it?",
-          "a": "Any business that serves customers: restaurants and cafés, shops, salons and spas, gyms, clinics, hotels, events and service businesses."
+          "a": "Any business that serves customers: restaurants and cafés, shops, salons and spas, gyms, clinics, hotels, events and service businesses. We do not support businesses selling alcohol products, tobacco, or any products or services prohibited by local or international laws — see our Terms of Service."
         },
         "restaurants": {
           "q": "Does it work for restaurants?",

@@ -17,8 +17,9 @@ export async function LegalDocument({ locale, doc, info }: { locale: Locale; doc
   const values = {
     company: info.companyName ?? "Millennium Leaders",
     country: info.companyCountry ?? "",
-    supportEmail: info.supportEmail ?? info.contactEmail ?? "",
-    contactEmail: info.contactEmail ?? info.supportEmail ?? "",
+    // The policies name these addresses (refund requests go to support): never left blank.
+    supportEmail: info.supportEmail ?? info.contactEmail ?? "support@smartmanager.me",
+    contactEmail: info.contactEmail ?? info.supportEmail ?? "contact@millenniumtco.com",
     phone: info.contactPhone ?? "",
     product: "SmartManager AI Agent",
   };
