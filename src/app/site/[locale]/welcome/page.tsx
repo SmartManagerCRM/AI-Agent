@@ -37,15 +37,23 @@ export default async function WelcomePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ code?: string; error?: string; error_code?: string }>;
+  searchParams: Promise<{ code?: string; token_hash?: string; type?: string; error?: string; error_code?: string }>;
 }) {
-  const [{ locale: raw }, { code, error, error_code: errorCode }] = await Promise.all([params, searchParams]);
+  const [{ locale: raw }, { code, token_hash: tokenHash, type, error, error_code: errorCode }] = await Promise.all([params, searchParams]);
   const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   const t = await getTranslations("site.welcome");
   const user = await currentUser();
 
   if (!user) {
     const signIn = `/${locale}/login?redirectTo=${encodeURIComponent(`/${locale}/welcome`)}`;
+    // The link in our confirmation email: confirmed (and signed in) here, then the business is created.
+    if (tokenHash) {
+      return (
+        <Panel>
+          <FinishSignup locale={locale} code={null} token={{ hash: tokenHash, type: type ?? "signup" }} mode="verify" />
+        </Panel>
+      );
+    }
     // Supabase sends the visitor back with an error instead of a code when the link has expired or was already used.
     if (!code && (error || errorCode)) {
       return (

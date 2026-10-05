@@ -5,24 +5,42 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
-import { completePendingSignupAction, exchangeSignupCodeAction } from "@/server/site/signup-actions";
+import { completePendingSignupAction, exchangeSignupCodeAction, verifySignupTokenAction } from "@/server/site/signup-actions";
 
 /**
  * The Welcome page's last step after confirming an email: sign in with the
  * link's code (when there is one), then create the business from what was
  * entered at sign-up — and show the result.
  */
-export function FinishSignup({ locale, code, mode }: { locale: string; code: string | null; mode: "exchange" | "complete" }) {
+export function FinishSignup({
+  locale,
+  code,
+  token,
+  mode,
+}: {
+  locale: string;
+  code: string | null;
+  token?: { hash: string; type: string };
+  mode: "verify" | "exchange" | "complete";
+}) {
   const t = useTranslations("site.welcome");
   const router = useRouter();
   const [error, setError] = useState<{ title?: string; text: string } | null>(null);
-  const started = useRef(false);
+  // Each step runs once. After signing in, the page re-renders this same component in "complete" mode.
+  const started = useRef<string | null>(null);
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    if (started.current === mode) return;
+    started.current = mode;
+    setError(null);
     (async () => {
-      if (mode === "exchange" && code) {
+      if (mode === "verify" && token) {
+        // Runs from the page (a POST), never on the link's GET — so a mail scanner opening it can't use it up.
+        if (!(await verifySignupTokenAction(token.hash, token.type))) {
+          setError({ title: t("linkExpiredTitle"), text: t("linkExpiredText") });
+          return;
+        }
+      } else if (mode === "exchange" && code) {
         const ok = await exchangeSignupCodeAction(code);
         if (!ok) {
           // Supabase only sends a code once the email is confirmed; it can't sign in here when the link was
@@ -40,7 +58,7 @@ export function FinishSignup({ locale, code, mode }: { locale: string; code: str
       router.replace(`/${locale}/welcome`);
       router.refresh();
     })();
-  }, [code, locale, mode, router, t]);
+  }, [code, locale, mode, router, t, token]);
 
   return error ? (
     <div className="flex flex-col items-center gap-4" role={error.title ? "status" : "alert"}>

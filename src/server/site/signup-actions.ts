@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { z } from "zod";
@@ -7,11 +8,13 @@ import { z } from "zod";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "@/i18n/locales";
 import { consoleOrigin } from "@/lib/hosts";
 import { withFreeSlug } from "@/server/business/slug";
+import { emailConfigured, sendPlatformEmail } from "@/server/email/resend";
+import { renderSignupConfirmationEmail } from "@/server/email/signup-confirmation";
 import { sendSubscriptionEmailsSoon } from "@/server/email/subscription-queue";
 import { serverEnv } from "@/server/env";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { loadPublicPlans } from "@/server/site/public-data";
-import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/clients";
+import { createUserClient, serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
  * Sign-up from the website (Pricing → Start free trial → Sign up): the
@@ -19,10 +22,17 @@ import { createUserClient, type TypedSupabaseClient } from "@/server/supabase/cl
  * on the plan chosen on the pricing page — monthly or annual, the plan's own
  * trial length (create_business).
  *
- * When Supabase asks the new owner to confirm their email first, there's no
- * session yet: what they entered is kept with the account (its metadata) and
- * the business is created once they've confirmed and signed in (the Welcome
- * page finishes it — completePendingSignupAction).
+ * The new owner confirms their email first: what they entered is kept with
+ * the account (its metadata) and the business is created once they've
+ * confirmed (the Welcome page finishes it — completePendingSignupAction).
+ *
+ * The confirmation email is sent by the app from support@smartmanager.me
+ * (Resend), like the other account emails: Supabase only creates the account
+ * and its one-time token (admin generateLink, which sends nothing), and the
+ * link opens the Welcome page, which verifies the token on the server — so it
+ * works in any browser or device and doesn't depend on Supabase's redirect
+ * settings. For an account that exists but was never confirmed, Supabase
+ * keeps its password and only updates the details; a new link is sent.
  */
 
 export type SignupState = { error?: string; field?: string; pendingEmail?: string } | undefined;
@@ -90,6 +100,53 @@ async function createBusiness(supabase: TypedSupabaseClient, fullName: string, p
   return null;
 }
 
+/**
+ * Creates (or, if never confirmed, refreshes) the account and emails its
+ * confirmation link from support@smartmanager.me. "unavailable" when the
+ * email service or the service role isn't configured.
+ */
+async function sendConfirmationEmail(input: {
+  email: string;
+  password: string;
+  metadata: Record<string, unknown>;
+  origin: string;
+  locale: Locale;
+  name: string;
+  businessName: string;
+}): Promise<"sent" | "unavailable" | { error: string; field?: string }> {
+  if (!emailConfigured()) return "unavailable";
+  let admin: TypedSupabaseClient;
+  try {
+    admin = serviceClient();
+  } catch {
+    return "unavailable";
+  }
+  const t = await errors(input.locale);
+  // A few confirmation emails per address per hour, whoever asks.
+  if (isRateLimited(`signup-mail:${input.email}`, 60 * 60_000, 3)) return { error: t("tooMany") };
+
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "signup",
+    email: input.email,
+    password: input.password,
+    options: { data: input.metadata },
+  });
+  if (error || !data.properties?.hashed_token) {
+    if (error?.code === "email_exists" || error?.code === "user_already_exists") return { error: t("alreadyRegistered"), field: "email" };
+    if (error?.code === "weak_password") return { error: t("weakPassword"), field: "password" };
+    return { error: t("signUpFailed") };
+  }
+  const type = data.properties.verification_type || "signup";
+  const link = `${input.origin}/${input.locale}/welcome?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=${encodeURIComponent(type)}`;
+  const message = renderSignupConfirmationEmail({ lang: input.locale, name: input.name, businessName: input.businessName, link });
+  const result = await sendPlatformEmail({ to: input.email, ...message, idempotencyKey: `signup-confirm-${crypto.randomUUID()}` });
+  if (!result.ok) {
+    console.error(`[signup] confirmation email not sent: ${result.error}`);
+    return { error: t("signUpFailed") };
+  }
+  return "sent";
+}
+
 export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
   const locale = localeOf(formData.get("locale"));
   const t = await errors(locale);
@@ -143,6 +200,9 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
     const email = account.data.email.toLowerCase();
     if (isRateLimited(`signup:${email}`, 5 * 60_000, 10)) return { error: t("tooMany") };
 
+    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (isRateLimited(`signup-ip:${ip}`, 60 * 60_000, 30)) return { error: t("tooMany") };
+
     const env = serverEnv();
     const origin = consoleOrigin({
       rootDomain: env.PLATFORM_ROOT_DOMAIN,
@@ -152,12 +212,18 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
       port: env.PUBLIC_URL_PORT,
       consoleUrl: env.CONSOLE_URL,
     });
+    const metadata = { full_name: d.fullName, pending_signup: pending };
+    const sent = await sendConfirmationEmail({ email, password: account.data.password, metadata, origin, locale, name: d.fullName, businessName: d.businessName });
+    if (sent === "sent") return { pendingEmail: email };
+    if (sent !== "unavailable") return sent;
+
+    // Without the email service (or the service role), Supabase signs up and sends its own email.
     const { data, error } = await supabase.auth.signUp({
       email,
       password: account.data.password,
       options: {
         emailRedirectTo: `${origin}/${locale}/welcome`,
-        data: { full_name: d.fullName, pending_signup: pending },
+        data: metadata,
       },
     });
     if (error) {
@@ -222,7 +288,15 @@ export async function completePendingSignupAction(rawLocale: string): Promise<{ 
   return { ok: true };
 }
 
-/** The confirmation link's one-time code (when Supabase returns one): signs the new owner in. */
+/** The confirmation email's one-time token: confirms the email and signs the new owner in, in this browser. */
+export async function verifySignupTokenAction(tokenHash: string, type: string): Promise<boolean> {
+  if (!/^[\w-]{10,200}$/.test(tokenHash) || (type !== "signup" && type !== "email")) return false;
+  const supabase = await createUserClient();
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+  return !error;
+}
+
+/** The confirmation link's one-time code (links Supabase sent itself): signs the new owner in. */
 export async function exchangeSignupCodeAction(code: string): Promise<boolean> {
   if (!/^[\w-]{6,200}$/.test(code)) return false;
   const supabase = await createUserClient();
