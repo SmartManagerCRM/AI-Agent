@@ -3670,7 +3670,7 @@
         },
         "pay": {
           "q": "Les clients peuvent-ils payer ?",
-          "a": "Oui, avec les moyens de paiement que vous activez : paiement en ligne par carte (via Moyasar ou Tap), paiement à la livraison ou à table."
+          "a": "Oui, avec les moyens de paiement que vous activez : paiement en ligne via votre propre compte Moyasar, Tap, HyperPay (mada compris), MyFatoorah, Stripe ou PayPal (PayPal uniquement dans les devises qu’il accepte), paiement à la livraison ou à table."
         },
         "qr": {
           "q": "Puis-je utiliser un QR code ?",

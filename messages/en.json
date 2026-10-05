@@ -3670,7 +3670,7 @@
         },
         "pay": {
           "q": "Can customers pay?",
-          "a": "Yes, with the payment methods you enable: online card payment (through Moyasar or Tap), cash on delivery, or paying at the table."
+          "a": "Yes, with the payment methods you enable: online payment through your own Moyasar, Tap, HyperPay (including mada), MyFatoorah, Stripe or PayPal account (PayPal only in the currencies it accepts), cash on delivery, or paying at the table."
         },
         "qr": {
           "q": "Can I use a QR code?",
