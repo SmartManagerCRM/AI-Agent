@@ -37,7 +37,7 @@ export async function Hero({ locale, trialDays }: { locale: Locale; trialDays: n
           fill
           preload
           sizes="(min-width: 1024px) 124vw, 100vw"
-          className="object-cover object-[70%_center] lg:object-[center_20%] rtl:-scale-x-100"
+          className="object-cover object-[70%_center] lg:object-[center_20%] xl:object-[center_32%] rtl:-scale-x-100"
         />
       </div>
       <div
@@ -108,7 +108,7 @@ function HeroVisual({ t }: { t: T }) {
           height={326}
           priority
           sizes="(min-width: 1024px) 375px, 190px"
-          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:start-[-10%] lg:w-[57%] lg:max-w-[375px] xl:w-[66%]"
+          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:start-[-10%] lg:w-[57%] lg:max-w-[375px] xl:-bottom-10 xl:start-[-28%] xl:w-[66%]"
         />
 
         {/* Phones and tablets only: on wider screens the café owner in the photo takes this place. */}
@@ -142,7 +142,7 @@ function HeroVisual({ t }: { t: T }) {
           </div>
         </Phone>
 
-        <ul className="absolute end-0 top-6 z-30 hidden flex-col gap-3 sm:flex xl:-end-6">
+        <ul className="absolute end-0 top-6 z-30 hidden flex-col gap-3 sm:flex xl:max-[1399px]:-end-6 min-[1400px]:-end-16">
           {FLOATING.map((f, i) => (
             <li
               key={f.key}
