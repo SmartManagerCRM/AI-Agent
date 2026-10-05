@@ -28,7 +28,20 @@ export async function Hero({ locale, trialDays }: { locale: Locale; trialDays: n
 
   return (
     <section className="site-hero-bg relative overflow-hidden" aria-labelledby="hero-title">
-      <div className="mx-auto grid max-w-[1240px] items-center gap-10 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[1.02fr_1fr] lg:gap-6 lg:px-8 lg:pb-12 lg:pt-12">
+      {/* Café owner with a tablet: the open, blurred side sits behind the text (mirrored in Arabic). */}
+      <Image
+        src="/brand/hero-cafe.webp"
+        alt=""
+        fill
+        preload
+        sizes="100vw"
+        className="pointer-events-none object-cover object-[70%_center] rtl:-scale-x-100"
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-white/80 lg:bg-transparent lg:bg-gradient-to-r lg:from-white/95 lg:via-white/75 lg:to-white/0 rtl:lg:bg-gradient-to-l"
+        aria-hidden
+      />
+      <div className="relative mx-auto grid max-w-[1240px] items-center gap-10 px-4 pb-12 pt-10 sm:px-6 lg:grid-cols-[1.02fr_1fr] lg:gap-6 lg:px-8 lg:pb-12 lg:pt-12">
         <div className="site-rise flex flex-col items-start">
           <span className="rounded-full bg-emerald-100/70 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-emerald-900">{t("eyebrow")}</span>
           <h1 id="hero-title" className="mt-5 text-[2.35rem] font-extrabold leading-[1.08] tracking-tight text-[#0c1a33] sm:text-5xl lg:text-[3.35rem]">
@@ -85,8 +98,6 @@ function HeroVisual({ t }: { t: T }) {
   return (
     <div className="relative mx-auto w-full max-w-[600px]" aria-label={t("visualLabel")} role="img">
       <div className="relative h-[430px] sm:h-[500px] lg:h-[540px]">
-        <div className="absolute inset-x-6 top-10 bottom-6 rounded-[3rem] bg-gradient-to-br from-emerald-100/70 via-emerald-50/40 to-transparent" aria-hidden />
-
         <Image
           src="/brand/agent-character.png"
           alt=""
