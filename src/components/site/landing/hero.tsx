@@ -29,14 +29,17 @@ export async function Hero({ locale, trialDays }: { locale: Locale; trialDays: n
   return (
     <section className="site-hero-bg relative overflow-hidden" aria-labelledby="hero-title">
       {/* Café owner with a tablet: the open, blurred side sits behind the text (mirrored in Arabic). */}
-      <Image
-        src="/brand/hero-cafe.webp"
-        alt=""
-        fill
-        preload
-        sizes="100vw"
-        className="pointer-events-none object-cover object-[70%_center] rtl:-scale-x-100"
-      />
+      {/* On wide screens the photo runs past the start edge, which moves the man away from the benefit cards. */}
+      <div className="pointer-events-none absolute inset-0 lg:-start-[24%]">
+        <Image
+          src="/brand/hero-cafe.webp"
+          alt=""
+          fill
+          preload
+          sizes="(min-width: 1024px) 124vw, 100vw"
+          className="object-cover object-[70%_center] lg:object-[center_20%] rtl:-scale-x-100"
+        />
+      </div>
       <div
         className="pointer-events-none absolute inset-0 bg-white/80 lg:bg-transparent lg:bg-gradient-to-r lg:from-white/95 lg:via-white/75 lg:to-white/0 rtl:lg:bg-gradient-to-l"
         aria-hidden
