@@ -107,8 +107,8 @@ function HeroVisual({ t }: { t: T }) {
           width={480}
           height={326}
           priority
-          sizes="(min-width: 1024px) 375px, 285px"
-          className="site-float absolute bottom-2 start-[-6%] z-20 w-[66%] max-w-[375px] drop-shadow-xl sm:start-[-3%] lg:w-[57%] xl:w-[66%]"
+          sizes="(min-width: 1024px) 375px, 190px"
+          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:w-[57%] lg:max-w-[375px] xl:w-[66%]"
         />
 
         {/* Phones and tablets only: on wider screens the café owner in the photo takes this place. */}
@@ -142,7 +142,7 @@ function HeroVisual({ t }: { t: T }) {
           </div>
         </Phone>
 
-        <ul className="absolute end-0 top-6 z-30 hidden flex-col gap-3 sm:flex">
+        <ul className="absolute end-0 top-6 z-30 hidden flex-col gap-3 sm:flex xl:-end-6">
           {FLOATING.map((f, i) => (
             <li
               key={f.key}
