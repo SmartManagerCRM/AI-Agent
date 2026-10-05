@@ -108,7 +108,7 @@ function HeroVisual({ t }: { t: T }) {
           height={326}
           priority
           sizes="(min-width: 1024px) 375px, 190px"
-          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:w-[57%] lg:max-w-[375px] xl:w-[66%]"
+          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:start-[-10%] lg:w-[57%] lg:max-w-[375px] xl:w-[66%]"
         />
 
         {/* Phones and tablets only: on wider screens the café owner in the photo takes this place. */}
