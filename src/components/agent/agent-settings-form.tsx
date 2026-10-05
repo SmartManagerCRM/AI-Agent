@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useActionState, useRef, useState } from "react";
+import { startTransition, useActionState, useRef, useState } from "react";
 
 import { Button } from "@/components/console/button";
 import { DEFAULT_VOICE_GENDER, planSpeech, SPEECH_RATE, type VoiceGender } from "@/components/agent-public/voice";
@@ -100,7 +100,17 @@ const t = useTranslations("console.agentSettings");
   };
 
   return (
-    <form action={formAction} className="flex max-w-md flex-col gap-3">
+    <form
+      action={formAction}
+      // Submitted by hand so React doesn't reset the form after saving: a reset puts every field back
+      // to what it showed when the page opened (the voice to "male"), and the next save would store that.
+      onSubmit={(e) => {
+        e.preventDefault();
+        const data = new FormData(e.currentTarget);
+        startTransition(() => formAction(data));
+      }}
+      className="flex max-w-md flex-col gap-3"
+    >
       <input type="hidden" name="tenantId" value={tenantId} />
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="locale" value={locale} />
