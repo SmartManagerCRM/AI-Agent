@@ -18,7 +18,6 @@ export type PlanView = {
   perMonth: string | null;
   monthsFree: number | null;
   trialDays: number;
-  conversations: string | null;
   /** The plan's branch limit (null: no limit, not shown). */
   branches: number | null;
   features: string[];
@@ -126,22 +125,11 @@ export function PricingCards({
               </div>
 
               <ul className="mt-5 flex flex-1 flex-col gap-2.5 text-[15px] text-[#33415c]">
-                {plan.conversations && (
-                  <li className="flex gap-2.5">
+                {/* The plan's features as written in Super Admin; its branch limit right after "AI Agent 24/7" (else first). */}
+                {withBranches(plan.features, plan.branches !== null ? t("branches", { n: plan.branches }) : null).map((f) => (
+                  <li key={f.text} className="flex gap-2.5" data-testid={f.branches ? "plan-branches" : undefined}>
                     <Check />
-                    {t("conversationsMonth", { n: plan.conversations })}
-                  </li>
-                )}
-                {plan.branches !== null && (
-                  <li className="flex gap-2.5" data-testid="plan-branches">
-                    <Check />
-                    {t("branches", { n: plan.branches })}
-                  </li>
-                )}
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2.5">
-                    <Check />
-                    {f}
+                    {f.text}
                   </li>
                 ))}
                 {/* Every plan: the team sets the business up for free once it moves to a paid plan. */}
@@ -174,4 +162,15 @@ function Check() {
       <SiteIcon name="check" size={12} strokeWidth={3} />
     </span>
   );
+}
+
+/** The "AI Agent 24/7" line, in any language. */
+const ALWAYS_ON = /24\s*\/\s*7|24\s*h|على مدار الساعة/i;
+
+/** The features with the branch limit placed after the "AI Agent 24/7" line (first when there is none). */
+export function withBranches(features: string[], branches: string | null): { text: string; branches?: true }[] {
+  const lines: { text: string; branches?: true }[] = features.map((text) => ({ text }));
+  if (!branches) return lines;
+  lines.splice(features.findIndex((f) => ALWAYS_ON.test(f)) + 1, 0, { text: branches, branches: true });
+  return lines;
 }

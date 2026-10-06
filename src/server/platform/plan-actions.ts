@@ -4,10 +4,13 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
-import { createUserClient } from "@/server/supabase/clients";
+import { featureLines, syncFeatureLists } from "@/lib/plan-features";
+import { createUserClient, serviceClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { PUBLIC_SITE_TAG } from "@/server/site/public-data";
+import { translateTexts } from "@/server/translate/engine";
 import { translateSoon } from "@/server/translate/queue";
+import { CONTENT_LANGS, isContentLang } from "@/server/translate/types";
 
 /**
  * Super Admin Master Spec, Phase 3 — Subscriptions & Plans management.
@@ -69,6 +72,33 @@ function withLocaleText(existing: unknown, locale: string, text: string): Record
   return next;
 }
 
+/**
+ * The features saved in this language, and the other languages following it
+ * line for line (src/lib/plan-features.ts): new lines are translated now,
+ * so every language of the pricing page shows them right away. A line no
+ * service could translate is kept as written, in its place.
+ */
+async function featuresInEveryLanguage(existing: unknown, locale: string, text: string): Promise<Record<string, string>> {
+  const current = { ...((existing && typeof existing === "object" ? existing : {}) as Record<string, string>) };
+  if (!isContentLang(locale)) return withLocaleText(current, locale, text);
+  const after = featureLines(text);
+  const { lists, translate } = syncFeatureLists(current, locale, after, CONTENT_LANGS);
+  if (translate.length > 0) {
+    const results = await translateTexts(
+      serviceClient(),
+      translate.map((job) => ({ text: job.text, from: locale, to: job.lang as (typeof CONTENT_LANGS)[number] })),
+    ).catch(() => translate.map(() => null));
+    translate.forEach((job, i) => (lists[job.lang][job.index] = results[i]?.text || job.text));
+  }
+  const next: Record<string, string> = withLocaleText(current, locale, after.join("\n"));
+  for (const [lang, lines] of Object.entries(lists)) {
+    const joined = lines.filter((l): l is string => Boolean(l)).join("\n");
+    if (joined) next[lang] = joined;
+    else delete next[lang];
+  }
+  return next;
+}
+
 const createPlanSchema = z.object({
   key: planKeySchema,
   name: z.string().trim().min(1).max(80),
@@ -118,7 +148,7 @@ export async function createPlanAction(
     trial_days: parsed.data.trialDays,
     sort_order: parsed.data.sortOrder,
     description: withLocaleText({}, parsed.data.locale, parsed.data.description),
-    features: withLocaleText({}, parsed.data.locale, cleanFeatures(parsed.data.features)),
+    features: await featuresInEveryLanguage({}, parsed.data.locale, cleanFeatures(parsed.data.features)),
     plan_family: parsed.data.family || null,
     is_popular: parsed.data.isPopular === "on",
     is_public: parsed.data.isPublic === "on",
@@ -194,7 +224,7 @@ export async function updatePlanAction(
       trial_days: parsed.data.trialDays,
       sort_order: parsed.data.sortOrder,
       description: withLocaleText(existing?.description, parsed.data.locale, parsed.data.description),
-      features: withLocaleText(existing?.features, parsed.data.locale, cleanFeatures(parsed.data.features)),
+      features: await featuresInEveryLanguage(existing?.features, parsed.data.locale, cleanFeatures(parsed.data.features)),
       plan_family: parsed.data.family || null,
       is_popular: parsed.data.isPopular === "on",
       is_public: parsed.data.isPublic === "on",

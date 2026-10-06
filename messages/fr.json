@@ -2115,7 +2115,7 @@
       "familyPlaceholder": "ex. growth",
       "features": "Fonctionnalités sur la page Tarifs ({lang})",
       "featuresPlaceholder": "Agent IA 24h/24, 7j/7\nCommandes et réservations en ligne",
-      "featuresHint": "Une fonctionnalité par ligne. Le nombre de conversations est ajouté automatiquement. Une formule mensuelle et sa version annuelle partagent une famille (ex. « growth »), pour que le sélecteur Mensuel / Annuel du site les affiche ensemble.",
+      "featuresHint": "Une fonctionnalité par ligne. À l’enregistrement, les nouvelles lignes sont ajoutées dans les autres langues (traduites) et les lignes supprimées en sont retirées ; une ligne modifiée sur place ne change que dans cette langue — pour corriger une traduction. Une formule mensuelle et sa version annuelle partagent une famille (ex. « growth »), pour que le sélecteur Mensuel / Annuel du site les affiche ensemble.",
       "isPublic": "Affichée sur le site",
       "isPopular": "La plus populaire",
       "maxBranches": "Nombre maximal de succursales",

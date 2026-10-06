@@ -2115,7 +2115,7 @@
       "familyPlaceholder": "e.g. growth",
       "features": "Features on the pricing page ({lang})",
       "featuresPlaceholder": "AI Agent 24/7\nOnline ordering & booking",
-      "featuresHint": "One feature per line. The conversation allowance is added automatically. A monthly plan and its annual version share one family (e.g. \"growth\"), so the website’s Monthly / Annual switch shows them together.",
+      "featuresHint": "One feature per line. When you save, new lines are added in the other languages (translated) and removed lines are removed from them; a line you change in place changes in this language only — so you can correct a translation. A monthly plan and its annual version share one family (e.g. \"growth\"), so the website’s Monthly / Annual switch shows them together.",
       "isPublic": "Shown on the website",
       "isPopular": "Most popular",
       "maxBranches": "Maximum branches",
