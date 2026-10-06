@@ -19,6 +19,7 @@ const plan = (over: Partial<PublicPlan>): PublicPlan => ({
   billing_interval: "month",
   trial_days: 7,
   conversation_limit: 1000,
+  max_branches: null,
   is_popular: false,
   sort_order: 1,
   ...over,

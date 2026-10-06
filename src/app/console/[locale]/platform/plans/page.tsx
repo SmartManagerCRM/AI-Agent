@@ -30,12 +30,13 @@ export default async function PlansPage({
   const supabase = await createUserClient();
   const dm = await displayMoney(supabase, locale);
   const t = await getTranslations("platform.plans");
+  const nf = new Intl.NumberFormat(locale);
 
   const [{ data: plans }, { data: currencies }, { data: subscriptions }, aiCostLimits] = await Promise.all([
     supabase
       .from("subscription_plans")
       .select(
-        "key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order, conversation_limit, grace_period_hours, description, features, plan_family, is_popular, is_public",
+        "key, name, price_minor, currency, billing_interval, trial_days, is_default, is_active, sort_order, conversation_limit, grace_period_hours, description, features, plan_family, is_popular, is_public, max_branches, ai_response_limit",
       )
       .order("sort_order"),
     supabase.from("currencies").select("code, name").order("code"),
@@ -119,6 +120,8 @@ export default async function PlansPage({
                       family: p.plan_family ?? "",
                       isPopular: p.is_popular,
                       isPublic: p.is_public,
+                      maxBranches: p.max_branches,
+                      aiResponseLimit: p.ai_response_limit,
                     }}
                   />
                   <Link
@@ -160,6 +163,12 @@ export default async function PlansPage({
                         days: p.trial_days,
                         active: activeSubscriberCountByPlan.get(p.key) ?? 0,
                         total: subscriberCountByPlan.get(p.key) ?? 0,
+                      })}
+                    </p>
+                    <p className="text-xs text-slate-500" data-testid={`plan-limits-${p.key}`}>
+                      {t("planLimits", {
+                        branches: p.max_branches !== null ? nf.format(p.max_branches) : t("unlimited"),
+                        responses: p.ai_response_limit !== null ? nf.format(p.ai_response_limit) : t("unlimited"),
                       })}
                     </p>
                   </div>

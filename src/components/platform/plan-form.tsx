@@ -23,6 +23,8 @@ type Props = {
     family: string;
     isPopular: boolean;
     isPublic: boolean;
+    maxBranches: number | null;
+    aiResponseLimit: number | null;
   };
 };
 
@@ -133,6 +135,34 @@ const t = useTranslations("platform.planForm");
         />
       </label>
 
+      <label className="flex flex-col gap-1 text-sm">
+        {t("maxBranches")}
+        <input
+          name="maxBranches"
+          type="number"
+          min="1"
+          max="1000"
+          defaultValue={plan?.maxBranches ?? ""}
+          placeholder={t("noLimit")}
+          className="w-28 rounded-md border border-neutral-300 px-3 py-2"
+          data-testid="plan-max-branches"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        {t("aiResponseLimit")}
+        <input
+          name="aiResponseLimit"
+          type="number"
+          min="1"
+          max="10000000"
+          defaultValue={plan?.aiResponseLimit ?? ""}
+          placeholder={t("noLimit")}
+          className="w-36 rounded-md border border-neutral-300 px-3 py-2"
+          data-testid="plan-ai-response-limit"
+        />
+      </label>
+
       <label className="flex min-w-60 flex-1 flex-col gap-1 text-sm">
         {t("description", { lang: locale.toUpperCase() })}
         <input
@@ -166,6 +196,7 @@ const t = useTranslations("platform.planForm");
           className="rounded-md border border-neutral-300 px-3 py-2"
         />
         <span className="text-xs text-neutral-500">{t("featuresHint")}</span>
+        <span className="text-xs text-neutral-500">{t("limitsHint")}</span>
       </label>
 
       <label className="flex items-center gap-2 text-sm">

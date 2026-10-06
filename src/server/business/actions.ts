@@ -68,6 +68,10 @@ const profileSchema = z.object({
   timezone: z.string().trim().min(1).max(60),
   country: z.string().trim().max(80).optional().or(z.literal("")),
   city: z.string().trim().max(80).optional().or(z.literal("")),
+  // Legal details, printed on receipts.
+  legalName: z.string().trim().max(160).optional().or(z.literal("")),
+  vatNumber: z.string().trim().max(40).optional().or(z.literal("")),
+  address: z.string().trim().max(300).optional().or(z.literal("")),
   locale: z.string(),
   slug: z.string().min(1),
 });
@@ -92,6 +96,9 @@ export async function updateBusinessProfileAction(
     timezone: formData.get("timezone"),
     country: formData.get("country") ?? "",
     city: formData.get("city") ?? "",
+    legalName: formData.get("legalName") ?? "",
+    vatNumber: formData.get("vatNumber") ?? "",
+    address: formData.get("address") ?? "",
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
@@ -112,6 +119,9 @@ export async function updateBusinessProfileAction(
       timezone: parsed.data.timezone,
       country: parsed.data.country || null,
       city: parsed.data.city || null,
+      legal_name: parsed.data.legalName || null,
+      vat_number: parsed.data.vatNumber || null,
+      address: parsed.data.address || null,
     })
     .eq("id", parsed.data.tenantId);
   if (error) return (await actionT(parsed.data.locale))("business.profileFailed");

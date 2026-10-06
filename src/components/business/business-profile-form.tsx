@@ -17,13 +17,16 @@ type Props = {
     timezone: string;
     country: string | null;
     city: string | null;
+    legal_name: string | null;
+    vat_number: string | null;
+    address: string | null;
   };
   /** Every time zone, from the server (labelled with its UTC offset). */
   timeZones: { value: string; label: string }[];
 };
 
 export function BusinessProfileForm({ tenantId, slug, locale, current, timeZones }: Props) {
-const t = useTranslations("console.profileForm");
+  const t = useTranslations("console.profileForm");
   // A value typed by hand earlier ("UTC+1") isn't a time zone: it stays selectable until a city is chosen.
   const known = timeZones.some((z) => z.value === current.timezone);
   const [error, formAction, pending] = useActionState(updateBusinessProfileAction, undefined);
@@ -91,6 +94,23 @@ const t = useTranslations("console.profileForm");
         {t("city")}
         <input name="city" defaultValue={current.city ?? ""} className="rounded-md border border-neutral-300 px-3 py-2" />
       </label>
+
+      <fieldset className="mt-2 flex flex-col gap-3 border-t border-slate-200 pt-3" data-testid="legal-details">
+        <legend className="pt-3 text-sm font-semibold text-slate-900">{t("legalTitle")}</legend>
+        <p className="text-xs text-slate-500">{t("legalHint")}</p>
+        <label className="flex flex-col gap-1 text-sm">
+          {t("legalName")}
+          <input name="legalName" maxLength={160} defaultValue={current.legal_name ?? ""} dir="auto" className="rounded-md border border-neutral-300 px-3 py-2" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {t("vatNumber")}
+          <input name="vatNumber" maxLength={40} defaultValue={current.vat_number ?? ""} dir="ltr" className="rounded-md border border-neutral-300 px-3 py-2" />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          {t("address")}
+          <textarea name="address" rows={2} maxLength={300} defaultValue={current.address ?? ""} dir="auto" className="rounded-md border border-neutral-300 px-3 py-2" />
+        </label>
+      </fieldset>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">

@@ -300,6 +300,44 @@ const NOTICE_STYLE = {
   danger: "border-red-200 bg-red-50 text-red-900",
 } as const;
 
+/**
+ * The plan's monthly AI responses, as a share used — a gauge and a percent,
+ * never a count, a limit or a cost (the summary carries only the percent).
+ */
+function AiResponseGauge({ percent }: { percent: number }) {
+  const t = useTranslations("console.billing");
+  const level = percent >= 100 ? "full" : percent >= 80 ? "high" : "ok";
+  const tone = { full: "bg-red-500", high: "bg-amber-400", ok: "bg-emerald-500" }[level];
+  const stroke = { full: "stroke-red-500", high: "stroke-amber-400", ok: "stroke-emerald-500" }[level];
+  const radius = 26;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className="flex items-center gap-4 rounded-lg border border-slate-100 bg-slate-50/60 p-3" data-testid="ai-response-gauge">
+      <svg viewBox="0 0 64 64" className="h-16 w-16 shrink-0 -rotate-90" role="img" aria-label={t("aiResponsesUsed", { percent })}>
+        <circle cx="32" cy="32" r={radius} fill="none" strokeWidth="8" className="stroke-slate-200" />
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          className={stroke}
+          strokeDasharray={`${(Math.max(percent, 1) / 100) * circumference} ${circumference}`}
+        />
+      </svg>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-900">{t("aiResponses")}</p>
+        <p className="text-2xl font-bold text-slate-900">{t("percentUsed", { percent })}</p>
+        <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+          <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(1, percent)}%` }} />
+        </div>
+        <p className="mt-1 text-xs text-slate-500">{percent >= 100 ? t("aiResponsesFull") : t("aiResponsesHint")}</p>
+      </div>
+    </div>
+  );
+}
+
 /** This billing period's (or the free trial's) customer conversations — never AI cost figures (the summary doesn't carry them). */
 function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: string }) {
   const t = useTranslations("console.billing");
@@ -356,6 +394,8 @@ function UsageSection({ usage, locale }: { usage: SubscriberUsage; locale: strin
           {t("noLimit", { n: usage.conversationsUsed.toLocaleString(locale) })}
         </p>
       )}
+
+      {usage.aiResponsePercent !== null && <AiResponseGauge percent={usage.aiResponsePercent} />}
 
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
         {usage.periodStart && lastDay && (

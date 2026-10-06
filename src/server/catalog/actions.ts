@@ -46,7 +46,11 @@ export async function createBranchAction(
     phone: parsed.data.phone || null,
     is_default: parsed.data.isDefault === "on",
   });
-  if (error) return (await actionT(parsed.data.locale))("catalog.branchFailed");
+  if (error) {
+    const t = await actionT(parsed.data.locale);
+    // The plan's branch limit (enforced in the database).
+    return error.message?.includes("BRANCH_LIMIT") ? t("catalog.branchLimit") : t("catalog.branchFailed");
+  }
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/branches`);
 }

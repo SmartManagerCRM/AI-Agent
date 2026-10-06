@@ -112,6 +112,10 @@ export type Database = {
           /** Storage path (catalog-images bucket) of the business's logo, uploaded in Settings. */
           logo_path: string | null;
           deployment_mode: "website_widget" | "external_agent" | "both";
+          /** Legal details printed on receipts (Settings → Business profile). */
+          legal_name: string | null;
+          vat_number: string | null;
+          address: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -148,6 +152,8 @@ export type Database = {
           ai_monthly_budget_usd: number | null;
           /** Automatic translation: words kept as written ("خيال = Khayal"), one per entry. */
           translation: { keep_words?: string[] };
+          /** Receipts print on a click (manual) or as soon as an order is confirmed (auto). */
+          receipt_print_mode: "manual" | "auto";
           created_at: string;
           updated_at: string;
         };
@@ -1133,6 +1139,10 @@ export type Database = {
           is_public: boolean;
           plan_family: string | null;
           conversation_limit: number | null;
+          /** Most active branches a business on the plan may have (null: no limit). */
+          max_branches: number | null;
+          /** Paid AI (LLM) responses a month (null: no limit). Never shown to subscribers as a number. */
+          ai_response_limit: number | null;
           grace_period_hours: number;
           is_default: boolean;
           is_active: boolean;
@@ -1469,6 +1479,18 @@ export type Database = {
         Args: { p_tenant_id: string };
         Returns: Json;
       };
+      tenant_branch_allowance: {
+        Args: { p_tenant_id: string };
+        Returns: Json;
+      };
+      order_receipt: {
+        Args: { p_order_id: string };
+        Returns: Json;
+      };
+      record_receipt_print: {
+        Args: { p_order_id: string; p_auto: boolean };
+        Returns: boolean;
+      };
       ai_usage_check: {
         Args: { p_tenant_id: string };
         Returns: Json;
@@ -1653,6 +1675,7 @@ export type Database = {
           conversation_limit: number | null;
           is_popular: boolean;
           sort_order: number;
+          max_branches: number | null;
         }[];
       };
       public_site_info: {

@@ -14,6 +14,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { announceOrderConfirmed } from "@/components/receipts/receipt-print-host";
 import { formatMoney } from "@/lib/money";
 import { audioReady, playSound, preloadSounds, resumeAudio, subscribeAudio, unlockAudio } from "@/lib/notifications/audio";
 import {
@@ -444,6 +445,10 @@ export function NotificationCenter({ scope, locale, slug, labels, reminderMs = 1
       if (!event || disposed) return;
       if (!lastSeen || Date.parse(event.created_at) > Date.parse(lastSeen)) lastSeen = event.created_at;
       if (!deduper.firstTime(event)) return;
+      // An order that arrives confirmed (cash, pay at the table, entered by hand): its receipt may print on its own.
+      if (event.kind === "new_order_received" && (event.payload as { status?: string }).status === "confirmed") {
+        announceOrderConfirmed(event.entity_id);
+      }
       const refresh = () => {
         // Re-render the server pages (order list, counts, catalog, analytics) without a reload.
         if (refreshTimer.current) clearTimeout(refreshTimer.current);

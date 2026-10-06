@@ -3,12 +3,14 @@ import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
 import { ManualOrders } from "@/components/commerce/manual-orders";
 import { OrderControls } from "@/components/commerce/order-controls";
+import { ConfirmOrderButton, PrintReceiptButton } from "@/components/receipts/order-receipt-buttons";
 import { NewOrderBadge } from "@/components/notifications/notification-center";
 import { SearchInput } from "@/components/console/search-input";
 import { StatusPill } from "@/components/console/status-pill";
 import { Tabs, type Tab } from "@/components/console/tabs";
 import { formatMoney } from "@/lib/money";
 import { ORDER_STATUS_GROUPS } from "@/lib/order-status";
+import { PRINTABLE_ORDER_STATUSES } from "@/lib/receipts";
 import { markCashPaymentCollectedAction, updateOrderStatusAction } from "@/server/commerce/order-actions";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
@@ -194,7 +196,18 @@ export default async function OrdersPage({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {(NEXT_STATUSES[order.status] ?? []).map((next) => (
+                        {PRINTABLE_ORDER_STATUSES.has(order.status) && <PrintReceiptButton orderId={order.id} />}
+                        {(NEXT_STATUSES[order.status] ?? []).map((next) =>
+                          next === "confirmed" ? (
+                            <ConfirmOrderButton
+                              key={next}
+                              action={updateOrderStatusAction}
+                              orderId={order.id}
+                              slug={slug}
+                              locale={locale}
+                              label={t("markAs", { status: statusLabel(tAll, next) })}
+                            />
+                          ) : (
                           <form key={next} action={updateOrderStatusAction}>
                             <input type="hidden" name="orderId" value={order.id} />
                             <input type="hidden" name="newStatus" value={next} />
@@ -207,7 +220,8 @@ export default async function OrdersPage({
                               {t("markAs", { status: statusLabel(tAll, next) })}
                             </button>
                           </form>
-                        ))}
+                          ),
+                        )}
                         {(() => {
                           const payment = latestPaymentByOrder.get(order.id);
                           if (!payment || payment.status !== "pending" || !CASH_METHODS.has(payment.provider))

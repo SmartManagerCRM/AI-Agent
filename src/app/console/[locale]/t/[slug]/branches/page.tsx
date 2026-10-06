@@ -11,13 +11,29 @@ export default async function BranchesPage({ params }: { params: Promise<{ local
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const tAll = await getTranslations();
-  const { data: branches } = await supabase.from("branches").select("*").eq("tenant_id", tenant.id).order("created_at");
+  const [{ data: branches }, { data: allowanceRaw }] = await Promise.all([
+    supabase.from("branches").select("*").eq("tenant_id", tenant.id).order("created_at"),
+    supabase.rpc("tenant_branch_allowance", { p_tenant_id: tenant.id }),
+  ]);
+  // The plan's branch limit (null: none) and the active branches counted against it.
+  const allowance = allowanceRaw as { limit: number | null; active: number } | null;
+  const limit = allowance?.limit ?? null;
+  const full = limit !== null && (allowance?.active ?? 0) >= limit;
   const shown = (text: Record<string, string> | null) => (text ? (text[locale] ?? Object.values(text)[0] ?? "") : "");
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <h1 className="text-2xl font-semibold"><Msg id="console.branches.branches" /></h1>
-      <CreateBranchForm tenantId={tenant.id} slug={slug} locale={locale} />
+      {limit !== null && (
+        <p
+          className={`rounded-lg border px-3 py-2 text-sm ${full ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600"}`}
+          data-testid="branch-allowance"
+        >
+          {tAll("console.branches.allowance", { active: allowance?.active ?? 0, limit })}
+          {full && <> {tAll("console.branches.allowanceFull")}</>}
+        </p>
+      )}
+      {!full && <CreateBranchForm tenantId={tenant.id} slug={slug} locale={locale} />}
       <ul className="flex flex-col gap-2" data-testid="branch-list">
         {(branches ?? []).map((branch) => {
           const name = shown(branch.name) || tAll("common.untitled");

@@ -109,3 +109,51 @@ body {
     "Noto Naskh Arabic",
     sans-serif;
 }
+
+/* Order receipts (src/components/receipts/receipt-print-host.tsx): drawn off screen,
+   and the only thing on the page while one is printing. */
+#receipt-print-root {
+  position: fixed;
+  inset-inline-start: -10000px;
+  top: 0;
+}
+.receipt-sheet {
+  width: 72mm;
+  padding: 2mm;
+  color: #000;
+  background: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.receipt-sheet hr {
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px dashed #000;
+}
+.receipt-sheet table {
+  border-collapse: collapse;
+}
+.receipt-sheet td,
+.receipt-sheet th {
+  padding: 2px 0;
+}
+.receipt-qr {
+  width: 34mm;
+  margin: 8px auto 4px;
+}
+.receipt-qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media print {
+  body.receipt-printing > *:not(#receipt-print-root) {
+    display: none !important;
+  }
+  body.receipt-printing #receipt-print-root {
+    position: static;
+  }
+  body.receipt-printing {
+    background: #fff !important;
+  }
+}

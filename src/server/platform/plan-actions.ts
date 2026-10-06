@@ -36,6 +36,9 @@ const publicFields = {
   family: z.union([planKeySchema, z.literal("")]).optional().default(""),
   isPopular: z.literal("on").optional(),
   isPublic: z.literal("on").optional(),
+  // Plan limits: blank means no limit. The AI response limit is a month's paid (LLM) replies.
+  maxBranches: z.union([z.literal(""), z.coerce.number().int().min(1).max(1000)]).optional().default(""),
+  aiResponseLimit: z.union([z.literal(""), z.coerce.number().int().min(1).max(10_000_000)]).optional().default(""),
 };
 
 const readPublicFields = (formData: FormData) => ({
@@ -44,7 +47,11 @@ const readPublicFields = (formData: FormData) => ({
   family: formData.get("family") ?? undefined,
   isPopular: formData.get("isPopular") ?? undefined,
   isPublic: formData.get("isPublic") ?? undefined,
+  maxBranches: (formData.get("maxBranches") as string | null)?.trim() ?? undefined,
+  aiResponseLimit: (formData.get("aiResponseLimit") as string | null)?.trim() ?? undefined,
 });
+
+const limitOrNull = (v: number | "") => (v === "" ? null : v);
 
 /** One feature per line, blank lines dropped. */
 const cleanFeatures = (text: string) =>
@@ -115,6 +122,8 @@ export async function createPlanAction(
     plan_family: parsed.data.family || null,
     is_popular: parsed.data.isPopular === "on",
     is_public: parsed.data.isPublic === "on",
+    max_branches: limitOrNull(parsed.data.maxBranches),
+    ai_response_limit: limitOrNull(parsed.data.aiResponseLimit),
   });
   if (error) {
     return error.code === "23505"
@@ -189,6 +198,8 @@ export async function updatePlanAction(
       plan_family: parsed.data.family || null,
       is_popular: parsed.data.isPopular === "on",
       is_public: parsed.data.isPublic === "on",
+      max_branches: limitOrNull(parsed.data.maxBranches),
+      ai_response_limit: limitOrNull(parsed.data.aiResponseLimit),
     })
     .eq("key", parsed.data.key);
   if (error) return t("platform.planFailed");

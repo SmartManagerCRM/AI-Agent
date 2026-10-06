@@ -10,6 +10,7 @@ export type UsageState =
   | "CONVERSATION_GRACE_PERIOD"
   | "AI_COST_WARNING"
   | "AI_COST_LIMIT_REACHED"
+  | "AI_RESPONSE_LIMIT_REACHED"
   | "BOTH_LIMITS_REACHED"
   | "TRIAL"
   | "TRIAL_ENDED"
@@ -44,6 +45,9 @@ export type SubscriberUsageRow = {
   aiCostReserved: number;
   aiCostPercent: number | null;
   aiState: "ok" | "warning" | "blocked";
+  /** The plan's monthly paid AI responses (null: no limit) and those used this period. */
+  aiResponseLimit: number | null;
+  aiResponsesUsed: number;
   /** All Agent AI spend this period from the interaction ledger (trials included); Business Brain and premium voice excluded. */
   agentAiCost: number;
   agentAiResponses: number;
@@ -101,6 +105,8 @@ export function parseUsageRows(raw: unknown): SubscriberUsageRow[] {
         aiCostReserved: num(r.ai_cost_reserved) ?? 0,
         aiCostPercent: num(r.ai_cost_percent),
         aiState,
+        aiResponseLimit: num(r.ai_response_limit),
+        aiResponsesUsed: num(r.ai_responses_used) ?? 0,
         agentAiCost: num(r.agent_ai_cost) ?? 0,
         agentAiResponses: num(r.agent_ai_responses) ?? 0,
         agentVoiceCost: num(r.agent_voice_cost) ?? 0,
@@ -203,6 +209,7 @@ export const USAGE_STATE_STYLE: Record<UsageState, string> = {
   CONVERSATION_LIMIT_REACHED: "bg-red-50 text-red-700",
   AI_COST_WARNING: "bg-amber-50 text-amber-700",
   AI_COST_LIMIT_REACHED: "bg-red-50 text-red-700",
+  AI_RESPONSE_LIMIT_REACHED: "bg-red-50 text-red-700",
   BOTH_LIMITS_REACHED: "bg-red-100 text-red-800",
   TRIAL: "bg-blue-50 text-blue-700",
   TRIAL_ENDED: "bg-red-50 text-red-700",

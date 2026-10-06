@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { MobileSidebarFrame, MobileSidebarProvider } from "@/components/console/mobile-sidebar";
 import { NotificationCenter } from "@/components/notifications/notification-center";
+import { ReceiptPrintHost } from "@/components/receipts/receipt-print-host";
 import { TenantNav, type NavItem } from "@/components/console/tenant-nav";
 import { CurrencyBar } from "@/components/console/currency-bar";
 import { TopHeader } from "@/components/console/top-header";
@@ -55,6 +56,7 @@ export default async function TenantLayout({
     deploymentStatus,
     { data: currencies },
     { data: roleGrants },
+    { data: receiptSettings },
   ] = await timed(
     "layout.tenant",
     Promise.all([
@@ -81,6 +83,8 @@ export default async function TenantLayout({
             .eq("key", membership.role_key)
             .eq("role_permissions.permission_key", "settings.write")
         : Promise.resolve({ data: null }),
+      // Receipts print on a click, or as soon as an order is confirmed.
+      supabase.from("tenant_settings").select("receipt_print_mode").eq("tenant_id", tenant.id).maybeSingle(),
     ]),
   );
   const canChangeCurrency = impersonating || (roleGrants ?? []).length > 0;
@@ -163,6 +167,7 @@ export default async function TenantLayout({
         labels={alertLabels}
         selfUserId={user?.id}
       >
+      <ReceiptPrintHost slug={slug} locale={locale} autoPrint={receiptSettings?.receipt_print_mode === "auto"} />
       <div className="flex min-h-screen flex-col">
         {impersonating && (
           <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-500 px-4 py-2 text-sm font-medium text-amber-950">

@@ -49,6 +49,9 @@ export default async function SubscribersPage({
   // AI Agent spend this month against each subscriber's own cap (an individual cap wins over the plan's).
   const aiBySlug = new Map(usage.map((u) => [u.slug, { used: u.aiCostUsed, cap: u.aiCostLimit, band: aiUsageBand(u.aiCostUsed, u.aiCostLimit) }]));
   const percentFmt = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
+  // Customer conversations handled this period against the plan's monthly limit (or an individual one).
+  const conversationsBySlug = new Map(usage.map((u) => [u.slug, { used: u.conversationsUsed, limit: u.conversationLimit }]));
+  const nf = new Intl.NumberFormat(locale);
 
   // The New subscription form's choices (only when it is open).
   const [{ data: planRows }, { data: typeRows }] = creating
@@ -208,6 +211,7 @@ export default async function SubscribersPage({
                   <th className="py-2 text-start font-medium">{t("col.status")}</th>
                   <th className="py-2 text-start font-medium">{t("col.joined")}</th>
                   <th className="py-2 text-start font-medium">{t("col.revenue")}</th>
+                  <th className="py-2 text-start font-medium">{t("col.conversations")}</th>
                   <th className="py-2 text-start font-medium">{t("col.aiUse")}</th>
                   <th className="py-2 text-start font-medium" />
                 </tr>
@@ -250,6 +254,18 @@ export default async function SubscribersPage({
                     <td className="py-2 text-slate-600">{new Date(s.joinedAt).toLocaleDateString(locale)}</td>
                     <td className="py-2 text-slate-600">
                       {dm.money(s.revenueMinor, s.currency, exponentByCode.get(s.currency) ?? 2)}
+                    </td>
+                    <td className="py-2 text-slate-700" dir="ltr" data-testid="subscriber-conversations">
+                      {(() => {
+                        const c = conversationsBySlug.get(s.slug);
+                        if (!c || s.status === "no_plan") return "—";
+                        return (
+                          <span title={t("conversationsOfLimit")}>
+                            {nf.format(c.used)}
+                            <span className="ms-1 text-xs text-slate-500">/ {c.limit !== null ? nf.format(c.limit) : "∞"}</span>
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-2 text-slate-700" dir="ltr">
                       {ai && ai.cap !== null ? (

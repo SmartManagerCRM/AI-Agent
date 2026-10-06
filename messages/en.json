@@ -261,7 +261,9 @@
     "branches": {
       "branches": "Branches",
       "default": "(default)",
-      "noBranchesYet": "No branches yet."
+      "noBranchesYet": "No branches yet.",
+      "allowance": "Active branches: {active} of {limit} included in your plan",
+      "allowanceFull": "Your plan’s branch limit is reached — upgrade to add more branches."
     },
     "bookings": {
       "title": "Bookings",
@@ -1174,7 +1176,12 @@
       "trialFootnote": "One conversation is one customer chat session, however many messages it has. The free trial ends on {date}{limit}, whichever comes first.",
       "trialEndDate": "its end date",
       "orAfter": " or after {limit} customer conversations",
-      "paidFootnote": "One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders keep working at any usage level."
+      "paidFootnote": "One conversation is one customer chat session, however many messages it has. Browsing, cart, checkout and orders keep working at any usage level.",
+      "aiResponses": "AI responses this period",
+      "percentUsed": "{percent}% used",
+      "aiResponsesUsed": "{percent}% of your plan’s AI responses used",
+      "aiResponsesFull": "Your plan’s AI responses for this period are used up. Your Agent keeps answering with standard replies until the next period, or upgrade now.",
+      "aiResponsesHint": "Smart AI answers your Agent gives customers. When they run out, standard replies continue."
     },
     "billingPay": {
       "plan": "{plan} plan",
@@ -1261,7 +1268,8 @@
       "logo": "Logo",
       "profile": "Business profile",
       "checkout": "Ordering & checkout",
-      "payments": "Payment methods"
+      "payments": "Payment methods",
+      "receipts": "Receipts"
     },
     "profileForm": {
       "email": "Contact email",
@@ -1273,7 +1281,12 @@
       "tzInvalid": "“{zone}” isn’t a time zone name — choose your city (for example Africa/Tunis) so times are always right.",
       "country": "Country",
       "city": "City",
-      "save": "Save"
+      "save": "Save",
+      "legalTitle": "Legal details (printed on receipts)",
+      "legalHint": "Your receipts show the business name, branch, address, phone and VAT number.",
+      "legalName": "Legal business name",
+      "vatNumber": "VAT number",
+      "address": "Address"
     },
     "logoForm": {
       "hint": "Your logo appears next to your business name in this console and on your customer Agent. PNG, JPG or WebP, up to 3 MB; a square logo with a transparent background looks best.",
@@ -1452,6 +1465,39 @@
           "year": "Annual"
         }
       }
+    },
+    "receiptSettings": {
+      "intro": "A receipt with a QR code is created for every order. Choose when it prints:",
+      "mode": "Receipt printing",
+      "manual": "On click",
+      "manualHint": "Print a receipt with the Print button next to a confirmed order.",
+      "auto": "Automatically",
+      "autoHint": "Printing starts as soon as an order is confirmed, on a console that is open (once per order, across all your devices). Your browser still shows its print window unless it is set to print silently.",
+      "save": "Save"
+    },
+    "receipt": {
+      "title": "Receipt",
+      "vatNumber": "VAT No.",
+      "date": "Date",
+      "order": "Order",
+      "table": "Table",
+      "customer": "Customer",
+      "item": "Item",
+      "qty": "Qty",
+      "amount": "Amount",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "delivery": "Delivery",
+      "tax": "Tax",
+      "total": "Total",
+      "payment": "Payment",
+      "notes": "Notes",
+      "reference": "Ref",
+      "thanks": "Thank you!",
+      "moreItems": "{n, plural, one {+# more item} other {+# more items}}",
+      "print": "Print receipt",
+      "notConfirmed": "The receipt prints once the order is confirmed.",
+      "failed": "Couldn’t prepare the receipt. Try again."
     }
   },
   "platform": {
@@ -1603,7 +1649,8 @@
         "status": "Status",
         "joined": "Joined",
         "revenue": "Revenue",
-        "aiUse": "AI use (month)"
+        "aiUse": "AI use (month)",
+        "conversations": "Conversations"
       },
       "new": "New",
       "edit": "Edit",
@@ -1624,7 +1671,8 @@
       "newTitle": "New subscription",
       "newText": "Creates the business, its owner and its subscription. A new owner gets an email from support@smartmanager.me to choose their password; an existing account simply becomes the owner.",
       "newPerMonth": "month",
-      "newPerYear": "year"
+      "newPerYear": "year",
+      "conversationsOfLimit": "Handled conversations this period / the plan’s monthly limit"
     },
     "usageState": {
       "ACTIVE": "Active",
@@ -1636,7 +1684,8 @@
       "CONVERSATION_LIMIT_REACHED": "Conversation limit reached",
       "CONVERSATION_GRACE_PERIOD": "Conversation grace period",
       "AI_COST_WARNING": "AI cost warning",
-      "CONVERSATION_WARNING": "Conversation warning"
+      "CONVERSATION_WARNING": "Conversation warning",
+      "AI_RESPONSE_LIMIT_REACHED": "AI response limit reached"
     },
     "subscriber": {
       "back": "← Subscribers",
@@ -2043,7 +2092,9 @@
       "none": "No plans yet.",
       "badgePopular": "Most popular",
       "badgeHidden": "Not on the website",
-      "badgeFamily": "annual version of “{family}”"
+      "badgeFamily": "annual version of “{family}”",
+      "planLimits": "Branches: {branches} · AI responses / month: {responses}",
+      "unlimited": "unlimited"
     },
     "planForm": {
       "key": "Key",
@@ -2066,7 +2117,11 @@
       "featuresPlaceholder": "AI Agent 24/7\nOnline ordering & booking",
       "featuresHint": "One feature per line. The conversation allowance is added automatically. A monthly plan and its annual version share one family (e.g. \"growth\"), so the website’s Monthly / Annual switch shows them together.",
       "isPublic": "Shown on the website",
-      "isPopular": "Most popular"
+      "isPopular": "Most popular",
+      "maxBranches": "Maximum branches",
+      "aiResponseLimit": "Maximum AI (paid LLM) responses per month",
+      "noLimit": "No limit",
+      "limitsHint": "Leave blank for no limit. Branches are shown on the pricing page; the AI response limit is never shown as a number — subscribers only see the share used."
     },
     "payments": {
       "title": "Payments & Revenue",
@@ -3154,7 +3209,8 @@
       "noneFoundService": "No services with prices were found in that file. Each line should read like “Haircut … 50”.",
       "nothingNew": "Nothing new to add — everything found was already in your catalog or couldn’t be used.",
       "importedProducts": "{n, plural, one {# product} other {# products}} added from {file}.",
-      "importedServices": "{n, plural, one {# service} other {# services}} added from {file}."
+      "importedServices": "{n, plural, one {# service} other {# services}} added from {file}.",
+      "branchLimit": "Your plan’s branch limit is reached. Upgrade your plan or deactivate another branch first."
     },
     "business": {
       "createFailed": "Couldn’t create the business — please try again.",
@@ -3169,7 +3225,9 @@
       "logoSaved": "Logo saved — it now shows in your console and on your Agent.",
       "logoRemoved": "Logo removed.",
       "keptWordsFailed": "Could not save the words — please try again.",
-      "keptWordsSaved": "{n, plural, =0 {Saved — no words kept.} one {Saved — # word kept; names are being re-translated.} other {Saved — # words kept; names are being re-translated.}}"
+      "keptWordsSaved": "{n, plural, =0 {Saved — no words kept.} one {Saved — # word kept; names are being re-translated.} other {Saved — # words kept; names are being re-translated.}}",
+      "receiptSettingsSaved": "Saved.",
+      "receiptSettingsFailed": "Couldn’t save the receipt setting."
     },
     "agent": {
       "settingsFailed": "Couldn’t save Agent settings — please try again.",
@@ -3634,7 +3692,9 @@
       "conversationsMonth": "Up to {n} customer conversations a month",
       "conversationsYear": "Up to {n} customer conversations a year",
       "startTrial": "Start Free Trial",
-      "trialNote": "{days}-day free trial · no credit card required"
+      "trialNote": "{days}-day free trial · no credit card required",
+      "freeOnboarding": "Free Onboarding upon Upgrade",
+      "branches": "{n, plural, one {1 branch} other {Up to # branches}}"
     },
     "faq": {
       "eyebrow": "FAQ",

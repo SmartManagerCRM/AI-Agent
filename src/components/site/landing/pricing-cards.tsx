@@ -19,6 +19,8 @@ export type PlanView = {
   monthsFree: number | null;
   trialDays: number;
   conversations: string | null;
+  /** The plan's branch limit (null: no limit, not shown). */
+  branches: number | null;
   features: string[];
   popular: boolean;
 };
@@ -130,12 +132,23 @@ export function PricingCards({
                     {t("conversationsMonth", { n: plan.conversations })}
                   </li>
                 )}
+                {plan.branches !== null && (
+                  <li className="flex gap-2.5" data-testid="plan-branches">
+                    <Check />
+                    {t("branches", { n: plan.branches })}
+                  </li>
+                )}
                 {plan.features.map((f) => (
                   <li key={f} className="flex gap-2.5">
                     <Check />
                     {f}
                   </li>
                 ))}
+                {/* Every plan: the team sets the business up for free once it moves to a paid plan. */}
+                <li className="flex gap-2.5" data-testid="plan-free-onboarding">
+                  <Check />
+                  {t("freeOnboarding")}
+                </li>
               </ul>
 
               <Link

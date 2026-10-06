@@ -18,6 +18,8 @@ export type PublicPlan = {
   billing_interval: "month" | "year";
   trial_days: number;
   conversation_limit: number | null;
+  /** Most active branches the plan allows (null: no limit). */
+  max_branches: number | null;
   is_popular: boolean;
   sort_order: number;
 };

@@ -21,7 +21,7 @@ import { agentLog } from "./diagnostics";
  *
  * No result is cached: every decision is per call, per tenant.
  */
-export type UsageLimit = "conversation_limit" | "ai_cost_limit";
+export type UsageLimit = "conversation_limit" | "ai_cost_limit" | "ai_response_limit";
 
 export type UsageGate = { governed: boolean; blocked: UsageLimit | null; trialEnded: boolean };
 
@@ -44,7 +44,9 @@ export async function checkAiUsage(tenantId: string): Promise<UsageGate> {
   if (snap.is_paid !== true && snap.is_trial !== true) return { governed: false, blocked: null, trialEnded: false };
   if (snap.conversation_state === "blocked")
     return { governed: true, blocked: "conversation_limit", trialEnded: false };
-  if (snap.ai_state === "blocked") return { governed: true, blocked: "ai_cost_limit", trialEnded: false };
+  // AI is limited by the cost cap or by the plan's monthly AI responses (decided in the database).
+  if (snap.ai_state === "blocked")
+    return { governed: true, blocked: snap.ai_block_reason === "responses" ? "ai_response_limit" : "ai_cost_limit", trialEnded: false };
   return { governed: true, blocked: null, trialEnded: false };
 }
 

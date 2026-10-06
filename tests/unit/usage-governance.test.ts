@@ -31,6 +31,7 @@ const base: SubscriberUsage = {
   graceUntil: null,
   conversationState: "ok",
   aiLimited: false,
+  aiResponsePercent: null,
 };
 const date = (iso: string) => iso.slice(0, 10);
 
@@ -55,6 +56,21 @@ describe("subscriber usage summary", () => {
     expect(parsed?.conversationsUsed).toBe(999);
     expect(parsed?.warningLevel).toBe(95);
     expect(JSON.stringify(parsed)).not.toMatch(/cost|usd|budget|15|14\.99/i);
+  });
+
+  it("AI responses: only a whole percent (0–100) reaches the subscriber, never the count or the limit", () => {
+    const parsed = parseSubscriberUsage({
+      is_paid: true,
+      status: "active",
+      conversation_state: "ok",
+      ai_response_percent: 62.7,
+      ai_responses_used: 627,
+      ai_response_limit: 1000,
+    });
+    expect(parsed?.aiResponsePercent).toBe(63);
+    expect(JSON.stringify(parsed)).not.toMatch(/627|1000/);
+    expect(parseSubscriberUsage({ ai_response_percent: 130 })?.aiResponsePercent).toBe(100);
+    expect(parseSubscriberUsage({})?.aiResponsePercent).toBeNull();
   });
 
   it("rejects malformed payloads", () => {

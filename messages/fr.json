@@ -261,7 +261,9 @@
     "branches": {
       "branches": "Succursales",
       "default": "(par défaut)",
-      "noBranchesYet": "Aucune succursale pour l’instant."
+      "noBranchesYet": "Aucune succursale pour l’instant.",
+      "allowance": "Succursales actives : {active} sur {limit} incluses dans votre offre",
+      "allowanceFull": "La limite de succursales de votre offre est atteinte — passez à une offre supérieure pour en ajouter."
     },
     "bookings": {
       "title": "Réservations",
@@ -1174,7 +1176,12 @@
       "trialFootnote": "Une conversation est une session de chat client, quel que soit le nombre de messages. L’essai gratuit se termine le {date}{limit}, selon ce qui arrive en premier.",
       "trialEndDate": "sa date de fin",
       "orAfter": " ou après {limit} conversations clients",
-      "paidFootnote": "Une conversation est une session de chat client, quel que soit le nombre de messages. Navigation, panier, paiement et commandes continuent de fonctionner quel que soit le niveau d’utilisation."
+      "paidFootnote": "Une conversation est une session de chat client, quel que soit le nombre de messages. Navigation, panier, paiement et commandes continuent de fonctionner quel que soit le niveau d’utilisation.",
+      "aiResponses": "Réponses IA sur cette période",
+      "percentUsed": "{percent} % utilisé",
+      "aiResponsesUsed": "{percent} % des réponses IA de votre offre utilisées",
+      "aiResponsesFull": "Les réponses IA de votre offre sont épuisées pour cette période. Votre Agent continue de répondre avec des réponses standard jusqu’à la prochaine période, ou passez dès maintenant à une offre supérieure.",
+      "aiResponsesHint": "Les réponses intelligentes que votre Agent donne aux clients. Une fois épuisées, les réponses standard prennent le relais."
     },
     "billingPay": {
       "plan": "Formule {plan}",
@@ -1261,7 +1268,8 @@
       "logo": "Logo",
       "profile": "Profil de l’activité",
       "checkout": "Commande et paiement",
-      "payments": "Moyens de paiement"
+      "payments": "Moyens de paiement",
+      "receipts": "Reçus"
     },
     "profileForm": {
       "email": "E-mail de contact",
@@ -1273,7 +1281,12 @@
       "tzInvalid": "« {zone} » n’est pas un nom de fuseau horaire — choisissez votre ville (par exemple Africa/Tunis) pour des heures toujours justes.",
       "country": "Pays",
       "city": "Ville",
-      "save": "Enregistrer"
+      "save": "Enregistrer",
+      "legalTitle": "Informations légales (imprimées sur les reçus)",
+      "legalHint": "Vos reçus indiquent le nom de l’entreprise, la succursale, l’adresse, le téléphone et le numéro de TVA.",
+      "legalName": "Raison sociale",
+      "vatNumber": "Numéro de TVA",
+      "address": "Adresse"
     },
     "logoForm": {
       "hint": "Votre logo apparaît à côté du nom de votre activité dans cette console et sur votre Agent client. PNG, JPG ou WebP, jusqu’à 3 Mo ; un logo carré à fond transparent rend le mieux.",
@@ -1452,6 +1465,39 @@
           "year": "Annuelle"
         }
       }
+    },
+    "receiptSettings": {
+      "intro": "Un reçu avec QR code est créé pour chaque commande. Choisissez quand l’imprimer :",
+      "mode": "Impression des reçus",
+      "manual": "Au clic",
+      "manualHint": "Imprimez le reçu avec le bouton Imprimer à côté d’une commande confirmée.",
+      "auto": "Automatiquement",
+      "autoHint": "L’impression démarre dès qu’une commande est confirmée, sur une console ouverte (une fois par commande, sur tous vos appareils). Le navigateur affiche sa fenêtre d’impression, sauf s’il est réglé pour imprimer sans confirmation.",
+      "save": "Enregistrer"
+    },
+    "receipt": {
+      "title": "Reçu",
+      "vatNumber": "N° TVA",
+      "date": "Date",
+      "order": "Commande",
+      "table": "Table",
+      "customer": "Client",
+      "item": "Article",
+      "qty": "Qté",
+      "amount": "Montant",
+      "subtotal": "Sous-total",
+      "discount": "Remise",
+      "delivery": "Livraison",
+      "tax": "Taxe",
+      "total": "Total",
+      "payment": "Paiement",
+      "notes": "Remarques",
+      "reference": "Réf",
+      "thanks": "Merci !",
+      "moreItems": "{n, plural, one {+# autre article} other {+# autres articles}}",
+      "print": "Imprimer le reçu",
+      "notConfirmed": "Le reçu s’imprime une fois la commande confirmée.",
+      "failed": "Impossible de préparer le reçu. Réessayez."
     }
   },
   "platform": {
@@ -1603,7 +1649,8 @@
         "status": "Statut",
         "joined": "Inscrit le",
         "revenue": "Revenus",
-        "aiUse": "Usage IA (mois)"
+        "aiUse": "Usage IA (mois)",
+        "conversations": "Conversations"
       },
       "new": "Nouveau",
       "edit": "Modifier",
@@ -1624,7 +1671,8 @@
       "newTitle": "Nouvel abonnement",
       "newText": "Crée l’entreprise, son propriétaire et son abonnement. Un nouveau propriétaire reçoit un e-mail de support@smartmanager.me pour choisir son mot de passe ; un compte existant devient simplement propriétaire.",
       "newPerMonth": "mois",
-      "newPerYear": "an"
+      "newPerYear": "an",
+      "conversationsOfLimit": "Conversations traitées sur la période / limite mensuelle de l’offre"
     },
     "usageState": {
       "ACTIVE": "Actif",
@@ -1636,7 +1684,8 @@
       "CONVERSATION_LIMIT_REACHED": "Limite de conversations atteinte",
       "CONVERSATION_GRACE_PERIOD": "Délai de grâce des conversations",
       "AI_COST_WARNING": "Alerte coût IA",
-      "CONVERSATION_WARNING": "Alerte conversations"
+      "CONVERSATION_WARNING": "Alerte conversations",
+      "AI_RESPONSE_LIMIT_REACHED": "Limite de réponses IA atteinte"
     },
     "subscriber": {
       "back": "← Abonnés",
@@ -2043,7 +2092,9 @@
       "none": "Aucune formule pour l’instant.",
       "badgePopular": "La plus populaire",
       "badgeHidden": "Pas sur le site",
-      "badgeFamily": "version annuelle de « {family} »"
+      "badgeFamily": "version annuelle de « {family} »",
+      "planLimits": "Succursales : {branches} · Réponses IA / mois : {responses}",
+      "unlimited": "illimité"
     },
     "planForm": {
       "key": "Clé",
@@ -2066,7 +2117,11 @@
       "featuresPlaceholder": "Agent IA 24h/24, 7j/7\nCommandes et réservations en ligne",
       "featuresHint": "Une fonctionnalité par ligne. Le nombre de conversations est ajouté automatiquement. Une formule mensuelle et sa version annuelle partagent une famille (ex. « growth »), pour que le sélecteur Mensuel / Annuel du site les affiche ensemble.",
       "isPublic": "Affichée sur le site",
-      "isPopular": "La plus populaire"
+      "isPopular": "La plus populaire",
+      "maxBranches": "Nombre maximal de succursales",
+      "aiResponseLimit": "Réponses IA (LLM payant) maximales par mois",
+      "noLimit": "Sans limite",
+      "limitsHint": "Laissez vide pour ne fixer aucune limite. Les succursales s’affichent sur la page des tarifs ; la limite de réponses IA n’est jamais affichée en chiffres — l’abonné ne voit que la part utilisée."
     },
     "payments": {
       "title": "Paiements et revenus",
@@ -3154,7 +3209,8 @@
       "noneFoundService": "Aucun service avec prix trouvé dans ce fichier. Chaque ligne doit ressembler à « Coupe … 50 ».",
       "nothingNew": "Rien de nouveau — tout ce qui a été trouvé était déjà dans votre catalogue ou inutilisable.",
       "importedProducts": "{n, plural, one {# produit ajouté} other {# produits ajoutés}} depuis {file}.",
-      "importedServices": "{n, plural, one {# service ajouté} other {# services ajoutés}} depuis {file}."
+      "importedServices": "{n, plural, one {# service ajouté} other {# services ajoutés}} depuis {file}.",
+      "branchLimit": "La limite de succursales de votre offre est atteinte. Passez à une offre supérieure ou désactivez d’abord une autre succursale."
     },
     "business": {
       "createFailed": "Impossible de créer l’activité — veuillez réessayer.",
@@ -3169,7 +3225,9 @@
       "logoSaved": "Logo enregistré — il s’affiche maintenant dans votre console et sur votre Agent.",
       "logoRemoved": "Logo retiré.",
       "keptWordsFailed": "Impossible d’enregistrer les mots — veuillez réessayer.",
-      "keptWordsSaved": "{n, plural, =0 {Enregistré — aucun mot gardé.} one {Enregistré — # mot gardé ; les noms sont en cours de retraduction.} other {Enregistré — # mots gardés ; les noms sont en cours de retraduction.}}"
+      "keptWordsSaved": "{n, plural, =0 {Enregistré — aucun mot gardé.} one {Enregistré — # mot gardé ; les noms sont en cours de retraduction.} other {Enregistré — # mots gardés ; les noms sont en cours de retraduction.}}",
+      "receiptSettingsSaved": "Enregistré.",
+      "receiptSettingsFailed": "Impossible d’enregistrer le réglage des reçus."
     },
     "agent": {
       "settingsFailed": "Impossible d’enregistrer les paramètres de l’Agent — veuillez réessayer.",
@@ -3634,7 +3692,9 @@
       "conversationsMonth": "Jusqu’à {n} conversations clients par mois",
       "conversationsYear": "Jusqu’à {n} conversations clients par an",
       "startTrial": "Commencer l’essai gratuit",
-      "trialNote": "Essai gratuit de {days} jours · sans carte bancaire"
+      "trialNote": "Essai gratuit de {days} jours · sans carte bancaire",
+      "freeOnboarding": "Mise en route offerte lors de la mise à niveau",
+      "branches": "{n, plural, one {1 établissement} other {Jusqu’à # établissements}}"
     },
     "faq": {
       "eyebrow": "FAQ",

@@ -110,7 +110,8 @@ export async function setBranchActiveAction(_prev: ManageResult, formData: FormD
   const { data: row } = await c.supabase.from("branches").select("is_default").eq("tenant_id", c.tenant.id).eq("id", c.id).maybeSingle();
   if (!row) return noRows(c.t);
   if (!active && row.is_default) return { ok: false, message: c.t("manage.defaultBranch") };
-  const { data } = await c.supabase.from("branches").update({ is_active: active }).eq("tenant_id", c.tenant.id).eq("id", c.id).select("id");
+  const { data, error } = await c.supabase.from("branches").update({ is_active: active }).eq("tenant_id", c.tenant.id).eq("id", c.id).select("id");
+  if (error?.message?.includes("BRANCH_LIMIT")) return { ok: false, message: c.t("catalog.branchLimit") };
   return data?.length ? done(c.locale, c.slug, "branches") : noRows(c.t);
 }
 

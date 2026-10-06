@@ -205,7 +205,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       tenantId: input.tenant.id,
       requestType: input.requestType,
       handledBy: "deterministic",
-      deterministicRule: limit === "conversation_limit" ? "usage_conversation_limit" : "usage_ai_cost_limit",
+      deterministicRule: `usage_${limit}`,
     });
     const copy = AI_LIMITED_CUSTOMER_REPLY[input.locale] ?? AI_LIMITED_CUSTOMER_REPLY.en;
     if (input.requestType === "console_preview") {

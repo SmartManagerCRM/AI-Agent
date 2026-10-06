@@ -56,6 +56,7 @@ export async function PricingSection({
       monthsFree: monthsFree && monthsFree > 0 ? monthsFree : null,
       trialDays: plan.trial_days,
       conversations: plan.conversation_limit ? nf.format(plan.conversation_limit) : null,
+      branches: plan.max_branches ?? null,
       features: featureLines(plan, locale),
       popular: plan.is_popular,
     };

@@ -4,6 +4,7 @@ import { BusinessProfileForm } from "@/components/business/business-profile-form
 import { KeptWordsForm } from "@/components/business/kept-words-form";
 import { CheckoutSettingsForm } from "@/components/commerce/checkout-settings-form";
 import { PaymentSettingsForm } from "@/components/commerce/payment-settings-form";
+import { ReceiptSettingsForm } from "@/components/receipts/receipt-settings-form";
 import { consoleOrigin } from "@/lib/hosts";
 import { productImageUrl } from "@/lib/product-image";
 import { timeZoneOptions } from "@/lib/timezone";
@@ -19,10 +20,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   const t = await getTranslations("console.settings");
   const tk = await getTranslations("console.keptWords");
 
-  const [{ data: settings }, { data: translation }, { data: currency }, { data: paymentConfig }] = await Promise.all([
+  const [{ data: settings }, { data: translation }, { data: receipts }, { data: currency }, { data: paymentConfig }] = await Promise.all([
     supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
     // Read on its own, so the checkout settings never depend on it.
     supabase.from("tenant_settings").select("translation").eq("tenant_id", tenant.id).maybeSingle(),
+    supabase.from("tenant_settings").select("receipt_print_mode").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
     supabase
       .from("tenant_payment_config")
@@ -63,6 +65,9 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
             timezone: tenant.timezone,
             country: tenant.country,
             city: tenant.city,
+            legal_name: tenant.legal_name,
+            vat_number: tenant.vat_number,
+            address: tenant.address,
           }}
         />
       </section>
@@ -90,6 +95,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
             }
           }
         />
+      </section>
+
+      <section id="receipts" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("receipts")}</h2>
+        <ReceiptSettingsForm slug={slug} locale={locale} mode={receipts?.receipt_print_mode === "auto" ? "auto" : "manual"} />
       </section>
 
       {paymentConfig && (

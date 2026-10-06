@@ -32,6 +32,8 @@ export type SubscriberUsage = {
   graceUntil: string | null;
   conversationState: ConversationState;
   aiLimited: boolean;
+  /** Share (whole percent, ≤ 100) of the plan's monthly AI responses used — null when the plan has no such allowance. Never a count. */
+  aiResponsePercent: number | null;
 };
 
 function str(v: unknown): string | null {
@@ -67,6 +69,10 @@ export function parseSubscriberUsage(raw: unknown): SubscriberUsage | null {
     graceUntil: str(r.grace_until),
     conversationState: state === "grace" || state === "blocked" ? state : "ok",
     aiLimited: r.ai_limited === true,
+    aiResponsePercent: (() => {
+      const p = num(r.ai_response_percent);
+      return p === null ? null : Math.min(100, Math.max(0, Math.round(p)));
+    })(),
   };
 }
 
