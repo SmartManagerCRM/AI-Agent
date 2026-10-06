@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { startTransition, useActionState, useState } from "react";
 
+import { groupCurrencies } from "@/lib/currencies";
 import { signupAction, type SignupState } from "@/server/site/signup-actions";
 
 import { SiteIcon } from "./icons";
@@ -41,6 +42,7 @@ export function SignupForm({
   defaultCurrency: string;
 }) {
   const t = useTranslations("site.signup");
+  const tHeader = useTranslations("site.header");
   const [state, action, pending] = useActionState<SignupState, FormData>(signupAction, undefined);
   const [showPassword, setShowPassword] = useState(false);
   const bad = (f: string) => state?.field === f;
@@ -111,11 +113,17 @@ export function SignupForm({
         </Field>
         <Field label={t("currency")} name="currency" hint={t("currencyHint")}>
           <select id="currency" name="currency" required defaultValue={defaultCurrency} className={inputClass}>
-            {currencies.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
+            {Object.entries(groupCurrencies(currencies))
+              .filter(([, codes]) => codes.length)
+              .map(([group, codes]) => (
+                <optgroup key={group} label={tHeader(group as "mena" | "international")}>
+                  {codes.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
           </select>
         </Field>
       </div>

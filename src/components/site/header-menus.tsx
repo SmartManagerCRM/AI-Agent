@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { LOCALES, LOCALE_NATIVE_NAMES, type Locale } from "@/i18n/locales";
+import { groupCurrencies } from "@/lib/currencies";
 import { localePath } from "@/lib/site/locale-path";
 import { setSiteCurrencyAction } from "@/server/site/actions";
 
@@ -113,25 +114,39 @@ export function CurrencyMenu({ currencies, current, align, compact }: { currenci
   const [pending, start] = useTransition();
   return (
     <PillMenu label={t("currency")} value={pending ? "…" : current} testId="site-currency-menu" align={align} compact={compact}>
-      {(close) =>
-        currencies.map((code) => (
-          <button
-            key={code}
-            type="button"
-            role="option"
-            aria-selected={code === current}
-            onClick={() => {
-              close();
-              start(async () => {
-                if (await setSiteCurrencyAction(code)) router.refresh();
-              });
-            }}
-            className={optionClass(code === current)}
-          >
-            {code}
-          </button>
-        ))
-      }
+      {(close) => {
+        const { mena, international } = groupCurrencies(currencies);
+        // Middle East & North Africa first, then the rest (headings only when both have some).
+        return [
+          { key: "mena", label: t("mena"), codes: mena },
+          { key: "international", label: t("international"), codes: international },
+        ]
+          .filter((g) => g.codes.length)
+          .map((g, _, groups) => (
+            <div key={g.key} role="group" aria-label={g.label}>
+              {groups.length > 1 && (
+                <p className="sticky top-0 bg-white px-4 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">{g.label}</p>
+              )}
+              {g.codes.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  role="option"
+                  aria-selected={code === current}
+                  onClick={() => {
+                    close();
+                    start(async () => {
+                      if (await setSiteCurrencyAction(code)) router.refresh();
+                    });
+                  }}
+                  className={optionClass(code === current)}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+          ));
+      }}
     </PillMenu>
   );
 }

@@ -3523,6 +3523,8 @@
       "menu": "Menu",
       "language": "Langue",
       "currency": "Devise",
+      "mena": "Moyen-Orient et Afrique du Nord",
+      "international": "International",
       "skip": "Aller au contenu"
     },
     "footer": {
