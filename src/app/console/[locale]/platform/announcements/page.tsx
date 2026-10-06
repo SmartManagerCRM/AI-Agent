@@ -1,6 +1,6 @@
 import { EmptyState } from "@/components/console/empty-state";
+import { AnnouncementRow } from "@/components/platform/announcement-row";
 import { CreateAnnouncementForm } from "@/components/platform/create-announcement-form";
-import { setAnnouncementActiveAction } from "@/server/platform/announcement-actions";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
@@ -14,7 +14,7 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
 
   const { data: announcements } = await supabase
     .from("platform_announcements")
-    .select("id, message, message_translations, severity, is_active, created_at")
+    .select("id, message, message_locale, message_translations, severity, is_active, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -35,25 +35,18 @@ export default async function AnnouncementsPage({ params }: { params: Promise<{ 
         {(announcements ?? []).length > 0 ? (
           <div className="flex flex-col gap-2">
             {(announcements ?? []).map((a) => (
-              <div
+              <AnnouncementRow
                 key={a.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-slate-100 p-3 text-sm"
-              >
-                <div className="min-w-0">
-                  <p className="text-slate-900">{a.message_translations[locale] ?? a.message}</p>
-                  <p className="text-xs text-slate-400">
-                    {t.has(`severity.${a.severity}`) ? t(`severity.${a.severity}`) : a.severity} · {new Date(a.created_at).toLocaleString(locale)}
-                  </p>
-                </div>
-                <form action={setAnnouncementActiveAction}>
-                  <input type="hidden" name="id" value={a.id} />
-                  <input type="hidden" name="value" value={(!a.is_active).toString()} />
-                  <input type="hidden" name="locale" value={locale} />
-                  <button type="submit" className="shrink-0 text-xs font-medium text-emerald-600 hover:underline">
-                    {a.is_active ? t("active") : t("inactive")}
-                  </button>
-                </form>
-              </div>
+                locale={locale}
+                announcement={{
+                  id: a.id,
+                  text: a.message_locale === locale ? a.message : (a.message_translations[locale] ?? a.message),
+                  severity: a.severity === "warning" ? "warning" : "info",
+                  isActive: a.is_active,
+                  createdAt: a.created_at,
+                  original: a.message_locale === locale,
+                }}
+              />
             ))}
           </div>
         ) : (

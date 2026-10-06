@@ -2359,7 +2359,15 @@
         "message": "Message",
         "severity": "Severity",
         "post": "Post"
-      }
+      },
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this announcement? It disappears from every business console. This can’t be undone.",
+      "save": "Save",
+      "cancel": "Cancel",
+      "shown": "Shown to businesses",
+      "editOriginal": "Written in this language — the other languages are translated again when you save.",
+      "editTranslation": "The {lang} wording — saved as you write it; the other languages stay as they are."
     },
     "search": {
       "title": "Search",

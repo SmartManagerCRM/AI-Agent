@@ -2359,7 +2359,15 @@
         "message": "Message",
         "severity": "Importance",
         "post": "Publier"
-      }
+      },
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer cette annonce ? Elle disparaît de toutes les consoles. Action irréversible.",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "shown": "Affichée aux entreprises",
+      "editOriginal": "Rédigée dans cette langue — les autres langues sont retraduites à l’enregistrement.",
+      "editTranslation": "Le texte en {lang} — enregistré tel quel ; les autres langues ne changent pas."
     },
     "search": {
       "title": "Recherche",
