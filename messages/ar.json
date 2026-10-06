@@ -3720,6 +3720,7 @@
       "perYear": "/ سنويًا",
       "perMonthEquivalent": "{price} / شهريًا",
       "monthsFree": "{n, plural, zero {# شهر مجانًا} one {شهر مجانًا} two {شهران مجانًا} few {# أشهر مجانًا} many {# شهرًا مجانًا} other {# شهر مجانًا}}",
+      "monthsFreeBadge": "{n, plural, zero {# شهر مجانًا} one {شهر مجانًا} two {شهران مجانًا} few {# أشهر مجانًا} many {# شهرًا مجانًا} other {# شهر مجانًا}}",
       "billedIn": "يُفوتر {price}",
       "conversationsMonth": "حتى {n} محادثة مع العملاء شهريًا",
       "conversationsYear": "حتى {n} محادثة مع العملاء سنويًا",

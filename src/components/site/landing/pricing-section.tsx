@@ -2,7 +2,16 @@ import { getTranslations } from "next-intl/server";
 
 import type { Locale } from "@/i18n/locales";
 import { SECTION_IDS } from "@/lib/site/config";
-import { annualSavingsPercent, bestAnnualSaving, featureLines, pickText, planFamilies, type PublicPlan } from "@/lib/site/pricing";
+import {
+  annualMonthsFree,
+  annualSavingsPercent,
+  bestAnnualMonthsFree,
+  bestAnnualSaving,
+  featureLines,
+  pickText,
+  planFamilies,
+  type PublicPlan,
+} from "@/lib/site/pricing";
 import { siteDisplayMoney } from "@/server/site/public-data";
 
 import { PricingCards, type PlanView } from "./pricing-cards";
@@ -40,10 +49,7 @@ export async function PricingSection({
     const shown = converted ? dm.money(plan.price_minor, plan.currency, plan.exponent).replace(/[.,]00(?=\D*$)/, "") : own;
     const perMonth =
       plan.billing_interval === "year" ? dm.money(Math.round(plan.price_minor / 12), plan.currency, plan.exponent) : null;
-    const monthsFree =
-      plan.billing_interval === "year" && monthly && monthly.price_minor > 0
-        ? Math.round((monthly.price_minor * 12 - plan.price_minor) / monthly.price_minor)
-        : null;
+    const monthsFree = plan.billing_interval === "year" ? annualMonthsFree(monthly, plan) : null;
     return {
       key: plan.key,
       name: pickText(plan.name, locale) || plan.key,
@@ -52,7 +58,7 @@ export async function PricingSection({
       billed: converted ? t("billedIn", { price: own }) : null,
       interval: plan.billing_interval,
       perMonth,
-      monthsFree: monthsFree && monthsFree > 0 ? monthsFree : null,
+      monthsFree,
       trialDays: plan.trial_days,
       branches: plan.max_branches ?? null,
       features: featureLines(plan, locale),
@@ -84,7 +90,13 @@ export async function PricingSection({
             {t("none")}
           </p>
         ) : (
-          <PricingCards locale={locale} cards={cards} bestSaving={bestAnnualSaving(families)} initialInterval={initialInterval} />
+          <PricingCards
+            locale={locale}
+            cards={cards}
+            bestSaving={bestAnnualSaving(families)}
+            bestMonthsFree={bestAnnualMonthsFree(families)}
+            initialInterval={initialInterval}
+          />
         )}
       </div>
     </section>

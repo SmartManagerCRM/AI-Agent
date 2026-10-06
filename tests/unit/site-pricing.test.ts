@@ -4,7 +4,17 @@ import { localePath } from "@/lib/site/locale-path";
 import { RESERVED_SLUGS } from "@/lib/reserved-slugs";
 import { resolveConsolePath } from "@/lib/console-routing";
 import { SITE_PAGES } from "@/lib/site/config";
-import { annualSavingsPercent, announcedTrialDays, bestAnnualSaving, featureLines, pickText, planFamilies, type PublicPlan } from "@/lib/site/pricing";
+import {
+  annualMonthsFree,
+  annualSavingsPercent,
+  announcedTrialDays,
+  bestAnnualMonthsFree,
+  bestAnnualSaving,
+  featureLines,
+  pickText,
+  planFamilies,
+  type PublicPlan,
+} from "@/lib/site/pricing";
 import { socialLinks } from "@/lib/site/social";
 
 const plan = (over: Partial<PublicPlan>): PublicPlan => ({
@@ -47,6 +57,16 @@ describe("pricing from Super Admin's plans", () => {
     expect(annualSavingsPercent(starter.monthly, starter.annual)).toBe(17);
     expect(bestAnnualSaving(planFamilies(plans))).toBe(17);
     expect(annualSavingsPercent(plan({}), plan({ billing_interval: "year", price_minor: 7900 * 12 }))).toBeNull();
+  });
+
+  it("…which is 2 months free, shown next to the saving on the Annual switch", () => {
+    const [starter] = planFamilies(plans);
+    expect(annualMonthsFree(starter.monthly, starter.annual)).toBe(2);
+    expect(bestAnnualMonthsFree(planFamilies(plans))).toBe(2);
+    expect(annualMonthsFree(plan({}), plan({ billing_interval: "year", price_minor: 7900 * 9 }))).toBe(3);
+    expect(annualMonthsFree(plan({}), plan({ billing_interval: "year", price_minor: 7900 * 12 }))).toBeNull();
+    expect(annualMonthsFree(plan({}), plan({ billing_interval: "year", price_minor: 79000, currency: "EUR" }))).toBeNull();
+    expect(bestAnnualMonthsFree(planFamilies([plan({})]))).toBeNull();
   });
 
   it("the trial length the website announces comes from the plans", () => {

@@ -37,11 +37,14 @@ export function PricingCards({
   locale,
   cards,
   bestSaving,
+  bestMonthsFree,
   initialInterval,
 }: {
   locale: Locale;
   cards: Card[];
   bestSaving: number | null;
+  /** The most free months an annual plan gives ("2 Months FREE" on the switch). */
+  bestMonthsFree: number | null;
   initialInterval: "month" | "year";
 }) {
   const t = useTranslations("site.pricing");
@@ -61,14 +64,27 @@ export function PricingCards({
                 aria-checked={interval === i}
                 onClick={() => setInterval(i)}
                 data-testid={`billing-${i}`}
-                className={`site-focus flex h-10 items-center gap-2 rounded-full px-5 text-sm font-bold transition ${
+                className={`site-focus flex min-h-10 items-center gap-2 rounded-full px-3.5 py-1 text-sm font-bold transition sm:px-5 ${
                   interval === i ? "bg-gradient-to-b from-[#13985f] to-[#0b6a47] text-white shadow" : "text-slate-600 hover:text-[#0c1a33]"
                 }`}
               >
                 {i === "month" ? t("monthly") : t("annual")}
-                {i === "year" && bestSaving !== null && (
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${interval === "year" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"}`}>
-                    {t("save", { percent: bestSaving })}
+                {i === "year" && (bestSaving !== null || bestMonthsFree !== null) && (
+                  // Side by side; stacked on narrow phones so the switch fits.
+                  <span className="flex flex-col items-start gap-0.5 sm:flex-row sm:items-center sm:gap-1.5">
+                    {bestSaving !== null && (
+                      <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] ${interval === "year" ? "bg-white/20 text-white" : "bg-emerald-100 text-emerald-800"}`}>
+                        {t("save", { percent: bestSaving })}
+                      </span>
+                    )}
+                    {bestMonthsFree !== null && (
+                      <span
+                        className="whitespace-nowrap rounded-full bg-gradient-to-b from-amber-400 to-orange-500 px-2 py-0.5 text-[11px] font-extrabold text-white shadow-sm"
+                        data-testid="billing-months-free"
+                      >
+                        {t("monthsFreeBadge", { n: bestMonthsFree })}
+                      </span>
+                    )}
                   </span>
                 )}
               </button>

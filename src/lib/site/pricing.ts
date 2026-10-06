@@ -52,6 +52,19 @@ export function bestAnnualSaving(families: PlanFamily[]): number | null {
   return savings.length ? Math.max(...savings) : null;
 }
 
+/** How many months of the monthly plan an annual plan gives free, rounded (null when none). */
+export function annualMonthsFree(monthly: PublicPlan | null, annual: PublicPlan | null): number | null {
+  if (!monthly || !annual || monthly.currency !== annual.currency || monthly.price_minor <= 0) return null;
+  const months = Math.round((monthly.price_minor * 12 - annual.price_minor) / monthly.price_minor);
+  return months > 0 ? months : null;
+}
+
+/** The most free months any family's annual plan gives (shown on the switch, next to the saving). */
+export function bestAnnualMonthsFree(families: PlanFamily[]): number | null {
+  const months = families.map((f) => annualMonthsFree(f.monthly, f.annual)).filter((m): m is number => m !== null);
+  return months.length ? Math.max(...months) : null;
+}
+
 /** A per-language text, in the visitor's language (else English, else any). */
 export function pickText(value: Record<string, string> | null | undefined, locale: string): string {
   if (!value) return "";

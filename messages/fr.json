@@ -3720,6 +3720,7 @@
       "perYear": "/ an",
       "perMonthEquivalent": "{price} / mois",
       "monthsFree": "{n, plural, one {# mois offert} other {# mois offerts}}",
+      "monthsFreeBadge": "{n, plural, one {# mois OFFERT} other {# mois OFFERTS}}",
       "billedIn": "facturé {price}",
       "conversationsMonth": "Jusqu’à {n} conversations clients par mois",
       "conversationsYear": "Jusqu’à {n} conversations clients par an",
