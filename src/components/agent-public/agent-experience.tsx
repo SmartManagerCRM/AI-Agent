@@ -92,6 +92,8 @@ export function AgentExperience(props: AgentExperienceProps) {
   const [nav, setNav] = useState<NavState>(HOME);
   const [product, setProduct] = useState<AgentProduct | null>(null);
   const [focusToken, setFocusToken] = useState(0);
+  /** The customer left the conversation and the browser kept the page open: a goodbye in its place. */
+  const [left, setLeft] = useState(false);
   const voiceBridge = useRef<VoiceBridge | null>(null);
   const registerVoice = useCallback((bridge: VoiceBridge | null) => {
     voiceBridge.current = bridge;
@@ -183,6 +185,22 @@ export function AgentExperience(props: AgentExperienceProps) {
           serviceId: screen === "book" ? (options?.serviceId ?? null) : null,
         }),
       back,
+      leave: () => {
+        voiceBridge.current?.stop();
+        chat.reset();
+        commerce.clearOrderResult();
+        navigate(HOME, true);
+        // In a business's website, the widget closes (its launcher reopens it).
+        if (surface === "website_widget" && window.parent !== window) {
+          window.parent.postMessage({ type: "smartmanager:agent-close" }, "*");
+          return;
+        }
+        // A page opened from a link or QR code can close itself; when the browser refuses, the goodbye stays.
+        setLeft(true);
+        try {
+          window.close();
+        } catch {}
+      },
       openChat: (message) => {
         navigate({ ...nav, chatOpen: true });
         if (message) chat.send(message);
@@ -245,6 +263,7 @@ export function AgentExperience(props: AgentExperienceProps) {
         {showBottomNav && <BottomNav screen={nav.screen} chatOpen={nav.chatOpen} onContact={contact} />}
         {product && <ProductSheet key={product.id} product={product} onClose={() => setProduct(null)} />}
         <AddedToast bottomNav={showBottomNav} chatOpen={nav.chatOpen} />
+        {left && <Farewell onBack={() => setLeft(false)} />}
       </div>
     </AgentUiProvider>
   );
@@ -333,3 +352,24 @@ function AddedToast({ bottomNav, chatOpen }: { bottomNav: boolean; chatOpen: boo
   );
 }
 
+/** Shown after the customer leaves the conversation, when the browser doesn't let the page close itself. */
+function Farewell({ onBack }: { onBack: () => void }) {
+  const t = useAgentT();
+  const { businessName } = useAgentUi();
+  return (
+    <div className="motion-safe:animate-agent-rise fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 bg-agent-cream px-6 text-center" role="dialog" aria-modal="true" aria-labelledby="agent-farewell-title" data-testid="agent-farewell">
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-agent-500 text-white shadow-xl shadow-agent-500/30">
+        <CheckIcon size={40} strokeWidth={2.6} />
+      </span>
+      <div>
+        <h1 id="agent-farewell-title" className="text-2xl font-extrabold tracking-tight text-slate-900">
+          {t("farewell.title")}
+        </h1>
+        <p className="mt-1.5 text-sm text-slate-500">{t("farewell.text", { name: businessName })}</p>
+      </div>
+      <button type="button" onClick={onBack} className={`${focusRing} h-12 rounded-full bg-agent-700 px-6 text-[15px] font-semibold text-white hover:bg-agent-800`}>
+        {t("farewell.back", { name: businessName })}
+      </button>
+    </div>
+  );
+}

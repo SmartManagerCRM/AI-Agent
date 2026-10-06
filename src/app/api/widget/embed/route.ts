@@ -63,6 +63,13 @@ export async function GET(request: NextRequest) {
     }
   });
 
+  // The customer left the conversation (after an order): the chat closes; the launcher reopens it.
+  window.addEventListener("message", function (e) {
+    if (e.source !== iframe.contentWindow || !e.data || e.data.type !== "smartmanager:agent-close") return;
+    open = false;
+    iframe.style.display = "none";
+  });
+
   document.body.appendChild(iframe);
   document.body.appendChild(launcher);
 })();

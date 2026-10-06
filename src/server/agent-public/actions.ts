@@ -42,6 +42,8 @@ export type SendAgentMessageState =
       productIds?: string[];
       /** The stored reply's id — the page asks the voice endpoint to speak exactly this message. */
       messageId?: string;
+      /** An order the Agent placed with this reply. */
+      placedOrder?: { orderNumber: number };
     }
   | { error: AgentErrorCode }
   | undefined;
@@ -133,6 +135,7 @@ export async function sendAgentMessageAction(
     message: parsed.data.message,
     cart: "cart" in result ? (result.cart ?? null) : null,
     productIds: "productIds" in result ? result.productIds : undefined,
+    placedOrder: "placedOrder" in result ? result.placedOrder : undefined,
     messageId: stored?.id,
   };
 }

@@ -114,6 +114,100 @@ export function spokenText(reply: string): string {
     .trim();
 }
 
+/** Currency signs and local abbreviations written next to prices, and the currency each one means. */
+const CURRENCY_SIGNS: Record<string, string> = {
+  $: "USD", "€": "EUR", "£": "GBP", "₹": "INR", "₺": "TRY", "₦": "NGN", "₩": "KRW", "₱": "PHP", "₫": "VND", "₪": "ILS",
+  "₴": "UAH", "₽": "RUB", "₸": "KZT",
+  "ر.س": "SAR", "د.إ": "AED", "د.ك": "KWD", "ر.ق": "QAR", "د.ب": "BHD", "ر.ع": "OMR", "د.أ": "JOD", "د.ا": "JOD",
+  "ج.م": "EGP", "د.ت": "TND", "د.م": "MAD", "د.ج": "DZD", "د.ل": "LYD", "د.ع": "IQD", "ل.ل": "LBP", "ل.س": "SYP",
+  "ر.ي": "YER", "ج.س": "SDG", DT: "TND", TL: "TRY",
+};
+
+let currencyCodes: ReadonlySet<string> | null = null;
+/** ISO codes the runtime can name (every currency the platform offers). */
+function isCurrencyCode(code: string): boolean {
+  if (!currencyCodes) {
+    try {
+      currencyCodes = new Set(Intl.supportedValuesOf("currency"));
+    } catch {
+      currencyCodes = new Set();
+    }
+  }
+  if (currencyCodes.size > 0) return currencyCodes.has(code);
+  try {
+    return new Intl.DisplayNames(["en"], { type: "currency", fallback: "none" }).of(code) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+const SIGN_PATTERN = Object.keys(CURRENCY_SIGNS)
+  .sort((a, b) => b.length - a.length)
+  .map((s) => s.replace(/[.$]/g, "\\$&"))
+  .join("|");
+// A written amount: 18 · 18.50 · 18,50 · 1,250.00 · ١٨٫٠٠ (Arabic digits).
+const AMOUNT = "[0-9\\u0660-\\u0669]+(?:[,\\u066C\\u00A0\\u202F][0-9\\u0660-\\u0669]{3})*(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?";
+const CURRENCY = `(?:\\b[A-Z]{3}\\b|(?:${SIGN_PATTERN})\\.?)`;
+const MONEY = new RegExp(`(${CURRENCY})[ \\u00A0\\u202F]?(${AMOUNT})|(${AMOUNT})[ \\u00A0\\u202F]?(${CURRENCY})`, "gu");
+
+function currencyOf(token: string): string | null {
+  const t = token.replace(/\.$/, "");
+  if (CURRENCY_SIGNS[t]) return CURRENCY_SIGNS[t];
+  return /^[A-Z]{3}$/.test(t) && isCurrencyCode(t) ? t : null;
+}
+
+function amountValue(written: string, language: SpeechLanguage): number | null {
+  let s = written
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[  ٬]/g, "")
+    .replace(/٫/g, ".");
+  const lastDot = s.lastIndexOf(".");
+  const lastComma = s.lastIndexOf(",");
+  if (lastDot >= 0 && lastComma >= 0) {
+    // Both: the last one is the decimal mark.
+    s = lastDot > lastComma ? s.replace(/,/g, "") : s.replace(/\./g, "").replace(",", ".");
+  } else if (lastComma >= 0) {
+    // "18,50" is a decimal; "1,250" a thousand — in French a decimal (1,250 dinars is 1.25).
+    const single = (s.match(/,/g) ?? []).length === 1;
+    s = single && (s.length - lastComma - 1 !== 3 || language === "fr") ? s.replace(",", ".") : s.replace(/,/g, "");
+  }
+  const value = Number(s);
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Prices as a voice says them, in the reply's language: "18.00 SAR" → "18 Saudi
+ * riyals", "١٨ ر.س" → "18 ريال سعودي", "18,50 €" → "18,5 euros". Read as written,
+ * a voice spells a currency code or sign out letter by letter. Amounts keep
+ * their value; only how they are written changes. Unknown signs stay as they are.
+ */
+export function spokenAmounts(text: string, language: SpeechLanguage): string {
+  const tag = language === "ar" ? "ar-u-nu-latn" : language;
+  return (
+    text
+      .replace(/[‎‏؜]/g, "")
+      .replace(MONEY, (match, curBefore?: string, amountAfter?: string, amountBefore?: string, curAfter?: string) => {
+        const code = currencyOf(curBefore ?? curAfter ?? "");
+        const value = amountValue(amountAfter ?? amountBefore ?? "", language);
+        if (!code || value === null) return match;
+        try {
+          return new Intl.NumberFormat(tag, {
+            style: "currency",
+            currency: code,
+            currencyDisplay: "name",
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 3,
+          }).format(value);
+        } catch {
+          return match;
+        }
+      })
+      // "2 × Latte = 36 riyals" is two lattes for 36 riyals, not "two multiplied by latte equals".
+      .replace(/(\d)\s*×\s*/g, "$1 ")
+      .replace(/\s+=\s+/g, ", ")
+  );
+}
+
 /** The Agent's voice, as chosen in Agent settings. */
 export type VoiceGender = "male" | "female";
 export const VOICE_GENDERS: readonly VoiceGender[] = ["male", "female"];
@@ -202,12 +296,15 @@ export function pickVoice<V extends VoiceLike>(voices: readonly V[], lang: strin
  * every utterance short — some browsers cut long ones off).
  */
 export function speechChunks(text: string): string[] {
-  const sentences = text.match(/[^.!?؟…\n]+(?:[.!?؟…]+|\n|$)/g) ?? [text];
+  // A decimal point ("18.5 riyals") doesn't end a sentence.
+  const DECIMAL = "\uE000";
+  const sentences = text.replace(/(\d)\.(?=\d)/g, `$1${DECIMAL}`).match(/[^.!?؟…\n]+(?:[.!?؟…]+|\n|$)/g) ?? [text];
   const chunks: string[] = [];
-  for (const sentence of sentences.map((s) => s.trim()).filter(Boolean)) {
+  for (const sentence of sentences.map((s) => s.split(DECIMAL).join(".").trim()).filter(Boolean)) {
     const last = chunks[chunks.length - 1];
-    // Very short pieces ("OK." "1.") stay with the sentence before them.
-    if (last && (sentence.length < 12 || last.length < 12) && last.length + sentence.length < 160) chunks[chunks.length - 1] = `${last} ${sentence}`;
+    // Very short pieces ("OK." "1.") stay with the sentence before them, after a pause (one line of a list each).
+    if (last && (sentence.length < 12 || last.length < 12) && last.length + sentence.length < 160)
+      chunks[chunks.length - 1] = `${/[.!?؟…,،:;]$/.test(last) ? last : `${last},`} ${sentence}`;
     else chunks.push(sentence);
   }
   return chunks;
@@ -228,11 +325,11 @@ export type SpeechLanguage = "en" | "ar" | "fr";
 export function speechSentences(parts: readonly string[], locale: string): { text: string; language: SpeechLanguage }[] {
   const out: { text: string; language: SpeechLanguage }[] = [];
   for (const part of parts) {
-    const text = spokenText(part);
-    if (!text) continue;
-    const detected = replyLanguage(text, locale);
+    const written = spokenText(part);
+    if (!written) continue;
+    const detected = replyLanguage(written, locale);
     const language: SpeechLanguage = detected === "ar" || detected === "fr" ? detected : "en";
-    for (const chunk of speechChunks(text)) out.push({ text: chunk, language });
+    for (const chunk of speechChunks(spokenAmounts(written, language))) out.push({ text: chunk, language });
   }
   return out;
 }
@@ -250,12 +347,14 @@ export function planSpeech<V extends VoiceLike>(
 ): { text: string; lang: string; voice: V | null }[] {
   const plan: { text: string; lang: string; voice: V | null }[] = [];
   for (const part of parts) {
-    const text = spokenText(part);
-    if (!text) continue;
-    const lang = speechLang(replyLanguage(text, options.locale), options.browserLanguages ?? []);
+    const written = spokenText(part);
+    if (!written) continue;
+    const detected = replyLanguage(written, options.locale);
+    const lang = speechLang(detected, options.browserLanguages ?? []);
     const voice = pickVoice(options.voices, lang, options.gender);
     if (!voice && options.voices.length > 0) continue;
-    for (const chunk of speechChunks(text)) plan.push({ text: chunk, lang: voice?.lang ?? lang, voice });
+    const language: SpeechLanguage = detected === "ar" || detected === "fr" ? detected : "en";
+    for (const chunk of speechChunks(spokenAmounts(written, language))) plan.push({ text: chunk, lang: voice?.lang ?? lang, voice });
   }
   return plan;
 }

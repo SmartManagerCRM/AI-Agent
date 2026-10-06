@@ -9,7 +9,7 @@ import { categoryIcon, findMentionedProducts } from "./agent-model";
 import { focusRing, ProductCard, useAgentUi } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
 import { CartButton, LanguageSwitcher } from "./chrome";
-import { BackIcon, CartIcon, CheckIcon, MicIcon, SendIcon, SpeakerIcon, SpeakerOffIcon, StopIcon } from "./icons";
+import { BackIcon, CartIcon, CheckIcon, CloseIcon, MicIcon, SendIcon, SpeakerIcon, SpeakerOffIcon, StopIcon, TruckIcon } from "./icons";
 import type { ChatMessage } from "./use-agent-chat";
 import { markGreeted, wasGreeted } from "./greeting-flag";
 import { useVoice, useVoiceMuted } from "./use-voice";
@@ -79,15 +79,21 @@ export function ChatView({ onClose, focusToken }: { onClose: () => void; focusTo
     onInterim,
     onFinal,
   });
-  const { speak, start: startListening } = voice;
+  const { speak, start: startListening, stopSpeaking, stop: stopListening } = voice;
   const [muted, setMuted] = useVoiceMuted();
 
   // The landing page's mic opens this conversation and starts listening from the same tap.
   const { registerVoice } = ui;
   useEffect(() => {
-    registerVoice({ start: startListening });
+    registerVoice({
+      start: startListening,
+      stop: () => {
+        stopSpeaking();
+        stopListening();
+      },
+    });
     return () => registerVoice(null);
-  }, [registerVoice, startListening]);
+  }, [registerVoice, startListening, stopSpeaking, stopListening]);
 
   // The Agent opens the conversation by voice: its greeting (the one saved in Agent settings) is read
   // aloud once per visit — and again each time the customer picks another language — as soon as the page opens — or, where the browser doesn't let a page speak
@@ -423,7 +429,35 @@ function Message({
         </div>
       )}
       {message.cart && <CartSnapshot cart={message.cart} />}
+      {message.placedOrder && <OrderPlacedActions orderNumber={message.placedOrder.orderNumber} />}
     </AssistantRow>
+  );
+}
+
+/** After the Agent places an order: follow it, or end the conversation. */
+function OrderPlacedActions({ orderNumber }: { orderNumber: number }) {
+  const t = useAgentT();
+  const { chat, leave } = useAgentUi();
+  return (
+    <div className="flex flex-wrap gap-2" data-testid="order-placed-actions">
+      <button
+        type="button"
+        disabled={chat.pending}
+        onClick={() => chat.send(t("prompts.trackOrder", { number: orderNumber }))}
+        className={`${focusRing} flex h-10 items-center gap-2 rounded-full bg-agent-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-agent-800 disabled:opacity-60`}
+        data-testid="chat-track-order"
+      >
+        <TruckIcon size={17} /> {t("chat.trackOrder")}
+      </button>
+      <button
+        type="button"
+        onClick={leave}
+        className={`${focusRing} flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-slate-700 ring-1 ring-slate-900/10 hover:bg-slate-50`}
+        data-testid="chat-leave"
+      >
+        <CloseIcon size={16} /> {t("chat.leave")}
+      </button>
+    </div>
   );
 }
 

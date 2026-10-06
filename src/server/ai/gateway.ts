@@ -2,9 +2,11 @@ import "server-only";
 
 import { isEntitled } from "@/server/billing/entitlement";
 import { getOrCreateCart, viewCart, type CartView } from "@/server/commerce/cart";
+import { getOrderStatusByNumber } from "@/server/commerce/orders";
 import { estimateCallCostUsd } from "@/server/billing/usage";
 import { getCostGuardStatus } from "./cost-guard";
-import { relevantProducts } from "./deterministic/catalog";
+import { detectLang, relevantProducts } from "./deterministic/catalog";
+import { orderStatusQuestion, orderStatusReply } from "./deterministic/order-status";
 import { buildBrainSnapshot } from "./deterministic/snapshot";
 import { agentLog, errorCategory } from "./diagnostics";
 import { matchDeterministic } from "./deterministic/match";
@@ -96,6 +98,8 @@ export type GatewayResult =
       fallbackUsed: boolean;
       /** Set only when a cart-mutating tool actually ran this turn (spec §32) — never a stale or guessed cart. */
       cart?: CartView | null;
+      /** Set only when `place_order` actually placed an order this turn. */
+      placedOrder?: { orderNumber: number };
     }
   | { handledBy: "ai"; reply: string; error: string; productIds?: string[] };
 
@@ -158,6 +162,24 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
     .slice(-6)
     .reverse()
     .flatMap((m) => m.content.flatMap((b) => (b.type === "text" ? [b.text] : [])));
+  // "What's the status of my order #N?" (the Agent's Track button): read from the order, never a product search.
+  const askedOrder = input.conversationId ? orderStatusQuestion(input.message) : null;
+  if (askedOrder !== null) {
+    const order = await getOrderStatusByNumber(supabase, input.tenant.id, askedOrder);
+    agentLog("intent", { ...log, intent: "order_status", handled_by: "deterministic" });
+    await recordInteraction(supabase, {
+      tenantId: input.tenant.id,
+      requestType: input.requestType,
+      handledBy: "deterministic",
+      deterministicRule: "order_status",
+    });
+    const lang = detectLang(input.message, input.locale);
+    return {
+      handledBy: "deterministic",
+      reply: orderStatusReply(askedOrder, order && { ...order, exponent: snapshot.currencyExponent }, lang),
+      rule: "order_status",
+    };
+  }
   const deterministic = matchDeterministic(input.message, snapshot, { recent });
 
   if (deterministic) {
@@ -284,6 +306,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   let lastError = "";
   let lastModel: { provider: string; model: string } | null = null;
   let cartMutated = false;
+  let placedOrder: { orderNumber: number } | undefined;
   let limitedBy: UsageLimit | null = null;
   for (let i = 0; i < chain.length && !limitedBy; i++) {
     const { row, provider } = chain[i];
@@ -343,6 +366,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
       for (const toolUse of toolUseBlocks) {
         if (CART_MUTATING_TOOLS.has(toolUse.name)) cartMutated = true;
         const toolResult = await executeTool(toolUse.name, toolUse.input, toolContext);
+        if (toolResult.placedOrder) placedOrder = toolResult.placedOrder;
         agentLog("tool", { ...log, tool_called: toolUse.name, tool_error: Boolean(toolResult.isError), tool_result_count: toolResult.resultCount ?? null });
         toolResults.push({
           type: "tool_result",
@@ -401,6 +425,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
         costUsd,
         fallbackUsed: i > 0,
         cart,
+        placedOrder,
       };
     }
 

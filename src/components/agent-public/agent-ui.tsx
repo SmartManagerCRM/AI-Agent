@@ -24,7 +24,7 @@ import type { VoiceGender } from "./voice";
 export type Screen = "home" | "browse" | "book" | "cart" | "checkout" | "done";
 
 /** What the conversation's voice exposes to the rest of the Agent (registered by the chat, which owns the mic). */
-export type VoiceBridge = { start: () => void };
+export type VoiceBridge = { start: () => void; stop: () => void };
 
 export type AgentUi = {
   slug: string;
@@ -66,6 +66,8 @@ export type AgentUi = {
   go: (screen: Screen, options?: { categoryId?: string | null; serviceId?: string | null }) => void;
   back: () => void;
   openChat: (message?: string) => void;
+  /** The customer leaves the conversation: voice stops, the chat closes (the widget, or the page when the browser allows). */
+  leave: () => void;
   /** Opens the conversation and starts listening (the landing page's mic). */
   listen: () => void;
   /** The chat registers its mic here (null when it unmounts) so `listen` can start it. */

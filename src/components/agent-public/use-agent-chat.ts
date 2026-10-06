@@ -20,6 +20,8 @@ export type ChatMessage = {
   voice?: boolean;
   /** The stored reply's id (assistant messages) — what the premium voice speaks. */
   serverId?: string;
+  /** An order the Agent placed with this reply (track it, or leave). */
+  placedOrder?: { orderNumber: number };
 };
 
 /**
@@ -80,13 +82,20 @@ export function useAgentChat({
             cart: result.cart,
             productIds: result.productIds,
             serverId: result.messageId,
+            placedOrder: result.placedOrder,
           },
         ]);
       }
     });
   };
 
-  return { messages, error, pending, send };
+  /** The customer left: the next visit starts from the greeting. */
+  const reset = () => {
+    setMessages([]);
+    setError(null);
+  };
+
+  return { messages, error, pending, send, reset };
 }
 
 export type AgentChat = ReturnType<typeof useAgentChat>;

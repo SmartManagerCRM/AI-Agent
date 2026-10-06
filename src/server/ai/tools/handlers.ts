@@ -45,7 +45,14 @@ export type ToolContext = {
   activeTable: { id: string; branchId: string; label: string } | null;
 };
 
-export type ToolResult = { content: string; isError?: boolean; /** Items returned (diagnostics only). */ resultCount?: number };
+export type ToolResult = {
+  content: string;
+  isError?: boolean;
+  /** Items returned (diagnostics only). */
+  resultCount?: number;
+  /** An order this call placed: the chat offers to track it. */
+  placedOrder?: { orderNumber: number };
+};
 
 function formatMinor(minor: number, exponent: number): string {
   return (minor / 10 ** exponent).toFixed(exponent);
@@ -269,18 +276,22 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
           ? ` (saved ${formatMinor(result.discountMinor, ctx.currencyExponent)} ${result.currency})`
           : "";
       const payment = await initiatePayment(ctx.supabase, ctx.tenantId, result.orderId);
+      const placedOrder = { orderNumber: result.orderNumber };
       if (payment.ok && payment.checkoutUrl) {
         return {
           content: `Order #${result.orderNumber} placed — total ${total}${savings}. Pay now: ${payment.checkoutUrl}`,
+          placedOrder,
         };
       }
       if (payment.ok) {
         return {
           content: `Order #${result.orderNumber} confirmed — total ${total}${savings}. You'll pay in person, as chosen.`,
+          placedOrder,
         };
       }
       return {
         content: `Order #${result.orderNumber} placed — total ${total}${savings}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).`,
+        placedOrder,
       };
     }
 

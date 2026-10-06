@@ -2639,7 +2639,9 @@
       "send": "Envoyer",
       "sent": "Envoyé",
       "cartUpdated": "Panier mis à jour",
-      "viewCart": "{count, plural, =0 {Voir le panier} other {Voir le panier (#)}}"
+      "viewCart": "{count, plural, =0 {Voir le panier} other {Voir le panier (#)}}",
+      "trackOrder": "Suivre la commande",
+      "leave": "Quitter la conversation"
     },
     "prompts": {
       "recommendLabel": "Une suggestion ?",
@@ -2803,6 +2805,11 @@
     "notFound": {
       "title": "Établissement introuvable",
       "body": "Le lien est peut-être mal saisi ou l'établissement a changé d'adresse. Vérifiez le lien reçu ou contactez directement l'établissement."
+    },
+    "farewell": {
+      "title": "Merci !",
+      "text": "Vous avez quitté la conversation avec {name}. Vous pouvez fermer cette page.",
+      "back": "Retour à {name}"
     }
   },
   "pwa": {

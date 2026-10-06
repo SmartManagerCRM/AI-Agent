@@ -2639,7 +2639,9 @@
       "send": "Send",
       "sent": "Sent",
       "cartUpdated": "Cart updated",
-      "viewCart": "{count, plural, =0 {View cart} other {View cart (#)}}"
+      "viewCart": "{count, plural, =0 {View cart} other {View cart (#)}}",
+      "trackOrder": "Track the order",
+      "leave": "Leave the conversation"
     },
     "prompts": {
       "recommendLabel": "Recommend something",
@@ -2803,6 +2805,11 @@
     "notFound": {
       "title": "Business not found",
       "body": "The link may be mistyped, or the business may have moved. Please check the link you were given, or contact the business directly."
+    },
+    "farewell": {
+      "title": "Thank you!",
+      "text": "You've left the conversation with {name}. You can close this page now.",
+      "back": "Back to {name}"
     }
   },
   "pwa": {

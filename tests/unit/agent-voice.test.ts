@@ -8,7 +8,9 @@ import {
   replyLanguage,
   speechChunks,
   speechLang,
+  speechSentences,
   speechVocabulary,
+  spokenAmounts,
   spokenText,
   voiceErrorKey,
   voiceGender,
@@ -136,5 +138,28 @@ describe("Agent voice (browser speech, no AI)", () => {
     ]);
     expect(planSpeech(["Bonjour !"], { locale: "fr", gender: "male", voices })).toEqual([]); // no French voice
     expect(planSpeech(["Hello there."], { locale: "en", gender: "male", voices: [] })[0]).toMatchObject({ lang: "en-US", voice: null });
+  });
+
+  it("says prices as words in the reply's language, never spelling out a currency code or sign", () => {
+    expect(spokenAmounts("• Spanish Latte — 18.00 SAR", "en")).toBe("• Spanish Latte — 18 Saudi riyals");
+    expect(spokenAmounts("Latte 18.50 SAR, Mocha 1 SAR.", "en")).toBe("Latte 18.5 Saudi riyals, Mocha 1 Saudi riyal.");
+    expect(spokenAmounts("Total: 1,250.00 SAR · Only $5 · EUR 3.5", "en")).toBe("Total: 1,250 Saudi riyals · Only 5 US dollars · 3.5 euros");
+    expect(spokenAmounts("سعر اللاتيه 18.00 SAR", "ar")).toBe("سعر اللاتيه 18 ريال سعودي");
+    expect(spokenAmounts("السعر \u200F١٨٫٠٠ ر.س.\u200F", "ar")).toBe("السعر 18 ريال سعودي");
+    expect(spokenAmounts("Prix : 18,50 € — total 12.500 TND", "fr")).toBe("Prix : 18,5 euros — total 12,5 dinars tunisiens");
+    expect(spokenAmounts("Total 1,250 DT", "fr")).toBe("Total 1,25 dinar tunisien");
+    expect(spokenAmounts("2 × Latte = 36.00 SAR", "en")).toBe("2 Latte, 36 Saudi riyals");
+    // Not prices: left as written.
+    expect(spokenAmounts("Ref ABC 123, USB 3, order #12 at 5 pm", "en")).toBe("Ref ABC 123, USB 3, order #12 at 5 pm");
+  });
+
+  it("reads a price list line by line, never stopping at a decimal point", () => {
+    expect(speechChunks("Mocha — 20.5 riyals. Would you like anything else?")).toEqual(["Mocha — 20.5 riyals.", "Would you like anything else?"]);
+    expect(speechSentences(["Here are our coffees:\n• Latte — 18.00 SAR\n• Mocha — 20.50 SAR"], "en")).toEqual([
+      { text: "Here are our coffees:", language: "en" },
+      { text: "Latte — 18 Saudi riyals", language: "en" },
+      { text: "Mocha — 20.5 Saudi riyals", language: "en" },
+    ]);
+    expect(speechSentences(["قهوتنا:\n• لاتيه — 18.00 SAR"], "ar")).toEqual([{ text: "قهوتنا: لاتيه — 18 ريال سعودي", language: "ar" }]);
   });
 });

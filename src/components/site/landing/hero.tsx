@@ -77,7 +77,8 @@ export async function Hero({ locale, trialDays }: { locale: Locale; trialDays: n
               <span className="sr-only">{t("opensNewTab")}</span>
             </a>
           </div>
-          <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-semibold text-[#0c1a33]">
+          {/* Laptops and up: kept clear of the robot beside it (a longer line, as in French, wraps). */}
+          <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2.5 text-sm font-semibold text-[#0c1a33] lg:max-w-[480px]">
             {checks.map((c) => (
               <li key={c} className="flex items-center gap-2">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0e8a5c] text-white">
@@ -108,7 +109,7 @@ function HeroVisual({ t }: { t: T }) {
           height={326}
           priority
           sizes="(min-width: 1024px) 375px, 190px"
-          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:start-[-10%] lg:w-[57%] lg:max-w-[375px] xl:-bottom-10 xl:start-[-28%] xl:w-[66%]"
+          className="site-float absolute bottom-2 start-[-6%] z-20 w-[44%] max-w-[250px] drop-shadow-xl sm:start-[-3%] lg:start-[-1%] lg:w-[57%] lg:max-w-[375px] xl:-bottom-10 xl:start-[-19%] xl:w-[66%]"
         />
 
         {/* Phones and tablets only: on wider screens the café owner in the photo takes this place. */}

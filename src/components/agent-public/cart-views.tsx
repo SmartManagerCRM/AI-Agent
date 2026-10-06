@@ -408,7 +408,7 @@ function Field({
 
 export function ConfirmationScreen() {
   const t = useAgentT();
-  const { commerce, businessName, aiName, go, openChat } = useAgentUi();
+  const { commerce, businessName, aiName, go, openChat, leave } = useAgentUi();
   const order = commerce.orderResult;
   if (!order) return null;
 
@@ -454,6 +454,14 @@ export function ConfirmationScreen() {
           className={`${focusRing} h-12 rounded-full text-[15px] font-semibold text-slate-600 hover:bg-slate-100`}
         >
           {t("done.continue")}
+        </button>
+        <button
+          type="button"
+          onClick={leave}
+          className={`${focusRing} h-11 rounded-full text-sm font-medium text-slate-500 hover:bg-slate-100`}
+          data-testid="done-leave"
+        >
+          {t("chat.leave")}
         </button>
       </div>
       <div className="flex w-full max-w-sm items-center gap-3 rounded-3xl bg-white p-3 text-start shadow-sm ring-1 ring-slate-900/5">
