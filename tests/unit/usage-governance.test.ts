@@ -32,6 +32,7 @@ const base: SubscriberUsage = {
   conversationState: "ok",
   aiLimited: false,
   aiResponsePercent: null,
+  aiUsagePercent: null,
 };
 const date = (iso: string) => iso.slice(0, 10);
 
@@ -71,6 +72,15 @@ describe("subscriber usage summary", () => {
     expect(JSON.stringify(parsed)).not.toMatch(/627|1000/);
     expect(parseSubscriberUsage({ ai_response_percent: 130 })?.aiResponsePercent).toBe(100);
     expect(parseSubscriberUsage({})?.aiResponsePercent).toBeNull();
+  });
+
+  it("AI allowance: only a whole percent (0–100) of the cap — never an amount, even if one slipped into the payload", () => {
+    const parsed = parseSubscriberUsage({ is_paid: true, status: "active", conversation_state: "ok", ai_usage_percent: 37, ai_cost_used: 3.79, ai_cost_limit: 10 });
+    expect(parsed?.aiUsagePercent).toBe(37);
+    expect(JSON.stringify(parsed)).not.toMatch(/3\.79|"10"|aiCost/);
+    expect(parseSubscriberUsage({ ai_usage_percent: 140 })?.aiUsagePercent).toBe(100);
+    expect(parseSubscriberUsage({ ai_usage_percent: 99.9 })?.aiUsagePercent).toBe(99);
+    expect(parseSubscriberUsage({})?.aiUsagePercent).toBeNull();
   });
 
   it("rejects malformed payloads", () => {

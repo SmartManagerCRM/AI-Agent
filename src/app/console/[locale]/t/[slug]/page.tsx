@@ -6,12 +6,14 @@ import { LineChart } from "@/components/charts/line-chart";
 import { DonutChart } from "@/components/console/donut-chart";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { UsageMeter } from "@/components/console/usage-meter";
 import { StatusPill } from "@/components/console/status-pill";
 import { statusLabel } from "@/lib/i18n-labels";
 import { formatMoney } from "@/lib/money";
 import { createUserClient } from "@/server/supabase/clients";
 import { currentUser, requireTenantMember } from "@/server/tenant/context";
 import { getTenantDashboardStats } from "@/server/tenant/dashboard-stats";
+import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 
 export default async function TenantDashboard({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
@@ -21,13 +23,20 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
   const supabase = await createUserClient();
   const user = await currentUser();
 
-  const [stats, { data: currencyRow }, { data: profile }] = await Promise.all([
+  const [stats, { data: currencyRow }, { data: profile }, usage] = await Promise.all([
     getTenantDashboardStats(supabase, tenant.id, locale),
     supabase.from("currencies").select("code, exponent"),
     user
       ? supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // This billing period's conversations, and the AI allowance as a share only (never an amount).
+    loadSubscriberUsage(supabase, tenant.id),
   ]);
+  const tu = await getTranslations("console.dashboard.usage");
+  const nf = new Intl.NumberFormat(locale);
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const showUsage = usage !== null && (usage.isPaid || usage.isTrial);
+  const status = { ok: tu("ok"), high: tu("high"), full: tu("full") };
 
   const exponents = new Map((currencyRow ?? []).map((c) => [c.code, c.exponent]));
   const exponent = exponents.get(tenant.currency) ?? 2;
@@ -78,6 +87,51 @@ export default async function TenantDashboard({ params }: { params: Promise<{ lo
           href={`/${locale}/${slug}/analytics`}
         />
       </section>
+
+      {showUsage && (
+        <section aria-labelledby="plan-usage-title" data-testid="plan-usage">
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <h2 id="plan-usage-title" className="text-sm font-semibold text-slate-900">
+              {usage.isTrial ? tu("titleTrial") : tu("title")}
+            </h2>
+            <Link href={`/${locale}/${slug}/billing`} prefetch={false} className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+              {tu("details")}
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <UsageMeter
+              testId="usage-conversations"
+              title={tu("conversations")}
+              value={usage.conversationLimit !== null ? `${nf.format(usage.conversationsUsed)} / ${nf.format(usage.conversationLimit)}` : nf.format(usage.conversationsUsed)}
+              percent={
+                usage.conversationLimit !== null && usage.conversationLimit > 0
+                  ? Math.min(100, Math.floor((usage.conversationsUsed / usage.conversationLimit) * 100))
+                  : null
+              }
+              ariaLabel={tu("conversationsAria", { used: usage.conversationsUsed, limit: usage.conversationLimit ?? 0 })}
+              caption={
+                usage.conversationLimit === null
+                  ? tu("noLimit")
+                  : usage.periodEnd
+                    ? tu("resetsOn", { date: fmtDate(usage.periodEnd) })
+                    : tu("thisPeriod")
+              }
+              status={status}
+            />
+            {usage.aiUsagePercent !== null && (
+              <UsageMeter
+                testId="usage-ai"
+                title={tu("ai")}
+                value={`${usage.aiUsagePercent}%`}
+                percent={usage.aiUsagePercent}
+                ariaLabel={tu("aiAria", { percent: usage.aiUsagePercent })}
+                caption={usage.aiUsagePercent >= 100 ? tu("aiFull") : tu("aiHint")}
+                status={status}
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="rounded-xl border border-slate-200 bg-white p-4 lg:col-span-2">

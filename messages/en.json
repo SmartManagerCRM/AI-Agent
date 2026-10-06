@@ -79,7 +79,24 @@
       "topProducts": "Top Products",
       "noProductsSoldTitle": "No sales to rank yet",
       "noProductsSoldDescription": "Your best-selling products will appear here once orders come in.",
-      "sold": "{n} sold"
+      "sold": "{n} sold",
+      "usage": {
+        "title": "Plan usage this billing cycle",
+        "titleTrial": "Free trial usage",
+        "details": "Billing details",
+        "conversations": "Customer conversations handled",
+        "conversationsAria": "{used} of {limit} customer conversations used",
+        "resetsOn": "Of your plan’s limit · resets on {date}",
+        "thisPeriod": "Of your plan’s limit for this period",
+        "noLimit": "No monthly limit on your plan",
+        "ai": "AI allowance used",
+        "aiAria": "{percent}% of your plan’s AI allowance used",
+        "aiHint": "Share of your plan’s AI allowance for this billing cycle. When it runs out, your Agent keeps answering with standard replies.",
+        "aiFull": "Used up for this billing cycle — your Agent answers with standard replies until it renews, or upgrade now.",
+        "ok": "On track",
+        "high": "Getting close",
+        "full": "Limit reached"
+      }
     },
     "currency": {
       "mena": "Middle East & North Africa",

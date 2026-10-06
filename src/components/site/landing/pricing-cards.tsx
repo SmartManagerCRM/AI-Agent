@@ -126,8 +126,9 @@ export function PricingCards({
 
               <ul className="mt-5 flex flex-1 flex-col gap-2.5 text-[15px] text-[#33415c]">
                 {/* The plan's features as written in Super Admin; its branch limit right after "AI Agent 24/7" (else first). */}
-                {withBranches(plan.features, plan.branches !== null ? t("branches", { n: plan.branches }) : null).map((f) => (
-                  <li key={f.text} className="flex gap-2.5" data-testid={f.branches ? "plan-branches" : undefined}>
+                {withBranches(plan.features, plan.branches !== null ? t("branches", { n: plan.branches }) : null).map((f, i) => (
+                  // The first three lines stand out (each plan's headline allowances).
+                  <li key={f.text} className={`flex gap-2.5 ${i < 3 ? "font-bold text-[#0c1a33]" : ""}`} data-testid={f.branches ? "plan-branches" : undefined}>
                     <Check />
                     {f.text}
                   </li>

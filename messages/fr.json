@@ -79,7 +79,24 @@
       "topProducts": "Meilleurs produits",
       "noProductsSoldTitle": "Aucune vente à classer pour le moment",
       "noProductsSoldDescription": "Vos produits les plus vendus apparaîtront ici dès les premières commandes.",
-      "sold": "{n} vendu(s)"
+      "sold": "{n} vendu(s)",
+      "usage": {
+        "title": "Utilisation de l’offre sur ce cycle de facturation",
+        "titleTrial": "Utilisation de l’essai gratuit",
+        "details": "Détails de facturation",
+        "conversations": "Conversations clients traitées",
+        "conversationsAria": "{used} conversations sur {limit} utilisées",
+        "resetsOn": "Sur la limite de votre offre · remise à zéro le {date}",
+        "thisPeriod": "Sur la limite de votre offre pour cette période",
+        "noLimit": "Pas de limite mensuelle sur votre offre",
+        "ai": "Allocation IA utilisée",
+        "aiAria": "{percent} % de l’allocation IA de votre offre utilisés",
+        "aiHint": "Part de l’allocation IA de votre offre pour ce cycle. Une fois épuisée, votre Agent continue avec des réponses standard.",
+        "aiFull": "Épuisée pour ce cycle — votre Agent répond avec des réponses standard jusqu’au renouvellement, ou passez à une offre supérieure.",
+        "ok": "Dans la limite",
+        "high": "Proche de la limite",
+        "full": "Limite atteinte"
+      }
     },
     "currency": {
       "mena": "Moyen-Orient et Afrique du Nord",

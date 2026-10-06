@@ -34,6 +34,8 @@ export type SubscriberUsage = {
   aiLimited: boolean;
   /** Share (whole percent, ≤ 100) of the plan's monthly AI responses used — null when the plan has no such allowance. Never a count. */
   aiResponsePercent: number | null;
+  /** Share (whole percent, ≤ 100) of the plan's AI allowance used this period — null without a cap. Never an amount. */
+  aiUsagePercent: number | null;
 };
 
 function str(v: unknown): string | null {
@@ -72,6 +74,10 @@ export function parseSubscriberUsage(raw: unknown): SubscriberUsage | null {
     aiResponsePercent: (() => {
       const p = num(r.ai_response_percent);
       return p === null ? null : Math.min(100, Math.max(0, Math.round(p)));
+    })(),
+    aiUsagePercent: (() => {
+      const p = num(r.ai_usage_percent);
+      return p === null ? null : Math.min(100, Math.max(0, Math.floor(p)));
     })(),
   };
 }
