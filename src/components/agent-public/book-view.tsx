@@ -2,16 +2,19 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 
+import { timeWithin } from "@/lib/branch-hours";
 import {
   bookServiceAction,
   bookingBranchesAction,
   bookingStatusAction,
+  otherBranchesAction,
   serviceDayAction,
   type AgentBookingResult,
   type RequestStatus,
   type ServiceDay,
 } from "@/server/agent-public/booking-actions";
 import type { BranchChoice } from "@/lib/branch-match";
+import type { BranchAvailability } from "@/server/commerce/booking-alternatives";
 
 import { AgentAvatar } from "./agent-avatar";
 import { useAgentT } from "./agent-i18n";
@@ -193,7 +196,8 @@ function BookingForm({
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<AgentBookingResult | null>(null);
   const [pending, startTransition] = useTransition();
-  // Businesses with branches: the customer books at one of those open right now.
+  // Businesses with branches: the customer books at any of them, open right now or not; the day
+  // and time must fit that branch's own hours (else the other branches that can take it are offered).
   const [branchOptions, setBranchOptions] = useState<{ hasBranches: boolean; branches: BranchChoice[] } | null>(null);
   const [branchId, setBranchId] = useState<string | null>(null);
   useEffect(() => {
@@ -208,7 +212,6 @@ function BookingForm({
     };
   }, [slug, surface, locale]);
   const hasBranches = branchOptions?.hasBranches ?? false;
-  const noBranchOpen = hasBranches && branchOptions!.branches.length === 0;
   const branchReady = branchOptions !== null && (!hasBranches || !!branchId);
   const chosenBranch = branchOptions?.branches.find((b) => b.id === branchId) ?? null;
 
@@ -263,22 +266,33 @@ function BookingForm({
   const ready = branchReady && date && /^\d{2}:\d{2}$/.test(timeIn) && name.trim().length >= 2 && phone.trim().length >= 6 && !pending;
   const shownEnd = fixed && timeIn ? addMinutes(timeIn, service.durationMinutes!) : null;
   const closed = info?.hours !== undefined && info?.hours !== null && info.hours.length === 0;
+  // A time typed for a flexible service, outside the chosen branch's hours that day.
+  const outside = !fixed && !loadingDay && !!info && !closed && /^\d{2}:\d{2}$/.test(timeIn) && !timeWithin(timeIn, info.windows);
+  const refused = !!result && !result.ok && (result.reason === "closed" || result.reason === "full");
 
-  if (noBranchOpen) {
-    return (
-      <div className="flex flex-col gap-4 px-4 py-5 sm:px-6">
-        <p className="text-lg font-bold tracking-tight text-slate-900">{text(service.name)}</p>
-        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 ring-1 ring-amber-200" data-testid="booking-no-branch">
-          {t("book.noBranchOpen")}
-        </p>
-        {canChange && (
-          <button type="button" onClick={onChange} className={`${focusRing} self-start rounded-full px-4 py-2 text-sm font-semibold text-agent-800 ring-1 ring-agent-200`}>
-            {t("book.change")}
-          </button>
-        )}
-      </div>
-    );
-  }
+  // The chosen branch can't take it: which of the others can (that day — at that time, when one is set).
+  const severalBranches = hasBranches && (branchOptions?.branches.length ?? 0) > 1;
+  const needOthers = severalBranches && !!branchId && !loadingDay && !!info && (closed || (fixed && info.slots.length === 0) || outside || refused);
+  const askedTime = outside || refused ? timeIn : null;
+  const othersKey = needOthers ? `${service.id}|${date}|${branchId}|${askedTime ?? ""}` : null;
+  const [others, setOthers] = useState<{ key: string; list: BranchAvailability[] } | null>(null);
+  useEffect(() => {
+    if (!othersKey) return;
+    let cancelled = false;
+    void otherBranchesAction(slug, surface, { serviceId: service.id, date, time: askedTime, branchId, locale }).then((list) => {
+      if (!cancelled) setOthers({ key: othersKey, list });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [othersKey, slug, surface, service.id, date, askedTime, branchId, locale]);
+  const otherBranches = othersKey && others?.key === othersKey ? others.list : null;
+  const moveTo = (id: string, time: string | null) => {
+    setBranchId(id);
+    if (time) setTimeIn(time);
+    else if (fixed) setTimeIn("");
+    setResult(null);
+  };
 
   return (
     <form
@@ -410,6 +424,11 @@ function BookingForm({
             </label>
             <input id="book-out" type="time" value={timeOut} onChange={(e) => setTimeOut(e.target.value)} className={fieldCls} dir="ltr" />
           </div>
+          {outside && (
+            <p className="col-span-2 text-xs font-medium text-amber-700" data-testid="booking-outside-hours">
+              {t("book.outsideHours")}
+            </p>
+          )}
           {!timeOut && (
             <div className="col-span-2 flex flex-col gap-1.5">
               <label htmlFor="book-duration" className="text-xs font-semibold text-slate-600">
@@ -429,6 +448,64 @@ function BookingForm({
             </div>
           )}
         </div>
+      )}
+
+      {othersKey && (
+        <section className="flex flex-col gap-2 rounded-3xl bg-agent-50/60 p-4 ring-1 ring-agent-100" data-testid="booking-other-branches" aria-live="polite">
+          <h3 className="text-sm font-bold text-slate-900">{askedTime ? t("book.otherBranchesAt", { time: askedTime }) : t("book.otherBranches")}</h3>
+          {otherBranches === null ? (
+            <p className="text-sm text-slate-400">{t("book.loadingTimes")}</p>
+          ) : otherBranches.length === 0 ? (
+            <p className="text-sm text-slate-600" data-testid="booking-no-other-branch">
+              {t("book.noOtherBranch")}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {otherBranches.map((b) => (
+                <li key={b.id} className="rounded-2xl bg-white p-3 ring-1 ring-slate-200" data-testid="booking-other-branch" data-branch={b.id}>
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-agent-50 text-agent-700">
+                      <PinIcon size={18} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-slate-900">{b.name}</span>
+                      {b.address && <span className="block text-xs text-slate-500">{b.address}</span>}
+                      {b.hours && b.hours.length > 0 && (
+                        <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                          <ClockIcon size={12} /> {t("book.openHours", { hours: b.hours.join(", ") })}
+                        </span>
+                      )}
+                    </span>
+                    {b.times.length === 0 && (
+                      <button
+                        type="button"
+                        onClick={() => moveTo(b.id, null)}
+                        className={`${focusRing} shrink-0 rounded-full bg-agent-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-agent-800`}
+                      >
+                        {t("book.bookHere")}
+                      </button>
+                    )}
+                  </div>
+                  {b.times.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {b.times.map((time) => (
+                        <button
+                          key={time}
+                          type="button"
+                          onClick={() => moveTo(b.id, time)}
+                          className={`${focusRing} rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-agent-800 ring-1 ring-agent-300 hover:bg-agent-50`}
+                          dir="ltr"
+                        >
+                          {time}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {service.capacity > 1 && (

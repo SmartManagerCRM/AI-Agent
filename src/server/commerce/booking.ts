@@ -2,7 +2,7 @@ import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
-export type BookableService = { id: string; name: string; durationMinutes: number | null; priceMinor: number | null };
+export type BookableService = { id: string; name: string; durationMinutes: number | null; priceMinor: number | null; customerSetsEnd?: boolean };
 export type Slot = { startsAt: string; endsAt: string | null; localTime: string; spotsLeft: number };
 
 /**
@@ -31,7 +31,7 @@ export async function listActiveServices(
 ): Promise<BookableService[]> {
   const { data } = await supabase
     .from("bookable_services")
-    .select("id, name, duration_minutes, price_minor")
+    .select("id, name, duration_minutes, price_minor, customer_sets_end")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .eq("online_booking", true)
@@ -41,6 +41,7 @@ export async function listActiveServices(
     name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
     durationMinutes: s.duration_minutes,
     priceMinor: s.price_minor,
+    customerSetsEnd: s.customer_sets_end,
   }));
 }
 
@@ -99,7 +100,8 @@ const REFUSAL_TEXT: Record<BookingRefusal, string> = {
 };
 
 export type CreateBookingResult =
-  { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null } | { ok: false; error: string };
+  | { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null }
+  | { ok: false; error: string; reason: BookingRefusal };
 
 /** A booking the AI chat makes: re-validated in the database (a second customer may have taken the slot since it was offered). */
 export async function createBooking(
@@ -113,7 +115,7 @@ export async function createBooking(
   branchId: string | null = null,
 ): Promise<CreateBookingResult> {
   const startsAt = new Date(startsAtISO);
-  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: REFUSAL_TEXT.past };
+  if (Number.isNaN(startsAt.getTime())) return { ok: false, error: REFUSAL_TEXT.past, reason: "past" };
   const { data, error } = await supabase.rpc("book_service_at", {
     p_tenant_id: tenantId,
     p_service_id: service.id,
@@ -128,9 +130,9 @@ export async function createBooking(
     p_conversation_id: conversationId,
     p_branch_id: branchId,
   });
-  if (error) return { ok: false, error: REFUSAL_TEXT.invalid };
+  if (error) return { ok: false, error: REFUSAL_TEXT.invalid, reason: "invalid" };
   const result = parseBookResult(data);
-  return result.ok ? result : { ok: false, error: REFUSAL_TEXT[result.reason] };
+  return result.ok ? result : { ok: false, error: REFUSAL_TEXT[result.reason], reason: result.reason };
 }
 
 export async function cancelBookingById(

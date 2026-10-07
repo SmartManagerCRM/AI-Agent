@@ -234,7 +234,9 @@
       "noMatchTitle": "Aucune conversation ne correspond à ce filtre",
       "emptyDescription": "Elles apparaîtront ici dès que des clients parleront à votre Agent.",
       "noMatchDescription": "Essayez un autre filtre de statut.",
-      "setUpAgent": "Configurer votre Agent"
+      "setUpAgent": "Configurer votre Agent",
+      "branchFilter": "Succursale",
+      "allBranches": "Toutes les succursales"
     },
     "products": {
       "productsServices": "Produits et services",
@@ -2790,7 +2792,7 @@
         "rate_limited": "Trop de réservations depuis cet appareil — réessayez dans quelques minutes.",
         "unavailable_agent": "La réservation n'est pas disponible pour le moment.",
         "branch": "Choisissez la succursale de votre réservation.",
-        "branch_closed": "Cette succursale n’est pas ouverte en ce moment — choisissez-en une autre."
+        "branch_closed": "Cette succursale ne prend pas de réservations pour le moment — veuillez en choisir une autre."
       },
       "peopleCount": "{count, plural, one {# personne} other {# personnes}}",
       "checking": "Je vérifie la disponibilité pour le {date} à {time} pour {people}.",
@@ -2810,8 +2812,12 @@
       "submitRequest": "Envoyer la demande",
       "requestNote": "L'établissement confirme chaque réservation pour ce service — vous verrez sa réponse ici en quelques minutes.",
       "branch": "Succursale",
-      "noBranchOpen": "Aucune de nos succursales n’est ouverte en ce moment : les réservations ne sont pas possibles pour l’instant. Revenez pendant les heures d’ouverture.",
-      "detailBranch": "Succursale"
+      "detailBranch": "Succursale",
+      "outsideHours": "Cette heure est en dehors des horaires d'ouverture de cette succursale ce jour-là.",
+      "otherBranches": "Disponible dans nos autres succursales",
+      "otherBranchesAt": "Disponible à {time} dans nos autres succursales",
+      "noOtherBranch": "Aucune autre succursale n'est disponible pour cela — essayez un autre jour ou une autre heure.",
+      "bookHere": "Réserver ici"
     },
     "errors": {
       "unavailable": "Cet Agent n’est pas disponible pour le moment.",
@@ -2867,6 +2873,35 @@
       "title": "Merci !",
       "text": "Vous avez quitté la conversation avec {name}. Vous pouvez fermer cette page.",
       "back": "Retour à {name}"
+    },
+    "track": {
+      "title": "Suivi de commande",
+      "order": "Commande n° {number}",
+      "step": {
+        "confirmed": "Confirmée",
+        "preparing": "En préparation",
+        "prepared": "Préparée",
+        "ready": "Prête",
+        "collected": "Retirée",
+        "served": "Servie",
+        "out_for_delivery": "En cours de livraison",
+        "delivered": "Livrée",
+        "paid": "Payée",
+        "completed": "Terminée"
+      },
+      "now": "En cours",
+      "type": "Type de commande",
+      "type_pickup": "À emporter",
+      "type_delivery": "Livraison",
+      "type_dine_in": "Sur place",
+      "branch": "Succursale",
+      "total": "Total",
+      "live": "Cette page se met à jour automatiquement.",
+      "completedNote": "Votre commande est terminée — merci !",
+      "cancelled": "Cette commande a été annulée.",
+      "refunded": "Cette commande a été remboursée.",
+      "awaitingPayment": "En attente de la confirmation de votre paiement en ligne.",
+      "poweredBy": "Les mises à jour viennent directement de l'établissement."
     }
   },
   "pwa": {
@@ -3035,7 +3070,12 @@
       "approved": "Approuvé",
       "rejected": "Rejeté",
       "unknown": "Inconnu",
-      "no_plan": "Sans formule"
+      "no_plan": "Sans formule",
+      "prepared": "Préparée",
+      "collected": "Retirée",
+      "served": "Servie",
+      "out_for_delivery": "En livraison",
+      "delivered": "Livrée"
     },
     "fulfillment": {
       "pickup": "À emporter",

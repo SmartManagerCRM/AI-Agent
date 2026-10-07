@@ -153,7 +153,7 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
       properties: {
         service_name: { type: "string" },
         date: { type: "string", description: "Date in YYYY-MM-DD format. Use today or a future date." },
-        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several open." },
+        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several. Any branch takes bookings; the time must fit its hours." },
       },
       required: ["service_name", "date"],
     },
@@ -170,7 +170,7 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
         name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
-        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several open." },
+        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several. Any branch takes bookings; the time must fit its hours." },
       },
       required: ["service_name", "slot_start", "name", "phone"],
     },

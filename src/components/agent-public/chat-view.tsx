@@ -429,26 +429,34 @@ function Message({
         </div>
       )}
       {message.cart && <CartSnapshot cart={message.cart} />}
-      {message.placedOrder && <OrderPlacedActions orderNumber={message.placedOrder.orderNumber} />}
+      {message.placedOrder && <OrderPlacedActions order={message.placedOrder} />}
     </AssistantRow>
   );
 }
 
 /** After the Agent places an order: follow it, or end the conversation. */
-function OrderPlacedActions({ orderNumber }: { orderNumber: number }) {
+function OrderPlacedActions({ order }: { order: { orderNumber: number; trackUrl?: string } }) {
   const t = useAgentT();
   const { chat, leave } = useAgentUi();
+  const trackClass = `${focusRing} flex h-10 items-center gap-2 rounded-full bg-agent-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-agent-800 disabled:opacity-60`;
   return (
     <div className="flex flex-wrap gap-2" data-testid="order-placed-actions">
-      <button
-        type="button"
-        disabled={chat.pending}
-        onClick={() => chat.send(t("prompts.trackOrder", { number: orderNumber }))}
-        className={`${focusRing} flex h-10 items-center gap-2 rounded-full bg-agent-700 px-4 text-sm font-semibold text-white shadow-sm hover:bg-agent-800 disabled:opacity-60`}
-        data-testid="chat-track-order"
-      >
-        <TruckIcon size={17} /> {t("chat.trackOrder")}
-      </button>
+      {order.trackUrl ? (
+        // The order's tracking page, in a new tab so the conversation stays open.
+        <a href={order.trackUrl} target="_blank" rel="noopener noreferrer" className={trackClass} data-testid="chat-track-order">
+          <TruckIcon size={17} /> {t("chat.trackOrder")}
+        </a>
+      ) : (
+        <button
+          type="button"
+          disabled={chat.pending}
+          onClick={() => chat.send(t("prompts.trackOrder", { number: order.orderNumber }))}
+          className={trackClass}
+          data-testid="chat-track-order"
+        >
+          <TruckIcon size={17} /> {t("chat.trackOrder")}
+        </button>
+      )}
       <button
         type="button"
         onClick={leave}

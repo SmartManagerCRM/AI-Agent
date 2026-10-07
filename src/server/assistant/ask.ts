@@ -57,7 +57,7 @@ const T = {
     examples: ["Sales today", "Orders this week", "Best sellers this month", "Pending orders", "Bookings today", "Members renewing soon", "Average order value last 30 days", "Is my Agent live?"],
     links: { analytics: "Open Analytics", orders: "Open Orders", bookings: "Open Bookings", memberships: "Open Memberships", conversations: "Open Conversations", leads: "Open Leads", products: "Open Products", agent: "Open Agent", branches: "Open Branches", customers: "Open Customers" },
     days: { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" },
-    status: { pending_payment: "awaiting payment", paid: "paid", confirmed: "confirmed", preparing: "preparing", ready: "ready", completed: "completed", cancelled: "cancelled", refunded: "refunded" },
+    status: { pending_payment: "awaiting payment", paid: "paid", confirmed: "confirmed", preparing: "preparing", prepared: "prepared", ready: "ready", collected: "collected", served: "served", out_for_delivery: "out for delivery", delivered: "delivered", completed: "completed", cancelled: "cancelled", refunded: "refunded" },
   },
   ar: {
     sales: (p: string, v: string, n: number) => `المبيعات ${p}: ${v} من ${n} طلب مدفوع أو مؤكد.`,
@@ -90,7 +90,7 @@ const T = {
     examples: ["مبيعات اليوم", "طلبات هذا الأسبوع", "الأكثر مبيعًا هذا الشهر", "الطلبات المعلقة", "حجوزات اليوم", "العضويات التي تنتهي قريبًا", "هل الوكيل مباشر؟"],
     links: { analytics: "فتح التحليلات", orders: "فتح الطلبات", bookings: "فتح الحجوزات", memberships: "فتح العضويات", conversations: "فتح المحادثات", leads: "فتح العملاء المحتملين", products: "فتح المنتجات", agent: "فتح الوكيل", branches: "فتح الفروع", customers: "فتح العملاء" },
     days: { mon: "الإثنين", tue: "الثلاثاء", wed: "الأربعاء", thu: "الخميس", fri: "الجمعة", sat: "السبت", sun: "الأحد" },
-    status: { pending_payment: "بانتظار الدفع", paid: "مدفوع", confirmed: "مؤكد", preparing: "قيد التحضير", ready: "جاهز", completed: "مكتمل", cancelled: "ملغي", refunded: "مسترد" },
+    status: { pending_payment: "بانتظار الدفع", paid: "مدفوع", confirmed: "مؤكد", preparing: "قيد التحضير", prepared: "تم التحضير", ready: "جاهز", collected: "تم الاستلام", served: "تم التقديم", out_for_delivery: "قيد التوصيل", delivered: "تم التوصيل", completed: "مكتمل", cancelled: "ملغي", refunded: "مسترد" },
   },
   fr: {
     sales: (p: string, v: string, n: number) => `Ventes ${p} : ${v} sur ${n} commande${n > 1 ? "s" : ""} payée${n > 1 ? "s" : ""} ou confirmée${n > 1 ? "s" : ""}.`,
@@ -123,7 +123,7 @@ const T = {
     examples: ["Ventes aujourd'hui", "Commandes cette semaine", "Meilleures ventes ce mois", "Commandes en attente", "Réservations aujourd'hui", "Abonnements à renouveler", "Mon Agent est-il en ligne ?"],
     links: { analytics: "Ouvrir Analytique", orders: "Ouvrir Commandes", bookings: "Ouvrir Réservations", memberships: "Ouvrir Abonnements", conversations: "Ouvrir Conversations", leads: "Ouvrir Prospects", products: "Ouvrir Produits", agent: "Ouvrir Agent", branches: "Ouvrir Succursales", customers: "Ouvrir Clients" },
     days: { mon: "Lun", tue: "Mar", wed: "Mer", thu: "Jeu", fri: "Ven", sat: "Sam", sun: "Dim" },
-    status: { pending_payment: "en attente de paiement", paid: "payée", confirmed: "confirmée", preparing: "en préparation", ready: "prête", completed: "terminée", cancelled: "annulée", refunded: "remboursée" },
+    status: { pending_payment: "en attente de paiement", paid: "payée", confirmed: "confirmée", preparing: "en préparation", prepared: "préparée", ready: "prête", collected: "retirée", served: "servie", out_for_delivery: "en livraison", delivered: "livrée", completed: "terminée", cancelled: "annulée", refunded: "remboursée" },
   },
 };
 
@@ -217,10 +217,10 @@ export async function askBusinessAction(input: { locale: string; slug: string; q
         .from("orders")
         .select("status")
         .eq("tenant_id", tenant.id)
-        .in("status", ["pending_payment", "paid", "confirmed", "preparing", "ready"])
+        .in("status", ["pending_payment", "paid", "confirmed", "preparing", "prepared", "ready", "out_for_delivery"])
         .limit(5000);
       const n = (k: string) => (data ?? []).filter((o) => o.status === k).length;
-      return answer([t.pending(n("pending_payment"), n("paid") + n("confirmed"), n("preparing"), n("ready"))], ["orders"]);
+      return answer([t.pending(n("pending_payment"), n("paid") + n("confirmed"), n("preparing") + n("prepared"), n("ready") + n("out_for_delivery"))], ["orders"]);
     }
     case "bookings": {
       const [{ count }, { data: next }, { data: services }] = await Promise.all([

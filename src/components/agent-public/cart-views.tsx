@@ -463,13 +463,15 @@ export function ConfirmationScreen() {
         ) : (
           <p className="rounded-2xl bg-agent-50 px-4 py-3 text-sm font-medium text-agent-800 ring-1 ring-agent-100">{t("done.payInPerson")}</p>
         )}
-        <button
-          type="button"
-          onClick={() => openChat(t("prompts.trackOrder", { number: order.orderNumber }))}
+        <a
+          href={order.trackUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className={`${focusRing} flex h-12 items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold text-agent-800 ring-1 ring-agent-200 hover:bg-agent-50`}
+          data-testid="done-track-order"
         >
           <TruckIcon size={19} /> {t("done.track")}
-        </button>
+        </a>
         <button
           type="button"
           onClick={() => {

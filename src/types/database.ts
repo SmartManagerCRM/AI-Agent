@@ -818,6 +818,8 @@ export type Database = {
           channel: "external_agent" | "website_widget";
           locale: string;
           status: "open" | "closed";
+          /** The branch the customer ordered or booked at (null: the main branch). */
+          branch_id: string | null;
           started_at: string;
           last_message_at: string;
           created_at: string;
@@ -1019,7 +1021,12 @@ export type Database = {
             | "paid"
             | "confirmed"
             | "preparing"
+            | "prepared"
             | "ready"
+            | "collected"
+            | "served"
+            | "out_for_delivery"
+            | "delivered"
             | "completed"
             | "cancelled"
             | "refunded";
@@ -1923,6 +1930,11 @@ export type Database = {
       set_staff_member_status: {
         Args: { p_member_id: string; p_status: string };
         Returns: undefined;
+      };
+      /** Service role: what an order's tracking page shows (by its unguessable id). */
+      order_tracking: {
+        Args: { p_order_id: string };
+        Returns: Json | null;
       };
       set_staff_member_branches: {
         Args: { p_member_id: string; p_branch_ids: string[] };

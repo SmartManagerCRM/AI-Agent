@@ -43,7 +43,7 @@ export type SendAgentMessageState =
       /** The stored reply's id — the page asks the voice endpoint to speak exactly this message. */
       messageId?: string;
       /** An order the Agent placed with this reply. */
-      placedOrder?: { orderNumber: number };
+      placedOrder?: { orderNumber: number; trackUrl: string };
     }
   | { error: AgentErrorCode }
   | undefined;

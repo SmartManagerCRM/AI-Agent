@@ -19,6 +19,10 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set<string>([
   "api",
   // Path-based customer Agent: /agent/<business-slug>.
   "agent",
+  // The Agent host's own pages: /pay/<paymentId> and /track/<orderId> (src/app/agent/pay, src/app/agent/track).
+  "pay",
+  "track",
+  "widget",
   // Paddle's default payment link: /checkout?_ptxn=… (src/app/site/[locale]/checkout).
   "checkout",
   "admin",

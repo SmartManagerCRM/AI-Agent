@@ -22,16 +22,20 @@ import {
   getAvailableSlots,
   listActiveServices,
 } from "@/server/commerce/booking";
+import { bookingAlternatives, type BranchAvailability } from "@/server/commerce/booking-alternatives";
 import { businessHasBranches, matchBranch, openBranchChoices, type BranchPurpose } from "@/server/commerce/branch-choice";
+import { resolveTimeZone } from "@/lib/timezone";
 import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { initiatePayment } from "@/server/payments/service";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { relevantProducts, type Catalog } from "@/server/ai/deterministic/catalog";
 
 /**
  * The branch for an order or booking made in chat: the one the customer
- * named, among those open now (for delivery, delivering); the only one open;
- * or — several open, none named — a question for the customer.
+ * named, among those open now (for delivery, delivering; for bookings, any
+ * active branch — the time booked must then fit its hours); the only one; or
+ * — several, none named — a question for the customer.
  */
 async function chatBranch(
   ctx: ToolContext,
@@ -41,6 +45,7 @@ async function chatBranch(
   if (!(await businessHasBranches(ctx.supabase, ctx.tenantId))) return { branchId: null };
   const open = await openBranchChoices(ctx.supabase, ctx.tenantId, purpose, ctx.locale);
   const what = purpose === "booking" ? "bookings" : purpose;
+  const which = purpose === "booking" ? "branches" : "branches open right now";
   if (open.length === 0) {
     return { reply: `No branch is ${purpose === "delivery" ? "delivering" : "open"} right now, so ${what} can't be taken at the moment. Tell the customer, and offer the opening hours.`, isError: true };
   }
@@ -49,10 +54,36 @@ async function chatBranch(
   if (name.trim()) {
     const match = matchBranch(open, name);
     if (match) return { branchId: match.id };
-    return { reply: `"${name}" is not one of the branches open right now for ${what}. Ask the customer to choose one of: ${list}.`, isError: true };
+    return { reply: `"${name}" is not one of the ${which} for ${what}. Ask the customer to choose one of: ${list}.`, isError: true };
   }
   if (open.length === 1) return { branchId: open[0].id };
-  return { reply: `This business has several branches open now for ${what}: ${list}. Ask the customer which branch, then call again with "branch".` };
+  return { reply: `This business has several ${which} for ${what}: ${list}. Ask the customer which branch, then call again with "branch".` };
+}
+
+/** "Other branches …" for the AI, from real availability (empty when there's none, or no other branch). */
+function alternativesText(list: BranchAvailability[], time: string | null): string {
+  if (list.length === 0) return " No other branch has availability for it either — suggest another day.";
+  const parts = list.map((b) => {
+    const hours = b.hours && b.hours.length > 0 ? ` (open ${b.hours.join(", ")})` : "";
+    const times = b.times.length > 0 ? `: ${b.times.join(", ")}` : "";
+    return `${b.name}${hours}${times}`;
+  });
+  return ` Other branches that ${time ? `have ${time} free` : "can take it that day"}: ${parts.join("; ")}. Offer these to the customer; if they pick one, call check_availability again with that "branch".`;
+}
+
+function serviceShape(service: { id: string; durationMinutes: number | null; customerSetsEnd?: boolean }) {
+  return { id: service.id, duration_minutes: service.durationMinutes, customer_sets_end: service.customerSetsEnd ?? false };
+}
+
+/** A slot's instant as the business's local date and "HH:MM". */
+async function localSlot(ctx: ToolContext, iso: string): Promise<{ date: string; time: string } | null> {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  const { data } = await ctx.supabase.from("tenants").select("timezone").eq("id", ctx.tenantId).maybeSingle();
+  const timeZone = resolveTimeZone(data?.timezone);
+  const date = new Intl.DateTimeFormat("en-CA", { timeZone }).format(at);
+  const time = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(at);
+  return { date, time };
 }
 
 export type ToolContext = {
@@ -79,7 +110,7 @@ export type ToolResult = {
   /** Items returned (diagnostics only). */
   resultCount?: number;
   /** An order this call placed: the chat offers to track it. */
-  placedOrder?: { orderNumber: number };
+  placedOrder?: { orderNumber: number; trackUrl: string };
 };
 
 function formatMinor(minor: number, exponent: number): string {
@@ -300,21 +331,23 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
           ? ` (saved ${formatMinor(result.discountMinor, ctx.currencyExponent)} ${result.currency})`
           : "";
       const payment = await initiatePayment(ctx.supabase, ctx.tenantId, result.orderId);
-      const placedOrder = { orderNumber: result.orderNumber };
+      const trackUrl = publicAgentUrls().path(`/track/${result.orderId}`);
+      const placedOrder = { orderNumber: result.orderNumber, trackUrl };
+      const track = ` Track it: ${trackUrl}`;
       if (payment.ok && payment.checkoutUrl) {
         return {
-          content: `Order #${result.orderNumber} placed — total ${total}${savings}. Pay now: ${payment.checkoutUrl}`,
+          content: `Order #${result.orderNumber} placed — total ${total}${savings}. Pay now: ${payment.checkoutUrl}${track}`,
           placedOrder,
         };
       }
       if (payment.ok) {
         return {
-          content: `Order #${result.orderNumber} confirmed — total ${total}${savings}. You'll pay in person, as chosen.`,
+          content: `Order #${result.orderNumber} confirmed — total ${total}${savings}. You'll pay in person, as chosen.${track}`,
           placedOrder,
         };
       }
       return {
-        content: `Order #${result.orderNumber} placed — total ${total}${savings}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).`,
+        content: `Order #${result.orderNumber} placed — total ${total}${savings}. Payment will be arranged by the business (couldn't start online payment: ${payment.error}).${track}`,
         placedOrder,
       };
     }
@@ -355,7 +388,11 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       const branch = await chatBranch(ctx, "booking", input.branch);
       if ("reply" in branch) return { content: branch.reply, isError: branch.isError };
       const slots = await getAvailableSlots(ctx.supabase, ctx.tenantId, service, date, branch.branchId);
-      if (slots.length === 0) return { content: `No open slots for ${service.name} on ${date}.` };
+      if (slots.length === 0) {
+        // That branch is closed or full that day: the other branches that can take it.
+        const others = branch.branchId ? await bookingAlternatives(ctx.supabase, ctx.tenantId, serviceShape(service), date, null, branch.branchId, ctx.locale) : null;
+        return { content: `No open slots for ${service.name} on ${date} at this branch.${others ? alternativesText(others, null) : ""}` };
+      }
       // Local clock times for the customer, with the exact instant to book.
       const times = slots.slice(0, 40).map((s) => `${s.localTime} (slot_start ${s.startsAt}${s.spotsLeft > 1 ? `, ${s.spotsLeft} places` : ""})`);
       return { content: `Open start times for ${service.name} on ${date} (business local time): ${times.join(", ")}.` };
@@ -384,7 +421,17 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         },
         branch.branchId,
       );
-      if (!result.ok) return { content: result.error, isError: true };
+      if (!result.ok) {
+        // Closed or full at that branch: which other branches have that time free.
+        if (branch.branchId && (result.reason === "closed" || result.reason === "full")) {
+          const local = await localSlot(ctx, String(input.slot_start ?? ""));
+          if (local) {
+            const others = await bookingAlternatives(ctx.supabase, ctx.tenantId, serviceShape(service), local.date, local.time, branch.branchId, ctx.locale);
+            return { content: `${result.error}${alternativesText(others, local.time)}`, isError: true };
+          }
+        }
+        return { content: result.error, isError: true };
+      }
       if (result.status === "pending") {
         // The business confirms each booking for this service itself: this is a request, not a booking yet.
         return {

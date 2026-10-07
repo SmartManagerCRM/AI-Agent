@@ -43,7 +43,7 @@ export default async function TenantLayout({
   // (requests to answer and confirmed bookings not yet completed). Counted in Postgres, under the member's own
   // RLS — someone who can't see orders or bookings gets no number.
   const waitingCounts = Promise.all([
-    supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["paid", "confirmed", "preparing", "ready"]),
+    supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["paid", "confirmed", "preparing", "prepared", "ready", "collected", "served", "out_for_delivery", "delivered"]),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["pending", "confirmed"]),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("status", "pending"),
   ]);

@@ -8,7 +8,10 @@ import { requireTenantMember } from "@/server/tenant/context";
 
 const schema = z.object({
   orderId: z.uuid(),
-  newStatus: z.enum(["pending_payment", "paid", "confirmed", "preparing", "ready", "completed", "cancelled", "refunded"]),
+  newStatus: z.enum([
+    "pending_payment", "paid", "confirmed", "preparing", "prepared", "ready",
+    "collected", "served", "out_for_delivery", "delivered", "completed", "cancelled", "refunded",
+  ]),
   slug: z.string().min(1),
   locale: z.string(),
 });

@@ -6,6 +6,7 @@ import { z } from "zod";
 import { type AgentErrorCode, orderErrorCode } from "@/lib/agent-errors";
 import { getOrCreateConversation } from "@/server/agent-public/conversation";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
+import { publicAgentUrls } from "@/server/agent-public/urls";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import {
   addToCart,
@@ -313,6 +314,8 @@ export type PlaceStructuredOrderResult =
       currency: string;
       discountMinor: number;
       checkoutUrl: string | null;
+      /** The order's tracking page (agent.<root>/track/<orderId>). */
+      trackUrl: string;
     }
   | { ok: false; error: AgentErrorCode };
 
@@ -338,5 +341,6 @@ export async function placeStructuredOrderAction(
     currency: result.currency,
     discountMinor: result.discountMinor,
     checkoutUrl: payment.ok ? payment.checkoutUrl : null,
+    trackUrl: publicAgentUrls().path(`/track/${result.orderId}`),
   };
 }

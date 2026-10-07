@@ -55,7 +55,7 @@ export type ReceiptRecord = {
 };
 
 /** Order statuses whose receipt can be printed: from confirmed on. */
-export const PRINTABLE_ORDER_STATUSES: ReadonlySet<string> = new Set(["confirmed", "preparing", "ready", "completed"]);
+export const PRINTABLE_ORDER_STATUSES: ReadonlySet<string> = new Set(["confirmed", "preparing", "prepared", "ready", "collected", "served", "out_for_delivery", "delivered", "completed"]);
 
 const str = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v : null);
 

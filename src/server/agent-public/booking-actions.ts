@@ -6,6 +6,8 @@ import { z } from "zod";
 import { resolvePublicTenant, resolveWidgetTenant } from "@/server/agent-public/tenant";
 import { LOCALES } from "@/i18n/locales";
 import { getAvailableSlots, parseBookResult, type BookingRefusal, type BookingStatus } from "@/server/commerce/booking";
+import { dayWindows, windowLabels, type HoursWindow } from "@/lib/branch-hours";
+import { bookingAlternatives, type BranchAvailability } from "@/server/commerce/booking-alternatives";
 import { businessHasBranches, openBranchChoices, type BranchChoice } from "@/server/commerce/branch-choice";
 import { isRateLimited } from "@/server/shared/rate-limit";
 import { serviceClient } from "@/server/supabase/clients";
@@ -14,20 +16,22 @@ import { serviceClient } from "@/server/supabase/clients";
  * The customer Agent's own booking form — a structured flow (pick a
  * service, a day, a time, your details), so it never calls an AI model and
  * costs nothing per booking. Every booking is validated in the database
- * (`book_service`): the business's opening hours in its time zone, the
- * service's capacity and the bookings already made.
+ * (`book_service`): the chosen branch's opening hours in the business's
+ * time zone, the service's capacity and the bookings already made.
+ *
+ * Booking itself is always open — a customer can book at any active branch
+ * at any hour; the day and time they book must fit that branch's own hours.
+ * When it can't take it, `otherBranchesAction` suggests the branches that can.
  */
 type Surface = "external_agent" | "website_widget";
-
-const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 async function loadTenant(slug: string, surface: Surface) {
   return surface === "website_widget" ? resolveWidgetTenant(slug) : resolvePublicTenant(slug);
 }
 
 /**
- * The branches a customer may book at: those open right now. `hasBranches`
- * false = the business has none (no choice to make).
+ * The branches a customer may book at: every active one, open right now or
+ * not. `hasBranches` false = the business has none (no choice to make).
  */
 export async function bookingBranchesAction(
   slug: string,
@@ -44,6 +48,8 @@ export async function bookingBranchesAction(
 export type ServiceDay = {
   /** Opening times that day ("09:00–17:00"); [] = closed; null = the business set no hours. */
   hours: string[] | null;
+  /** The same hours as times, to check a time the customer types. */
+  windows: HoursWindow[] | null;
   /** Free start times (local "HH:MM") with places left — for services with a fixed length. */
   slots: { time: string; spotsLeft: number }[];
 };
@@ -72,12 +78,41 @@ export async function serviceDayAction(slug: string, surface: Surface, input: z.
       : supabase.from("branches").select("opening_hours").eq("tenant_id", tenant.id).eq("is_default", true).eq("is_active", true).maybeSingle(),
   ]);
   if (!service) return null;
-  const opening = (branch?.opening_hours ?? {}) as Record<string, { open: string; close: string }[]>;
-  const weekday = WEEKDAYS[(new Date(`${parsed.data.date}T12:00:00Z`).getUTCDay() + 6) % 7];
-  const hours = Object.keys(opening).length === 0 ? null : (opening[weekday] ?? []).map((w) => `${w.open}–${w.close}`);
+  const windows = dayWindows(branch?.opening_hours, parsed.data.date);
   const fixed = service.duration_minutes !== null && !service.customer_sets_end;
   const slots = fixed ? await getAvailableSlots(supabase, tenant.id, service, parsed.data.date, parsed.data.branchId ?? null) : [];
-  return { hours, slots: slots.map((s) => ({ time: s.localTime, spotsLeft: s.spotsLeft })) };
+  return { hours: windowLabels(windows), windows, slots: slots.map((s) => ({ time: s.localTime, spotsLeft: s.spotsLeft })) };
+}
+
+const otherSchema = z.object({
+  serviceId: z.uuid(),
+  date: z.iso.date(),
+  time: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+  branchId: z.uuid().nullable(),
+  locale: z.string().max(5),
+});
+
+/** Other branches that can take this service on that day (at that time, when given). */
+export async function otherBranchesAction(slug: string, surface: Surface, input: z.infer<typeof otherSchema>): Promise<BranchAvailability[]> {
+  const parsed = otherSchema.safeParse(input);
+  if (!parsed.success) return [];
+  const tenant = await loadTenant(slug, surface);
+  if (!tenant) return [];
+  const caller = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (isRateLimited(`book-other:${tenant.id}:${caller}`, 60_000, 40)) return [];
+  const supabase = serviceClient();
+  const { data: service } = await supabase
+    .from("bookable_services")
+    .select("id, duration_minutes, customer_sets_end")
+    .eq("tenant_id", tenant.id)
+    .eq("id", parsed.data.serviceId)
+    .eq("is_active", true)
+    .eq("online_booking", true)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (!service) return [];
+  const d = parsed.data;
+  return bookingAlternatives(supabase, tenant.id, service, d.date, d.time, d.branchId, LOCALES.includes(d.locale as never) ? d.locale : "en");
 }
 
 const bookSchema = z.object({
@@ -93,7 +128,7 @@ const bookSchema = z.object({
   notes: z.string().trim().max(500).nullable(),
   /** The language the customer is using, so the business can answer in it. */
   locale: z.enum(LOCALES).optional(),
-  /** The branch chosen (one of those open now); none when the business has no branches. */
+  /** The branch chosen (any active one); none when the business has no branches. */
   branchId: z.uuid().nullable().optional(),
 });
 
@@ -118,13 +153,13 @@ export async function bookServiceAction(slug: string, surface: Surface, input: z
   if (isRateLimited(`book:${tenant.id}:${caller}`, BOOK_WINDOW_MS, BOOK_MAX)) return { ok: false, reason: "rate_limited" };
   const supabase = serviceClient();
   const d = parsed.data;
-  // The branch must be one open right now (what the customer was offered).
+  // The branch must be one of the business's active branches (what the customer was offered);
+  // the database then checks the day and time against that branch's own hours.
   if (await businessHasBranches(supabase, tenant.id)) {
-    const open = await openBranchChoices(supabase, tenant.id, "booking", d.locale ?? "en");
-    if (open.length === 0) return { ok: false, reason: "branch_closed" };
-    const branchId = d.branchId ?? (open.length === 1 ? open[0].id : null);
+    const active = await openBranchChoices(supabase, tenant.id, "booking", d.locale ?? "en");
+    const branchId = d.branchId ?? (active.length === 1 ? active[0].id : null);
     if (!branchId) return { ok: false, reason: "branch" };
-    if (!open.some((b) => b.id === branchId)) return { ok: false, reason: "branch_closed" };
+    if (!active.some((b) => b.id === branchId)) return { ok: false, reason: "branch_closed" };
     d.branchId = branchId;
   }
   const { data, error } = await supabase.rpc("book_service", {

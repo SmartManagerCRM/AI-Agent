@@ -99,7 +99,7 @@ export type GatewayResult =
       /** Set only when a cart-mutating tool actually ran this turn (spec §32) — never a stale or guessed cart. */
       cart?: CartView | null;
       /** Set only when `place_order` actually placed an order this turn. */
-      placedOrder?: { orderNumber: number };
+      placedOrder?: { orderNumber: number; trackUrl: string };
     }
   | { handledBy: "ai"; reply: string; error: string; productIds?: string[] };
 
@@ -306,7 +306,7 @@ export async function runAgentGateway(supabase: TypedSupabaseClient, input: Gate
   let lastError = "";
   let lastModel: { provider: string; model: string } | null = null;
   let cartMutated = false;
-  let placedOrder: { orderNumber: number } | undefined;
+  let placedOrder: { orderNumber: number; trackUrl: string } | undefined;
   let limitedBy: UsageLimit | null = null;
   for (let i = 0; i < chain.length && !limitedBy; i++) {
     const { row, provider } = chain[i];

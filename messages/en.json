@@ -234,7 +234,9 @@
       "noMatchTitle": "No conversations match this filter",
       "emptyDescription": "They will appear here once customers start talking to your Agent.",
       "noMatchDescription": "Try a different status filter.",
-      "setUpAgent": "Set up your Agent"
+      "setUpAgent": "Set up your Agent",
+      "branchFilter": "Branch",
+      "allBranches": "All branches"
     },
     "products": {
       "productsServices": "Products & Services",
@@ -2790,7 +2792,7 @@
         "rate_limited": "Too many bookings from this device — please try again in a few minutes.",
         "unavailable_agent": "Booking isn't available right now.",
         "branch": "Please choose the branch for your booking.",
-        "branch_closed": "That branch isn’t open right now — please choose another."
+        "branch_closed": "That branch can't take bookings at the moment — please choose another."
       },
       "peopleCount": "{count, plural, one {# person} other {# people}}",
       "checking": "I'm checking availability for {date} at {time} for {people}.",
@@ -2810,8 +2812,12 @@
       "submitRequest": "Send booking request",
       "requestNote": "The business confirms each booking for this service — you'll see their answer here within minutes.",
       "branch": "Branch",
-      "noBranchOpen": "None of our branches is open right now, so bookings can’t be made at the moment. Please come back during opening hours.",
-      "detailBranch": "Branch"
+      "detailBranch": "Branch",
+      "outsideHours": "That time is outside this branch's opening hours that day.",
+      "otherBranches": "Available at our other branches",
+      "otherBranchesAt": "Available at {time} at our other branches",
+      "noOtherBranch": "No other branch has availability for this — please try another day or time.",
+      "bookHere": "Book here"
     },
     "errors": {
       "unavailable": "This Agent is not available right now.",
@@ -2867,6 +2873,35 @@
       "title": "Thank you!",
       "text": "You've left the conversation with {name}. You can close this page now.",
       "back": "Back to {name}"
+    },
+    "track": {
+      "title": "Order tracking",
+      "order": "Order #{number}",
+      "step": {
+        "confirmed": "Confirmed",
+        "preparing": "Preparing",
+        "prepared": "Prepared",
+        "ready": "Ready",
+        "collected": "Collected",
+        "served": "Served",
+        "out_for_delivery": "Out for delivery",
+        "delivered": "Delivered",
+        "paid": "Paid",
+        "completed": "Complete"
+      },
+      "now": "Now",
+      "type": "Order type",
+      "type_pickup": "Pickup",
+      "type_delivery": "Delivery",
+      "type_dine_in": "Dine-in",
+      "branch": "Branch",
+      "total": "Total",
+      "live": "This page updates automatically.",
+      "completedNote": "Your order is complete — thank you!",
+      "cancelled": "This order was cancelled.",
+      "refunded": "This order was refunded.",
+      "awaitingPayment": "Waiting for your online payment to be confirmed.",
+      "poweredBy": "Updates come straight from the business."
     }
   },
   "pwa": {
@@ -3035,7 +3070,12 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "unknown": "Unknown",
-      "no_plan": "No plan"
+      "no_plan": "No plan",
+      "prepared": "Prepared",
+      "collected": "Collected",
+      "served": "Served",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered"
     },
     "fulfillment": {
       "pickup": "Pickup",

@@ -97,9 +97,10 @@ export async function loadAgentExperience(
   const enabled = tenant.enabledLanguages.filter(isLocale);
   const languages = [...enabled, ...LOCALES.filter((l) => !enabled.includes(l))];
   const locale = await uiLocale(enabled, tenant.defaultLanguage);
-  // The payment page renders its own strings server-side, so they are not shipped to the Agent page.
-  const { pay: _pay, ...messages } = ((await import(`../../../messages/${locale}.json`)).default as { agent: AgentMessages }).agent;
+  // The payment and tracking pages load their own strings, so they are not shipped to the Agent page.
+  const { pay: _pay, track: _track, ...messages } = ((await import(`../../../messages/${locale}.json`)).default as { agent: AgentMessages }).agent;
   void _pay;
+  void _track;
   const businessName =
     tenant.businessName[locale] ?? tenant.businessName[tenant.defaultLanguage] ?? Object.values(tenant.businessName)[0] ?? tenant.slug;
 

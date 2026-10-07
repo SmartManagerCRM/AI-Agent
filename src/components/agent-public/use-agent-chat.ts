@@ -21,7 +21,7 @@ export type ChatMessage = {
   /** The stored reply's id (assistant messages) — what the premium voice speaks. */
   serverId?: string;
   /** An order the Agent placed with this reply (track it, or leave). */
-  placedOrder?: { orderNumber: number };
+  placedOrder?: { orderNumber: number; trackUrl: string };
 };
 
 /**

@@ -35,12 +35,22 @@ const NEXT_STATUSES: Record<string, string[]> = {
   pending_payment: ["paid", "cancelled"],
   paid: ["confirmed", "refunded"],
   confirmed: ["preparing", "cancelled"],
-  preparing: ["ready", "cancelled"],
-  ready: ["completed", "cancelled"],
+  preparing: ["prepared", "cancelled"],
+  prepared: ["ready", "cancelled"],
+  out_for_delivery: ["delivered", "cancelled"],
+  collected: ["completed"],
+  served: ["completed"],
+  delivered: ["completed"],
   completed: [],
   cancelled: [],
   refunded: [],
 };
+
+/** The order's next steps — once ready: collected (pickup), served (dine-in) or out for delivery (delivery). */
+const nextStatuses = (status: string, fulfillment: string): string[] =>
+  status === "ready"
+    ? [fulfillment === "pickup" ? "collected" : fulfillment === "dine_in" ? "served" : "out_for_delivery", "cancelled"]
+    : (NEXT_STATUSES[status] ?? []);
 
 const GROUPS = ["all", "pending", "active", "completed", "cancelled"] as const;
 type Group = (typeof GROUPS)[number];
@@ -240,7 +250,7 @@ export default async function OrdersPage({
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {PRINTABLE_ORDER_STATUSES.has(order.status) && <PrintReceiptButton orderId={order.id} />}
-                        {(NEXT_STATUSES[order.status] ?? []).map((next) =>
+                        {nextStatuses(order.status, order.fulfillment_type).map((next) =>
                           next === "confirmed" ? (
                             <ConfirmOrderButton
                               key={next}
