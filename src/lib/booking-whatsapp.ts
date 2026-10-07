@@ -19,6 +19,9 @@ export type BookingMessage = {
   time: string;
   endTime: string | null;
   partySize: number;
+  /** The branch it's at (businesses with several branches), in the customer's language. */
+  branchName?: string | null;
+  branchAddress?: string | null;
 };
 
 function people(locale: MessageLocale, n: number): string {
@@ -27,41 +30,45 @@ function people(locale: MessageLocale, n: number): string {
   return n === 1 ? "1 person" : `${n} people`;
 }
 
+function branchLine(locale: MessageLocale, name: string, address: string | null): string {
+  const label = locale === "ar" ? "الفرع" : locale === "fr" ? "Succursale" : "Branch";
+  return `📍 ${label}${locale === "fr" ? " " : ""}: ${name}${address ? ` — ${address}` : ""}`;
+}
+
 export function bookingMessage(m: BookingMessage): string {
   const name = m.customerName?.trim() || "";
+  const branch = m.branchName?.trim() || "";
+  const address = m.branchAddress?.trim() || null;
+  // "• 📍 Branch: Marina — Marina Walk 5", after the service, when the business has several branches.
+  const details = (when: string) => [`• ${m.serviceName}`, ...(branch ? [`• ${branchLine(m.locale, branch, address)}`] : []), `• ${when}`, `• ${people(m.locale, m.partySize)}`];
+  const at = (word: string) => (branch ? ` ${word} ${branch}` : "");
   const when = (at: string, until: string) => (m.endTime ? `${m.date} ${at} ${m.time} ${until} ${m.endTime}` : `${m.date} ${at} ${m.time}`);
   if (m.locale === "ar") {
     if (m.kind === "declined") {
-      return `مرحباً${name ? ` ${name}` : ""}، شكراً لطلب الحجز لدى ${m.businessName}. نعتذر منك، جدولنا ممتلئ يوم ${m.date} الساعة ${m.time}. يُرجى اختيار وقت آخر، ويسعدنا استقبالك.`;
+      return `مرحباً${name ? ` ${name}` : ""}، شكراً لطلب الحجز لدى ${m.businessName}${at("–")}. نعتذر منك، جدولنا ممتلئ يوم ${m.date} الساعة ${m.time}. يُرجى اختيار وقت آخر، ويسعدنا استقبالك.`;
     }
     return [
       `مرحباً${name ? ` ${name}` : ""}، تم تأكيد حجزك لدى ${m.businessName} ✅`,
-      `• ${m.serviceName}`,
-      `• ${when("الساعة", "حتى")}`,
-      `• ${people("ar", m.partySize)}`,
+      ...details(when("الساعة", "حتى")),
       "بانتظارك!",
     ].join("\n");
   }
   if (m.locale === "fr") {
     if (m.kind === "declined") {
-      return `Bonjour${name ? ` ${name}` : ""}, merci pour votre demande de réservation chez ${m.businessName}. Nous sommes désolés : notre planning est complet le ${m.date} à ${m.time}. N'hésitez pas à choisir un autre horaire, nous serons ravis de vous accueillir.`;
+      return `Bonjour${name ? ` ${name}` : ""}, merci pour votre demande de réservation chez ${m.businessName}${at("–")}. Nous sommes désolés : notre planning est complet le ${m.date} à ${m.time}. N'hésitez pas à choisir un autre horaire, nous serons ravis de vous accueillir.`;
     }
     return [
       `Bonjour${name ? ` ${name}` : ""}, votre réservation chez ${m.businessName} est confirmée ✅`,
-      `• ${m.serviceName}`,
-      `• ${when("à", "jusqu'à")}`,
-      `• ${people("fr", m.partySize)}`,
+      ...details(when("à", "jusqu'à")),
       "Au plaisir de vous accueillir !",
     ].join("\n");
   }
   if (m.kind === "declined") {
-    return `Hello${name ? ` ${name}` : ""}, thank you for your booking request at ${m.businessName}. We're so sorry — our schedule is full on ${m.date} at ${m.time}. Please choose another time; we'd love to welcome you.`;
+    return `Hello${name ? ` ${name}` : ""}, thank you for your booking request at ${m.businessName}${at("–")}. We're so sorry — our schedule is full on ${m.date} at ${m.time}. Please choose another time; we'd love to welcome you.`;
   }
   return [
     `Hello${name ? ` ${name}` : ""}, your booking at ${m.businessName} is confirmed ✅`,
-    `• ${m.serviceName}`,
-    `• ${when("at", "until")}`,
-    `• ${people("en", m.partySize)}`,
+    ...details(when("at", "until")),
     "We look forward to seeing you!",
   ].join("\n");
 }

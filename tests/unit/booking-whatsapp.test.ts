@@ -26,6 +26,15 @@ describe("booking WhatsApp message", () => {
     expect(fr).toContain("• Friday 10 October à 19:00\n• 1 personne");
   });
 
+  it("says which branch, when the business has several", () => {
+    expect(bookingMessage({ ...base, kind: "confirmed", locale: "en", branchName: "Marina", branchAddress: "Marina Walk 5" })).toBe(
+      "Hello Lina, your booking at Qahwa House is confirmed ✅\n• Private dinner\n• 📍 Branch: Marina — Marina Walk 5\n• Friday 10 October at 19:00 until 21:00\n• 4 people\nWe look forward to seeing you!",
+    );
+    expect(bookingMessage({ ...base, kind: "confirmed", locale: "ar", branchName: "المارينا", branchAddress: null })).toContain("• 📍 الفرع: المارينا\n");
+    expect(bookingMessage({ ...base, kind: "confirmed", locale: "fr", branchName: "Marina" })).toContain("• 📍 Succursale : Marina\n");
+    expect(bookingMessage({ ...base, kind: "declined", locale: "en", branchName: "Marina" })).toContain("request at Qahwa House – Marina.");
+  });
+
   it("apologises politely when the request is declined", () => {
     expect(bookingMessage({ ...base, kind: "declined", locale: "en" })).toBe(
       "Hello Lina, thank you for your booking request at Qahwa House. We're so sorry — our schedule is full on Friday 10 October at 19:00. Please choose another time; we'd love to welcome you.",

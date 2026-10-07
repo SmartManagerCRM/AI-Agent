@@ -31,6 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
 type BookingLine = {
   id: string;
   service_id: string;
+  branch_id: string | null;
   customer_name: string | null;
   customer_phone: string | null;
   starts_at: string;
@@ -86,7 +87,7 @@ export default async function BookingsPage({
     // Requests from the Agent waiting for the owner's answer, oldest first.
     supabase
       .from("bookings")
-      .select("id, service_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, notes, status, customer_locale, created_at")
+      .select("id, service_id, branch_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, notes, status, customer_locale, created_at")
       .eq("tenant_id", tenant.id)
       .eq("status", "pending")
       .order("created_at")
@@ -105,6 +106,17 @@ export default async function BookingsPage({
     (allServices ?? []).map((s) => [s.id, s.name[locale] ?? Object.values(s.name)[0] ?? ""]),
   );
   const businessName = tenant.business_name[locale] ?? Object.values(tenant.business_name)[0] ?? tenant.slug;
+  // The branch's name and address in the customer's language, for the WhatsApp message (several branches only).
+  const { data: branchRows } = showBranches
+    ? await supabase.from("branches").select("id, name, address, is_default").eq("tenant_id", tenant.id)
+    : { data: [] as { id: string; name: Record<string, string>; address: unknown; is_default: boolean }[] };
+  const inLang = (v: unknown, lang: string): string | null => {
+    if (typeof v === "string") return v.trim() || null;
+    if (!v || typeof v !== "object") return null;
+    const r = v as Record<string, unknown>;
+    const s = r[lang] ?? r.en ?? Object.values(r).find((x) => typeof x === "string" && x.trim());
+    return typeof s === "string" && s.trim() ? s.trim() : null;
+  };
 
   // WhatsApp: the booking's details, ready to send, in the language the customer used on the Agent.
   const whatsapp = (b: BookingLine) => {
@@ -122,6 +134,11 @@ export default async function BookingsPage({
       time: new Date(b.starts_at).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }),
       endTime: b.ends_at ? new Date(b.ends_at).toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }) : null,
       partySize: b.party_size,
+      // No branch = the main branch.
+      ...(() => {
+        const br = (branchRows ?? []).find((x) => (b.branch_id ? x.id === b.branch_id : x.is_default));
+        return br ? { branchName: inLang(br.name, lang), branchAddress: inLang(br.address, lang) } : {};
+      })(),
     });
     return {
       href: whatsappLink(number, text),
