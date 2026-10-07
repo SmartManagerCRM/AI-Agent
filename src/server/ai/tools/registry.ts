@@ -161,18 +161,19 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   {
     name: "create_booking",
     description:
-      "Book a specific, already-confirmed-available time slot for a service. Only call this after the customer has picked an exact slot from check_availability's real results and confirmed their name and phone.",
+      "Book a specific, already-confirmed-available time slot for a service. Only call this after the customer has picked an exact slot from check_availability's real results, said how many people the booking is for, and confirmed their name and phone.",
     parameters: {
       type: "object",
       properties: {
         service_name: { type: "string" },
         slot_start: { type: "string", description: "The exact ISO start time of the slot the customer picked." },
+        party_size: { type: "integer", description: "How many people the booking is for — always ask the customer; never assume." },
         name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
         branch: { type: "string", description: "The branch the customer chose (by name), when the business has several. Any branch takes bookings; the time must fit its hours." },
       },
-      required: ["service_name", "slot_start", "name", "phone"],
+      required: ["service_name", "slot_start", "party_size", "name", "phone"],
     },
   },
   {

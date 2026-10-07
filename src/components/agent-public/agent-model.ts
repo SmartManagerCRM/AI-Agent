@@ -26,8 +26,8 @@ export type AgentService = {
   durationMinutes: number | null;
   priceMinor: number | null;
   priceUnit: "booking" | "hour" | "person";
-  /** People who can be booked at the same time. */
-  capacity: number;
+  /** A limit on people at the same time; null = none. The customer always says how many people. */
+  capacity: number | null;
   /** The customer chooses their time out (or a duration). */
   customerSetsEnd: boolean;
   /** The business confirms each booking itself: the customer waits for its answer. */

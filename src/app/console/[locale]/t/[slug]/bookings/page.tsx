@@ -65,7 +65,7 @@ export default async function BookingsPage({
   const [{ data: allServices }, { data: bookings }, { data: currency }, { count: totalBookings }, { count: upcomingBookings }, { data: requests }] = await Promise.all([
     supabase
       .from("bookable_services")
-      .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, online_booking, requires_approval, is_active, source, archived_at")
+      .select("id, name, description, duration_minutes, price_minor, price_unit, customer_sets_end, online_booking, requires_approval, is_active, source, archived_at")
       .eq("tenant_id", tenant.id)
       .order("created_at"),
     supabase
@@ -230,7 +230,6 @@ export default async function BookingsPage({
                 priceMinor: s.price_minor,
                 priceLabel: s.price_minor !== null ? formatMoney(s.price_minor, tenant.currency, exponent, locale) : null,
                 priceUnit: s.price_unit,
-                capacity: s.capacity,
                 customerSetsEnd: s.customer_sets_end,
                 onlineBooking: s.online_booking,
                 requiresApproval: s.requires_approval,
@@ -267,7 +266,6 @@ export default async function BookingsPage({
                 name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
                 durationMinutes: s.duration_minutes,
                 customerSetsEnd: s.customer_sets_end,
-                capacity: s.capacity,
               }))}
           />
         </section>

@@ -11,7 +11,6 @@ export type BookingServiceOption = {
   name: string;
   durationMinutes: number | null;
   customerSetsEnd: boolean;
-  capacity: number;
 };
 
 const input = "rounded-md border border-neutral-300 px-3 py-2";
@@ -110,7 +109,7 @@ export function NewBookingForm({
       )}
       <label className="flex flex-col gap-1">
         {t("people")}
-        <input name="partySize" type="number" min={1} max={service.capacity} defaultValue={1} className={input} />
+        <input name="partySize" type="number" inputMode="numeric" min={1} max={500} required className={input} data-testid="new-booking-people" />
       </label>
       <label className="flex flex-col gap-1">
         {t("customerName")}

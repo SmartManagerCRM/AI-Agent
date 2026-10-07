@@ -3,7 +3,8 @@ import "server-only";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 export type BookableService = { id: string; name: string; durationMinutes: number | null; priceMinor: number | null; customerSetsEnd?: boolean };
-export type Slot = { startsAt: string; endsAt: string | null; localTime: string; spotsLeft: number };
+/** spotsLeft: people who can still book at that time; null = no limit. */
+export type Slot = { startsAt: string; endsAt: string | null; localTime: string; spotsLeft: number | null };
 
 /**
  * Real, server-validated booking (Customer Agent Master Prompt §26).
@@ -89,7 +90,7 @@ export function parseBookResult(data: unknown): BookResult {
 
 const REFUSAL_TEXT: Record<BookingRefusal, string> = {
   unavailable: "That service can't be booked right now.",
-  party_size: "That's more people than this service can take at once.",
+  party_size: "Please say how many people the booking is for (1 to 500).",
   past: "That time has already passed — please pick another.",
   too_far: "Bookings can be made up to a year ahead.",
   bad_time_out: "The time out must be after the time in (within 24 hours).",
@@ -113,6 +114,8 @@ export async function createBooking(
   details: { name?: string; phone?: string; email?: string },
   /** The branch (businesses with several); none = the business's only/main one. */
   branchId: string | null = null,
+  /** How many people the customer said the booking is for. */
+  partySize = 1,
 ): Promise<CreateBookingResult> {
   const startsAt = new Date(startsAtISO);
   if (Number.isNaN(startsAt.getTime())) return { ok: false, error: REFUSAL_TEXT.past, reason: "past" };
@@ -121,7 +124,7 @@ export async function createBooking(
     p_service_id: service.id,
     p_starts_at: startsAt.toISOString(),
     p_ends_at: null,
-    p_party_size: 1,
+    p_party_size: partySize,
     p_customer_name: details.name ?? null,
     p_customer_phone: details.phone ?? null,
     p_customer_email: details.email ?? null,

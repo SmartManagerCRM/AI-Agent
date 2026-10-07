@@ -843,8 +843,8 @@ export type Database = {
           is_active: boolean;
           /** The customer may choose their own time out (or a duration). */
           customer_sets_end: boolean;
-          /** People who may be booked at the same time. */
-          capacity: number;
+          /** A limit on people booked at the same time; null = none (customers say how many people). */
+          capacity: number | null;
           /** Customers can book it themselves on the Agent's landing page. */
           online_booking: boolean;
           /** Agent bookings are requests the business confirms or declines. */
@@ -1463,7 +1463,7 @@ export type Database = {
       };
       service_slots: {
         Args: { p_tenant_id: string; p_service_id: string; p_date: string; p_branch_id?: string | null };
-        Returns: { starts_at: string; ends_at: string | null; local_time: string; spots_left: number }[];
+        Returns: { starts_at: string; ends_at: string | null; local_time: string; spots_left: number | null }[];
       };
       admin_update_business: {
         Args: {

@@ -394,7 +394,7 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         return { content: `No open slots for ${service.name} on ${date} at this branch.${others ? alternativesText(others, null) : ""}` };
       }
       // Local clock times for the customer, with the exact instant to book.
-      const times = slots.slice(0, 40).map((s) => `${s.localTime} (slot_start ${s.startsAt}${s.spotsLeft > 1 ? `, ${s.spotsLeft} places` : ""})`);
+      const times = slots.slice(0, 40).map((s) => `${s.localTime} (slot_start ${s.startsAt}${s.spotsLeft !== null && s.spotsLeft > 1 ? `, ${s.spotsLeft} places` : ""})`);
       return { content: `Open start times for ${service.name} on ${date} (business local time): ${times.join(", ")}.` };
     }
 
@@ -406,6 +406,11 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         String(input.service_name ?? ""),
       );
       if (!service) return { content: `No bookable service found named "${input.service_name}".`, isError: true };
+      // How many people: always asked of the customer, never assumed.
+      const partySize = Number(input.party_size);
+      if (!Number.isInteger(partySize) || partySize < 1 || partySize > 500) {
+        return { content: "Ask the customer how many people the booking is for, then call again with party_size.", isError: true };
+      }
       const branch = await chatBranch(ctx, "booking", input.branch);
       if ("reply" in branch) return { content: branch.reply, isError: branch.isError };
       const result = await createBooking(
@@ -420,6 +425,7 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
           email: input.email ? String(input.email) : undefined,
         },
         branch.branchId,
+        partySize,
       );
       if (!result.ok) {
         // Closed or full at that branch: which other branches have that time free.

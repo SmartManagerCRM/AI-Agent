@@ -79,7 +79,6 @@ export function useServiceFacts() {
       const price = money(s.priceMinor);
       facts.push(t(s.priceUnit === "hour" ? "book.priceHour" : s.priceUnit === "person" ? "book.pricePerson" : "book.priceBooking", { price }));
     } else facts.push(t("book.priceOnRequest"));
-    if (s.capacity > 1) facts.push(t("book.capacity", { count: s.capacity }));
     return facts;
   };
 }
@@ -189,7 +188,11 @@ function BookingForm({
   const [timeIn, setTimeIn] = useState("");
   const [timeOut, setTimeOut] = useState("");
   const [duration, setDuration] = useState("");
-  const [people, setPeople] = useState(1);
+  // How many people: the customer always says (required, no default).
+  const [people, setPeople] = useState("");
+  const maxPeople = service.capacity ?? 500;
+  const partySize = /^\d+$/.test(people) ? Number(people) : 0;
+  const peopleOk = partySize >= 1 && partySize <= maxPeople;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -238,7 +241,7 @@ function BookingForm({
         timeIn,
         timeOut: !fixed && timeOut ? timeOut : null,
         durationMinutes: !fixed && !timeOut && duration ? Number(duration) : null,
-        partySize: people,
+        partySize,
         name: name.trim(),
         phone: phone.trim(),
         email: email.trim() || null,
@@ -254,7 +257,7 @@ function BookingForm({
           date,
           timeIn,
           endTime: r.endsAt !== null ? addMinutes(timeIn, Math.round((new Date(r.endsAt).getTime() - new Date(r.startsAt).getTime()) / 60_000)) : null,
-          people,
+          people: partySize,
           name: name.trim(),
           phone: phone.trim(),
           requestedAt: Date.now(),
@@ -263,7 +266,7 @@ function BookingForm({
       } else setResult(r);
     });
   };
-  const ready = branchReady && date && /^\d{2}:\d{2}$/.test(timeIn) && name.trim().length >= 2 && phone.trim().length >= 6 && !pending;
+  const ready = branchReady && date && /^\d{2}:\d{2}$/.test(timeIn) && peopleOk && name.trim().length >= 2 && phone.trim().length >= 6 && !pending;
   const shownEnd = fixed && timeIn ? addMinutes(timeIn, service.durationMinutes!) : null;
   const closed = info?.hours !== undefined && info?.hours !== null && info.hours.length === 0;
   // A time typed for a flexible service, outside the chosen branch's hours that day.
@@ -401,7 +404,7 @@ function BookingForm({
                   dir="ltr"
                 >
                   {slot.time}
-                  {service.capacity > 1 && (
+                  {service.capacity !== null && service.capacity > 1 && slot.spotsLeft !== null && (
                     <span className={`text-[10px] font-medium ${timeIn === slot.time ? "text-white/80" : "text-slate-400"}`}>{t("book.spotsLeft", { count: slot.spotsLeft })}</span>
                   )}
                 </button>
@@ -508,23 +511,26 @@ function BookingForm({
         </section>
       )}
 
-      {service.capacity > 1 && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="book-people" className="text-xs font-semibold text-slate-600">
-            {t("book.people")}
-          </label>
-          <input
-            id="book-people"
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={service.capacity}
-            value={people}
-            onChange={(e) => setPeople(Math.max(1, Math.min(service.capacity, Number(e.target.value) || 1)))}
-            className={fieldCls}
-          />
-        </div>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="book-people" className="text-xs font-semibold text-slate-600">
+          {t("book.people")} <span className="text-red-600" aria-hidden>*</span>
+        </label>
+        <input
+          id="book-people"
+          type="number"
+          inputMode="numeric"
+          required
+          min={1}
+          max={maxPeople}
+          value={people}
+          placeholder={t("book.peoplePlaceholder")}
+          onChange={(e) => setPeople(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+          aria-invalid={people !== "" && !peopleOk}
+          className={fieldCls}
+          data-testid="booking-people"
+        />
+        {people !== "" && !peopleOk && <p className="text-xs font-medium text-red-700">{t("book.peopleInvalid", { max: maxPeople })}</p>}
+      </div>
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-bold text-slate-900">{t("book.yourDetails")}</legend>

@@ -9,7 +9,6 @@ export type ServiceFieldValues = {
   durationMinutes: number | null;
   priceMajor: string;
   priceUnit: "booking" | "hour" | "person";
-  capacity: number;
   customerSetsEnd: boolean;
   onlineBooking: boolean;
   /** Agent bookings wait for the business to confirm them. */
@@ -22,7 +21,6 @@ export const EMPTY_SERVICE: ServiceFieldValues = {
   durationMinutes: 30,
   priceMajor: "",
   priceUnit: "booking",
-  capacity: 1,
   customerSetsEnd: false,
   onlineBooking: true,
   requiresApproval: false,
@@ -49,10 +47,6 @@ export function ServiceFields({ values, exponent }: { values: ServiceFieldValues
           placeholder={t("noFixedLength")}
           className={input}
         />
-      </label>
-      <label className="flex flex-col gap-1">
-        <Msg id="console.serviceFields.capacity" />{" "}<span className="text-xs text-slate-400"><Msg id="console.serviceFields.peopleAtTheSameTime" /></span>
-        <input name="capacity" type="number" min={1} max={500} required defaultValue={values.capacity} className={input} />
       </label>
       <label className="flex flex-col gap-1">
         <Msg id="console.serviceFields.price" />{" "}<span className="text-xs text-slate-400"><Msg id="console.serviceFields.optionalEmptyOnRequest" /></span>

@@ -25,7 +25,6 @@ export type ServiceRowData = {
   priceMinor: number | null;
   priceLabel: string | null;
   priceUnit: "booking" | "hour" | "person";
-  capacity: number;
   customerSetsEnd: boolean;
   onlineBooking: boolean;
   requiresApproval: boolean;
@@ -73,7 +72,6 @@ export function ServiceRow({
               durationMinutes: service.durationMinutes,
               priceMajor: service.priceMinor === null ? "" : (service.priceMinor / 10 ** exponent).toFixed(exponent),
               priceUnit: service.priceUnit,
-              capacity: service.capacity,
               customerSetsEnd: service.customerSetsEnd,
               onlineBooking: service.onlineBooking,
               requiresApproval: service.requiresApproval,
@@ -101,7 +99,6 @@ export function ServiceRow({
         {service.autoTranslated && <AutoTranslatedChip label={tCommon("autoTranslated")} hint={tCommon("autoTranslatedHint")} />} — {service.durationMinutes !== null ? t("minutes", { n: service.durationMinutes }) : tFields("noFixedLength")}
         {service.customerSetsEnd && t("customerSetsEnd")}
         {service.priceLabel && ` · ${service.priceLabel}${service.priceUnit === "hour" ? t("perHour") : service.priceUnit === "person" ? t("perPerson") : ""}`}
-        {service.capacity > 1 && t("atATime", { n: service.capacity })}
         <span
           className={`ms-2 rounded-full px-2 py-0.5 text-xs font-medium ${service.onlineBooking ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-500"}`}
         >

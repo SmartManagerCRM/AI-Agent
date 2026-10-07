@@ -17,7 +17,6 @@ const serviceFieldsSchema = z.object({
   durationMinutes: z.coerce.number().int().min(1).max(1440).optional(),
   priceMajor: z.coerce.number().min(0).max(1_000_000).optional(),
   priceUnit: z.enum(["booking", "hour", "person"]).default("booking"),
-  capacity: z.coerce.number().int().min(1).max(500).default(1),
   customerSetsEnd: z.boolean(),
   onlineBooking: z.boolean(),
   requiresApproval: z.boolean(),
@@ -34,7 +33,6 @@ function readServiceFields(formData: FormData) {
     durationMinutes: optional("durationMinutes"),
     priceMajor: optional("priceMajor"),
     priceUnit: optional("priceUnit"),
-    capacity: optional("capacity"),
     customerSetsEnd: formData.get("customerSetsEnd") === "on",
     onlineBooking: formData.get("onlineBooking") === "on",
     requiresApproval: formData.get("confirmation") === "manual",
@@ -64,7 +62,6 @@ export async function createServiceAction(
     duration_minutes: f.durationMinutes ?? null,
     price_minor: f.priceMajor !== undefined ? Math.round(f.priceMajor * 10 ** (currency?.exponent ?? 2)) : null,
     price_unit: f.priceUnit,
-    capacity: f.capacity,
     customer_sets_end: f.customerSetsEnd,
     online_booking: f.onlineBooking,
     requires_approval: f.requiresApproval,
@@ -163,7 +160,6 @@ export async function updateServiceAction(_prev: ServiceEditState, formData: For
       duration_minutes: f.durationMinutes ?? null,
       price_minor: f.priceMajor === undefined ? null : Math.round(f.priceMajor * 10 ** (currency?.exponent ?? 2)),
       price_unit: f.priceUnit,
-      capacity: f.capacity,
       customer_sets_end: f.customerSetsEnd,
       online_booking: f.onlineBooking,
       requires_approval: f.requiresApproval,
@@ -207,7 +203,8 @@ const consoleBookingSchema = z.object({
   timeIn: z.string().regex(/^\d{2}:\d{2}$/),
   timeOut: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   durationMinutes: z.coerce.number().int().min(1).max(1440).optional(),
-  partySize: z.coerce.number().int().min(1).max(500).default(1),
+  // How many people the booking is for — always asked.
+  partySize: z.coerce.number().int().min(1).max(500),
   name: z.string().trim().min(1).max(120),
   phone: z.string().trim().min(5).max(40),
   email: z.email().max(200).optional(),
@@ -217,7 +214,7 @@ const consoleBookingSchema = z.object({
 
 export type ConsoleBookingState = { ok: boolean; message: string } | undefined;
 
-/** Bookings → New booking: the owner books a customer in (phone, walk-in). Validated like every booking — hours, capacity. */
+/** Bookings → New booking: the owner books a customer in (phone, walk-in), for a number of people. Validated like every booking — the branch's hours. */
 export async function createConsoleBookingAction(_prev: ConsoleBookingState, formData: FormData): Promise<ConsoleBookingState> {
   const t = await actionT(formData.get("locale"));
   const optional = (key: string) => {

@@ -51,7 +51,7 @@ export type ServiceDay = {
   /** The same hours as times, to check a time the customer types. */
   windows: HoursWindow[] | null;
   /** Free start times (local "HH:MM") with places left — for services with a fixed length. */
-  slots: { time: string; spotsLeft: number }[];
+  slots: { time: string; spotsLeft: number | null }[];
 };
 
 const daySchema = z.object({ serviceId: z.uuid(), date: z.iso.date(), branchId: z.uuid().nullable().optional() });

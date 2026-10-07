@@ -141,8 +141,6 @@
       "name": "Nom",
       "durationMinutes": "Durée (minutes)",
       "optional": "facultatif",
-      "capacity": "Capacité",
-      "peopleAtTheSameTime": "personnes en même temps",
       "price": "Prix",
       "optionalEmptyOnRequest": "facultatif — vide = sur demande",
       "priceIs": "Le prix est",
@@ -316,7 +314,7 @@
       "addFromFile": "Ajouter des services depuis un fichier (HTML ou PDF)",
       "noServices": "Ajoutez un service ci-dessus pour que l’Agent prenne des réservations.",
       "newBooking": "Nouvelle réservation",
-      "newBookingHint": "Réservez pour un client par téléphone ou au comptoir. Les horaires d’ouverture et la capacité de chaque service sont vérifiés.",
+      "newBookingHint": "Réservez pour un client par téléphone ou au comptoir, pour le nombre de personnes demandé. Les horaires d’ouverture sont vérifiés.",
       "col": {
         "service": "Service",
         "customer": "Client",
@@ -367,7 +365,6 @@
       "customerSetsEnd": " · le client choisit l’heure de départ",
       "perHour": " / heure",
       "perPerson": " / personne",
-      "atATime": " · {n} à la fois",
       "onAgent": "Sur l’Agent",
       "consoleOnly": "Console uniquement",
       "approval": "Vous confirmez chaque demande",
@@ -2744,7 +2741,6 @@
       "duration": "{minutes} min",
       "flexible": "Durée libre",
       "youChooseEnd": "Vous choisissez l'heure de fin",
-      "capacity": "Jusqu'à {count} personnes en même temps",
       "priceBooking": "{price}",
       "priceHour": "{price} / heure",
       "pricePerson": "{price} / personne",
@@ -2783,7 +2779,7 @@
         "past": "Cette heure est déjà passée — choisissez-en une autre.",
         "too_far": "Les réservations sont possibles jusqu'à un an à l'avance.",
         "bad_time_out": "L'heure de départ doit être après l'heure d'arrivée.",
-        "party_size": "C'est plus de personnes que ce service n'en accueille à la fois.",
+        "party_size": "Veuillez indiquer pour combien de personnes est la réservation.",
         "unavailable": "Ce service ne peut pas être réservé pour le moment.",
         "invalid": "Vérifiez la date et les heures.",
         "name": "Indiquez votre nom complet.",
@@ -2817,7 +2813,9 @@
       "otherBranches": "Disponible dans nos autres succursales",
       "otherBranchesAt": "Disponible à {time} dans nos autres succursales",
       "noOtherBranch": "Aucune autre succursale n'est disponible pour cela — essayez un autre jour ou une autre heure.",
-      "bookHere": "Réserver ici"
+      "bookHere": "Réserver ici",
+      "peoplePlaceholder": "Combien de personnes ?",
+      "peopleInvalid": "Veuillez indiquer un nombre de personnes entre 1 et {max}."
     },
     "errors": {
       "unavailable": "Cet Agent n’est pas disponible pour le moment.",
@@ -3269,7 +3267,7 @@
       "serviceNoPermission": "Impossible d’enregistrer — vous devez avoir la permission de modifier les services.",
       "refusal": {
         "unavailable": "Ce service est suspendu ou supprimé.",
-        "party_size": "C’est plus de personnes que ce service n’en accueille à la fois (voir sa capacité).",
+        "party_size": "Veuillez indiquer pour combien de personnes est la réservation (1 à 500).",
         "past": "Cet horaire est déjà passé.",
         "too_far": "Les réservations sont possibles jusqu’à un an à l’avance.",
         "bad_time_out": "L’heure de départ doit être après l’heure d’arrivée, dans les 24 heures.",

@@ -141,8 +141,6 @@
       "name": "Name",
       "durationMinutes": "Duration (minutes)",
       "optional": "optional",
-      "capacity": "Capacity",
-      "peopleAtTheSameTime": "people at the same time",
       "price": "Price",
       "optionalEmptyOnRequest": "optional — empty = on request",
       "priceIs": "Price is",
@@ -316,7 +314,7 @@
       "addFromFile": "Add services from a file (HTML or PDF)",
       "noServices": "Add a service above to let the Agent take bookings.",
       "newBooking": "New booking",
-      "newBookingHint": "Book a customer in by phone or at the counter. Opening hours and each service’s capacity are checked.",
+      "newBookingHint": "Book a customer in by phone or at the counter, for the number of people they ask for. Opening hours are checked.",
       "col": {
         "service": "Service",
         "customer": "Customer",
@@ -367,7 +365,6 @@
       "customerSetsEnd": " · customer sets time out",
       "perHour": " / hour",
       "perPerson": " / person",
-      "atATime": " · {n} at a time",
       "onAgent": "On Agent",
       "consoleOnly": "Console only",
       "approval": "You confirm each request",
@@ -2744,7 +2741,6 @@
       "duration": "{minutes} min",
       "flexible": "Flexible length",
       "youChooseEnd": "You choose your time out",
-      "capacity": "Up to {count} people at a time",
       "priceBooking": "{price}",
       "priceHour": "{price} / hour",
       "pricePerson": "{price} / person",
@@ -2783,7 +2779,7 @@
         "past": "That time has already passed — please pick another.",
         "too_far": "Bookings can be made up to a year ahead.",
         "bad_time_out": "The time out must be after the time in.",
-        "party_size": "That's more people than this service can take at once.",
+        "party_size": "Please enter how many people the booking is for.",
         "unavailable": "This service can't be booked right now.",
         "invalid": "Please check the date and times.",
         "name": "Please enter your full name.",
@@ -2817,7 +2813,9 @@
       "otherBranches": "Available at our other branches",
       "otherBranchesAt": "Available at {time} at our other branches",
       "noOtherBranch": "No other branch has availability for this — please try another day or time.",
-      "bookHere": "Book here"
+      "bookHere": "Book here",
+      "peoplePlaceholder": "How many people?",
+      "peopleInvalid": "Please enter a number of people from 1 to {max}."
     },
     "errors": {
       "unavailable": "This Agent is not available right now.",
@@ -3269,7 +3267,7 @@
       "serviceNoPermission": "Couldn’t save — you need permission to edit services.",
       "refusal": {
         "unavailable": "That service is suspended or deleted.",
-        "party_size": "That’s more people than this service takes at once (see its capacity).",
+        "party_size": "Please enter how many people the booking is for (1 to 500).",
         "past": "That time has already passed.",
         "too_far": "Bookings can be made up to a year ahead.",
         "bad_time_out": "The time out must be after the time in, within 24 hours.",
