@@ -3627,12 +3627,12 @@
       "attribution": "SmartManager is a product created by {company}."
     },
     "seo": {
-      "title": "SmartManager AI Agent — AI Cashier & AI Business Assistant",
+      "title": "SmartManager AI Agent — AI Employee & AI Business Assistant",
       "description": "AI-powered ordering, booking, customer support and business assistance for restaurants, shops, salons, gyms, clinics and more."
     },
     "hero": {
       "eyebrow": "AI Agent for all businesses",
-      "titleLine1": "Your AI Cashier",
+      "titleLine1": "Your AI Employee",
       "titleLine2": "and Ordering Assistant",
       "titleAccent": "for Every Business",
       "subtitle1": "Answer questions, show products or services, take orders, bookings and payments — 24/7.",
