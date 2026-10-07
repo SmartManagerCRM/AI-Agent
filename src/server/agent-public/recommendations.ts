@@ -1,3 +1,4 @@
+import { fetchAll } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -14,22 +15,20 @@ export async function getPopularityByProduct(
   sinceDays = 60,
 ): Promise<Map<string, number>> {
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .gte("created_at", since);
-  const orderIds = (orders ?? []).map((o) => o.id);
-  if (orderIds.length === 0) return new Map();
-
-  const { data: items } = await supabase
-    .from("order_items")
-    .select("product_id, quantity")
-    .eq("tenant_id", tenantId)
-    .in("order_id", orderIds);
+  // Every item ordered in the period, however many orders (read in pages, filtered through the
+  // order's own date — no list of order ids that would grow with the business).
+  const items = await fetchAll((from, to) =>
+    supabase
+      .from("order_items")
+      .select("product_id, quantity, orders!inner(created_at)")
+      .eq("tenant_id", tenantId)
+      .gte("orders.created_at", since)
+      .order("id")
+      .range(from, to),
+  );
 
   const counts = new Map<string, number>();
-  for (const item of items ?? []) {
+  for (const item of items) {
     if (!item.product_id) continue;
     counts.set(item.product_id, (counts.get(item.product_id) ?? 0) + item.quantity);
   }

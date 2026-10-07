@@ -1,5 +1,6 @@
 import "server-only";
 
+import { allRows } from "@/server/supabase/fetch-all";
 import type { Catalog } from "./catalog";
 import type { BrainSnapshot } from "./match";
 import { greetingFor, savedGreetings } from "@/lib/agent-greeting";
@@ -24,12 +25,17 @@ export async function buildBrainSnapshot(
       supabase.from("tenant_settings").select("agent").eq("tenant_id", tenant.id).maybeSingle(),
       supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
       // The live catalog: approved Business Brain products land here (Go live / approval), with real ids and prices.
-      supabase
-        .from("products")
-        .select("id, category_id, name, description, price_minor")
-        .eq("tenant_id", tenant.id)
-        .eq("status", "active")
-        .order("created_at"),
+      // Every active product, however many (read in pages).
+      allRows((from, to) =>
+        supabase
+          .from("products")
+          .select("id, category_id, name, description, price_minor")
+          .eq("tenant_id", tenant.id)
+          .eq("status", "active")
+          .order("created_at")
+          .order("id")
+          .range(from, to),
+      ),
       supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
       supabase
         .from("branches")
@@ -38,12 +44,15 @@ export async function buildBrainSnapshot(
         .eq("is_default", true)
         .eq("is_active", true)
         .maybeSingle(),
-      supabase
+      allRows((from, to) =>
+        supabase
         .from("business_brain_entries")
         .select("entry_type, entry_key, fact_key, content")
         .eq("tenant_id", tenant.id)
         .eq("status", "approved")
         .eq("is_active", true)
+        .order("id")
+        .range(from, to)
         .in("entry_type", [
           "about",
           "delivery_info",
@@ -60,6 +69,7 @@ export async function buildBrainSnapshot(
           "product_candidate",
           "service_candidate",
         ]),
+      ),
       loadReturningCustomer(supabase, tenant.id, locale, conversationId),
     ]);
 

@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -15,10 +16,10 @@ export type BusinessBrainRow = {
 /** Cross-tenant Business Brain health (spec §98 "Business Brain platform module") — real counts, one bulk read per table. */
 export async function getBusinessBrainOverview(supabase: TypedSupabaseClient): Promise<BusinessBrainRow[]> {
   const [{ data: tenants }, { data: sources }, { data: entries }, { data: conflicts }] = await Promise.all([
-    supabase.from("tenants").select("id, slug, business_name").order("business_name"),
-    supabase.from("business_sources").select("tenant_id"),
-    supabase.from("business_brain_entries").select("tenant_id, status"),
-    supabase.from("business_brain_conflicts").select("tenant_id, status").eq("status", "open"),
+    allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").order("business_name").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("business_sources").select("tenant_id").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("business_brain_entries").select("tenant_id, status").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("business_brain_conflicts").select("tenant_id, status").eq("status", "open").order("id").range(from, to)),
   ]);
 
   const sourceCountByTenant = new Map<string, number>();

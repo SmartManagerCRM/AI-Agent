@@ -22,8 +22,6 @@ export const BULK_ORDER_COLUMNS = [
   "notes",
 ] as const;
 
-export const MAX_BULK_ROWS = 2000;
-export const MAX_BULK_ORDERS = 200;
 
 export type CatalogProduct = { id: string; names: string[] };
 
@@ -113,7 +111,6 @@ export function buildBulkOrders(text: string, catalog: CatalogProduct[]): BulkPa
       errors: [`The header row needs at least "product" and "quantity" columns (${BULK_ORDER_COLUMNS.join(", ")}).`],
     };
   }
-  if (rows.length - 1 > MAX_BULK_ROWS) return { orders: [], errors: [`At most ${MAX_BULK_ROWS} rows at a time.`] };
 
   const byName = new Map<string, string>();
   const ids = new Set<string>();
@@ -161,8 +158,6 @@ export function buildBulkOrders(text: string, catalog: CatalogProduct[]): BulkPa
       errors.push(`Order ${o.ref}: a delivery order needs a delivery_address.`);
     }
   }
-  if (orders.size > MAX_BULK_ORDERS)
-    errors.push(`At most ${MAX_BULK_ORDERS} orders at a time (this file has ${orders.size}).`);
   return { orders: [...orders.values()], errors: [...new Set(errors)].slice(0, 50) };
 }
 

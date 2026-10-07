@@ -1,3 +1,4 @@
+import { fetchAll } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -30,14 +31,18 @@ export async function listActiveServices(
   tenantId: string,
   locale: string,
 ): Promise<BookableService[]> {
-  const { data } = await supabase
-    .from("bookable_services")
-    .select("id, name, duration_minutes, price_minor, customer_sets_end")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .eq("online_booking", true)
-    .is("archived_at", null);
-  return (data ?? []).map((s) => ({
+  const data = await fetchAll((from, to) =>
+    supabase
+      .from("bookable_services")
+      .select("id, name, duration_minutes, price_minor, customer_sets_end")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .eq("online_booking", true)
+      .is("archived_at", null)
+      .order("id")
+      .range(from, to),
+  );
+  return data.map((s) => ({
     id: s.id,
     name: s.name[locale] ?? Object.values(s.name)[0] ?? "",
     durationMinutes: s.duration_minutes,

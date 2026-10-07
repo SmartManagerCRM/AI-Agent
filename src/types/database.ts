@@ -1654,6 +1654,10 @@ export type Database = {
         Args: { p_conversation_ids: string[] };
         Returns: { conversation_id: string; role: string; content: string; handled_by: string | null }[];
       };
+      tenant_ai_spend: {
+        Args: { p_tenant_id: string; p_since: string };
+        Returns: number;
+      };
       agent_interaction_totals_by_tenant: {
         Args: { p_since: string };
         Returns: { tenant_id: string; interactions: number; deterministic: number; cost_usd: number }[];

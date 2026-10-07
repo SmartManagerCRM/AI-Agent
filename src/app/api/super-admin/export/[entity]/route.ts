@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import { NextResponse } from "next/server";
 
 import { toCsv } from "@/lib/csv";
@@ -6,7 +7,8 @@ import { getRecentSubscribers } from "@/server/platform/dashboard-stats";
 import { createUserClient } from "@/server/supabase/clients";
 import { requireSuperAdmin } from "@/server/tenant/context";
 
-const EXPORT_ROW_LIMIT = 5000;
+// Exports are complete: every row, however many (read in pages).
+const EXPORT_ROW_LIMIT = Number.POSITIVE_INFINITY;
 const ENTITIES = ["businesses", "payments", "subscribers"] as const;
 type Entity = (typeof ENTITIES)[number];
 
@@ -28,12 +30,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ent
   let csv: string;
   if (entity === "businesses") {
     const [{ data: tenants }, { data: subscriptions }, { data: businessTypes }] = await Promise.all([
-      supabase
-        .from("tenants")
-        .select("id, slug, business_name, business_type_key, status, country, currency, created_at")
-        .order("created_at", { ascending: false })
-        .limit(EXPORT_ROW_LIMIT),
-      supabase.from("subscriptions").select("tenant_id, plan_key, status"),
+      allRows((from, to) =>
+        supabase
+          .from("tenants")
+          .select("id, slug, business_name, business_type_key, status, country, currency, created_at")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      allRows((from, to) => supabase.from("subscriptions").select("tenant_id, plan_key, status").order("tenant_id").range(from, to)),
       supabase.from("business_types").select("key, name"),
     ]);
     const typeNameByKey = new Map((businessTypes ?? []).map((t) => [t.key, t.name.en ?? t.key]));

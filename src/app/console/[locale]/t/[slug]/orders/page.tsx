@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
@@ -112,14 +113,18 @@ export default async function OrdersPage({
     Promise.all([
       query,
       supabase.from("currencies").select("code, exponent"),
-      supabase
-        .from("products")
-        .select("id, name, price_minor, status")
-        .eq("tenant_id", tenant.id)
-        .neq("status", "archived")
-        .is("source_price", null) // still waiting for the owner's price
-        .order("created_at", { ascending: false })
-        .limit(1000),
+      // Every product the owner can sell (however many), for "Add order".
+      allRows((from, to) =>
+        supabase
+          .from("products")
+          .select("id, name, price_minor, status")
+          .eq("tenant_id", tenant.id)
+          .neq("status", "archived")
+          .is("source_price", null) // still waiting for the owner's price
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
       Promise.all(GROUPS.map(countOf)),
     ]),
   );

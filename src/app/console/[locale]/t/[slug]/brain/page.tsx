@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import { GoLivePanel } from "@/components/agent/go-live-panel";
 import { CreateEntryForm } from "@/components/brain/create-entry-form";
 import { DiscoveryPanel } from "@/components/brain/discovery-panel";
@@ -107,12 +108,16 @@ export default async function BusinessBrainPage({
         .order("created_at", { ascending: false })
         .order("id")
         .range(from, from + PAGE_SIZE - 1),
-      supabase
-        .from("business_brain_conflicts")
-        .select("*")
-        .eq("tenant_id", tenant.id)
-        .eq("status", "open")
-        .order("created_at", { ascending: false }),
+      allRows((from, to) =>
+        supabase
+          .from("business_brain_conflicts")
+          .select("*")
+          .eq("tenant_id", tenant.id)
+          .eq("status", "open")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
       countEntries().eq("status", "pending_review"),
       countEntries().eq("status", "approved"),
       supabase

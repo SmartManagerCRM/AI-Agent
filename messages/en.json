@@ -3437,7 +3437,7 @@
       "addProduct": "Add at least one product.",
       "checkDetails": "Check the order details.",
       "added": "Order #{n} added.",
-      "csvTooLarge": "The file is too large — keep it under 1 MB (about 2,000 rows).",
+      "csvTooLarge": "The file is too large — keep it under 8 MB, or split it into several files.",
       "csvEmpty": "Choose a CSV file or paste the rows first.",
       "fixRows": "Nothing was added — fix these rows and upload again:",
       "nothingAdded": "Nothing was added — {reason}",
@@ -3470,7 +3470,8 @@
         "branch": "{label}choose the branch for this order.",
         "branchUnknown": "{label}that branch is not one of yours."
       },
-      "ownBranches": "You can only add orders for your own branches."
+      "ownBranches": "You can only add orders for your own branches.",
+      "partlyAdded": "{count} orders were added (#{first}–#{last}), but the rest could not be added — {reason}"
     },
     "brain": {
       "checkLinks": "Check the links you entered.",

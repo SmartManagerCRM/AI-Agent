@@ -1,5 +1,6 @@
 "use server";
 
+import { allRows } from "@/server/supabase/fetch-all";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -58,13 +59,16 @@ export async function previewCurrencySwitchAction(raw: { locale: string; slug: s
     await Promise.all([
       supabase.from("currencies").select("code, exponent").in("code", [tenant.currency, to]),
       loadUsdRates(),
-      supabase
-        .from("products")
-        .select("name, price_minor, source_price, status")
-        .eq("tenant_id", tenant.id)
-        .neq("status", "archived")
-        .order("created_at", { ascending: false })
-        .limit(2000),
+      allRows((from, to) =>
+        supabase
+          .from("products")
+          .select("name, price_minor, source_price, status")
+          .eq("tenant_id", tenant.id)
+          .neq("status", "archived")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
       supabase.from("bookable_services").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).not("price_minor", "is", null),
       supabase.from("coupons").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id),
       supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),

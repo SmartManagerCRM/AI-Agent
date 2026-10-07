@@ -1,5 +1,6 @@
 import "server-only";
 
+import { allRows } from "@/server/supabase/fetch-all";
 import { cookies, headers } from "next/headers";
 
 import type { AgentExperienceProps } from "@/components/agent-public/agent-experience";
@@ -56,12 +57,17 @@ export async function loadAgentExperience(
   ] = await Promise.all([
     supabase.from("tenant_settings").select("agent, checkout").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("categories").select("id, name").eq("tenant_id", tenant.id).eq("is_active", true).order("position"),
-    supabase
-      .from("products")
-      .select("id, category_id, name, description, price_minor, image_path")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "active")
-      .order("created_at"),
+    // Every active product, however many (read in pages).
+    allRows((from, to) =>
+      supabase
+        .from("products")
+        .select("id, category_id, name, description, price_minor, image_path")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "active")
+        .order("created_at")
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("currencies").select("exponent").eq("code", tenant.currency).maybeSingle(),
     supabase
       .from("business_brain_entries")
@@ -80,7 +86,8 @@ export async function loadAgentExperience(
       .eq("is_active", true)
       .maybeSingle(),
     supabase.from("tenants").select("contact_phone, contact_email, city, logo_path, timezone").eq("id", tenant.id).maybeSingle(),
-    supabase
+    allRows((from, to) =>
+      supabase
       .from("bookable_services")
       .select("id, name, description, duration_minutes, price_minor, price_unit, capacity, customer_sets_end, requires_approval")
       .eq("tenant_id", tenant.id)
@@ -88,7 +95,10 @@ export async function loadAgentExperience(
       // Only services the owner offers for online booking appear on the Agent.
       .eq("online_booking", true)
       .is("archived_at", null)
-      .order("created_at"),
+      .order("created_at")
+      .order("id")
+      .range(from, to),
+    ),
     getPopularityByProduct(supabase, tenant.id),
   ]);
 

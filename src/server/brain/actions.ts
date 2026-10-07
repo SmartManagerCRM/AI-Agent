@@ -1,5 +1,6 @@
 "use server";
 
+import { allRows } from "@/server/supabase/fetch-all";
 import { legacyEventI18n } from "@/lib/brain-events";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
@@ -313,15 +314,19 @@ export async function approveSafeSuggestionsAction(formData: FormData): Promise<
   const { tenant } = await requireTenantMember(parsed.data.locale, parsed.data.slug);
   const supabase = await createUserClient();
   const [{ data: candidates }, { data: conflicts }] = await Promise.all([
-    supabase
-      .from("business_brain_entries")
-      .select("id, fact_key, entry_type, confidence_score, extraction_method")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "pending_review")
-      .gte("confidence_score", 85)
-      .in("extraction_method", ["structured_api", "structured_data"])
-      .order("confidence_score", { ascending: false }), // the most authoritative source wins per fact
-    supabase.from("business_brain_conflicts").select("entry_key").eq("tenant_id", tenant.id).eq("status", "open"),
+    allRows((from, to) =>
+      supabase
+        .from("business_brain_entries")
+        .select("id, fact_key, entry_type, confidence_score, extraction_method")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "pending_review")
+        .gte("confidence_score", 85)
+        .in("extraction_method", ["structured_api", "structured_data"])
+        .order("confidence_score", { ascending: false }) // the most authoritative source wins per fact
+        .order("id")
+        .range(from, to),
+    ),
+    allRows((from, to) => supabase.from("business_brain_conflicts").select("entry_key").eq("tenant_id", tenant.id).eq("status", "open").order("id").range(from, to)),
   ]);
   const conflicted = new Set((conflicts ?? []).map((c) => c.entry_key));
   const approvedKeys = new Set<string>();

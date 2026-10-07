@@ -25,7 +25,12 @@ export async function searchPlatform(supabase: TypedSupabaseClient, query: strin
 
   const [{ data: slugMatches }, { data: allTenants }, { data: profiles }, { data: orders }] = await Promise.all([
     supabase.from("tenants").select("id, slug, business_name").ilike("slug", like).limit(8),
-    supabase.from("tenants").select("id, slug, business_name").limit(500),
+    // Names in any of the platform's languages, matched in the database (every business, however many).
+    supabase
+      .from("tenants")
+      .select("id, slug, business_name")
+      .or(["en", "ar", "fr"].map((l) => `business_name->>${l}.ilike.${like.replace(/[,()]/g, " ")}`).join(","))
+      .limit(8),
     supabase.from("profiles").select("id, full_name, email").or(`full_name.ilike.${like},email.ilike.${like}`).limit(8),
     Number.isInteger(orderNumber) && orderNumber > 0
       ? supabase
@@ -38,11 +43,7 @@ export async function searchPlatform(supabase: TypedSupabaseClient, query: strin
         }),
   ]);
 
-  // business_name is a jsonb map, not filterable by `ilike` server-side —
-  // matched here against every language's value from an already-fetched list.
-  const nameMatches = (allTenants ?? []).filter((t) =>
-    Object.values(t.business_name).some((v) => v.toLowerCase().includes(q.toLowerCase())),
-  );
+  const nameMatches = allTenants ?? [];
   const tenantById = new Map([...(slugMatches ?? []), ...nameMatches].map((t) => [t.id, t]));
 
   const businesses: SearchResult[] = Array.from(tenantById.values())

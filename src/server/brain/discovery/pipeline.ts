@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import { aiClassifyBusiness, aiExtractPage, AI_EXTRACTOR_VERSION, type AiContext, type AiPageFacts } from "./ai-extract";
 import { categoryForKey, classifyFromGoogle, classifyFromSchemaTypes, type BusinessCategory, type BusinessTypeGuess } from "./business-type";
 import { EXTRACTOR_VERSION, contentFingerprint, type PageExtraction } from "./extract";
@@ -982,14 +983,18 @@ function round6(n: number): number {
 
 export async function loadReadiness(supabase: TypedSupabaseClient, tenantId: string): Promise<Readiness> {
   const [{ data: facts }, { data: conflicts }, { data: products }, { data: branches }] = await Promise.all([
-    supabase
-      .from("business_brain_entries")
-      .select("fact_key, entry_type, status, content")
-      .eq("tenant_id", tenantId)
-      .in("status", ["approved", "pending_review"])
-      .eq("is_active", true),
-    supabase.from("business_brain_conflicts").select("entry_key").eq("tenant_id", tenantId).eq("status", "open"),
-    supabase.from("products").select("price_minor").eq("tenant_id", tenantId).eq("status", "active"),
+    allRows((from, to) =>
+      supabase
+        .from("business_brain_entries")
+        .select("fact_key, entry_type, status, content")
+        .eq("tenant_id", tenantId)
+        .in("status", ["approved", "pending_review"])
+        .eq("is_active", true)
+        .order("id")
+        .range(from, to),
+    ),
+    allRows((from, to) => supabase.from("business_brain_conflicts").select("entry_key").eq("tenant_id", tenantId).eq("status", "open").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("products").select("price_minor").eq("tenant_id", tenantId).eq("status", "active").order("id").range(from, to)),
     supabase.from("branches").select("phone, opening_hours").eq("tenant_id", tenantId).eq("is_active", true),
   ]);
   return computeReadiness({

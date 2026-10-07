@@ -1,3 +1,4 @@
+import { fetchAll } from "@/server/supabase/fetch-all";
 import { normalizeProductName } from "@/server/brain/discovery/facts";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
@@ -32,10 +33,10 @@ export async function existingCatalogNames(
 ): Promise<Set<string>> {
   const rows =
     kind === "product"
-      ? (await supabase.from("products").select("name, status").eq("tenant_id", tenantId)).data?.filter(
+      ? (await fetchAll((from, to) => supabase.from("products").select("name, status").eq("tenant_id", tenantId).order("id").range(from, to))).filter(
           (p) => includeArchived || p.status !== "archived",
         )
-      : (await supabase.from("bookable_services").select("name").eq("tenant_id", tenantId)).data;
+      : await fetchAll((from, to) => supabase.from("bookable_services").select("name").eq("tenant_id", tenantId).order("id").range(from, to));
   return new Set((rows ?? []).flatMap((r) => Object.values(r.name ?? {}).map((n) => normalizeProductName(String(n)))));
 }
 

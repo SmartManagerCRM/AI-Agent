@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import Link from "next/link";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { PlanForm } from "@/components/platform/plan-form";
@@ -40,7 +41,7 @@ export default async function PlansPage({
       )
       .order("sort_order"),
     supabase.from("currencies").select("code, name").order("code"),
-    supabase.from("subscriptions").select("plan_key, status"),
+    allRows((from, to) => supabase.from("subscriptions").select("plan_key, status").order("tenant_id").range(from, to)),
     loadPlanAiCostLimits(supabase),
   ]);
 

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
+import { allRows, fetchAll } from "@/server/supabase/fetch-all";
 
 export type CostGuardStatus = {
   /** Effective monthly budget in USD — tenant override, else the platform default, else null (no cap). */
@@ -30,20 +31,31 @@ function startOfMonthUtc(): string {
  * be using (a staff session missing some permission should never make a
  * genuinely over-budget tenant look fine, or vice versa).
  */
+/**
+ * This month's AI spend, complete however many interactions there were:
+ * summed in the database (`tenant_ai_spend`); should that function be
+ * missing, every interaction is read page by page and summed here.
+ */
+async function monthSpend(supabase: ReturnType<typeof serviceClient>, tenantId: string): Promise<number> {
+  const since = startOfMonthUtc();
+  const { data, error } = await supabase.rpc("tenant_ai_spend", { p_tenant_id: tenantId, p_since: since });
+  if (!error && data !== null) return Number(data);
+  const rows = await fetchAll((from, to) =>
+    supabase.from("agent_interactions").select("estimated_cost_usd").eq("tenant_id", tenantId).gte("created_at", since).order("id").range(from, to),
+  );
+  return rows.reduce((sum, row) => sum + Number(row.estimated_cost_usd), 0);
+}
+
 export async function getCostGuardStatus(tenantId: string): Promise<CostGuardStatus> {
   const supabase = serviceClient();
-  const [{ data: tenantSettings }, { data: platformSettings }, { data: interactions }] = await Promise.all([
+  const [{ data: tenantSettings }, { data: platformSettings }, spent] = await Promise.all([
     supabase.from("tenant_settings").select("ai_monthly_budget_usd").eq("tenant_id", tenantId).maybeSingle(),
     supabase.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
-    supabase
-      .from("agent_interactions")
-      .select("estimated_cost_usd")
-      .eq("tenant_id", tenantId)
-      .gte("created_at", startOfMonthUtc()),
+    monthSpend(supabase, tenantId),
   ]);
 
   const budgetUsd = tenantSettings?.ai_monthly_budget_usd ?? platformSettings?.default_ai_monthly_budget_usd ?? null;
-  const spentUsd = (interactions ?? []).reduce((sum, row) => sum + row.estimated_cost_usd, 0);
+  const spentUsd = spent;
 
   return { budgetUsd, spentUsd, exceeded: budgetUsd !== null && spentUsd >= budgetUsd };
 }
@@ -69,8 +81,8 @@ export async function getCostGuardAlerts(supabase: TypedSupabaseClient): Promise
   const admin = serviceClient();
   const [{ data: tenants }, { data: tenantSettings }, { data: platformSettings }, { data: interactions }] =
     await Promise.all([
-      supabase.from("tenants").select("id, slug, business_name"),
-      admin.from("tenant_settings").select("tenant_id, ai_monthly_budget_usd"),
+      allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").order("id").range(from, to)),
+      allRows((from, to) => admin.from("tenant_settings").select("tenant_id, ai_monthly_budget_usd").order("tenant_id").range(from, to)),
       admin.from("platform_settings").select("default_ai_monthly_budget_usd").eq("id", true).maybeSingle(),
       // Summed per tenant in Postgres — not every AI interaction this month.
       supabase.rpc("agent_interaction_totals_by_tenant", { p_since: startOfMonthUtc() }),

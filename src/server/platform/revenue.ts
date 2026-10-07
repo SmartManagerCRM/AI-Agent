@@ -1,3 +1,4 @@
+import { allRows, fetchAll, fetchByIds } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -29,8 +30,8 @@ export type RevenueSummary = {
  */
 export async function getRevenueSummary(supabase: TypedSupabaseClient): Promise<RevenueSummary> {
   const [{ data: payments }, { data: activeSubs }, { data: plans }] = await Promise.all([
-    supabase.from("subscription_payments").select("amount_minor, currency, status"),
-    supabase.from("subscriptions").select("plan_key").in("status", ["active", "trialing"]),
+    allRows((from, to) => supabase.from("subscription_payments").select("amount_minor, currency, status").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("subscriptions").select("plan_key").in("status", ["active", "trialing"]).order("tenant_id").range(from, to)),
     supabase.from("subscription_plans").select("key, price_minor, currency, billing_interval"),
   ]);
 
@@ -81,20 +82,20 @@ export async function getRecentPayments(
   status?: "succeeded" | "failed" | "pending",
   limit = 100,
 ): Promise<PlatformPaymentRow[]> {
-  let query = supabase
-    .from("subscription_payments")
-    .select("id, tenant_id, plan_key, status, amount_minor, currency, failure_reason, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (status) query = query.eq("status", status);
-  const { data: payments } = await query;
-  const rows = payments ?? [];
+  // `limit` = Infinity: every payment (the CSV export).
+  const query = () => {
+    const q = supabase
+      .from("subscription_payments")
+      .select("id, tenant_id, plan_key, status, amount_minor, currency, failure_reason, created_at")
+      .order("created_at", { ascending: false })
+      .order("id");
+    return status ? q.eq("status", status) : q;
+  };
+  const rows = Number.isFinite(limit) ? ((await query().limit(limit)).data ?? []) : await fetchAll((from, to) => query().range(from, to));
 
   const tenantIds = [...new Set(rows.map((p) => p.tenant_id))];
   const [{ data: tenants }, { data: plans }] = await Promise.all([
-    tenantIds.length
-      ? supabase.from("tenants").select("id, slug, business_name").in("id", tenantIds)
-      : Promise.resolve({ data: [] }),
+    fetchByIds(tenantIds, (ids, from, to) => supabase.from("tenants").select("id, slug, business_name").in("id", ids).order("id").range(from, to)).then((data) => ({ data })),
     supabase.from("subscription_plans").select("key, name"),
   ]);
   const tenantById = new Map((tenants ?? []).map((t) => [t.id, t]));

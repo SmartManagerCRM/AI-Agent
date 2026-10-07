@@ -1,3 +1,4 @@
+import { allRows, fetchAll, fetchByIds } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import { getCostGuardAlerts } from "@/server/ai/cost-guard";
@@ -70,12 +71,16 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
     { data: subscriptions },
     { data: owners },
   ] = await Promise.all([
-    supabase.from("tenants").select("id, created_at, currency"),
-    supabase.from("tenant_settings").select("tenant_id, agent"),
-    supabase
-      .from("subscription_payments")
-      .select("amount_minor, currency, status, created_at")
-      .eq("status", "succeeded"),
+    allRows((from, to) => supabase.from("tenants").select("id, created_at, currency").order("id").range(from, to)),
+    allRows((from, to) => supabase.from("tenant_settings").select("tenant_id, agent").order("tenant_id").range(from, to)),
+    allRows((from, to) =>
+      supabase
+        .from("subscription_payments")
+        .select("amount_minor, currency, status, created_at")
+        .eq("status", "succeeded")
+        .order("id")
+        .range(from, to),
+    ),
     // Counted in Postgres (head requests) rather than downloading every
     // conversation on the platform to count them in JS.
     Promise.all([
@@ -94,9 +99,9 @@ export async function getPlatformKpis(supabase: TypedSupabaseClient): Promise<Pl
       current: current.count ?? 0,
       prior: prior.count ?? 0,
     })),
-    supabase.from("subscriptions").select("tenant_id, status, created_at"),
+    allRows((from, to) => supabase.from("subscriptions").select("tenant_id, status, created_at").order("tenant_id").range(from, to)),
     ownerRole
-      ? supabase.from("tenant_members").select("user_id, created_at").eq("role_id", ownerRole.id)
+      ? allRows((from, to) => supabase.from("tenant_members").select("user_id, created_at").eq("role_id", ownerRole.id).order("id").range(from, to))
       : Promise.resolve({ data: [] as { user_id: string; created_at: string }[] }),
   ]);
 
@@ -183,7 +188,7 @@ export async function getPlatformGrowthSeries(
       .eq("key", "business_owner")
       .maybeSingle();
     const { data } = ownerRole
-      ? await supabase.from("tenant_members").select("created_at").eq("role_id", ownerRole.id).gte("created_at", since)
+      ? await allRows((from, to) => supabase.from("tenant_members").select("created_at").eq("role_id", ownerRole.id).gte("created_at", since).order("id").range(from, to))
       : { data: [] };
     for (const row of data ?? []) {
       const day = row.created_at.slice(0, 10);
@@ -231,7 +236,7 @@ export type CompositionSegment = { label: string; count: number; color: string }
 /** Names are given in `locale` (English when a plan or type has no name in it). */
 export async function getSubscribersByPlan(supabase: TypedSupabaseClient, locale = "en"): Promise<CompositionSegment[]> {
   const [{ data: subscriptions }, { data: plans }] = await Promise.all([
-    supabase.from("subscriptions").select("plan_key").eq("status", "active"),
+    allRows((from, to) => supabase.from("subscriptions").select("plan_key").eq("status", "active").order("tenant_id").range(from, to)),
     supabase.from("subscription_plans").select("key, name"),
   ]);
   const nameByKey = new Map((plans ?? []).map((p) => [p.key, p.name[locale] ?? p.name.en ?? p.key]));
@@ -246,7 +251,7 @@ export async function getSubscribersByPlan(supabase: TypedSupabaseClient, locale
 
 export async function getTopBusinessTypes(supabase: TypedSupabaseClient, locale = "en"): Promise<CompositionSegment[]> {
   const [{ data: tenants }, { data: types }] = await Promise.all([
-    supabase.from("tenants").select("business_type_key"),
+    allRows((from, to) => supabase.from("tenants").select("business_type_key").order("id").range(from, to)),
     supabase.from("business_types").select("key, name"),
   ]);
   const nameByKey = new Map((types ?? []).map((t) => [t.key, t.name[locale] ?? t.name.en ?? t.key]));
@@ -262,7 +267,7 @@ export async function getTopBusinessTypes(supabase: TypedSupabaseClient, locale 
 }
 
 export async function getGeographicDistribution(supabase: TypedSupabaseClient): Promise<CompositionSegment[]> {
-  const { data: tenants } = await supabase.from("tenants").select("country");
+  const tenants = await fetchAll((from, to) => supabase.from("tenants").select("country").order("id").range(from, to));
   const counts = new Map<string, number>();
   for (const t of tenants ?? []) {
     const country = t.country?.trim();
@@ -298,13 +303,11 @@ export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit 
     .maybeSingle();
   if (!ownerRole) return [];
 
-  const { data: owners } = await supabase
-    .from("tenant_members")
-    .select("user_id, tenant_id, created_at")
-    .eq("role_id", ownerRole.id)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (!owners || owners.length === 0) return [];
+  // `limit` = Infinity: every subscriber (the CSV export).
+  const ownersQuery = () =>
+    supabase.from("tenant_members").select("user_id, tenant_id, created_at").eq("role_id", ownerRole.id).order("created_at", { ascending: false }).order("id");
+  const owners = Number.isFinite(limit) ? ((await ownersQuery().limit(limit)).data ?? []) : await fetchAll((from, to) => ownersQuery().range(from, to));
+  if (owners.length === 0) return [];
 
   const tenantIds = owners.map((o) => o.tenant_id);
   const userIds = owners.map((o) => o.user_id);
@@ -317,16 +320,14 @@ export async function getRecentSubscribers(supabase: TypedSupabaseClient, limit 
     { data: businessTypes },
     { data: payments },
   ] = await Promise.all([
-    supabase.from("tenants").select("id, slug, business_name, business_type_key, currency").in("id", tenantIds),
-    supabase.from("profiles").select("id, full_name, email").in("id", userIds),
-    supabase.from("subscriptions").select("tenant_id, plan_key, status").in("tenant_id", tenantIds),
+    fetchByIds(tenantIds, (ids, from, to) => supabase.from("tenants").select("id, slug, business_name, business_type_key, currency").in("id", ids).order("id").range(from, to)).then((data) => ({ data })),
+    fetchByIds(userIds, (ids, from, to) => supabase.from("profiles").select("id, full_name, email").in("id", ids).order("id").range(from, to)).then((data) => ({ data })),
+    fetchByIds(tenantIds, (ids, from, to) => supabase.from("subscriptions").select("tenant_id, plan_key, status").in("tenant_id", ids).order("tenant_id").range(from, to)).then((data) => ({ data })),
     supabase.from("subscription_plans").select("key, name"),
     supabase.from("business_types").select("key, name"),
-    supabase
-      .from("subscription_payments")
-      .select("tenant_id, amount_minor, status")
-      .eq("status", "succeeded")
-      .in("tenant_id", tenantIds),
+    fetchByIds(tenantIds, (ids, from, to) =>
+      supabase.from("subscription_payments").select("tenant_id, amount_minor, status").eq("status", "succeeded").in("tenant_id", ids).order("id").range(from, to),
+    ).then((data) => ({ data })),
   ]);
 
   const tenantById = new Map((tenants ?? []).map((t) => [t.id, t]));
@@ -418,12 +419,10 @@ export type PlatformAlert = {
 export async function getPlatformAlerts(supabase: TypedSupabaseClient): Promise<PlatformAlert[]> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const [{ data: failedPayments }, { data: suspended }, costGuardAlerts, anomalyAlerts] = await Promise.all([
-    supabase
-      .from("subscription_payments")
-      .select("id, tenant_id, created_at")
-      .eq("status", "failed")
-      .gte("created_at", since),
-    supabase.from("tenants").select("id, slug, business_name").eq("status", "suspended"),
+    allRows((from, to) =>
+      supabase.from("subscription_payments").select("id, tenant_id, created_at").eq("status", "failed").gte("created_at", since).order("id").range(from, to),
+    ),
+    allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").eq("status", "suspended").order("id").range(from, to)),
     getCostGuardAlerts(supabase),
     getAnomalyAlerts(supabase),
   ]);

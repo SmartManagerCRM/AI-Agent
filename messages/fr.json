@@ -3437,7 +3437,7 @@
       "addProduct": "Ajoutez au moins un produit.",
       "checkDetails": "Vérifiez les détails de la commande.",
       "added": "Commande n° {n} ajoutée.",
-      "csvTooLarge": "Le fichier est trop volumineux — moins de 1 Mo (environ 2 000 lignes).",
+      "csvTooLarge": "Le fichier est trop volumineux — gardez-le sous 8 Mo, ou divisez-le en plusieurs fichiers.",
       "csvEmpty": "Choisissez un fichier CSV ou collez d’abord les lignes.",
       "fixRows": "Rien n’a été ajouté — corrigez ces lignes et téléversez à nouveau :",
       "nothingAdded": "Rien n’a été ajouté — {reason}",
@@ -3470,7 +3470,8 @@
         "branch": "{label}choisissez la succursale de cette commande.",
         "branchUnknown": "{label}cette succursale n’est pas l’une des vôtres."
       },
-      "ownBranches": "Vous ne pouvez ajouter des commandes que pour vos succursales."
+      "ownBranches": "Vous ne pouvez ajouter des commandes que pour vos succursales.",
+      "partlyAdded": "{count} commandes ont été ajoutées (n° {first}–{last}), mais le reste n'a pas pu l'être — {reason}"
     },
     "brain": {
       "checkLinks": "Vérifiez les liens saisis.",

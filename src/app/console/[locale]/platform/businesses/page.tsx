@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
@@ -41,12 +42,17 @@ export default async function BusinessesPage({
 
   const [{ data: tenants }, { data: subscriptions }, { data: tenantSettings }, { data: businessTypes }] =
     await Promise.all([
-      supabase
-        .from("tenants")
-        .select("id, slug, business_name, business_type_key, status, country, created_at")
-        .order("created_at", { ascending: false }),
-      supabase.from("subscriptions").select("tenant_id, plan_key, status"),
-      supabase.from("tenant_settings").select("tenant_id, agent"),
+      // Every business, however many (read in pages).
+      allRows((from, to) =>
+        supabase
+          .from("tenants")
+          .select("id, slug, business_name, business_type_key, status, country, created_at")
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
+      allRows((from, to) => supabase.from("subscriptions").select("tenant_id, plan_key, status").order("tenant_id").range(from, to)),
+      allRows((from, to) => supabase.from("tenant_settings").select("tenant_id, agent").order("tenant_id").range(from, to)),
       supabase.from("business_types").select("key, name"),
     ]);
 

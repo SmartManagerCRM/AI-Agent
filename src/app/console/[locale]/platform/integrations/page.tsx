@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
@@ -21,7 +22,7 @@ export default async function IntegrationsPage({ params }: { params: Promise<{ l
 
   const [{ data: statuses }, { data: tenants }] = await Promise.all([
     supabase.rpc("tenant_payment_integration_status"),
-    supabase.from("tenants").select("id, slug, business_name").order("business_name"),
+    allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").order("business_name").order("id").range(from, to)),
   ]);
 
   const statusByTenant = new Map((statuses ?? []).map((s) => [s.tenant_id, s]));

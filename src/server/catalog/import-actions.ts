@@ -41,8 +41,7 @@ export type ImportState =
   | undefined;
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const MAX_PDF_PAGES = 60;
-const MAX_ITEMS = 1000;
+const MAX_PDF_PAGES = 200;
 
 function decodeHtml(bytes: Uint8Array): string {
   const head = new TextDecoder("latin1").decode(bytes.slice(0, 2048));
@@ -99,12 +98,13 @@ export async function importCatalogFileAction(_prev: ImportState, formData: Form
 
   const supabase = await createUserClient();
   const existingNames = await existingCatalogNames(supabase, tenant.id, kind, false);
-  const prepared = prepareCatalogItems(raw.slice(0, MAX_ITEMS * 2), {
+  // Every item in the file is imported (added in groups of 200), however many.
+  const prepared = prepareCatalogItems(raw, {
     tenantCurrency: tenant.currency,
     kind,
     existingNames,
   });
-  const items = prepared.items.slice(0, MAX_ITEMS);
+  const items = prepared.items;
   if (items.length === 0) {
     return {
       ok: false,

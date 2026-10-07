@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import { normalizeProductName } from "@/server/brain/discovery/facts";
 import { isReadableName } from "@/server/brain/discovery/name-quality";
 import { parseAmount } from "@/server/agent-public/launch";
@@ -61,18 +62,22 @@ export async function draftBrainCatalog(
   options: { storage?: StorageWriter; imageBudgetMs?: number; fetchImage?: ImageFetcher } = {},
 ): Promise<BrainCatalogResult> {
   const [{ data: entries }, { data: products }, { data: services }] = await Promise.all([
-    supabase
-      .from("business_brain_entries")
-      .select("fact_key, entry_type, status, content")
-      .eq("tenant_id", tenant.id)
-      .in("entry_type", ["product_candidate", "service_candidate"])
-      .in("status", ["pending_review", "approved"])
-      .eq("is_active", true)
-      .not("fact_key", "is", null)
-      .order("status") // approved before pending_review: the owner's version wins a fact
-      .limit(2000),
-    supabase.from("products").select("name, brain_fact_key").eq("tenant_id", tenant.id),
-    supabase.from("bookable_services").select("name, brain_fact_key").eq("tenant_id", tenant.id),
+    allRows((from, to) =>
+      supabase
+        .from("business_brain_entries")
+        .select("fact_key, entry_type, status, content")
+        .eq("tenant_id", tenant.id)
+        .in("entry_type", ["product_candidate", "service_candidate"])
+        .in("status", ["pending_review", "approved"])
+        .eq("is_active", true)
+        .not("fact_key", "is", null)
+        .order("status") // approved before pending_review: the owner's version wins a fact
+        .order("id")
+        .range(from, to),
+    ),
+    // Every product and service already there (however many), so none is added twice.
+    allRows((from, to) => supabase.from("products").select("name, brain_fact_key").eq("tenant_id", tenant.id).order("id").range(from, to)),
+    allRows((from, to) => supabase.from("bookable_services").select("name, brain_fact_key").eq("tenant_id", tenant.id).order("id").range(from, to)),
   ]);
 
   const known = (rows: { name: Record<string, string> | null; brain_fact_key: string | null }[] | null) => ({

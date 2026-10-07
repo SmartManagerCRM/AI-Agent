@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import { serviceClient, type TypedSupabaseClient } from "@/server/supabase/clients";
@@ -58,19 +59,25 @@ export async function getIngestionEconomics(supabase: TypedSupabaseClient, days 
   // Super Admin Business Brain page calls this, after `requireSuperAdmin`.
   const admin = serviceClient();
   const [{ data: jobs }, { data: calls }, { data: tenants }] = await Promise.all([
-    admin
-      .from("brain_ingestion_jobs")
-      .select("id, tenant_id, status, created_at, pages_processed, facts_proposed, conflicts_detected, google_calls, google_cost_usd, ai_calls, ai_cost_usd, budget_usd")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(2000),
-    admin
-      .from("agent_interactions")
-      .select("tenant_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, success, latency_ms, purpose")
-      .eq("request_type", "brain_ingestion")
-      .gte("created_at", since)
-      .limit(20000),
-    supabase.from("tenants").select("id, slug, business_name"),
+    allRows((from, to) =>
+      admin
+        .from("brain_ingestion_jobs")
+        .select("id, tenant_id, status, created_at, pages_processed, facts_proposed, conflicts_detected, google_calls, google_cost_usd, ai_calls, ai_cost_usd, budget_usd")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    allRows((from, to) =>
+      admin
+        .from("agent_interactions")
+        .select("tenant_id, provider, model, input_tokens, output_tokens, estimated_cost_usd, success, latency_ms, purpose")
+        .eq("request_type", "brain_ingestion")
+        .gte("created_at", since)
+        .order("id")
+        .range(from, to),
+    ),
+    allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").order("id").range(from, to)),
   ]);
 
   const tenantById = new Map((tenants ?? []).map((t) => [t.id, t]));

@@ -1,3 +1,4 @@
+import { fetchAll } from "@/server/supabase/fetch-all";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 
 /**
@@ -162,12 +163,10 @@ export async function findActiveProductByName(
   locale: string,
   query: string,
 ): Promise<NamedProduct | null> {
-  const { data } = await supabase
-    .from("products")
-    .select("id, name, price_minor")
-    .eq("tenant_id", tenantId)
-    .eq("status", "active");
-  return matchProductByName(data ?? [], locale, query);
+  const data = await fetchAll((from, to) =>
+    supabase.from("products").select("id, name, price_minor").eq("tenant_id", tenantId).eq("status", "active").order("id").range(from, to),
+  );
+  return matchProductByName(data, locale, query);
 }
 
 export async function viewCart(

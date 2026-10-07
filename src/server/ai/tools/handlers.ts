@@ -1,5 +1,6 @@
 import "server-only";
 
+import { allRows } from "@/server/supabase/fetch-all";
 import {
   addToCart,
   clearCart,
@@ -145,12 +146,16 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       // Same multilingual, normalized search as the deterministic catalog answers — any language the product is named in.
       const query = String(input.query ?? "").trim();
       const [{ data }, { data: categories }] = await Promise.all([
-        ctx.supabase
-          .from("products")
-          .select("id, category_id, name, description, price_minor")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("status", "active"),
-        ctx.supabase.from("categories").select("id, name").eq("tenant_id", ctx.tenantId).eq("is_active", true),
+        allRows((from, to) =>
+          ctx.supabase
+            .from("products")
+            .select("id, category_id, name, description, price_minor")
+            .eq("tenant_id", ctx.tenantId)
+            .eq("status", "active")
+            .order("id")
+            .range(from, to),
+        ),
+        allRows((from, to) => ctx.supabase.from("categories").select("id, name").eq("tenant_id", ctx.tenantId).eq("is_active", true).order("id").range(from, to)),
       ]);
       const catalog: Catalog = {
         currency: ctx.currency,

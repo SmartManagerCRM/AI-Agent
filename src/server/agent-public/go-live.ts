@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import { isEntitled } from "@/server/billing/entitlement";
@@ -63,15 +64,18 @@ export async function loadGoLive(supabase: TypedSupabaseClient, tenant: Tenant, 
       .maybeSingle(),
     supabase.from("tenant_settings").select("checkout").eq("tenant_id", tenant.id).maybeSingle(),
     supabase.from("business_types").select("name").eq("key", tenant.business_type_key).maybeSingle(),
-    supabase
-      .from("business_brain_entries")
-      .select("id, fact_key, entry_type, content")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "approved")
-      .eq("is_active", true)
-      .limit(2000),
+    allRows((from, to) =>
+      supabase
+        .from("business_brain_entries")
+        .select("id, fact_key, entry_type, content")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "approved")
+        .eq("is_active", true)
+        .order("id")
+        .range(from, to),
+    ),
     // Deleted (archived) products included: what the owner removed is never added back.
-    supabase.from("products").select("name, price_minor, status").eq("tenant_id", tenant.id),
+    allRows((from, to) => supabase.from("products").select("name, price_minor, status").eq("tenant_id", tenant.id).order("id").range(from, to)),
     supabase.from("bookable_services").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("is_active", true),
     supabase.from("branches").select("opening_hours").eq("tenant_id", tenant.id).eq("is_active", true),
   ]);

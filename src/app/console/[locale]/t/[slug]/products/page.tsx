@@ -1,3 +1,4 @@
+import { fetchAll } from "@/server/supabase/fetch-all";
 import { BrainSyncButton } from "@/components/catalog/brain-sync-button";
 import { CreateCategoryForm } from "@/components/catalog/create-category-form";
 import { ManagedItem } from "@/components/console/managed-item";
@@ -50,13 +51,16 @@ async function loadProductsPage(
       .range(from, from + PAGE_SIZE - 1);
     return { products: data ?? [], matching: count ?? 0 };
   }
-  const { data: names } = await supabase
-    .from("products")
-    .select("id, name")
-    .eq("tenant_id", tenantId)
-    .neq("status", "archived")
-    .order("created_at", { ascending: false })
-    .order("id");
+  const names = await fetchAll((from, to) =>
+    supabase
+      .from("products")
+      .select("id, name")
+      .eq("tenant_id", tenantId)
+      .neq("status", "archived")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   const needle = q.toLowerCase();
   const matchIds = (names ?? [])
     .filter((p) => (p.name[locale] ?? Object.values(p.name)[0] ?? "").toLowerCase().includes(needle))

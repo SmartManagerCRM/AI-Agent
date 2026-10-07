@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import "server-only";
 
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
@@ -30,7 +31,7 @@ export async function getAnomalyAlerts(supabase: TypedSupabaseClient): Promise<A
 
   // Per-tenant counts from Postgres rather than a row per conversation.
   const [{ data: tenants }, { data: todayRows }, { data: baselineRows }] = await Promise.all([
-    supabase.from("tenants").select("id, slug, business_name"),
+    allRows((from, to) => supabase.from("tenants").select("id, slug, business_name").order("id").range(from, to)),
     supabase.rpc("conversation_counts_by_tenant", { p_since: todaySince, p_until: null }),
     supabase.rpc("conversation_counts_by_tenant", { p_since: baselineSince, p_until: baselineUntil }),
   ]);

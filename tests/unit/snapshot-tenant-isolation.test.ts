@@ -28,6 +28,10 @@ function fakeServiceClient(tables: Record<string, Row[]>) {
         return builder;
       },
       order: () => builder,
+      range: (from: number, to: number) => {
+        current = current.slice(from, to + 1);
+        return builder;
+      },
       maybeSingle: async () => ({ data: current[0] ?? null, error: null }),
       then: (resolve: (value: { data: Row[]; error: null }) => unknown) => resolve({ data: current, error: null }),
     };

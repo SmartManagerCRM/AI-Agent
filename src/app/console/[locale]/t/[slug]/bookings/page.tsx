@@ -1,3 +1,4 @@
+import { allRows } from "@/server/supabase/fetch-all";
 import { BrainSyncButton } from "@/components/catalog/brain-sync-button";
 import { FileImportForm } from "@/components/catalog/file-import-form";
 import { ServiceRow } from "@/components/catalog/service-row";
@@ -85,13 +86,17 @@ export default async function BookingsPage({
       .eq("status", "confirmed")
       .gt("starts_at", now),
     // Requests from the Agent waiting for the owner's answer, oldest first.
-    supabase
-      .from("bookings")
-      .select("id, service_id, branch_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, notes, status, customer_locale, created_at")
-      .eq("tenant_id", tenant.id)
-      .eq("status", "pending")
-      .order("created_at")
-      .limit(50),
+    // Every request still waiting (however many), oldest first.
+    allRows((from, to) =>
+      supabase
+        .from("bookings")
+        .select("id, service_id, branch_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, notes, status, customer_locale, created_at")
+        .eq("tenant_id", tenant.id)
+        .eq("status", "pending")
+        .order("created_at")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
   const exponent = currency?.exponent ?? 2;
   // Deleted services are hidden; their past bookings still show the service's name.

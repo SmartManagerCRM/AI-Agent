@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import type { Database } from "@/types/database";
+
 import { parseQuestion, periodRange, zonedStart, type AskLang, type Intent, type Period } from "@/lib/assistant/intents";
 import { EXPIRING_DAYS } from "@/lib/membership-state";
 import { formatMoney } from "@/lib/money";
@@ -213,14 +215,16 @@ export async function askBusinessAction(input: { locale: string; slug: string; q
       return answer([intent === "newCustomers" ? t.newCustomers(p, s.new_customers) : t.customers(p, s.customers, s.new_customers)], ["customers"]);
     }
     case "pendingOrders": {
-      const { data } = await supabase
-        .from("orders")
-        .select("status")
-        .eq("tenant_id", tenant.id)
-        .in("status", ["pending_payment", "paid", "confirmed", "preparing", "prepared", "ready", "out_for_delivery"])
-        .limit(5000);
-      const n = (k: string) => (data ?? []).filter((o) => o.status === k).length;
-      return answer([t.pending(n("pending_payment"), n("paid") + n("confirmed"), n("preparing") + n("prepared"), n("ready") + n("out_for_delivery"))], ["orders"]);
+      // Counted in the database: exact however many orders there are.
+      const count = (statuses: Database["public"]["Tables"]["orders"]["Row"]["status"][]) =>
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", statuses).then(({ count: c }) => c ?? 0);
+      const [awaiting, toPrepare, inKitchen, ready] = await Promise.all([
+        count(["pending_payment"]),
+        count(["paid", "confirmed"]),
+        count(["preparing", "prepared"]),
+        count(["ready", "out_for_delivery"]),
+      ]);
+      return answer([t.pending(awaiting, toPrepare, inKitchen, ready)], ["orders"]);
     }
     case "bookings": {
       const [{ count }, { data: next }, { data: services }] = await Promise.all([

@@ -1,3 +1,4 @@
+import { allRows, fetchAll } from "@/server/supabase/fetch-all";
 import Link from "next/link";
 
 import { Disclosure } from "@/components/console/disclosure";
@@ -81,7 +82,10 @@ export default async function MembershipsPage({
       supabase.from("memberships").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).in("status", ["active", "paused"]).or(`end_date.is.null,end_date.gte.${today}`),
       supabase.from("memberships").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).eq("status", "active").gte("end_date", today).lte("end_date", addDays(today, EXPIRING_DAYS)),
       supabase.from("memberships").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).neq("status", "cancelled").eq("payment_status", "unpaid"),
-      supabase.from("membership_payments").select("amount_minor, currency").eq("tenant_id", tenant.id).gte("paid_at", `${monthStart}T00:00:00Z`),
+      // Every payment this month (however many), for the month's total.
+      allRows((from, to) =>
+        supabase.from("membership_payments").select("amount_minor, currency").eq("tenant_id", tenant.id).gte("paid_at", `${monthStart}T00:00:00Z`).order("id").range(from, to),
+      ),
       supabase.from("membership_visits").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id).gte("visited_at", `${today}T00:00:00Z`),
     ]);
   const exponents = new Map((currencies ?? []).map((c) => [c.code, c.exponent]));
@@ -97,9 +101,11 @@ export default async function MembershipsPage({
     const { data: archived } = await supabase.from("membership_plans").select("*").in("id", missing);
     for (const p of archived ?? []) planById.set(p.id, p);
   }
-  const { data: memberCounts } = allPlans.length
-    ? await supabase.from("memberships").select("plan_id").eq("tenant_id", tenant.id).neq("status", "cancelled").in("plan_id", allPlans.map((p) => p.id))
-    : { data: [] as { plan_id: string }[] };
+  const memberCounts = allPlans.length
+    ? await fetchAll((from, to) =>
+        supabase.from("memberships").select("plan_id").eq("tenant_id", tenant.id).neq("status", "cancelled").in("plan_id", allPlans.map((p) => p.id)).order("id").range(from, to),
+      )
+    : [];
   const countByPlan = new Map<string, number>();
   for (const m of memberCounts ?? []) countByPlan.set(m.plan_id, (countByPlan.get(m.plan_id) ?? 0) + 1);
 

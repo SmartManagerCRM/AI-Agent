@@ -1,5 +1,6 @@
 "use server";
 
+import { fetchAll } from "@/server/supabase/fetch-all";
 import { actionT, issueMessage } from "@/server/i18n/action-messages";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -135,7 +136,10 @@ export async function createManualOrderAction(_prev: ManualOrderState, formData:
   return { ok: true, message: t("orders.added", { n: data[0].order_number }) };
 }
 
-const MAX_CSV_BYTES = 1024 * 1024;
+// Bounded only by the upload size the server accepts (next.config: 9 MB).
+const MAX_CSV_BYTES = 8 * 1024 * 1024;
+// The database adds orders in groups (create_manual_orders takes up to 200 at once); a file of any length is sent group by group.
+const ORDERS_PER_CALL = 200;
 
 export async function bulkCreateOrdersAction(_prev: ManualOrderState, formData: FormData): Promise<ManualOrderState> {
   const locale = String(formData.get("locale") ?? "");
@@ -152,13 +156,17 @@ export async function bulkCreateOrdersAction(_prev: ManualOrderState, formData: 
 
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
-  const { data: products } = await supabase
-    .from("products")
-    .select("id, name")
-    .eq("tenant_id", tenant.id)
-    .neq("status", "archived")
-    .is("source_price", null); // still waiting for the owner's price
-  const catalog = (products ?? []).map((p) => ({ id: p.id, names: Object.values(p.name ?? {}).map(String) }));
+  const products = await fetchAll((from, to) =>
+    supabase
+      .from("products")
+      .select("id, name")
+      .eq("tenant_id", tenant.id)
+      .neq("status", "archived")
+      .is("source_price", null) // still waiting for the owner's price
+      .order("id")
+      .range(from, to),
+  );
+  const catalog = products.map((p) => ({ id: p.id, names: Object.values(p.name ?? {}).map(String) }));
 
   const { orders: parsedOrders, errors } = buildBulkOrders(csv, catalog);
   if (errors.length > 0) {
@@ -167,15 +175,26 @@ export async function bulkCreateOrdersAction(_prev: ManualOrderState, formData: 
   // Every order in the file goes to the branch chosen for the import.
   const branchId = String(formData.get("branch_id") ?? "");
   const orders = /^[0-9a-f-]{36}$/i.test(branchId) ? parsedOrders.map((o) => ({ ...o, branch_id: branchId })) : parsedOrders;
-  const { data, error } = await supabase.rpc("create_manual_orders", {
-    p_tenant_id: tenant.id,
-    p_orders: orders as unknown as Json,
-    p_created_via: "bulk_import",
-  });
-  if (error || !data?.length) return { ok: false, message: t("orders.nothingAdded", { reason: dbMessage(t, error?.message) }) };
+  const numbers: number[] = [];
+  for (let i = 0; i < orders.length; i += ORDERS_PER_CALL) {
+    const { data, error } = await supabase.rpc("create_manual_orders", {
+      p_tenant_id: tenant.id,
+      p_orders: orders.slice(i, i + ORDERS_PER_CALL) as unknown as Json,
+      p_created_via: "bulk_import",
+    });
+    if (error || !data?.length) {
+      const reason = dbMessage(t, error?.message);
+      if (numbers.length === 0) return { ok: false, message: t("orders.nothingAdded", { reason }) };
+      // Earlier groups were added; say exactly which, and why the rest weren't.
+      revalidatePath(`/${locale}/${slug}/orders`);
+      numbers.sort((a, b) => a - b);
+      return { ok: false, message: t("orders.partlyAdded", { count: numbers.length, first: numbers[0], last: numbers[numbers.length - 1], reason }) };
+    }
+    numbers.push(...data.map((o) => o.order_number));
+  }
   revalidatePath(`/${locale}/${slug}/orders`);
   revalidatePath(`/${locale}/${slug}`);
-  const numbers = data.map((o) => o.order_number).sort((a, b) => a - b);
+  numbers.sort((a, b) => a - b);
   return {
     ok: true,
     message:

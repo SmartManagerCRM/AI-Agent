@@ -1,5 +1,6 @@
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
+import { Pagination, parsePage } from "@/components/console/pagination";
 import { ManageControls } from "@/components/console/managed-item";
 import { deleteLeadAction, updateLeadAction } from "@/server/manage/actions";
 import { setLeadStatusAction } from "@/server/leads/actions";
@@ -15,6 +16,8 @@ const STATUS_STYLE: Record<string, string> = {
   qualified: "bg-emerald-50 text-emerald-700",
   closed: "bg-slate-100 text-slate-500",
 };
+const PAGE_SIZE = 50;
+
 const NEXT_STATUS: Record<string, "new" | "contacted" | "qualified" | "closed" | null> = {
   new: "contacted",
   contacted: "qualified",
@@ -23,30 +26,47 @@ const NEXT_STATUS: Record<string, "new" | "contacted" | "qualified" | "closed" |
 };
 
 /** Leads captured by the Agent (Customer Agent Master Prompt §27, §44) — real rows written only by the capture_lead tool, never fabricated. */
-export default async function LeadsPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
+export default async function LeadsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { locale, slug } = await params;
+  const page = parsePage((await searchParams).page);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.leads");
   const tAll = await getTranslations();
 
-  const { data: leads } = await supabase
-    .from("leads")
-    .select("id, customer_name, customer_phone, customer_email, message, status, created_at")
-    .eq("tenant_id", tenant.id)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  // Counts are exact (counted in Postgres) and the list is paged: every lead is reachable, however many.
+  const countOf = (status?: "new" | "qualified") => {
+    let q = supabase.from("leads").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
+    if (status) q = q.eq("status", status);
+    return q.then(({ count }) => count ?? 0);
+  };
+  const [{ data: leads }, totalCount, newCount, qualifiedCount] = await Promise.all([
+    supabase
+      .from("leads")
+      .select("id, customer_name, customer_phone, customer_email, message, status, created_at")
+      .eq("tenant_id", tenant.id)
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1),
+    countOf(),
+    countOf("new"),
+    countOf("qualified"),
+  ]);
 
   const all = leads ?? [];
-  const newCount = all.filter((l) => l.status === "new").length;
-  const qualifiedCount = all.filter((l) => l.status === "qualified").length;
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.leads.leads" /></h1>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiTile icon="customers" accent="emerald" label={t("totalLeads")} value={String(all.length)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
+        <KpiTile icon="customers" accent="emerald" label={t("totalLeads")} value={String(totalCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
         <KpiTile icon="bell" accent="blue" label={t("new")} value={String(newCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
         <KpiTile icon="check" accent="orange" label={t("qualified")} value={String(qualifiedCount)} trend={null} href={`/${locale}/${slug}/leads#leads`} />
       </div>
@@ -130,6 +150,7 @@ export default async function LeadsPage({ params }: { params: Promise<{ locale: 
             />
           </div>
         )}
+        <Pagination basePath={`/${locale}/${slug}/leads`} params={{}} page={page} pageSize={PAGE_SIZE} total={totalCount} />
       </div>
     </div>
   );
