@@ -219,7 +219,10 @@
       "noMatchTitle": "No orders match this filter",
       "emptyDescription": "Orders from your AI Agent show up here — or add one yourself with “Add order”.",
       "noMatchDescription": "Try a different status or clear your search.",
-      "addProduct": "Add a product"
+      "addProduct": "Add a product",
+      "branch": "Branch",
+      "branchFilter": "Branch",
+      "allBranches": "All branches"
     },
     "conversations": {
       "conversations": "Conversations",
@@ -280,7 +283,11 @@
       "default": "(default)",
       "noBranchesYet": "No branches yet.",
       "allowance": "Active branches: {active} of {limit} included in your plan",
-      "allowanceFull": "Your plan’s branch limit is reached — upgrade to add more branches."
+      "allowanceFull": "Your plan’s branch limit is reached — upgrade to add more branches.",
+      "delivers": "Takes delivery orders",
+      "noDelivery": "No delivery",
+      "stopDelivery": "Stop delivery",
+      "startDelivery": "Offer delivery"
     },
     "bookings": {
       "title": "Bookings",
@@ -317,7 +324,8 @@
         "people": "People",
         "from": "From",
         "status": "Status",
-        "actions": "Actions"
+        "actions": "Actions",
+        "branch": "Branch"
       },
       "source": {
         "console": "Console",
@@ -344,7 +352,8 @@
       "email": "Email",
       "notes": "Notes",
       "booking": "Booking…",
-      "addBooking": "Add booking"
+      "addBooking": "Add booking",
+      "branch": "Branch"
     },
     "bookingRequest": {
       "confirm": "Confirm",
@@ -455,7 +464,8 @@
       "csvFile": "CSV file",
       "orPaste": "…or paste rows",
       "addingOrders": "Adding orders…",
-      "addOrders": "Add orders"
+      "addOrders": "Add orders",
+      "branch": "Branch"
     },
     "customerForm": {
       "name": "Name",
@@ -1233,7 +1243,16 @@
       "admin": "Admin",
       "staffRole": "Staff",
       "inviteButton": "Invite",
-      "created": "Invite created for <b>{email}</b> — send them this link:"
+      "created": "Invite created for <b>{email}</b> — send them this link:",
+      "branches": "Branches",
+      "worksAt": "Works at",
+      "staffSees": "Staff see and handle only the orders, bookings and alerts of their branches.",
+      "adminSees": "Admins see every branch, and can manage staff.",
+      "allBranches": "All branches",
+      "noBranch": "No branch yet — sees nothing",
+      "editBranches": "Change branches",
+      "saveBranches": "Save branches",
+      "cancel": "Cancel"
     },
     "marketing": {
       "off": "{amount} off",
@@ -2635,7 +2654,11 @@
       "placeOrder": "Place order",
       "placing": "Placing your order…",
       "chooseHow": "Choose how you'd like your order to continue.",
-      "choosePayment": "Choose a payment method to continue."
+      "choosePayment": "Choose a payment method to continue.",
+      "branchTitle": "Which branch?",
+      "branchDelivers": "Open now · delivers",
+      "branchOpenNow": "Open now",
+      "chooseBranch": "Choose the branch for your order."
     },
     "done": {
       "title": "Order placed successfully!",
@@ -2765,7 +2788,9 @@
         "phone": "Please enter a valid phone number.",
         "email": "Please enter a valid email, or leave it empty.",
         "rate_limited": "Too many bookings from this device — please try again in a few minutes.",
-        "unavailable_agent": "Booking isn't available right now."
+        "unavailable_agent": "Booking isn't available right now.",
+        "branch": "Please choose the branch for your booking.",
+        "branch_closed": "That branch isn’t open right now — please choose another."
       },
       "peopleCount": "{count, plural, one {# person} other {# people}}",
       "checking": "I'm checking availability for {date} at {time} for {people}.",
@@ -2783,7 +2808,10 @@
       "detailName": "Name",
       "detailPhone": "Phone",
       "submitRequest": "Send booking request",
-      "requestNote": "The business confirms each booking for this service — you'll see their answer here within minutes."
+      "requestNote": "The business confirms each booking for this service — you'll see their answer here within minutes.",
+      "branch": "Branch",
+      "noBranchOpen": "None of our branches is open right now, so bookings can’t be made at the moment. Please come back during opening hours.",
+      "detailBranch": "Branch"
     },
     "errors": {
       "unavailable": "This Agent is not available right now.",
@@ -2811,7 +2839,11 @@
         "notYet": "This code is not active yet.",
         "invalid": "This code is not valid.",
         "minimum": "Your order does not meet the minimum required for this code."
-      }
+      },
+      "chooseBranch": "Choose the branch for your order before placing it.",
+      "branchClosed": "That branch isn’t open right now — please choose another.",
+      "noBranchOpen": "None of our branches is open for pickup right now. Please try again during opening hours.",
+      "noBranchDelivering": "None of our branches is delivering right now. Please try again during opening hours, or choose pickup."
     },
     "unavailablePage": {
       "not_live": {
@@ -3203,7 +3235,8 @@
         "bad_time_out": "The time out must be after the time in, within 24 hours.",
         "closed": "That’s outside your opening hours (Branches → opening hours).",
         "full": "That time is fully booked for this service.",
-        "invalid": "Check the date and times."
+        "invalid": "Check the date and times.",
+        "branch": "Choose the branch for this booking."
       },
       "enterPhone": "Enter the customer’s phone number.",
       "enterName": "Enter the customer’s name.",
@@ -3214,7 +3247,8 @@
       "alreadyAnswered": "This request was already answered ({status}).",
       "requestGone": "That request no longer exists — reload the page.",
       "confirmed": "Confirmed — the customer sees it now.",
-      "declined": "Declined — the customer sees a polite apology."
+      "declined": "Declined — the customer sees a polite apology.",
+      "ownBranches": "You can only add bookings for your own branches."
     },
     "catalog": {
       "branchFailed": "Couldn’t create that branch — please try again.",
@@ -3333,7 +3367,11 @@
       "expired": "This invite is invalid or has expired.",
       "otherEmail": "This invite was sent to a different email address.",
       "acceptFailed": "Couldn’t accept this invite.",
-      "noBusiness": "Joined, but couldn’t find the business to open."
+      "noBusiness": "Joined, but couldn’t find the business to open.",
+      "chooseBranch": "Choose at least one branch for this staff member.",
+      "unknownBranch": "One of those branches isn’t yours any more — reload the page.",
+      "branchesFailed": "Couldn’t save the branches — please try again.",
+      "branchesSaved": "Saved."
     },
     "checkout": {
       "oneMethod": "Enable at least one fulfillment method.",
@@ -3390,8 +3428,11 @@
         "fulfillment": "{label}fulfillment must be pickup, delivery or dine-in.",
         "max200": "add at most 200 orders at a time.",
         "none": "there are no orders to add.",
-        "label": "order {ref}: "
-      }
+        "label": "order {ref}: ",
+        "branch": "{label}choose the branch for this order.",
+        "branchUnknown": "{label}that branch is not one of yours."
+      },
+      "ownBranches": "You can only add orders for your own branches."
     },
     "brain": {
       "checkLinks": "Check the links you entered.",

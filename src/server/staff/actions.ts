@@ -37,9 +37,17 @@ const inviteSchema = z.object({
   tenantId: z.uuid(),
   email: z.email(),
   roleKey: z.enum(["business_admin", "staff"]),
+  branchIds: z.array(z.uuid()).max(100),
   locale: z.string(),
   slug: z.string().min(1),
 });
+
+/** "VALIDATION_ERROR: choose at least one branch…" / "…not one of yours" → the right message. */
+function branchError(t: Awaited<ReturnType<typeof actionT>>, message: string | undefined): string | null {
+  if (message?.includes("choose at least one branch")) return t("staff.chooseBranch");
+  if (message?.includes("not one of yours")) return t("staff.unknownBranch");
+  return null;
+}
 
 export type InviteStaffState = { inviteLink: string; email: string } | { error: string } | undefined;
 
@@ -48,6 +56,7 @@ export async function inviteStaffAction(_prevState: InviteStaffState, formData: 
     tenantId: formData.get("tenantId"),
     email: formData.get("email"),
     roleKey: formData.get("roleKey"),
+    branchIds: formData.getAll("branchIds"),
     locale: formData.get("locale"),
     slug: formData.get("slug"),
   });
@@ -60,9 +69,17 @@ export async function inviteStaffAction(_prevState: InviteStaffState, formData: 
     p_tenant_id: parsed.data.tenantId,
     p_email: parsed.data.email,
     p_role_key: parsed.data.roleKey,
+    // Staff work at the branches chosen here; admins see every branch.
+    p_branch_ids: parsed.data.roleKey === "staff" ? parsed.data.branchIds : [],
   });
   if (error || !data?.[0]) {
-    return { error: error?.code === "42501" ? t("staff.noPermission") : error?.message.startsWith("VALIDATION_ERROR") ? t("staff.invalidInput") : t("staff.inviteFailed") };
+    return {
+      error:
+        error?.code === "42501"
+          ? t("staff.noPermission")
+          : (branchError(t, error?.message) ??
+            (error?.message.startsWith("VALIDATION_ERROR") ? t("staff.invalidInput") : t("staff.inviteFailed"))),
+    };
   }
 
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
@@ -105,6 +122,39 @@ export async function updateMemberRoleAction(formData: FormData): Promise<void> 
   const supabase = await createUserClient();
   await supabase.rpc("update_staff_member_role", { p_member_id: parsed.data.memberId, p_role_key: parsed.data.roleKey });
   revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
+}
+
+const branchesSchema = z.object({
+  memberId: z.uuid(),
+  branchIds: z.array(z.uuid()).max(100),
+  locale: z.string(),
+  slug: z.string().min(1),
+});
+
+export type StaffBranchesState = { ok: boolean; message: string } | undefined;
+
+/** The branches a staff member works at (owner/admin; checked again by the database). */
+export async function setStaffBranchesAction(_prev: StaffBranchesState, formData: FormData): Promise<StaffBranchesState> {
+  const t = await actionT(formData.get("locale"));
+  const parsed = branchesSchema.safeParse({
+    memberId: formData.get("memberId"),
+    branchIds: formData.getAll("branchIds"),
+    locale: formData.get("locale"),
+    slug: formData.get("slug"),
+  });
+  if (!parsed.success) return { ok: false, message: t("staff.chooseBranch") };
+
+  await requireTenantMember(parsed.data.locale, parsed.data.slug);
+  const supabase = await createUserClient();
+  const { error } = await supabase.rpc("set_staff_member_branches", {
+    p_member_id: parsed.data.memberId,
+    p_branch_ids: parsed.data.branchIds,
+  });
+  if (error) {
+    return { ok: false, message: error.code === "42501" ? t("staff.noPermission") : (branchError(t, error.message) ?? t("staff.branchesFailed")) };
+  }
+  revalidatePath(`/${parsed.data.locale}/${parsed.data.slug}/staff`);
+  return { ok: true, message: t("staff.branchesSaved") };
 }
 
 const acceptSchema = z.object({ token: z.string().min(1), locale: z.string() });

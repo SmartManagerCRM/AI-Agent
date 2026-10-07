@@ -1,11 +1,13 @@
 import { InviteStaffForm } from "@/components/staff/invite-staff-form";
+import { StaffBranches } from "@/components/staff/staff-branches";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { ManageControls } from "@/components/console/managed-item";
 import { removeStaffMemberAction, setStaffActiveAction } from "@/server/manage/actions";
 import { revokeInviteAction, updateMemberRoleAction } from "@/server/staff/actions";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
+import { branchScope } from "@/server/tenant/branches";
+import { requireOwnerOrAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
 import { statusLabel } from "@/lib/i18n-labels";
 
@@ -13,13 +15,13 @@ const ASSIGNABLE_ROLES = ["business_admin", "staff"] as const;
 
 export default async function StaffPage({ params }: { params: Promise<{ locale: string; slug: string }> }) {
   const { locale, slug } = await params;
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant } = await requireOwnerOrAdmin(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.staff");
   const tAll = await getTranslations();
   const roleName = (key: string) => (tAll.has(`common.role.${key}`) ? tAll(`common.role.${key}`) : key.replace("_", " "));
 
-  const [{ data: members }, { data: roles }, { data: invites }] = await Promise.all([
+  const [{ data: members }, { data: roles }, { data: invites }, { data: memberBranches }, scope] = await Promise.all([
     supabase
       .from("tenant_members")
       .select("id, user_id, role_id, status, created_at")
@@ -28,11 +30,21 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
     supabase.from("roles").select("id, key, name").is("tenant_id", null),
     supabase
       .from("staff_invites")
-      .select("id, email, role_key, status, expires_at, created_at")
+      .select("id, email, role_key, status, expires_at, created_at, branch_ids")
       .eq("tenant_id", tenant.id)
       .eq("status", "pending")
       .order("created_at", { ascending: false }),
+    supabase.from("tenant_member_branches").select("member_id, branch_id").eq("tenant_id", tenant.id),
+    branchScope(tenant.id, locale),
   ]);
+  // Staff work at branches (owners and admins see them all).
+  const branches = scope.all.filter((b) => b.isActive).map((b) => ({ id: b.id, name: b.name }));
+  const branchesOf = (memberId: string) => (memberBranches ?? []).filter((r) => r.member_id === memberId).map((r) => r.branch_id);
+  const branchNames = (ids: string[]) =>
+    ids
+      .map((id) => scope.all.find((b) => b.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
 
   const roleById = new Map((roles ?? []).map((r) => [r.id, r]));
   const userIds = (members ?? []).map((m) => m.user_id);
@@ -68,7 +80,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
 
       <section id="invite" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-slate-900">{t("invite")}</h2>
-        <InviteStaffForm tenantId={tenant.id} locale={locale} slug={slug} />
+        <InviteStaffForm tenantId={tenant.id} locale={locale} slug={slug} branches={branches} />
       </section>
 
       <section id="team" className="scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
@@ -81,6 +93,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                   <th className="py-2 text-start font-medium">{t("name")}</th>
                   <th className="py-2 text-start font-medium">{t("email")}</th>
                   <th className="py-2 text-start font-medium">{t("role")}</th>
+                  {branches.length > 0 && <th className="py-2 text-start font-medium">{t("branches")}</th>}
                   <th className="py-2 text-start font-medium">{t("status")}</th>
                   <th className="py-2 text-start font-medium">{t("actions")}</th>
                 </tr>
@@ -95,6 +108,15 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                       <td className="py-2 font-medium text-slate-900">{profile?.full_name ?? "—"}</td>
                       <td className="py-2 text-slate-600">{profile?.email ?? "—"}</td>
                       <td className="py-2 text-slate-600">{roleName(role?.key ?? "")}</td>
+                      {branches.length > 0 && (
+                        <td className="py-2">
+                          {role?.key === "staff" ? (
+                            <StaffBranches memberId={member.id} locale={locale} slug={slug} branches={branches} current={branchesOf(member.id)} />
+                          ) : (
+                            <span className="text-xs text-slate-500">{t("allBranches")}</span>
+                          )}
+                        </td>
+                      )}
                       <td className="py-2">
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -161,6 +183,7 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="py-2 text-start font-medium">{t("email")}</th>
                   <th className="py-2 text-start font-medium">{t("role")}</th>
+                  {branches.length > 0 && <th className="py-2 text-start font-medium">{t("branches")}</th>}
                   <th className="py-2 text-start font-medium">{t("expires")}</th>
                   <th className="py-2 text-start font-medium">{t("actions")}</th>
                 </tr>
@@ -170,6 +193,11 @@ export default async function StaffPage({ params }: { params: Promise<{ locale: 
                   <tr key={invite.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-2 text-slate-900">{invite.email}</td>
                     <td className="py-2 text-slate-600">{roleName(invite.role_key)}</td>
+                    {branches.length > 0 && (
+                      <td className="py-2 text-slate-600">
+                        {invite.role_key === "staff" ? branchNames(invite.branch_ids ?? []) || "—" : t("allBranches")}
+                      </td>
+                    )}
                     <td className="py-2 text-slate-600">{new Date(invite.expires_at).toLocaleDateString(locale)}</td>
                     <td className="py-2">
                       <form action={revokeInviteAction}>

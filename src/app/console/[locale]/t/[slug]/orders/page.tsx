@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { EmptyState } from "@/components/console/empty-state";
 import { KpiTile } from "@/components/console/kpi-tile";
 import { Pagination, parsePage } from "@/components/console/pagination";
@@ -14,6 +15,7 @@ import { PRINTABLE_ORDER_STATUSES } from "@/lib/receipts";
 import { markCashPaymentCollectedAction, updateOrderStatusAction } from "@/server/commerce/order-actions";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
+import { branchScope } from "@/server/tenant/branches";
 import { requireTenantMember } from "@/server/tenant/context";
 import type { Database } from "@/types/database";
 import { Msg } from "@/components/i18n/msg";
@@ -21,6 +23,12 @@ import { getTranslations } from "next-intl/server";
 import { fulfillmentLabel, statusLabel } from "@/lib/i18n-labels";
 
 const CASH_METHODS = new Set(["cash_on_delivery", "pay_on_table"]);
+
+/** A link to the orders list with these filters (empty ones left out). */
+const withQuery = (base: string, params: Record<string, string | undefined>) => {
+  const query = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => !!e[1])).toString();
+  return query ? `${base}?${query}` : base;
+};
 
 const NEXT_STATUSES: Record<string, string[]> = {
   draft: ["pending_payment", "cancelled"],
@@ -51,33 +59,44 @@ export default async function OrdersPage({
   searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
-  searchParams: Promise<{ status?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; q?: string; page?: string; branch?: string }>;
 }) {
   const { locale, slug } = await params;
-  const { status: statusParam, q, page: pageParam } = await searchParams;
+  const { status: statusParam, q, page: pageParam, branch: branchParam } = await searchParams;
   const statusFilter: Group = GROUPS.find((g) => g === statusParam) ?? "all";
   const page = parsePage(pageParam);
   const { tenant } = await requireTenantMember(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.orders");
   const tAll = await getTranslations();
+  // Branches: the member sees only their branches' orders (enforced by the database);
+  // with several, a branch column and a filter.
+  const scope = await branchScope(tenant.id, locale);
+  const visibleBranches = scope.restricted ? scope.all.filter((b) => scope.allowed.some((a) => a.id === b.id)) : scope.all;
+  const showBranches = visibleBranches.length > 1;
+  const branchFilter = showBranches ? visibleBranches.find((b) => b.id === branchParam) ?? null : null;
+  // Orders with no branch belong to the main branch.
+  const inBranch = <Q extends { eq: (c: "branch_id", v: string) => Q; or: (f: string) => Q }>(query: Q): Q =>
+    !branchFilter ? query : branchFilter.isDefault ? query.or(`branch_id.eq.${branchFilter.id},branch_id.is.null`) : query.eq("branch_id", branchFilter.id);
 
   // Counts are exact (counted in Postgres), and the list is paged — every order is reachable, however many there are.
   const countOf = (group: Group) => {
     let count = supabase.from("orders").select("id", { count: "exact", head: true }).eq("tenant_id", tenant.id);
     if (group !== "all") count = count.in("status", statusesIn(group));
     if (q) count = count.ilike("customer_name", `%${q}%`);
+    count = inBranch(count);
     return count.then(({ count: n }) => n ?? 0);
   };
   let query = supabase
     .from("orders")
-    .select("id, order_number, status, fulfillment_type, customer_name, customer_phone, customer_email, delivery_address, notes, total_minor, currency, placed_at, created_via")
+    .select("id, order_number, status, fulfillment_type, branch_id, customer_name, customer_phone, customer_email, delivery_address, notes, total_minor, currency, placed_at, created_via")
     .eq("tenant_id", tenant.id)
     .order("placed_at", { ascending: false })
     .order("id", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (statusFilter !== "all") query = query.in("status", statusesIn(statusFilter));
   if (q) query = query.ilike("customer_name", `%${q}%`);
+  query = inBranch(query);
   const [{ data: ordersRaw }, { data: currency }, { data: catalog }, groupCounts] = await timed(
     "orders.queries",
     Promise.all([
@@ -119,7 +138,7 @@ export default async function OrdersPage({
     key: group,
     label: tAll(`common.orderGroup.${group}`),
     count: counts[group],
-    href: group === "all" ? baseHref : `${baseHref}?status=${group}`,
+    href: withQuery(baseHref, { status: group === "all" ? undefined : group, branch: branchFilter?.id }),
     active: statusFilter === group,
   }));
 
@@ -129,9 +148,27 @@ export default async function OrdersPage({
         <h1 className="text-2xl font-semibold text-slate-900"><Msg id="console.orders.orders" /></h1>
         <SearchInput placeholder={t("searchPlaceholder")} defaultValue={q} />
       </div>
+      {showBranches && (
+        <nav className="flex flex-wrap gap-2" aria-label={t("branchFilter")} data-testid="order-branch-filter">
+          {[{ id: null as string | null, name: t("allBranches") }, ...visibleBranches].map((b) => {
+            const active = (branchFilter?.id ?? null) === b.id;
+            return (
+              <Link
+                key={b.id ?? "all"}
+                href={withQuery(baseHref, { status: statusFilter === "all" ? undefined : statusFilter, q, branch: b.id ?? undefined })}
+                aria-current={active ? "page" : undefined}
+                className={`rounded-full border px-3 py-1 text-sm ${active ? "border-emerald-500 bg-emerald-50 font-medium text-emerald-800" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
+              >
+                {b.name}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
       <ManualOrders
         slug={slug}
         locale={locale}
+        branches={scope.allowed.map((b) => ({ id: b.id, name: b.name, isDefault: b.isDefault }))}
         currency={tenant.currency}
         exponent={exponent}
         products={(catalog ?? [])
@@ -163,6 +200,7 @@ export default async function OrdersPage({
                   <th className="px-4 py-2 text-start font-medium">#</th>
                   <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.customer" /></th>
                   <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.fulfillment" /></th>
+                  {showBranches && <th className="px-4 py-2 text-start font-medium">{t("branch")}</th>}
                   <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.total" /></th>
                   <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.status" /></th>
                   <th className="px-4 py-2 text-start font-medium"><Msg id="console.orders.payment" /></th>
@@ -187,6 +225,11 @@ export default async function OrdersPage({
                     </td>
                     <td className="px-4 py-3 text-slate-700">{order.customer_name ?? "—"}</td>
                     <td className="px-4 py-3 text-slate-500">{fulfillmentLabel(tAll, order.fulfillment_type)}</td>
+                    {showBranches && (
+                      <td className="px-4 py-3 text-slate-600" data-testid="order-branch">
+                        {scope.nameOf(order.branch_id) ?? "—"}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-slate-700">{money(order.total_minor, order.currency)}</td>
                     <td className="px-4 py-3">
                       <StatusPill status={order.status} />
@@ -277,7 +320,7 @@ export default async function OrdersPage({
         )}
         <Pagination
           basePath={baseHref}
-          params={{ status: statusFilter === "all" ? undefined : statusFilter, q }}
+          params={{ status: statusFilter === "all" ? undefined : statusFilter, q, branch: branchFilter?.id }}
           page={page}
           pageSize={PAGE_SIZE}
           total={counts[statusFilter]}

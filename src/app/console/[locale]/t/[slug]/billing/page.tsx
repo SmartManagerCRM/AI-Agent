@@ -17,7 +17,7 @@ import { paddleSubscriptionKnown } from "@/server/billing/paddle/subscriptions";
 import { usageNotices, type SubscriberUsage } from "@/server/billing/usage";
 import { loadSubscriberUsage } from "@/server/billing/usage-summary";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
+import { requireOwnerOrAdmin } from "@/server/tenant/context";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { statusLabel } from "@/lib/i18n-labels";
@@ -64,7 +64,7 @@ export default async function BillingPage({
 }) {
   const { locale, slug } = await params;
   const { paddle: paddleNotice } = await searchParams;
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant } = await requireOwnerOrAdmin(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.billing");
   const tPaddle = await getTranslations("console.paddle");

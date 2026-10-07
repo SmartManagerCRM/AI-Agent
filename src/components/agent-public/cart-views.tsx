@@ -11,7 +11,7 @@ import type { AgentProduct, FulfillmentType } from "./agent-model";
 import { focusRing, ProductVisual, QuantityStepper, useAgentUi } from "./agent-ui";
 import { AgentAvatar } from "./agent-avatar";
 import { ScreenHeader } from "./chrome";
-import { BagIcon, CardIcon, CartIcon, CashIcon, CheckIcon, ChevronIcon, TableIcon, TagIcon, TruckIcon } from "./icons";
+import { BagIcon, CardIcon, CartIcon, CashIcon, CheckIcon, ChevronIcon, PinIcon, TableIcon, TagIcon, TruckIcon } from "./icons";
 
 const FULFILLMENT_ICONS: Record<FulfillmentType, React.ReactNode> = {
   pickup: <BagIcon size={22} />,
@@ -263,12 +263,17 @@ export function CheckoutScreen() {
   const cart = commerce.cart;
   const fulfillmentType = cart?.cart.fulfillmentType ?? null;
   const paymentMethod = cart?.cart.paymentMethod ?? null;
-  const canPlace = !commerce.pending && !!fulfillmentType && (paymentMethods.length === 0 || !!paymentMethod);
+  // Several branches open: the customer chooses one for pickup or delivery.
+  const branchChoices = fulfillmentType === "pickup" || fulfillmentType === "delivery" ? commerce.branches : [];
+  const chosenBranch = commerce.branches.find((b) => b.id === cart?.cart.branchId) ?? null;
+  const needsBranch = branchChoices.length > 1 && !chosenBranch;
+  const canPlace = !commerce.pending && !!fulfillmentType && !needsBranch && (paymentMethods.length === 0 || !!paymentMethod);
 
   if (!cart || cart.items.length === 0) return <CartScreen />;
 
+  const pickupBranch = chosenBranch?.name ?? (commerce.branches.length > 1 ? null : info.branchName);
   const fulfillmentSub: Record<FulfillmentType, string> = {
-    pickup: info.branchName ? t("checkout.pickupFrom", { branch: info.branchName }) : t("checkout.pickupSub"),
+    pickup: pickupBranch ? t("checkout.pickupFrom", { branch: pickupBranch }) : t("checkout.pickupSub"),
     delivery: t("checkout.deliverySub"),
     dine_in: activeTable ? t("home.table", { label: activeTable.label }) : t("checkout.dineInSub"),
   };
@@ -304,6 +309,25 @@ export function CheckoutScreen() {
               ))}
             </div>
           </StepCard>
+
+          {branchChoices.length > 1 && (
+            <StepCard step={++step} title={t("checkout.branchTitle")}>
+              <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("checkout.branchTitle")} data-testid="agent-branch-choice">
+                {branchChoices.map((b) => (
+                  <OptionCard
+                    key={b.id}
+                    name="agent-branch"
+                    selected={chosenBranch?.id === b.id}
+                    onSelect={() => commerce.chooseBranch(b.id)}
+                    disabled={commerce.pending}
+                    icon={<PinIcon size={22} />}
+                    title={b.name}
+                    sub={b.address ?? (fulfillmentType === "delivery" ? t("checkout.branchDelivers") : t("checkout.branchOpenNow"))}
+                  />
+                ))}
+              </div>
+            </StepCard>
+          )}
 
           <StepCard step={++step} title={t("checkout.detailsTitle")}>
             <div className="flex flex-col gap-3">
@@ -365,6 +389,7 @@ export function CheckoutScreen() {
             {commerce.pending ? t("checkout.placing") : t("checkout.placeOrder")}
           </button>
           {!fulfillmentType && <p className="mt-2 text-center text-xs text-slate-500">{t("checkout.chooseHow")}</p>}
+          {fulfillmentType && needsBranch && <p className="mt-2 text-center text-xs text-slate-500">{t("checkout.chooseBranch")}</p>}
           {fulfillmentType && paymentMethods.length > 0 && !paymentMethod && <p className="mt-2 text-center text-xs text-slate-500">{t("checkout.choosePayment")}</p>}
         </StickyCta>
       </form>

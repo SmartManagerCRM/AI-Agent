@@ -18,6 +18,10 @@ export type AgentErrorCode =
   | "cartInactive"
   | "choosePayment"
   | "chooseFulfillment"
+  | "chooseBranch"
+  | "branchClosed"
+  | "noBranchOpen"
+  | "noBranchDelivering"
   | "orderFailed"
   | "messageEmpty"
   | "chatTooFast"
@@ -49,6 +53,7 @@ export function orderErrorCode(message: string | undefined): AgentErrorCode {
   if (/^this cart is no longer active|^cart does not exist/.test(reason)) return "cartInactive";
   if (/^choose a payment method/.test(reason)) return "choosePayment";
   if (/^choose pickup/.test(reason)) return "chooseFulfillment";
+  if (/^choose the branch/.test(reason)) return "chooseBranch";
   if (/is not an available payment method/.test(reason)) return "paymentUnavailable";
   if (/^(Enter a code|This code|Your order does not meet)/.test(reason)) return couponErrorCode(reason);
   return "orderFailed";

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import type { AgentErrorCode } from "@/lib/agent-errors";
 import {
   addProductToCartAction,
+  chooseBranchAction,
   placeStructuredOrderAction,
   setCouponCodeAction,
   setCustomerDetailsAction,
@@ -13,6 +14,7 @@ import {
   updateCartItemQuantityAction,
   type PlaceStructuredOrderResult,
 } from "@/server/agent-public/catalog-actions";
+import type { BranchChoice } from "@/lib/branch-match";
 import type { CartView, PaymentMethod } from "@/server/commerce/cart";
 
 import type { AgentProduct, FulfillmentType } from "./agent-model";
@@ -48,6 +50,8 @@ export function useAgentCommerce({
     null,
   );
   const [pending, startTransition] = useTransition();
+  /** For pickup/delivery at a business with several branches: the ones open now to choose from. */
+  const [branches, setBranches] = useState<BranchChoice[]>([]);
 
   /** Same rule as before: the most popular product outside the just-added one's category that isn't already in the cart — only ever from real order history. */
   function pickCrossSell(justAdded: AgentProduct, cartAfter: CartView | null): AgentProduct | null {
@@ -88,6 +92,17 @@ export function useAgentCommerce({
       );
       if (!result.ok) return setError(result.error);
       setCart(result.cart);
+      setBranches(result.branches);
+    });
+  }
+
+  function chooseBranch(branchId: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await chooseBranchAction(slug, { branchId }, surface);
+      if (!result.ok) return setError(result.error);
+      setCart(result.cart);
+      setBranches(result.branches);
     });
   }
 
@@ -144,6 +159,8 @@ export function useAgentCommerce({
     addToCart,
     changeQuantity,
     chooseFulfillment,
+    branches,
+    chooseBranch,
     choosePaymentMethod,
     applyCoupon,
     placeOrder,

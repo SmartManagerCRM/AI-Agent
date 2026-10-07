@@ -93,6 +93,17 @@ export const requireTenantMember = cache(async (locale: string, slug: string) =>
   redirect(grant ? `/${locale}/super-admin/businesses/${slug}` : `/${locale}/subscriber`);
 });
 
+/**
+ * Owner/admin-only pages (Business Brain, Billing, Staff): branch staff are
+ * sent back to the dashboard. The database refuses them those pages' data
+ * too; this keeps them from landing on an empty page.
+ */
+export async function requireOwnerOrAdmin(locale: string, slug: string) {
+  const context = await requireTenantMember(locale, slug);
+  if (context.membership && context.membership.role_key === "staff") redirect(`/${locale}/${slug}`);
+  return context;
+}
+
 export const requireSuperAdmin = cache(async (locale: string) => {
   const user = await requireUser(locale);
   if (!(await isSuperAdmin(user.id))) redirect(`/${locale}/subscriber`);

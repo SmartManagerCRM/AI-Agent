@@ -219,7 +219,10 @@
       "noMatchTitle": "Aucune commande ne correspond à ce filtre",
       "emptyDescription": "Les commandes de votre Agent IA apparaissent ici — ou ajoutez-en une vous-même avec « Ajouter une commande ».",
       "noMatchDescription": "Essayez un autre statut ou effacez votre recherche.",
-      "addProduct": "Ajouter un produit"
+      "addProduct": "Ajouter un produit",
+      "branch": "Succursale",
+      "branchFilter": "Succursale",
+      "allBranches": "Toutes les succursales"
     },
     "conversations": {
       "conversations": "Conversations",
@@ -280,7 +283,11 @@
       "default": "(par défaut)",
       "noBranchesYet": "Aucune succursale pour l’instant.",
       "allowance": "Succursales actives : {active} sur {limit} incluses dans votre offre",
-      "allowanceFull": "La limite de succursales de votre offre est atteinte — passez à une offre supérieure pour en ajouter."
+      "allowanceFull": "La limite de succursales de votre offre est atteinte — passez à une offre supérieure pour en ajouter.",
+      "delivers": "Accepte les livraisons",
+      "noDelivery": "Pas de livraison",
+      "stopDelivery": "Arrêter la livraison",
+      "startDelivery": "Proposer la livraison"
     },
     "bookings": {
       "title": "Réservations",
@@ -317,7 +324,8 @@
         "people": "Personnes",
         "from": "Origine",
         "status": "Statut",
-        "actions": "Actions"
+        "actions": "Actions",
+        "branch": "Succursale"
       },
       "source": {
         "console": "Console",
@@ -344,7 +352,8 @@
       "email": "E-mail",
       "notes": "Notes",
       "booking": "Réservation…",
-      "addBooking": "Ajouter la réservation"
+      "addBooking": "Ajouter la réservation",
+      "branch": "Succursale"
     },
     "bookingRequest": {
       "confirm": "Confirmer",
@@ -455,7 +464,8 @@
       "csvFile": "Fichier CSV",
       "orPaste": "…ou collez des lignes",
       "addingOrders": "Ajout des commandes…",
-      "addOrders": "Ajouter les commandes"
+      "addOrders": "Ajouter les commandes",
+      "branch": "Succursale"
     },
     "customerForm": {
       "name": "Nom",
@@ -1233,7 +1243,16 @@
       "admin": "Admin",
       "staffRole": "Employé",
       "inviteButton": "Inviter",
-      "created": "Invitation créée pour <b>{email}</b> — envoyez-lui ce lien :"
+      "created": "Invitation créée pour <b>{email}</b> — envoyez-lui ce lien :",
+      "branches": "Succursales",
+      "worksAt": "Travaille à",
+      "staffSees": "Les employés ne voient et ne traitent que les commandes, réservations et alertes de leurs succursales.",
+      "adminSees": "Les administrateurs voient toutes les succursales et peuvent gérer l’équipe.",
+      "allBranches": "Toutes les succursales",
+      "noBranch": "Aucune succursale — ne voit rien",
+      "editBranches": "Modifier les succursales",
+      "saveBranches": "Enregistrer les succursales",
+      "cancel": "Annuler"
     },
     "marketing": {
       "off": "{amount} de remise",
@@ -2635,7 +2654,11 @@
       "placeOrder": "Commander",
       "placing": "Envoi de votre commande…",
       "chooseHow": "Choisissez un mode de retrait pour continuer.",
-      "choosePayment": "Choisissez un moyen de paiement pour continuer."
+      "choosePayment": "Choisissez un moyen de paiement pour continuer.",
+      "branchTitle": "Quelle succursale ?",
+      "branchDelivers": "Ouverte · livre",
+      "branchOpenNow": "Ouverte maintenant",
+      "chooseBranch": "Choisissez la succursale de votre commande."
     },
     "done": {
       "title": "Commande passée avec succès !",
@@ -2765,7 +2788,9 @@
         "phone": "Indiquez un numéro de téléphone valide.",
         "email": "Indiquez un e-mail valide, ou laissez vide.",
         "rate_limited": "Trop de réservations depuis cet appareil — réessayez dans quelques minutes.",
-        "unavailable_agent": "La réservation n'est pas disponible pour le moment."
+        "unavailable_agent": "La réservation n'est pas disponible pour le moment.",
+        "branch": "Choisissez la succursale de votre réservation.",
+        "branch_closed": "Cette succursale n’est pas ouverte en ce moment — choisissez-en une autre."
       },
       "peopleCount": "{count, plural, one {# personne} other {# personnes}}",
       "checking": "Je vérifie la disponibilité pour le {date} à {time} pour {people}.",
@@ -2783,7 +2808,10 @@
       "detailName": "Nom",
       "detailPhone": "Téléphone",
       "submitRequest": "Envoyer la demande",
-      "requestNote": "L'établissement confirme chaque réservation pour ce service — vous verrez sa réponse ici en quelques minutes."
+      "requestNote": "L'établissement confirme chaque réservation pour ce service — vous verrez sa réponse ici en quelques minutes.",
+      "branch": "Succursale",
+      "noBranchOpen": "Aucune de nos succursales n’est ouverte en ce moment : les réservations ne sont pas possibles pour l’instant. Revenez pendant les heures d’ouverture.",
+      "detailBranch": "Succursale"
     },
     "errors": {
       "unavailable": "Cet Agent n’est pas disponible pour le moment.",
@@ -2811,7 +2839,11 @@
         "notYet": "Ce code n’est pas encore actif.",
         "invalid": "Ce code n’est pas valide.",
         "minimum": "Votre commande n’atteint pas le minimum requis pour ce code."
-      }
+      },
+      "chooseBranch": "Choisissez la succursale de votre commande avant de la valider.",
+      "branchClosed": "Cette succursale n’est pas ouverte en ce moment — choisissez-en une autre.",
+      "noBranchOpen": "Aucune de nos succursales n’est ouverte pour le retrait en ce moment. Réessayez pendant les heures d’ouverture.",
+      "noBranchDelivering": "Aucune de nos succursales ne livre en ce moment. Réessayez pendant les heures d’ouverture, ou choisissez le retrait."
     },
     "unavailablePage": {
       "not_live": {
@@ -3203,7 +3235,8 @@
         "bad_time_out": "L’heure de départ doit être après l’heure d’arrivée, dans les 24 heures.",
         "closed": "C’est en dehors de vos horaires (Succursales → horaires).",
         "full": "Ce créneau est complet pour ce service.",
-        "invalid": "Vérifiez la date et les heures."
+        "invalid": "Vérifiez la date et les heures.",
+        "branch": "Choisissez la succursale de cette réservation."
       },
       "enterPhone": "Saisissez le numéro de téléphone du client.",
       "enterName": "Saisissez le nom du client.",
@@ -3214,7 +3247,8 @@
       "alreadyAnswered": "Cette demande a déjà reçu une réponse ({status}).",
       "requestGone": "Cette demande n’existe plus — rechargez la page.",
       "confirmed": "Confirmée — le client la voit maintenant.",
-      "declined": "Refusée — le client voit des excuses polies."
+      "declined": "Refusée — le client voit des excuses polies.",
+      "ownBranches": "Vous ne pouvez ajouter des réservations que pour vos succursales."
     },
     "catalog": {
       "branchFailed": "Impossible de créer cette succursale — veuillez réessayer.",
@@ -3333,7 +3367,11 @@
       "expired": "Cette invitation est invalide ou a expiré.",
       "otherEmail": "Cette invitation a été envoyée à une autre adresse e-mail.",
       "acceptFailed": "Impossible d’accepter cette invitation.",
-      "noBusiness": "Vous avez rejoint, mais l’activité est introuvable."
+      "noBusiness": "Vous avez rejoint, mais l’activité est introuvable.",
+      "chooseBranch": "Choisissez au moins une succursale pour ce membre de l’équipe.",
+      "unknownBranch": "L’une de ces succursales n’est plus la vôtre — rechargez la page.",
+      "branchesFailed": "Impossible d’enregistrer les succursales — veuillez réessayer.",
+      "branchesSaved": "Enregistré."
     },
     "checkout": {
       "oneMethod": "Activez au moins un mode de retrait.",
@@ -3390,8 +3428,11 @@
         "fulfillment": "{label}le mode doit être à emporter, livraison ou sur place.",
         "max200": "ajoutez au plus 200 commandes à la fois.",
         "none": "il n’y a aucune commande à ajouter.",
-        "label": "commande {ref} : "
-      }
+        "label": "commande {ref} : ",
+        "branch": "{label}choisissez la succursale de cette commande.",
+        "branchUnknown": "{label}cette succursale n’est pas l’une des vôtres."
+      },
+      "ownBranches": "Vous ne pouvez ajouter des commandes que pour vos succursales."
     },
     "brain": {
       "checkLinks": "Vérifiez les liens saisis.",

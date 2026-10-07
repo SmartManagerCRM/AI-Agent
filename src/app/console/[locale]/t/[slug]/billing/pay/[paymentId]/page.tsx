@@ -5,7 +5,7 @@ import { formatMoney } from "@/lib/money";
 import { simulateMockSubscriptionPaymentAction } from "@/server/billing/actions";
 import { paddleConfig, paddleIntended } from "@/server/billing/paddle/client";
 import { createUserClient } from "@/server/supabase/clients";
-import { currentUser, requireTenantMember } from "@/server/tenant/context";
+import { currentUser, requireOwnerOrAdmin } from "@/server/tenant/context";
 import { getTranslations } from "next-intl/server";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function SubscriptionPayPage({
   params: Promise<{ locale: string; slug: string; paymentId: string }>;
 }) {
   const { locale, slug, paymentId } = await params;
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant } = await requireOwnerOrAdmin(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.billingPay");
   const tAll = await getTranslations();

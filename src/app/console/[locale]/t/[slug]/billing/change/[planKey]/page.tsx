@@ -8,7 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { confirmUpgradeAction, manageBillingAction } from "@/server/billing/actions";
 import { previewPaddleUpgrade } from "@/server/billing/paddle/subscriptions";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
+import { requireOwnerOrAdmin } from "@/server/tenant/context";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export default async function UpgradePage({
   const { locale, slug, planKey: rawPlanKey } = await params;
   const { declined } = await searchParams;
   const planKey = decodeURIComponent(rawPlanKey);
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant } = await requireOwnerOrAdmin(locale, slug);
   const supabase = await createUserClient();
   const billing = `/${locale}/${slug}/billing`;
   const t = await getTranslations("console.paddle.change");

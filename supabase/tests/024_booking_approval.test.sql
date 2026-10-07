@@ -59,8 +59,9 @@ select is((select count(*)::int from public.notification_events where kind = 'bo
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000d0aa2","role":"authenticated"}';
 select is((select count(*)::int from public.notification_events where kind = 'booking_requested'), 1, 'staff with bookings.read receive the request alert');
-select throws_ok($$ select public.decide_booking('00000000-0000-4000-8000-0000000d0bb1', (select (j ->> 'booking_id')::uuid from r1), 'confirm') $$,
-  '42501', null, '… but staff without bookings.write cannot answer it');
+reset role;
+select ok(app.has_permission('00000000-0000-4000-8000-0000000d0bb1', 'bookings.write'), '… and may answer it (staff handle their branches'' bookings)');
+set local role authenticated;
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-0000000d0aa3","role":"authenticated"}';
 select is((select count(*)::int from public.notification_events where kind = 'booking_requested'), 0, 'another business never sees the request');
 select throws_ok($$ select public.decide_booking('00000000-0000-4000-8000-0000000d0bb1', (select (j ->> 'booking_id')::uuid from r1), 'confirm') $$,

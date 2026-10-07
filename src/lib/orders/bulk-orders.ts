@@ -36,6 +36,8 @@ export type ManualOrderInput = {
   delivery_address: string | null;
   notes: string | null;
   paid: boolean;
+  /** The branch the order is for (the database picks the member's/main branch when absent). */
+  branch_id?: string;
 };
 
 export type BulkParseResult = { orders: ManualOrderInput[]; errors: string[] };

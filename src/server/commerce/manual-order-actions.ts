@@ -32,12 +32,14 @@ const DB_REASONS: [RegExp, string][] = [
   [/^fulfillment must be pickup, delivery or dine-in$/, "db.fulfillment"],
   [/^add at most 200 orders at a time$/, "db.max200"],
   [/^there are no orders to add$/, "db.none"],
+  [/^choose the branch for this order$/, "db.branch"],
+  [/^that branch is not one of yours$/, "db.branchUnknown"],
 ];
 
 /** "VALIDATION_ERROR: …" from the database → that sentence, in the user's language. */
 function dbMessage(t: T, message: string | undefined): string {
   const m = /^(VALIDATION_ERROR|NOT_FOUND|PERMISSION_ERROR): (.+)$/.exec(message ?? "");
-  if (m?.[1] === "PERMISSION_ERROR") return t("orders.noPermission");
+  if (m?.[1] === "PERMISSION_ERROR") return /own branches/.test(m[2]) ? t("orders.ownBranches") : t("orders.noPermission");
   if (!m || m[1] !== "VALIDATION_ERROR") return t("orders.addFailed");
   const labelled = /^order (.+?): (.+)$/.exec(m[2]);
   const label = labelled ? t("orders.db.label", { ref: labelled[1] }) : "";
@@ -84,6 +86,7 @@ const singleSchema = z.object({
   delivery_address: text(500),
   notes: text(1000),
   paid: z.boolean(),
+  branch_id: z.union([z.uuid(), z.literal("")]),
 });
 
 export async function createManualOrderAction(_prev: ManualOrderState, formData: FormData): Promise<ManualOrderState> {
@@ -104,6 +107,7 @@ export async function createManualOrderAction(_prev: ManualOrderState, formData:
     delivery_address: formData.get("delivery_address") ?? "",
     notes: formData.get("notes") ?? "",
     paid: formData.get("paid") === "on",
+    branch_id: formData.get("branch_id") ?? "",
   });
   if (!parsed.success) return { ok: false, message: issueMessage(t, parsed.error.issues, "orders.checkDetails") };
   const d = parsed.data;
@@ -118,6 +122,7 @@ export async function createManualOrderAction(_prev: ManualOrderState, formData:
     delivery_address: d.fulfillment_type === "delivery" ? d.delivery_address || null : null,
     notes: d.notes || null,
     paid: d.paid,
+    ...(d.branch_id ? { branch_id: d.branch_id } : {}),
   };
   const { data, error } = await supabase.rpc("create_manual_orders", {
     p_tenant_id: tenant.id,
@@ -155,10 +160,13 @@ export async function bulkCreateOrdersAction(_prev: ManualOrderState, formData: 
     .is("source_price", null); // still waiting for the owner's price
   const catalog = (products ?? []).map((p) => ({ id: p.id, names: Object.values(p.name ?? {}).map(String) }));
 
-  const { orders, errors } = buildBulkOrders(csv, catalog);
+  const { orders: parsedOrders, errors } = buildBulkOrders(csv, catalog);
   if (errors.length > 0) {
     return { ok: false, message: t("orders.fixRows"), errors: errors.map((e) => rowError(t, e)) };
   }
+  // Every order in the file goes to the branch chosen for the import.
+  const branchId = String(formData.get("branch_id") ?? "");
+  const orders = /^[0-9a-f-]{36}$/i.test(branchId) ? parsedOrders.map((o) => ({ ...o, branch_id: branchId })) : parsedOrders;
   const { data, error } = await supabase.rpc("create_manual_orders", {
     p_tenant_id: tenant.id,
     p_orders: orders as unknown as Json,

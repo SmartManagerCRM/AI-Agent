@@ -22,6 +22,9 @@ import { productImageUrl } from "@/lib/product-image";
 import { newConversationCount } from "@/server/inbox/count";
 import { createUserClient } from "@/server/supabase/clients";
 
+/** Pages only owners and admins open (branch staff don't see them in the menu). */
+const OWNER_ADMIN_PAGES = new Set<NavItem["key"]>(["businessBrain", "billing", "staff"]);
+
 export default async function TenantLayout({
   children,
   params,
@@ -226,7 +229,7 @@ export default async function TenantLayout({
                   </a>
                 )}
               </div>
-              <TenantNav items={nav} />
+              <TenantNav items={membership?.role_key === "staff" ? nav.filter((item) => !OWNER_ADMIN_PAGES.has(item.key)) : nav} />
             </div>
             <div className="mt-6">
               <TrialCard

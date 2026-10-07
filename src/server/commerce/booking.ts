@@ -50,14 +50,21 @@ export async function getAvailableSlots(
   tenantId: string,
   service: Pick<BookableService, "id">,
   dateISO: string,
+  /** The branch (its hours and capacity); none = the main branch. */
+  branchId: string | null = null,
 ): Promise<Slot[]> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return [];
-  const { data, error } = await supabase.rpc("service_slots", { p_tenant_id: tenantId, p_service_id: service.id, p_date: dateISO });
+  const { data, error } = await supabase.rpc("service_slots", {
+    p_tenant_id: tenantId,
+    p_service_id: service.id,
+    p_date: dateISO,
+    p_branch_id: branchId,
+  });
   if (error || !data) return [];
   return data.map((r) => ({ startsAt: r.starts_at, endsAt: r.ends_at, localTime: r.local_time, spotsLeft: r.spots_left }));
 }
 
-export type BookingRefusal = "unavailable" | "party_size" | "past" | "too_far" | "bad_time_out" | "closed" | "full" | "invalid";
+export type BookingRefusal = "unavailable" | "party_size" | "past" | "too_far" | "bad_time_out" | "closed" | "full" | "branch" | "invalid";
 export type BookingStatus = "pending" | "confirmed";
 export type BookResult =
   | { ok: true; bookingId: string; status: BookingStatus; startsAt: string; endsAt: string | null }
@@ -76,7 +83,7 @@ export function parseBookResult(data: unknown): BookResult {
     };
   }
   const reason = typeof r.reason === "string" ? r.reason : "invalid";
-  return { ok: false, reason: (["unavailable", "party_size", "past", "too_far", "bad_time_out", "closed", "full"].includes(reason) ? reason : "invalid") as BookingRefusal };
+  return { ok: false, reason: (["unavailable", "party_size", "past", "too_far", "bad_time_out", "closed", "full", "branch"].includes(reason) ? reason : "invalid") as BookingRefusal };
 }
 
 const REFUSAL_TEXT: Record<BookingRefusal, string> = {
@@ -87,6 +94,7 @@ const REFUSAL_TEXT: Record<BookingRefusal, string> = {
   bad_time_out: "The time out must be after the time in (within 24 hours).",
   closed: "The business is closed at that time — please pick a time within opening hours.",
   full: "That time is fully booked — please pick another time.",
+  branch: "Please choose which branch the booking is for.",
   invalid: "Could not create that booking — please try again.",
 };
 
@@ -101,6 +109,8 @@ export async function createBooking(
   conversationId: string | null,
   startsAtISO: string,
   details: { name?: string; phone?: string; email?: string },
+  /** The branch (businesses with several); none = the business's only/main one. */
+  branchId: string | null = null,
 ): Promise<CreateBookingResult> {
   const startsAt = new Date(startsAtISO);
   if (Number.isNaN(startsAt.getTime())) return { ok: false, error: REFUSAL_TEXT.past };
@@ -116,6 +126,7 @@ export async function createBooking(
     p_notes: null,
     p_source: "agent_chat",
     p_conversation_id: conversationId,
+    p_branch_id: branchId,
   });
   if (error) return { ok: false, error: REFUSAL_TEXT.invalid };
   const result = parseBookResult(data);

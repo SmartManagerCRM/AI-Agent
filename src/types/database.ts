@@ -317,7 +317,16 @@ export type Database = {
           expires_at: string;
           accepted_at: string | null;
           created_at: string;
+          /** The branches a Staff invite is for. */
+          branch_ids: string[];
         };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      /** Which branches each staff member works at (written by set_staff_member_branches / accepting an invite). */
+      tenant_member_branches: {
+        Row: { tenant_id: string; member_id: string; branch_id: string; created_at: string };
         Insert: never;
         Update: never;
         Relationships: [];
@@ -348,6 +357,8 @@ export type Database = {
           opening_hours: Json;
           is_default: boolean;
           is_active: boolean;
+          /** Takes delivery orders. */
+          offers_delivery: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -858,6 +869,8 @@ export type Database = {
           tenant_id: string;
           service_id: string;
           conversation_id: string | null;
+          /** The branch it's at (null: the main branch). */
+          branch_id: string | null;
           customer_name: string | null;
           customer_phone: string | null;
           customer_email: string | null;
@@ -1437,11 +1450,12 @@ export type Database = {
           p_notes: string | null;
           p_source: "agent_chat" | "agent_form" | "console";
           p_conversation_id?: string | null;
+          p_branch_id?: string | null;
         };
         Returns: Json;
       };
       service_slots: {
-        Args: { p_tenant_id: string; p_service_id: string; p_date: string };
+        Args: { p_tenant_id: string; p_service_id: string; p_date: string; p_branch_id?: string | null };
         Returns: { starts_at: string; ends_at: string | null; local_time: string; spots_left: number }[];
       };
       admin_update_business: {
@@ -1891,7 +1905,7 @@ export type Database = {
         Returns: "applied" | "duplicate" | "unknown" | "stale";
       };
       create_staff_invite: {
-        Args: { p_tenant_id: string; p_email: string; p_role_key: string };
+        Args: { p_tenant_id: string; p_email: string; p_role_key: string; p_branch_ids?: string[] };
         Returns: { invite_id: string; token: string }[];
       };
       accept_staff_invite: {
@@ -1909,6 +1923,25 @@ export type Database = {
       set_staff_member_status: {
         Args: { p_member_id: string; p_status: string };
         Returns: undefined;
+      };
+      set_staff_member_branches: {
+        Args: { p_member_id: string; p_branch_ids: string[] };
+        Returns: undefined;
+      };
+      /** The signed-in member's branches; null when they work at all of them. */
+      my_branch_ids: {
+        Args: { p_tenant_id: string };
+        Returns: string[] | null;
+      };
+      /** Service role: the branches a customer may choose now (open; delivering, for delivery). */
+      open_branches: {
+        Args: { p_tenant_id: string; p_purpose: "pickup" | "delivery" | "booking" };
+        Returns: { id: string; name: LocalizedText; address: Json; phone: string | null; is_default: boolean }[];
+      };
+      /** Service role: does the business have active branches? */
+      has_active_branches: {
+        Args: { p_tenant_id: string };
+        Returns: boolean;
       };
       add_platform_admin: {
         Args: { p_email: string; p_level?: string };

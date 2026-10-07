@@ -1,3 +1,4 @@
+import { BranchDeliveryToggle } from "@/components/catalog/branch-delivery-toggle";
 import { CreateBranchForm } from "@/components/catalog/create-branch-form";
 import { ManageActionButton, ManagedItem } from "@/components/console/managed-item";
 import { createUserClient } from "@/server/supabase/clients";
@@ -58,9 +59,12 @@ export default async function BranchesPage({ params }: { params: Promise<{ local
               remove={branch.is_default ? undefined : deleteBranchAction}
               deleteConfirm={tAll("console.manage.deleteBranch", { name })}
               extra={
-                !branch.is_default && branch.is_active ? (
-                  <ManageActionButton action={setDefaultBranchAction} hidden={hidden} icon="check" tone="emerald" label={tAll("console.manage.makeDefault")} />
-                ) : undefined
+                <>
+                  <BranchDeliveryToggle hidden={hidden} delivers={branch.offers_delivery} />
+                  {!branch.is_default && branch.is_active && (
+                    <ManageActionButton action={setDefaultBranchAction} hidden={hidden} icon="check" tone="emerald" label={tAll("console.manage.makeDefault")} />
+                  )}
+                </>
               }
             />
           );

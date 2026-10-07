@@ -74,10 +74,13 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
   {
     name: "set_fulfillment",
     description:
-      "Set whether the order is for pickup, delivery, or dine-in. Only offer dine-in if the customer opened this Agent from their table's own QR code — never claim a table on the customer's behalf; if they ask for dine-in and it's not available, tell them to scan the table's QR code.",
+      "Set whether the order is for pickup, delivery, or dine-in. Only offer dine-in if the customer opened this Agent from their table's own QR code — never claim a table on the customer's behalf; if they ask for dine-in and it's not available, tell them to scan the table's QR code. For pickup and delivery at a business with several branches, the customer chooses the branch among those open now — if this tool lists them, ask which and call it again with `branch`.",
     parameters: {
       type: "object",
-      properties: { fulfillment_type: { type: "string", enum: ["pickup", "delivery", "dine_in"] } },
+      properties: {
+        fulfillment_type: { type: "string", enum: ["pickup", "delivery", "dine_in"] },
+        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several open." },
+      },
       required: ["fulfillment_type"],
     },
   },
@@ -150,6 +153,7 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
       properties: {
         service_name: { type: "string" },
         date: { type: "string", description: "Date in YYYY-MM-DD format. Use today or a future date." },
+        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several open." },
       },
       required: ["service_name", "date"],
     },
@@ -166,6 +170,7 @@ export const AGENT_TOOLS: AIToolDefinition[] = [
         name: { type: "string" },
         phone: { type: "string" },
         email: { type: "string" },
+        branch: { type: "string", description: "The branch the customer chose (by name), when the business has several open." },
       },
       required: ["service_name", "slot_start", "name", "phone"],
     },

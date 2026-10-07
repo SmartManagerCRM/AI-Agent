@@ -16,10 +16,13 @@ import {
 } from "@/server/commerce/manual-order-actions";
 
 type Product = { id: string; name: string; priceMinor: number; draft: boolean };
+type Branch = { id: string; name: string; isDefault: boolean };
 
 type Props = {
   slug: string;
   locale: string;
+  /** The branches the member may add orders for (empty: the business has none). */
+  branches: Branch[];
   currency: string;
   exponent: number;
   products: Product[];
@@ -76,7 +79,26 @@ function Result({ state }: { state: ManualOrderState }) {
   );
 }
 
-function SingleOrderForm({ slug, locale, currency, exponent, products, onDone }: Props & { onDone: () => void }) {
+/** The branch an order is for: a choice when there are several, the only one otherwise. */
+function BranchField({ branches }: { branches: Branch[] }) {
+  const t = useTranslations("console.manualOrders");
+  if (branches.length === 0) return null;
+  if (branches.length === 1) return <input type="hidden" name="branch_id" value={branches[0].id} />;
+  return (
+    <label className={label}>
+      {t("branch")}
+      <select name="branch_id" required defaultValue={(branches.find((b) => b.isDefault) ?? branches[0]).id} className={input} data-testid="manual-order-branch">
+        {branches.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SingleOrderForm({ slug, locale, currency, exponent, products, branches, onDone }: Props & { onDone: () => void }) {
   const t = useTranslations("console.manualOrders");
   const tAll = useTranslations();
   const [lines, setLines] = useState<{ productId: string; quantity: number }[]>([{ productId: "", quantity: 1 }]);
@@ -169,6 +191,7 @@ function SingleOrderForm({ slug, locale, currency, exponent, products, onDone }:
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <BranchField branches={branches} />
         <label className={label}>
           {t("fulfillment")}
           <select
@@ -223,7 +246,7 @@ function SingleOrderForm({ slug, locale, currency, exponent, products, onDone }:
   );
 }
 
-function BulkOrderForm({ slug, locale, products }: Props) {
+function BulkOrderForm({ slug, locale, products, branches }: Props) {
   const t = useTranslations("console.manualOrders");
   const [state, formAction, pending] = useActionState(bulkCreateOrdersAction, undefined);
   const template = bulkOrderTemplate(products.filter((p) => !p.draft).map((p) => p.name));
@@ -245,6 +268,7 @@ function BulkOrderForm({ slug, locale, products }: Props) {
       >
         {t("downloadTemplate")}
       </a>
+      <BranchField branches={branches} />
       <label className={label}>
         {t("csvFile")}
         <input type="file" name="file" accept=".csv,text/csv,text/plain" className="text-sm" />

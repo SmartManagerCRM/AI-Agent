@@ -23,7 +23,20 @@ function addMinutes(time: string, minutes: number): string {
 }
 
 /** Bookings → New booking: book a customer in by hand (phone call, walk-in). The service's own rules decide which times apply. */
-export function NewBookingForm({ locale, slug, services, today }: { locale: string; slug: string; services: BookingServiceOption[]; today: string }) {
+export function NewBookingForm({
+  locale,
+  slug,
+  services,
+  today,
+  branches,
+}: {
+  locale: string;
+  slug: string;
+  services: BookingServiceOption[];
+  today: string;
+  /** The branches the member may book for (empty: the business has none). */
+  branches: { id: string; name: string; isDefault: boolean }[];
+}) {
   const t = useTranslations("console.bookingForm");
   const tCommon = useTranslations("common");
   const [state, formAction, pending] = useActionState(createConsoleBookingAction, undefined);
@@ -38,6 +51,19 @@ export function NewBookingForm({ locale, slug, services, today }: { locale: stri
     <form action={formAction} className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4" data-testid="new-booking-form">
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="slug" value={slug} />
+      {branches.length === 1 && <input type="hidden" name="branchId" value={branches[0].id} />}
+      {branches.length > 1 && (
+        <label className="flex flex-col gap-1 sm:col-span-2">
+          {t("branch")}
+          <select name="branchId" required defaultValue={(branches.find((b) => b.isDefault) ?? branches[0]).id} className={input} data-testid="new-booking-branch">
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-1 sm:col-span-2">
         {t("service")}
         <select name="serviceId" value={serviceId} onChange={(e) => setServiceId(e.target.value)} className={input}>

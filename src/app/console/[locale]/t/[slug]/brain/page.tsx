@@ -21,7 +21,7 @@ import { placesConfigured } from "@/server/brain/discovery/google-places";
 import { loadReadiness } from "@/server/brain/discovery/pipeline";
 import { timed } from "@/server/perf";
 import { createUserClient } from "@/server/supabase/clients";
-import { requireTenantMember } from "@/server/tenant/context";
+import { requireOwnerOrAdmin } from "@/server/tenant/context";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 
@@ -71,7 +71,7 @@ export default async function BusinessBrainPage({
 }) {
   const { locale, slug } = await params;
   const page = parsePage((await searchParams).page);
-  const { tenant } = await requireTenantMember(locale, slug);
+  const { tenant } = await requireOwnerOrAdmin(locale, slug);
   const supabase = await createUserClient();
   const t = await getTranslations("console.brain");
   const tAll = await getTranslations();

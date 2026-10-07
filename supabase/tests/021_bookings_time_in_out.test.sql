@@ -99,8 +99,8 @@ select is((public.book_service('00000000-0000-4000-8000-00000000e0b1', '00000000
 select throws_ok($$ select public.book_service('00000000-0000-4000-8000-00000000e0b1', '00000000-0000-4000-8000-00000000e0f3', current_date + 8, '10:00', null, null, 1,
   'x', '1', null, null, 'agent_form') $$, '42501', null, 'a member cannot pretend to be the Agent');
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000e0a2","role":"authenticated"}';
-select throws_ok($$ select public.book_service('00000000-0000-4000-8000-00000000e0b1', '00000000-0000-4000-8000-00000000e0f3', current_date + 8, '12:00', null, null, 1,
-  'x', '1', null, null, 'console') $$, '42501', null, 'staff without bookings.write cannot book');
+select is(public.book_service('00000000-0000-4000-8000-00000000e0b1', '00000000-0000-4000-8000-00000000e0f3', current_date + 8, '12:00', null, null, 1,
+  'x', '1', null, null, 'console') ->> 'reason', 'branch', 'staff who work at no branch cannot book (staff book for their own branches)');
 set local request.jwt.claims = '{"sub":"00000000-0000-4000-8000-00000000e0a3","role":"authenticated"}';
 select throws_ok($$ select public.book_service('00000000-0000-4000-8000-00000000e0b1', '00000000-0000-4000-8000-00000000e0f3', current_date + 8, '12:00', null, null, 1,
   'x', '1', null, null, 'console') $$, '42501', null, 'another business cannot book here');

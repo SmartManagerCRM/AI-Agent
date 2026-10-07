@@ -115,6 +115,20 @@ export async function setBranchActiveAction(_prev: ManageResult, formData: FormD
   return data?.length ? done(c.locale, c.slug, "branches") : noRows(c.t);
 }
 
+/** Whether the branch takes delivery orders (customers choosing delivery see only those). */
+export async function setBranchDeliveryAction(_prev: ManageResult, formData: FormData): Promise<ManageResult> {
+  const c = await context(formData);
+  if (c.error) return c.error;
+  const delivers = field(formData, "value") === "true";
+  const { data } = await c.supabase
+    .from("branches")
+    .update({ offers_delivery: delivers })
+    .eq("tenant_id", c.tenant.id)
+    .eq("id", c.id)
+    .select("id");
+  return data?.length ? done(c.locale, c.slug, "branches") : noRows(c.t);
+}
+
 export async function setDefaultBranchAction(_prev: ManageResult, formData: FormData): Promise<ManageResult> {
   const c = await context(formData);
   if (c.error) return c.error;

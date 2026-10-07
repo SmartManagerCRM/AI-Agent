@@ -20,6 +20,7 @@ import {
   type CartView,
   type PaymentMethod,
 } from "@/server/commerce/cart";
+import { businessHasBranches, openBranchChoices, type BranchChoice } from "@/server/commerce/branch-choice";
 import { placeOrder } from "@/server/commerce/orders";
 import { findActiveTable } from "@/server/commerce/tables";
 import { initiatePayment } from "@/server/payments/service";
@@ -157,11 +158,14 @@ const fulfillmentSchema = z.object({
   tableId: z.string().trim().max(100).optional(),
 });
 
+/** The cart, and — for pickup/delivery at a business with several open branches — the branches to choose from. */
+export type FulfillmentResult = { ok: true; cart: CartView; branches: BranchChoice[] } | { ok: false; error: AgentErrorCode };
+
 export async function setFulfillmentTypeAction(
   slug: string,
   input: z.infer<typeof fulfillmentSchema>,
   surface: Surface = "external_agent",
-): Promise<ActionResult> {
+): Promise<FulfillmentResult> {
   const parsed = fulfillmentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "invalidInput" };
 
@@ -177,24 +181,51 @@ export async function setFulfillmentTypeAction(
 
   let branchId: string | null = null;
   let tableId: string | null = null;
-  if (parsed.data.fulfillmentType === "dine_in") {
+  let branches: BranchChoice[] = [];
+  const type = parsed.data.fulfillmentType;
+  if (type === "dine_in") {
     const table = parsed.data.tableId ? await findActiveTable(ctx.supabase, ctx.tenant.id, parsed.data.tableId) : null;
     if (!table) return { ok: false, error: "tableUnknown" };
     branchId = table.branchId;
     tableId = table.id;
-  } else if (parsed.data.fulfillmentType === "pickup") {
-    const { data: branch } = await ctx.supabase
-      .from("branches")
-      .select("id")
-      .eq("tenant_id", ctx.tenant.id)
-      .eq("is_default", true)
-      .eq("is_active", true)
-      .maybeSingle();
-    branchId = branch?.id ?? null;
+  } else if (await businessHasBranches(ctx.supabase, ctx.tenant.id)) {
+    // The customer picks among the branches open now (for delivery, those that deliver).
+    branches = await openBranchChoices(ctx.supabase, ctx.tenant.id, type, ctx.conversation.locale);
+    if (branches.length === 0) return { ok: false, error: type === "delivery" ? "noBranchDelivering" : "noBranchOpen" };
+    const current = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
+    const kept = branches.find((b) => b.id === current.cart.branchId);
+    branchId = kept?.id ?? (branches.length === 1 ? branches[0].id : null);
   }
-  await setFulfillment(ctx.supabase, ctx.tenant.id, ctx.cart.id, parsed.data.fulfillmentType, branchId, tableId);
+  await setFulfillment(ctx.supabase, ctx.tenant.id, ctx.cart.id, type, branchId, tableId);
   const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
-  return { ok: true, cart };
+  return { ok: true, cart, branches };
+}
+
+const branchSchema = z.object({ branchId: z.uuid() });
+
+/** The branch the customer chose for pickup or delivery — one of those open now for it (checked again here). */
+export async function chooseBranchAction(
+  slug: string,
+  input: z.infer<typeof branchSchema>,
+  surface: Surface = "external_agent",
+): Promise<FulfillmentResult> {
+  const parsed = branchSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalidInput" };
+
+  const ctx = await loadContext(slug, surface);
+  if (!ctx) return { ok: false, error: "unavailable" };
+  if (!ctx.orderingEnabled) return { ok: false, error: "orderingOff" };
+  if (isRateLimited(ctx.conversation.id, MUTATION_RATE_LIMIT_WINDOW_MS, MUTATION_RATE_LIMIT_MAX)) {
+    return { ok: false, error: "rateLimited" };
+  }
+  const current = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
+  const type = current.cart.fulfillmentType;
+  if (type !== "pickup" && type !== "delivery") return { ok: false, error: "chooseFulfillment" };
+  const branches = await openBranchChoices(ctx.supabase, ctx.tenant.id, type, ctx.conversation.locale);
+  if (!branches.some((b) => b.id === parsed.data.branchId)) return { ok: false, error: "branchClosed" };
+  await setFulfillment(ctx.supabase, ctx.tenant.id, ctx.cart.id, type, parsed.data.branchId, null);
+  const cart = await viewCart(ctx.supabase, ctx.tenant.id, ctx.cart.id, ctx.conversation.locale);
+  return { ok: true, cart, branches };
 }
 
 const paymentMethodSchema = z.object({ paymentMethod: z.enum(PAYMENT_METHODS) });

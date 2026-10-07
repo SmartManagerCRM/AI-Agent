@@ -14,6 +14,7 @@ import { cancelBookingAction, completeBookingAction } from "@/server/booking/act
 import { ManageControls } from "@/components/console/managed-item";
 import { deleteBookingAction, updateBookingDetailsAction } from "@/server/manage/actions";
 import { createUserClient } from "@/server/supabase/clients";
+import { branchScope } from "@/server/tenant/branches";
 import { requireTenantMember } from "@/server/tenant/context";
 import { autoTranslated } from "@/server/translate/marks";
 import { businessToday, resolveTimeZone } from "@/lib/timezone";
@@ -55,6 +56,9 @@ export default async function BookingsPage({
   const supabase = await createUserClient();
   const t = await getTranslations("console.bookings");
   const tAll = await getTranslations();
+  // Bookings at the member's branches only (the database enforces it); with several, a branch column.
+  const scope = await branchScope(tenant.id, locale);
+  const showBranches = (scope.restricted ? scope.allowed : scope.all).length > 1;
 
   const now = new Date().toISOString();
   // Counts are exact (counted in Postgres), and the list is paged — every booking is reachable.
@@ -66,7 +70,7 @@ export default async function BookingsPage({
       .order("created_at"),
     supabase
       .from("bookings")
-      .select("id, service_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, source, notes, status, customer_locale, created_at")
+      .select("id, service_id, branch_id, customer_name, customer_phone, customer_email, starts_at, ends_at, party_size, source, notes, status, customer_locale, created_at")
       .eq("tenant_id", tenant.id)
       .order("starts_at", { ascending: false })
       .order("id", { ascending: false })
@@ -255,6 +259,7 @@ export default async function BookingsPage({
             locale={locale}
             slug={slug}
             today={today}
+            branches={scope.allowed.map((b) => ({ id: b.id, name: b.name, isDefault: b.isDefault }))}
             services={services
               .filter((s) => s.is_active)
               .map((s) => ({
@@ -276,6 +281,7 @@ export default async function BookingsPage({
               <thead>
                 <tr className="border-b border-slate-200 text-slate-500">
                   <th className="py-2 text-start font-medium">{t("col.service")}</th>
+                  {showBranches && <th className="py-2 text-start font-medium">{t("col.branch")}</th>}
                   <th className="py-2 text-start font-medium">{t("col.customer")}</th>
                   <th className="py-2 text-start font-medium">{t("col.date")}</th>
                   <th className="py-2 text-start font-medium">{t("col.timeIn")}</th>
@@ -292,6 +298,7 @@ export default async function BookingsPage({
                   return (
                   <tr key={b.id} id={`booking-row-${b.id}`} className={`border-b border-slate-100 last:border-0 ${b.status === "pending" ? "bg-amber-50/60" : ""}`}>
                     <td className="py-2 font-medium text-slate-900">{serviceNameById.get(b.service_id) ?? "—"}</td>
+                    {showBranches && <td className="py-2 text-slate-600" data-testid="booking-branch">{scope.nameOf(b.branch_id) ?? "—"}</td>}
                     <td className="py-2 text-slate-600">
                       {b.customer_name ?? "—"}
                       {b.customer_phone && <span className="block text-xs text-slate-400" dir="ltr">{b.customer_phone}</span>}

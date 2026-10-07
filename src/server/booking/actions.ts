@@ -212,6 +212,7 @@ const consoleBookingSchema = z.object({
   phone: z.string().trim().min(5).max(40),
   email: z.email().max(200).optional(),
   notes: z.string().trim().max(1000).optional(),
+  branchId: z.uuid().optional(),
 });
 
 export type ConsoleBookingState = { ok: boolean; message: string } | undefined;
@@ -236,6 +237,7 @@ export async function createConsoleBookingAction(_prev: ConsoleBookingState, for
     phone: formData.get("phone"),
     email: optional("email"),
     notes: optional("notes"),
+    branchId: optional("branchId"),
   });
   if (!parsed.success) {
     const field = parsed.error.issues[0]?.path[0];
@@ -257,8 +259,12 @@ export async function createConsoleBookingAction(_prev: ConsoleBookingState, for
     p_customer_email: d.email ?? null,
     p_notes: d.notes ?? null,
     p_source: "console",
+    p_branch_id: d.branchId ?? null,
   });
-  if (error) return { ok: false, message: error.code === "42501" ? t("bookings.noPermission") : t("bookings.saveFailed") };
+  if (error) {
+    if (error.code === "42501") return { ok: false, message: /own branches/.test(error.message) ? t("bookings.ownBranches") : t("bookings.noPermission") };
+    return { ok: false, message: t("bookings.saveFailed") };
+  }
   const result = parseBookResult(data);
   if (!result.ok) return { ok: false, message: t(refusalKey(result.reason)) };
   revalidatePath(`/${d.locale}/${d.slug}/bookings`);

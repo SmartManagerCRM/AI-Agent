@@ -22,10 +22,38 @@ import {
   getAvailableSlots,
   listActiveServices,
 } from "@/server/commerce/booking";
+import { businessHasBranches, matchBranch, openBranchChoices, type BranchPurpose } from "@/server/commerce/branch-choice";
 import { getOrderStatusByNumber, placeOrder } from "@/server/commerce/orders";
 import { initiatePayment } from "@/server/payments/service";
 import type { TypedSupabaseClient } from "@/server/supabase/clients";
 import { relevantProducts, type Catalog } from "@/server/ai/deterministic/catalog";
+
+/**
+ * The branch for an order or booking made in chat: the one the customer
+ * named, among those open now (for delivery, delivering); the only one open;
+ * or — several open, none named — a question for the customer.
+ */
+async function chatBranch(
+  ctx: ToolContext,
+  purpose: BranchPurpose,
+  named: unknown,
+): Promise<{ branchId: string | null } | { reply: string; isError?: boolean }> {
+  if (!(await businessHasBranches(ctx.supabase, ctx.tenantId))) return { branchId: null };
+  const open = await openBranchChoices(ctx.supabase, ctx.tenantId, purpose, ctx.locale);
+  const what = purpose === "booking" ? "bookings" : purpose;
+  if (open.length === 0) {
+    return { reply: `No branch is ${purpose === "delivery" ? "delivering" : "open"} right now, so ${what} can't be taken at the moment. Tell the customer, and offer the opening hours.`, isError: true };
+  }
+  const list = open.map((b) => (b.address ? `${b.name} (${b.address})` : b.name)).join("; ");
+  const name = typeof named === "string" ? named : "";
+  if (name.trim()) {
+    const match = matchBranch(open, name);
+    if (match) return { branchId: match.id };
+    return { reply: `"${name}" is not one of the branches open right now for ${what}. Ask the customer to choose one of: ${list}.`, isError: true };
+  }
+  if (open.length === 1) return { branchId: open[0].id };
+  return { reply: `This business has several branches open now for ${what}: ${list}. Ask the customer which branch, then call again with "branch".` };
+}
 
 export type ToolContext = {
   supabase: TypedSupabaseClient;
@@ -205,22 +233,18 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       if (!ctx.checkout.fulfillment_types.includes(rawType)) {
         return { content: `${rawType} is not available for this business.`, isError: true };
       }
-      const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       let branchId: string | null = null;
       let tableId: string | null = null;
       if (rawType === "dine_in") {
         branchId = ctx.activeTable!.branchId;
         tableId = ctx.activeTable!.id;
-      } else if (rawType === "pickup") {
-        const { data: branch } = await ctx.supabase
-          .from("branches")
-          .select("id")
-          .eq("tenant_id", ctx.tenantId)
-          .eq("is_default", true)
-          .eq("is_active", true)
-          .maybeSingle();
-        branchId = branch?.id ?? null;
+      } else {
+        // The customer's branch, among those open now (for delivery, delivering).
+        const branch = await chatBranch(ctx, rawType, input.branch);
+        if ("reply" in branch) return { content: branch.reply, isError: branch.isError };
+        branchId = branch.branchId;
       }
+      const cart = await getOrCreateCart(ctx.supabase, ctx.tenantId, ctx.conversationId);
       await setFulfillment(ctx.supabase, ctx.tenantId, cart.id, rawType, branchId, tableId);
       return { content: `Fulfillment set to ${rawType === "dine_in" ? `dine-in (table ${ctx.activeTable!.label})` : rawType}.` };
     }
@@ -328,7 +352,9 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       if (!service) return { content: `No bookable service found named "${input.service_name}".`, isError: true };
       const date = String(input.date ?? "");
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { content: "Give the date as YYYY-MM-DD.", isError: true };
-      const slots = await getAvailableSlots(ctx.supabase, ctx.tenantId, service, date);
+      const branch = await chatBranch(ctx, "booking", input.branch);
+      if ("reply" in branch) return { content: branch.reply, isError: branch.isError };
+      const slots = await getAvailableSlots(ctx.supabase, ctx.tenantId, service, date, branch.branchId);
       if (slots.length === 0) return { content: `No open slots for ${service.name} on ${date}.` };
       // Local clock times for the customer, with the exact instant to book.
       const times = slots.slice(0, 40).map((s) => `${s.localTime} (slot_start ${s.startsAt}${s.spotsLeft > 1 ? `, ${s.spotsLeft} places` : ""})`);
@@ -343,6 +369,8 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
         String(input.service_name ?? ""),
       );
       if (!service) return { content: `No bookable service found named "${input.service_name}".`, isError: true };
+      const branch = await chatBranch(ctx, "booking", input.branch);
+      if ("reply" in branch) return { content: branch.reply, isError: branch.isError };
       const result = await createBooking(
         ctx.supabase,
         ctx.tenantId,
@@ -354,6 +382,7 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
           phone: input.phone ? String(input.phone) : undefined,
           email: input.email ? String(input.email) : undefined,
         },
+        branch.branchId,
       );
       if (!result.ok) return { content: result.error, isError: true };
       if (result.status === "pending") {

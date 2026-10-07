@@ -4,19 +4,21 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 
 import {
   bookServiceAction,
+  bookingBranchesAction,
   bookingStatusAction,
   serviceDayAction,
   type AgentBookingResult,
   type RequestStatus,
   type ServiceDay,
 } from "@/server/agent-public/booking-actions";
+import type { BranchChoice } from "@/lib/branch-match";
 
 import { AgentAvatar } from "./agent-avatar";
 import { useAgentT } from "./agent-i18n";
 import type { AgentService } from "./agent-model";
 import { focusRing, useAgentUi } from "./agent-ui";
 import { ScreenHeader } from "./chrome";
-import { CalendarIcon, CheckIcon, ChevronIcon, ClockIcon } from "./icons";
+import { CalendarIcon, CheckIcon, ChevronIcon, ClockIcon, PinIcon } from "./icons";
 
 /** A booking the customer just made (or a request still waiting for the business's answer), kept for this visit. */
 type MadeBooking = {
@@ -30,6 +32,8 @@ type MadeBooking = {
   name: string;
   phone: string;
   requestedAt: number;
+  /** The branch it's at (businesses with several). */
+  branchName?: string | null;
 };
 
 const REQUEST_KEY = "agent-booking:";
@@ -189,18 +193,38 @@ function BookingForm({
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState<AgentBookingResult | null>(null);
   const [pending, startTransition] = useTransition();
-
+  // Businesses with branches: the customer books at one of those open right now.
+  const [branchOptions, setBranchOptions] = useState<{ hasBranches: boolean; branches: BranchChoice[] } | null>(null);
+  const [branchId, setBranchId] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    void serviceDayAction(slug, surface, { serviceId: service.id, date }).then((info) => {
-      if (!cancelled) setDay({ date, info });
+    void bookingBranchesAction(slug, surface, locale).then((options) => {
+      if (cancelled) return;
+      setBranchOptions(options ?? { hasBranches: false, branches: [] });
+      if (options?.branches.length === 1) setBranchId(options.branches[0].id);
     });
     return () => {
       cancelled = true;
     };
-  }, [slug, surface, service.id, date]);
-  const info = day?.date === date ? day.info : null;
-  const loadingDay = day?.date !== date;
+  }, [slug, surface, locale]);
+  const hasBranches = branchOptions?.hasBranches ?? false;
+  const noBranchOpen = hasBranches && branchOptions!.branches.length === 0;
+  const branchReady = branchOptions !== null && (!hasBranches || !!branchId);
+  const chosenBranch = branchOptions?.branches.find((b) => b.id === branchId) ?? null;
+
+  useEffect(() => {
+    if (!branchReady) return;
+    let cancelled = false;
+    void serviceDayAction(slug, surface, { serviceId: service.id, date, branchId }).then((info) => {
+      if (!cancelled) setDay({ date: `${date}|${branchId ?? ""}`, info });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, surface, service.id, date, branchId, branchReady]);
+  const dayKey = `${date}|${branchId ?? ""}`;
+  const info = day?.date === dayKey ? day.info : null;
+  const loadingDay = day?.date !== dayKey;
 
   const submit = () => {
     setResult(null);
@@ -217,6 +241,7 @@ function BookingForm({
         email: email.trim() || null,
         notes: notes.trim() || null,
         locale: locale === "ar" || locale === "fr" ? locale : "en",
+        branchId,
       });
       if (r.ok) {
         onBooked({
@@ -230,13 +255,30 @@ function BookingForm({
           name: name.trim(),
           phone: phone.trim(),
           requestedAt: Date.now(),
+          branchName: chosenBranch && (branchOptions?.branches.length ?? 0) > 1 ? chosenBranch.name : null,
         });
       } else setResult(r);
     });
   };
-  const ready = date && /^\d{2}:\d{2}$/.test(timeIn) && name.trim().length >= 2 && phone.trim().length >= 6 && !pending;
+  const ready = branchReady && date && /^\d{2}:\d{2}$/.test(timeIn) && name.trim().length >= 2 && phone.trim().length >= 6 && !pending;
   const shownEnd = fixed && timeIn ? addMinutes(timeIn, service.durationMinutes!) : null;
   const closed = info?.hours !== undefined && info?.hours !== null && info.hours.length === 0;
+
+  if (noBranchOpen) {
+    return (
+      <div className="flex flex-col gap-4 px-4 py-5 sm:px-6">
+        <p className="text-lg font-bold tracking-tight text-slate-900">{text(service.name)}</p>
+        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 ring-1 ring-amber-200" data-testid="booking-no-branch">
+          {t("book.noBranchOpen")}
+        </p>
+        {canChange && (
+          <button type="button" onClick={onChange} className={`${focusRing} self-start rounded-full px-4 py-2 text-sm font-semibold text-agent-800 ring-1 ring-agent-200`}>
+            {t("book.change")}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <form
@@ -266,6 +308,38 @@ function BookingForm({
           ))}
         </ul>
       </section>
+
+      {hasBranches && (branchOptions?.branches.length ?? 0) > 1 && (
+        <div className="flex flex-col gap-2" role="radiogroup" aria-label={t("book.branch")} data-testid="booking-branch-choice">
+          <p className="text-xs font-semibold text-slate-600">{t("book.branch")}</p>
+          {branchOptions!.branches.map((b) => (
+            <label
+              key={b.id}
+              className={`flex cursor-pointer items-center gap-3 rounded-2xl p-3 ring-1 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-agent-400 ${
+                branchId === b.id ? "bg-agent-50 ring-agent-500" : "bg-white ring-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="booking-branch"
+                className="sr-only"
+                checked={branchId === b.id}
+                onChange={() => {
+                  setBranchId(b.id);
+                  if (fixed) setTimeIn("");
+                }}
+              />
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-agent-50 text-agent-700">
+                <PinIcon size={20} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-slate-900">{b.name}</span>
+                {b.address && <span className="block text-xs text-slate-500">{b.address}</span>}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="book-date" className="text-xs font-semibold text-slate-600">
@@ -499,6 +573,7 @@ function BookingDetails({ made, service, testId }: { made: MadeBooking; service:
   const prettyDate = usePrettyDate();
   const rows: [string, string][] = [
     [t("book.detailService"), text(service.name)],
+    ...(made.branchName ? ([[t("book.detailBranch"), made.branchName]] as [string, string][]) : []),
     [t("book.detailDate"), prettyDate(made.date)],
     [t("book.detailTime"), made.endTime ? `${made.timeIn} – ${made.endTime}` : made.timeIn],
     [t("book.detailPeople"), t("book.peopleCount", { count: made.people })],
