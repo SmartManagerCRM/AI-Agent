@@ -4181,6 +4181,22 @@
         "tooMany": "Trop de tentatives — veuillez patienter quelques minutes.",
         "failed": "Une erreur est survenue. Veuillez réessayer."
       }
+    },
+    "watch": {
+      "metaTitle": "Regarder : SmartManager AI Agent en 30 secondes",
+      "metaDescription": "Votre employé IA répond aux clients à la voix, présente vos produits, prend commandes et réservations et finalise le paiement. Parlez ensuite à notre Agent de démonstration.",
+      "videoLabel": "Vidéo SmartManager AI Agent",
+      "fallback": "Votre navigateur ne peut pas lire cette vidéo.",
+      "play": "Regarder avec le son",
+      "resume": "Lire",
+      "replay": "Revoir",
+      "mute": "Couper le son",
+      "unmute": "Activer le son",
+      "captions": "Sous-titres",
+      "close": "Retour au site",
+      "tryDemo": "Essayez notre Agent de démonstration : parlez à Ziad maintenant",
+      "startTrial": "Commencez votre essai gratuit de 7 jours",
+      "annual": "Voir les offres : 2 mois offerts sur les forfaits annuels"
     }
   }
 }

@@ -4181,6 +4181,22 @@
         "tooMany": "Too many attempts — please wait a few minutes.",
         "failed": "Something went wrong. Please try again."
       }
+    },
+    "watch": {
+      "metaTitle": "Watch: SmartManager AI Agent in 30 seconds",
+      "metaDescription": "See your AI Employee answer customers by voice, show your products, take orders and bookings and complete payments. Then talk to our demo Agent.",
+      "videoLabel": "SmartManager AI Agent video",
+      "fallback": "Your browser can't play this video.",
+      "play": "Watch with sound",
+      "resume": "Play",
+      "replay": "Replay",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "captions": "Captions",
+      "close": "Back to the website",
+      "tryDemo": "Try our demo Agent: talk to Ziad now",
+      "startTrial": "Start your 7-day free trial",
+      "annual": "See plans: 2 months free on annual plans"
     }
   }
 }
