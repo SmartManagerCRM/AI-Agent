@@ -1,0 +1,40 @@
+import type { Locale } from "@/i18n/locales";
+
+/** Where an end-card widget sits in the 1080×1920 frame, in percent. */
+export type AdCardBox = { left: number; top: number; width: number; height: number };
+export type AdCardKey = "tryDemo" | "startTrial" | "annual";
+export type AdCut = {
+  src: string;
+  poster: string;
+  captions: { src: string; lang: string; label: string };
+  /** When each end-card widget appears (seconds) and where it sits; the Arabic cut has its own timing and layout. */
+  cards: { tryDemo: [number, AdCardBox]; startTrial: [number, AdCardBox]; annual: [number, AdCardBox] };
+};
+
+const AD_CUTS: { en: AdCut; ar: AdCut } = {
+  en: {
+    src: "/ad/smartmanager-ai-agent.mp4",
+    poster: "/ad/poster.jpg",
+    captions: { src: "/ad/captions-en.vtt", lang: "en", label: "English" },
+    cards: {
+      tryDemo: [22.2, { left: 6.48, top: 45.12, width: 87.04, height: 13.33 }],
+      startTrial: [22.65, { left: 6.48, top: 60.54, width: 87.04, height: 13.33 }],
+      annual: [24.55, { left: 17.86, top: 75.74, width: 64.27, height: 4.79 }],
+    },
+  },
+  ar: {
+    src: "/ad/smartmanager-ai-agent-ar.mp4",
+    poster: "/ad/poster-ar.jpg",
+    captions: { src: "/ad/captions-ar.vtt", lang: "ar", label: "العربية" },
+    cards: {
+      tryDemo: [23.05, { left: 6.48, top: 44.05, width: 87.04, height: 13.33 }],
+      startTrial: [23.68, { left: 6.48, top: 59.47, width: 87.04, height: 13.33 }],
+      annual: [25.87, { left: 18.29, top: 74.68, width: 63.42, height: 6.04 }],
+    },
+  },
+};
+
+/** The ad in the page's language: Arabic for /ar, English otherwise. */
+export function adCut(locale: Locale): AdCut {
+  return locale === "ar" ? AD_CUTS.ar : AD_CUTS.en;
+}

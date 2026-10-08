@@ -4,16 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import type { Locale } from "@/i18n/locales";
+import { adCut, type AdCardBox, type AdCardKey } from "@/lib/site/ad-video";
 
-/** Where each end-card widget sits in the 1080×1920 frame (percent), and from when it is on screen. */
-type Hotspot = { key: "tryDemo" | "startTrial" | "annual"; href: string; from: number; box: { left: number; top: number; width: number; height: number } };
+type Hotspot = { key: AdCardKey; href: string; from: number; box: AdCardBox };
 
 function showCaptions(video: HTMLVideoElement | null, on: boolean) {
   const track = video?.textTracks[0];
   if (track) track.mode = on ? "showing" : "hidden";
 }
-
-export const AD_VIDEO = { src: "/ad/smartmanager-ai-agent.mp4", poster: "/ad/poster.jpg", captions: "/ad/captions-en.vtt" } as const;
 
 /**
  * The 30-second ad, full screen, with the end card's link cards made real:
@@ -31,11 +29,9 @@ export function AdPlayer({ locale }: { locale: Locale }) {
   const [ended, setEnded] = useState(false);
   const [captions, setCaptions] = useState(false);
 
-  const hotspots: Hotspot[] = [
-    { key: "tryDemo", href: "/agent/smartmanager", from: 22.2, box: { left: 6.48, top: 45.12, width: 87.04, height: 13.33 } },
-    { key: "startTrial", href: `/${locale}`, from: 22.65, box: { left: 6.48, top: 60.54, width: 87.04, height: 13.33 } },
-    { key: "annual", href: `/${locale}/pricing`, from: 24.55, box: { left: 17.86, top: 75.74, width: 64.27, height: 4.79 } },
-  ];
+  const cut = adCut(locale);
+  const href = { tryDemo: "/agent/smartmanager", startTrial: `/${locale}`, annual: `/${locale}/pricing` };
+  const hotspots: Hotspot[] = (["tryDemo", "startTrial", "annual"] as const).map((key) => ({ key, href: href[key], from: cut.cards[key][0], box: cut.cards[key][1] }));
 
   // Start silently (browsers only autoplay muted); the big button restarts it with sound.
   useEffect(() => {
@@ -87,7 +83,7 @@ export function AdPlayer({ locale }: { locale: Locale }) {
         <video
           ref={video}
           className="absolute inset-0 h-full w-full"
-          poster={AD_VIDEO.poster}
+          poster={cut.poster}
           muted={muted}
           playsInline
           autoPlay
@@ -100,8 +96,8 @@ export function AdPlayer({ locale }: { locale: Locale }) {
           aria-label={t("videoLabel")}
           data-testid="ad-video"
         >
-          <source src={AD_VIDEO.src} type="video/mp4" />
-          <track src={AD_VIDEO.captions} kind="captions" srcLang="en" label="English" />
+          <source src={cut.src} type="video/mp4" />
+          <track src={cut.captions.src} kind="captions" srcLang={cut.captions.lang} label={cut.captions.label} />
           {t("fallback")}
         </video>
 

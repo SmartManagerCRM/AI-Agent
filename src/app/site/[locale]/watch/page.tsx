@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
-import { AD_VIDEO, AdPlayer } from "@/components/site/ad-player";
+import { AdPlayer } from "@/components/site/ad-player";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/locales";
+import { adCut } from "@/lib/site/ad-video";
 import { SITE_ORIGIN } from "@/lib/site/config";
 import { pageMetadata } from "@/server/site/metadata";
 
@@ -11,13 +12,14 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   const t = await getTranslations({ locale, namespace: "site.watch" });
   const meta = pageMetadata(locale, "/watch", t("metaTitle"), t("metaDescription"));
+  const cut = adCut(locale);
   return {
     ...meta,
     openGraph: {
       ...meta.openGraph,
       type: "video.other",
-      images: [{ url: `${SITE_ORIGIN}${AD_VIDEO.poster}`, width: 720, height: 1280, alt: "SmartManager AI Agent" }],
-      videos: [{ url: `${SITE_ORIGIN}${AD_VIDEO.src}`, type: "video/mp4", width: 1080, height: 1920 }],
+      images: [{ url: `${SITE_ORIGIN}${cut.poster}`, width: 720, height: 1280, alt: "SmartManager AI Agent" }],
+      videos: [{ url: `${SITE_ORIGIN}${cut.src}`, type: "video/mp4", width: 1080, height: 1920 }],
     },
   };
 }
