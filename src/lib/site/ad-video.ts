@@ -11,7 +11,7 @@ export type AdCut = {
   cards: { tryDemo: [number, AdCardBox]; startTrial: [number, AdCardBox]; annual: [number, AdCardBox] };
 };
 
-const AD_CUTS: { en: AdCut; ar: AdCut } = {
+const AD_CUTS: { en: AdCut; ar: AdCut; fr: AdCut } = {
   en: {
     src: "/ad/smartmanager-ai-agent.mp4",
     poster: "/ad/poster.jpg",
@@ -32,9 +32,19 @@ const AD_CUTS: { en: AdCut; ar: AdCut } = {
       annual: [25.87, { left: 18.29, top: 74.68, width: 63.42, height: 6.04 }],
     },
   },
+  fr: {
+    src: "/ad/smartmanager-ai-agent-fr.mp4",
+    poster: "/ad/poster-fr.jpg",
+    captions: { src: "/ad/captions-fr.vtt", lang: "fr", label: "Français" },
+    cards: {
+      tryDemo: [23.35, { left: 6.48, top: 46.37, width: 87.04, height: 13.94 }],
+      startTrial: [23.89, { left: 6.48, top: 62.4, width: 87.04, height: 13.33 }],
+      annual: [26.0, { left: 12.66, top: 77.61, width: 74.68, height: 4.79 }],
+    },
+  },
 };
 
-/** The ad in the page's language: Arabic for /ar, English otherwise. */
+/** The ad in the page's language. */
 export function adCut(locale: Locale): AdCut {
-  return locale === "ar" ? AD_CUTS.ar : AD_CUTS.en;
+  return AD_CUTS[locale];
 }
