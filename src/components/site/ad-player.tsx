@@ -14,7 +14,7 @@ function showCaptions(video: HTMLVideoElement | null, on: boolean) {
 }
 
 /**
- * The 30-second ad, full screen, with the end card's link cards made real:
+ * The ad, full screen, with the end card's link cards made real:
  * transparent links laid exactly over the cards burned into the video, so a
  * viewer taps "Try our demo Agent" and lands in a conversation with Ziad.
  * The video keeps its 9:16 box (never cropped) so the links stay on their cards.
