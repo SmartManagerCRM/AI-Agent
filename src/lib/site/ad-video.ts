@@ -27,9 +27,9 @@ const AD_CUTS: { en: AdCut; ar: AdCut; fr: AdCut } = {
     poster: "/ad/poster-ar.jpg",
     captions: { src: "/ad/captions-ar.vtt", lang: "ar", label: "العربية" },
     cards: {
-      tryDemo: [37.65, { left: 6.48, top: 41.32, width: 87.04, height: 13.33 }],
-      startTrial: [38.1, { left: 6.48, top: 56.21, width: 87.04, height: 13.33 }],
-      annual: [45.4, { left: 18.29, top: 77.31, width: 63.42, height: 6.04 }],
+      tryDemo: [37.3, { left: 6.48, top: 41.32, width: 87.04, height: 13.33 }],
+      startTrial: [37.75, { left: 6.48, top: 56.21, width: 87.04, height: 13.33 }],
+      annual: [45.05, { left: 18.29, top: 77.31, width: 63.42, height: 6.04 }],
     },
   },
   fr: {
