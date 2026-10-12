@@ -58,7 +58,8 @@ export async function Hero({ locale, trialDays }: { locale: Locale; trialDays: n
             {t("subtitle1")}
             <br className="hidden sm:block" /> {t("subtitle2")}
           </p>
-          <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          {/* Laptops and up: like the checks below, a row too long for the space beside the robot (French) wraps. */}
+          <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap lg:max-w-[480px]">
             <Link href={`/${locale}/pricing`} className="site-btn-primary site-focus h-14 rounded-2xl px-7 text-base" data-testid="hero-start-trial">
               {t("startTrial")}
               <SiteIcon name="arrowRight" size={18} className="rtl:rotate-180" />

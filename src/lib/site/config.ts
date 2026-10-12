@@ -4,7 +4,7 @@
  */
 export const SITE_ORIGIN = "https://ai-agent.smartmanager.me";
 
-/** "Watch demo": the SmartManager AI Agent's own customer-facing Agent page. */
+/** "Try our AI Agent Now": the SmartManager AI Agent's own customer-facing Agent page. */
 export const DEMO_AGENT_SLUG = "smartmanager";
 
 /** Top-level pages of the public site (reserved: never a business slug). */
